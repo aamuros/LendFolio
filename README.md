@@ -97,15 +97,22 @@ TBD
 
 Before marking deployment complete, connect the GitHub repository to Vercel, set the Supabase public environment variables in Vercel, verify `main` auto-deploys, and test the deployed app on two phones and one laptop.
 
-## Demo Role Shells
+## Demo Supabase Sign-In
 
-Until Supabase Auth is fully configured, the homepage provides mocked role links for local testing:
+The homepage links to `/login` for Supabase-backed demo testing:
 
-- Borrower: `/borrower`
-- Lender: `/lender`
-- Manager: `/manager`
+- Borrower: `/login?role=borrower`
+- Lender: `/login?role=lender`
+- Manager: `/login?role=manager`
 
-Placeholder demo account emails are documented in `docs/demo-accounts.md`. No demo passwords are committed.
+Create the demo users manually in Supabase Auth before testing:
+
+- `borrower.demo@example.com`
+- `lender.demo@example.com`
+- `manager.demo@example.com`
+
+No demo passwords are committed. Set passwords manually in Supabase and share
+them outside the repository.
 
 ## Sprint 1 Happy Path
 
@@ -135,6 +142,34 @@ loan application submissions, lender offers, and borrower offer acceptance:
 ```bash
 supabase migration up
 ```
+
+Manual Supabase test flow:
+
+1. Sign in at `/login?role=borrower`.
+2. Open `/borrower`, save the borrower portfolio, and submit one loan application.
+3. Sign out.
+4. Sign in at `/login?role=lender`.
+5. Open `/lender/applications`, open the submitted application, and send an offer.
+6. Sign out.
+7. Sign in again at `/login?role=borrower`.
+8. Open `/borrower`, confirm the offer appears, and accept it.
+
+PR verification checklist:
+
+- [ ] Created demo users manually in Supabase Auth.
+- [ ] Applied migrations with `supabase migration up`.
+- [ ] Borrower can sign in.
+- [ ] Borrower can save portfolio to Supabase.
+- [ ] Borrower can submit loan application to Supabase.
+- [ ] Lender can sign in.
+- [ ] Lender can see submitted/open applications.
+- [ ] Lender can open application detail.
+- [ ] Lender can send pending offer.
+- [ ] Borrower can see offer.
+- [ ] Borrower can accept offer.
+- [ ] Other pending offers are declined.
+- [ ] Sign-out works.
+- [ ] No passwords or service role keys committed.
 
 Sprint 1 workflow state is intentionally simple: applications use submitted/open
 only, and offers use pending/accepted/declined. Document uploads, identity

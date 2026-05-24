@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { AuthStatus } from "@/components/auth-status";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { getDemoRole } from "@/lib/demo-roles";
+
+export const dynamic = "force-dynamic";
 
 export default function BorrowerPage() {
   const config = getDemoRole("borrower");
@@ -69,6 +72,7 @@ export default function BorrowerPage() {
           </div>
         </section>
 
+        <AuthStatus role="borrower" />
         <BorrowerPortfolioForm />
         <BorrowerLoanApplicationPanel />
       </div>

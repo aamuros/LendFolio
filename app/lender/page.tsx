@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AuthStatus } from "@/components/auth-status";
 import {
   LenderApplicationsList,
   LenderApplicationsStatus,
@@ -23,6 +24,7 @@ export default async function LenderPage() {
         <div className="mx-auto grid max-w-4xl gap-8">
           <DashboardHeader />
           <LenderHero />
+          <AuthStatus role="lender" />
           <LenderApplicationsStatus message={result.message} tone="error" />
           <LenderApplicationsList applications={[]} />
         </div>
@@ -35,6 +37,7 @@ export default async function LenderPage() {
       <div className="mx-auto grid max-w-4xl gap-8">
         <DashboardHeader />
         <LenderHero />
+        <AuthStatus role="lender" />
 
         <section className="grid gap-5 border-y border-[var(--border)] py-6 sm:grid-cols-3">
           <div>

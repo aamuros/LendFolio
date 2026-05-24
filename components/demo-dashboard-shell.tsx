@@ -1,11 +1,13 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { DemoRoleConfig } from "@/lib/demo-roles";
 
 type DemoDashboardShellProps = {
   config: DemoRoleConfig;
+  children?: ReactNode;
 };
 
-export function DemoDashboardShell({ config }: DemoDashboardShellProps) {
+export function DemoDashboardShell({ config, children }: DemoDashboardShellProps) {
   return (
     <main className="min-h-svh px-5 py-6 sm:px-8">
       <div className="mx-auto flex min-h-[calc(100svh-3rem)] max-w-4xl flex-col gap-10">
@@ -30,10 +32,12 @@ export function DemoDashboardShell({ config }: DemoDashboardShellProps) {
               {config.title} dashboard
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-              This route uses a mocked demo role until Supabase Auth and role
-              redirects are connected.
+              This route is a placeholder shell until manager monitoring is in
+              scope. Supabase demo sign-in is available for end-to-end testing.
             </p>
           </div>
+
+          {children}
 
           <div className="grid gap-5 border-y border-[var(--border)] py-6 sm:grid-cols-3">
             <div>
