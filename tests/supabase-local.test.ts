@@ -39,6 +39,7 @@ type InsertedRow = {
 };
 type AcceptanceResult = {
   ok: boolean;
+  message?: string;
 };
 
 function createSupabaseClient(key: string): TestClient {
@@ -78,11 +79,14 @@ async function cleanWorkflowRows(admin: TestClient) {
   await admin.from("audit_logs").delete().neq("action", "__keep_none__");
 }
 
-async function createPortfolioAndApplication(client: TestClient) {
+async function createPortfolioAndApplication(
+  client: TestClient,
+  borrowerId: string = ids.borrower,
+) {
   const { data: portfolio, error: portfolioError } = await client
     .from("borrower_portfolios")
     .insert({
-      borrower_id: ids.borrower,
+      borrower_id: borrowerId,
       business_type: "sari_sari_store",
       location: "Quezon City",
       monthly_gross_revenue: 48000,
@@ -104,7 +108,7 @@ async function createPortfolioAndApplication(client: TestClient) {
   const { data: application, error: applicationError } = await client
     .from("loan_applications")
     .insert({
-      borrower_id: ids.borrower,
+      borrower_id: borrowerId,
       borrower_portfolio_id: portfolio.id,
       requested_amount: 25000,
       purpose: "Inventory restock",
@@ -132,12 +136,13 @@ async function createOffer(
   applicationId: string,
   lenderName: string,
   approvedAmount = 22000,
+  borrowerId: string = ids.borrower,
 ) {
   const { data, error } = await client
     .from("loan_offers")
     .insert({
       loan_application_id: applicationId,
-      borrower_id: ids.borrower,
+      borrower_id: borrowerId,
       lender_id: lenderId,
       lender_name: lenderName,
       approved_amount: approvedAmount,
@@ -334,5 +339,150 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         expect.objectContaining({ action: "application_accepted" }),
       ]),
     );
+  });
+
+  it("lets borrowers edit only open applications and withdraw without deletion", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const updateResult = await borrower.rpc("update_loan_application", {
+      p_application_id: applicationId,
+      p_requested_amount: 30000,
+      p_purpose: "Inventory restock and display repairs",
+      p_preferred_term: "6_months",
+      p_remarks: "Updated after checking supplier estimates.",
+    });
+
+    expect(updateResult.error).toBeNull();
+    expect((updateResult.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const withdrawResult = await borrower.rpc("withdraw_loan_application", {
+      p_application_id: applicationId,
+    });
+
+    expect(withdrawResult.error).toBeNull();
+    expect((withdrawResult.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const closedUpdateResult = await borrower.rpc("update_loan_application", {
+      p_application_id: applicationId,
+      p_requested_amount: 35000,
+      p_purpose: "Inventory restock and display repairs",
+      p_preferred_term: "6_months",
+      p_remarks: "",
+    });
+
+    expect(closedUpdateResult.error).toBeNull();
+    expect((closedUpdateResult.data as Json as AcceptanceResult).ok).toBe(false);
+
+    const { data: application, error: applicationError } = await borrower
+      .from("loan_applications")
+      .select("id, status")
+      .eq("id", applicationId)
+      .single();
+
+    expect(applicationError).toBeNull();
+    expect(application).toMatchObject({ id: applicationId, status: "withdrawn" });
+  });
+
+  it("keeps withdrawn applications out of the lender queue and blocks new offers", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const withdrawResult = await borrower.rpc("withdraw_loan_application", {
+      p_application_id: applicationId,
+    });
+
+    expect(withdrawResult.error).toBeNull();
+
+    const { data: lenderApplications, error: lenderApplicationError } =
+      await approvedLender
+        .from("loan_applications")
+        .select("id")
+        .eq("id", applicationId);
+
+    expect(lenderApplicationError).toBeNull();
+    expect(lenderApplications).toEqual([]);
+
+    const blockedOffer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+    );
+
+    expect(blockedOffer.data).toBeNull();
+    expect(blockedOffer.error?.message).toContain(
+      "row-level security policy",
+    );
+  });
+
+  it("lets a borrower decline a pending offer and prevents later acceptance", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+    const offer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+    );
+
+    expect(offer.error).toBeNull();
+    if (!offer.data) {
+      throw new Error("Expected offer insert to return a row.");
+    }
+
+    const declineResult = await borrower.rpc("decline_loan_offer", {
+      p_offer_id: offer.data.id,
+    });
+
+    expect(declineResult.error).toBeNull();
+    expect((declineResult.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const acceptanceResult = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offer.data.id,
+    });
+
+    expect(acceptanceResult.error).toBeNull();
+    expect((acceptanceResult.data as Json as AcceptanceResult).ok).toBe(false);
+
+    const { data: auditLogs, error: auditError } = await manager
+      .from("audit_logs")
+      .select("action")
+      .eq("action", "offer_declined");
+
+    expect(auditError).toBeNull();
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "offer_declined" }),
+      ]),
+    );
+  });
+
+  it("prevents a borrower from declining another borrower's offer", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+    const offer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+    );
+
+    expect(offer.error).toBeNull();
+    if (!offer.data) {
+      throw new Error("Expected offer insert to return a row.");
+    }
+
+    const declineResult = await otherBorrower.rpc("decline_loan_offer", {
+      p_offer_id: offer.data.id,
+    });
+
+    expect(declineResult.error).toBeNull();
+    expect((declineResult.data as Json as AcceptanceResult).ok).toBe(false);
+
+    const { data: offerAfterDecline, error } = await borrower
+      .from("loan_offers")
+      .select("status")
+      .eq("id", offer.data.id)
+      .single();
+
+    expect(error).toBeNull();
+    expect(offerAfterDecline).toMatchObject({ status: "pending" });
   });
 });

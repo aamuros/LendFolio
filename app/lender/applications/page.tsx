@@ -40,10 +40,9 @@ export default async function LenderApplicationsPage() {
           </div>
         </section>
 
-        <LenderApplicationsStatus
-          message={result.message}
-          tone={result.ok ? "neutral" : "error"}
-        />
+        {!result.ok ? (
+          <LenderApplicationsStatus message={result.message} tone="error" />
+        ) : null}
         <LenderApplicationsList applications={result.applications} />
       </div>
     </main>

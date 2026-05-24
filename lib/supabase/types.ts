@@ -262,6 +262,28 @@ export type Database = {
         };
         Returns: Json;
       };
+      decline_loan_offer: {
+        Args: {
+          p_offer_id: string;
+        };
+        Returns: Json;
+      };
+      update_loan_application: {
+        Args: {
+          p_application_id: string;
+          p_requested_amount: number;
+          p_purpose: string;
+          p_preferred_term: PreferredTerm;
+          p_remarks: string;
+        };
+        Returns: Json;
+      };
+      withdraw_loan_application: {
+        Args: {
+          p_application_id: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       app_role: AppRole;

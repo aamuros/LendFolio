@@ -1,20 +1,48 @@
 import { z } from "zod";
 import type { Database } from "@/lib/supabase/types";
 
+function normalizeNumberInput(value: unknown) {
+  if (typeof value === "string") {
+    const normalizedValue = value.replace(/,/g, "").trim();
+
+    if (normalizedValue === "") {
+      return undefined;
+    }
+
+    const parsedValue = Number(normalizedValue);
+
+    return Number.isNaN(parsedValue) ? value : parsedValue;
+  }
+
+  return value;
+}
+
+function requiredNumber(schema: z.ZodNumber) {
+  return z.preprocess((value) => {
+    return normalizeNumberInput(value);
+  }, schema);
+}
+
 export const loanOfferSchema = z
   .object({
-    approvedAmount: z.coerce
-      .number<number>({ error: "Enter the approved amount." })
-      .min(1_000, "Approved amount must be at least PHP 1,000.")
-      .max(1_000_000, "Approved amount must be PHP 1,000,000 or less."),
-    repaymentAmount: z.coerce
-      .number<number>({ error: "Enter the repayment amount." })
-      .min(1_000, "Repayment amount must be at least PHP 1,000.")
-      .max(1_500_000, "Repayment amount must be PHP 1,500,000 or less."),
-    fees: z.coerce
-      .number<number>({ error: "Enter fees, or 0 if none." })
-      .min(0, "Fees cannot be negative.")
-      .max(500_000, "Fees must be PHP 500,000 or less."),
+    approvedAmount: requiredNumber(
+      z
+        .number({ error: "Enter the approved amount." })
+        .min(1_000, "Approved amount must be at least PHP 1,000.")
+        .max(1_000_000, "Approved amount must be PHP 1,000,000 or less."),
+    ),
+    repaymentAmount: requiredNumber(
+      z
+        .number({ error: "Enter the repayment amount." })
+        .min(1_000, "Repayment amount must be at least PHP 1,000.")
+        .max(1_500_000, "Repayment amount must be PHP 1,500,000 or less."),
+    ),
+    fees: requiredNumber(
+      z
+        .number({ error: "Enter fees, or 0 if none." })
+        .min(0, "Fees cannot be negative.")
+        .max(500_000, "Fees must be PHP 500,000 or less."),
+    ),
     dueDate: z
       .string()
       .trim()

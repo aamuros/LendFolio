@@ -15,6 +15,7 @@ import {
 } from "@/lib/loan-application";
 import { mapLoanOfferRow, type LoanOfferSummary } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { Json } from "@/lib/supabase/types";
 
 export type BorrowerLoanApplicationSummary = LoanApplicationSummary & {
   offers: LoanOfferSummary[];
@@ -61,6 +62,30 @@ export type LoanApplicationSubmitResult =
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
     };
 
+export type LoanApplicationUpdateResult =
+  | {
+      ok: true;
+      application: LoanApplicationSummary;
+      message: string;
+    }
+  | {
+      ok: false;
+      mode: "auth" | "validation" | "supabase";
+      message: string;
+      fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
+    };
+
+export type LoanApplicationWithdrawResult =
+  | {
+      ok: true;
+      application: LoanApplicationSummary;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type LoanApplicationsLoadResult =
   | {
       ok: true;
@@ -86,6 +111,8 @@ export type LoanOfferAcceptResult =
       ok: false;
       message: string;
     };
+
+export type LoanOfferDeclineResult = LoanOfferAcceptResult;
 
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
@@ -408,6 +435,125 @@ export async function submitLoanApplication(
   }
 }
 
+export async function updateLoanApplication(
+  applicationId: string,
+  values: LoanApplicationInput,
+): Promise<LoanApplicationUpdateResult> {
+  const parsed = loanApplicationSchema.safeParse(values);
+
+  if (!parsed.success) {
+    const { fieldErrors } = parsed.error.flatten();
+
+    return {
+      ok: false,
+      mode: "validation",
+      message: "Review the highlighted fields before saving.",
+      fieldErrors,
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        mode: "auth",
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc("update_loan_application", {
+      p_application_id: applicationId,
+      p_requested_amount: parsed.data.requestedAmount,
+      p_purpose: parsed.data.purpose,
+      p_preferred_term: parsed.data.preferredTerm,
+      p_remarks: parsed.data.remarks || "",
+    });
+
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+          application?: Json;
+        }
+      | null;
+
+    if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
+      return {
+        ok: false,
+        mode: "supabase",
+        message: result?.message ?? "Could not save changes.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath(`/lender/applications/${applicationId}`);
+
+    return {
+      ok: true,
+      application: mapLoanApplicationRow(result.application),
+      message: result.message ?? "Application updated.",
+    };
+  } catch {
+    return {
+      ok: false,
+      mode: "auth",
+      message: "Sign in to continue.",
+    };
+  }
+}
+
+export async function withdrawLoanApplication(
+  applicationId: string,
+): Promise<LoanApplicationWithdrawResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc("withdraw_loan_application", {
+      p_application_id: applicationId,
+    });
+
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+          application?: Json;
+        }
+      | null;
+
+    if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not withdraw application.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath(`/lender/applications/${applicationId}`);
+
+    return {
+      ok: true,
+      application: mapLoanApplicationRow(result.application),
+      message: result.message ?? "Application withdrawn.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not withdraw application.",
+    };
+  }
+}
+
 export async function acceptLoanOffer(
   offerId: string,
 ): Promise<LoanOfferAcceptResult> {
@@ -456,4 +602,72 @@ export async function acceptLoanOffer(
       message: "Could not accept offer.",
     };
   }
+}
+
+export async function declineLoanOffer(
+  offerId: string,
+): Promise<LoanOfferDeclineResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc("decline_loan_offer", {
+      p_offer_id: offerId,
+    });
+
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+          loan_application_id?: string;
+        }
+      | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not decline offer.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    if (result.loan_application_id) {
+      revalidatePath(`/lender/applications/${result.loan_application_id}`);
+    }
+
+    return {
+      ok: true,
+      message: result.message ?? "Offer declined.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not decline offer.",
+    };
+  }
+}
+
+function isLoanApplicationRow(value: Json | undefined): value is Parameters<
+  typeof mapLoanApplicationRow
+>[0] {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      "id" in value &&
+      "borrower_id" in value &&
+      "borrower_portfolio_id" in value &&
+      "requested_amount" in value &&
+      "purpose" in value &&
+      "preferred_term" in value &&
+      "status" in value &&
+      "submitted_at" in value,
+  );
 }

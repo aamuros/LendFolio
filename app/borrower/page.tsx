@@ -2,11 +2,17 @@ import Link from "next/link";
 import { AuthStatus } from "@/components/auth-status";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
+import { RouteStatusToast } from "@/components/route-status-toast";
 import { requireBorrower } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
-export default async function BorrowerPage() {
+export default async function BorrowerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ message?: string }>;
+}) {
+  const { message } = await searchParams;
   const access = await requireBorrower();
 
   return (
@@ -23,6 +29,9 @@ export default async function BorrowerPage() {
             Borrower
           </p>
         </header>
+        <RouteStatusToast
+          message={message === "signed-in" ? "Signed in successfully." : ""}
+        />
 
         <section className="grid gap-5 pt-4">
           <p className="text-sm font-semibold text-[var(--accent)]">
@@ -35,29 +44,6 @@ export default async function BorrowerPage() {
             <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
               Add your business details to request financing.
             </p>
-          </div>
-        </section>
-
-        <section className="grid gap-5 border-y border-[var(--border)] py-6 sm:grid-cols-3">
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Profile
-            </p>
-            <p className="mt-2 break-words text-lg font-semibold">Business details</p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Request
-            </p>
-            <p className="mt-2 text-lg font-semibold">
-              Loan application
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Offers
-            </p>
-            <p className="mt-2 text-lg font-semibold">Review and accept</p>
           </div>
         </section>
 

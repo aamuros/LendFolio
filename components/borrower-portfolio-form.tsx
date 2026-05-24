@@ -2,17 +2,19 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
-import { useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
 import {
   loadBorrowerPortfolio,
   saveBorrowerPortfolio,
 } from "@/app/borrower/actions";
 import { CurrencyInput } from "@/components/currency-input";
+import { StatusToast } from "@/components/status-toast";
 import {
   borrowerPortfolioSchema,
   businessTypeLabels,
   businessTypeOptions,
+  type BorrowerPortfolioFormInput,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
@@ -33,14 +35,15 @@ type LoadState = "loading" | "empty" | "ready" | "error";
 export function BorrowerPortfolioForm() {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [saveMessage, setSaveMessage] = useState<string>("Loading profile...");
+  const [statusMessage, setStatusMessage] = useState<string>("Loading profile...");
+  const [toastMessage, setToastMessage] = useState("");
 
   const {
     register,
     handleSubmit,
     reset,
     formState: { errors, isDirty },
-  } = useForm<BorrowerPortfolioInput>({
+  } = useForm<BorrowerPortfolioFormInput, unknown, BorrowerPortfolioInput>({
     resolver: zodResolver(borrowerPortfolioSchema),
     defaultValues,
     mode: "onBlur",
@@ -58,12 +61,12 @@ export function BorrowerPortfolioForm() {
         if (result.ok && result.data) {
           reset(result.data);
           setLoadState("ready");
-          setSaveMessage(result.message);
+          setStatusMessage("");
           return;
         }
 
         setLoadState(result.ok ? "empty" : "error");
-        setSaveMessage(result.message);
+        setStatusMessage(result.message);
       });
     });
 
@@ -73,17 +76,24 @@ export function BorrowerPortfolioForm() {
   }, [reset, startTransition]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
-    setSaveMessage("Saving profile...");
+    setStatusMessage("Saving profile...");
 
     startTransition(async () => {
       const result = await saveBorrowerPortfolio(values);
       setLoadState(result.ok ? "ready" : "error");
-      setSaveMessage(result.message);
       if (result.ok) {
+        setStatusMessage("");
+        setToastMessage(result.message);
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
+      } else {
+        setStatusMessage(result.message);
       }
     });
   }
+
+  const dismissToast = useCallback(() => {
+    setToastMessage("");
+  }, []);
 
   return (
     <form
@@ -91,14 +101,16 @@ export function BorrowerPortfolioForm() {
       className="grid gap-6"
       aria-describedby="portfolio-save-state"
     >
-      <div
-        className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-        role={loadState === "error" ? "alert" : "status"}
-      >
-        {loadState === "loading"
-          ? "Loading profile..."
-          : saveMessage}
-      </div>
+      <StatusToast message={toastMessage} onDismiss={dismissToast} />
+
+      {loadState === "loading" || loadState === "error" ? (
+        <div
+          className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+          role={loadState === "error" ? "alert" : "status"}
+        >
+          {loadState === "loading" ? "Loading profile..." : statusMessage}
+        </div>
+      ) : null}
 
       {loadState === "empty" ? (
         <div className="rounded-md border border-dashed border-[var(--border)] px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]">
@@ -134,9 +146,8 @@ export function BorrowerPortfolioForm() {
         >
           <CurrencyInput
             registration={register("monthlyGrossRevenue", {
-              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
+              setValueAs: parseMoneyInput,
             })}
-            emptyValue={0}
           />
         </Field>
 
@@ -146,9 +157,8 @@ export function BorrowerPortfolioForm() {
         >
           <CurrencyInput
             registration={register("monthlyExpenses", {
-              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
+              setValueAs: parseMoneyInput,
             })}
-            emptyValue={0}
           />
         </Field>
 
@@ -158,9 +168,8 @@ export function BorrowerPortfolioForm() {
         >
           <CurrencyInput
             registration={register("existingLoanPayments", {
-              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
+              setValueAs: parseMoneyInput,
             })}
-            emptyValue={0}
           />
         </Field>
 
@@ -174,7 +183,7 @@ export function BorrowerPortfolioForm() {
             max="100"
             step="0.5"
             inputMode="decimal"
-            {...register("yearsInOperation", { valueAsNumber: true })}
+            {...register("yearsInOperation", { setValueAs: parseMoneyInput })}
             className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
           />
         </Field>
@@ -198,7 +207,7 @@ export function BorrowerPortfolioForm() {
           className="text-sm leading-6 text-[var(--muted-foreground)]"
           aria-live="polite"
         >
-          {loadState === "loading" ? "Loading profile..." : saveMessage}
+          {loadState === "loading" ? "Loading profile..." : statusMessage}
           {isDirty ? " Save changes when ready." : ""}
         </p>
         <button
@@ -226,9 +235,9 @@ function Field({ label, error, children }: FieldProps) {
         {label}
       </span>
       {children}
-      {error ? (
-        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
-      ) : null}
+      <span className="min-h-5 text-sm leading-5 text-[var(--accent)]">
+        {error ?? ""}
+      </span>
     </label>
   );
 }

@@ -8,6 +8,9 @@ import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
   applyAcceptedOfferInvariant,
   canAcceptOffer,
+  canDeclineOffer,
+  canEditApplication,
+  canWithdrawApplication,
 } from "../lib/workflow-rules";
 
 describe("product foundation", () => {
@@ -69,6 +72,22 @@ describe("loan application schema", () => {
 
     expect(result.success).toBe(false);
   });
+
+  it("shows friendly validation for empty numeric inputs", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: "",
+      purpose: "Inventory restock",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.requestedAmount).toContain(
+        "Enter the requested loan amount.",
+      );
+    }
+  });
 });
 
 describe("money input parsing", () => {
@@ -84,6 +103,46 @@ describe("money input parsing", () => {
 
   it("keeps required empty money fields available for schema validation", () => {
     expect(parseMoneyInput("")).toBe("");
+  });
+});
+
+describe("borrower workflow actions", () => {
+  it("allows application edits and withdrawals only while open", () => {
+    expect(canEditApplication("submitted")).toBe(true);
+    expect(canEditApplication("open")).toBe(true);
+    expect(canEditApplication("accepted")).toBe(false);
+    expect(canEditApplication("withdrawn")).toBe(false);
+    expect(canEditApplication("declined")).toBe(false);
+
+    expect(canWithdrawApplication("submitted")).toBe(true);
+    expect(canWithdrawApplication("accepted")).toBe(false);
+  });
+
+  it("allows borrowers to decline only their own pending open offers", () => {
+    expect(
+      canDeclineOffer({
+        actorId: "borrower-1",
+        borrowerId: "borrower-1",
+        offerStatus: "pending",
+        applicationStatus: "open",
+      }),
+    ).toBe(true);
+    expect(
+      canDeclineOffer({
+        actorId: "borrower-2",
+        borrowerId: "borrower-1",
+        offerStatus: "pending",
+        applicationStatus: "open",
+      }),
+    ).toBe(false);
+    expect(
+      canDeclineOffer({
+        actorId: "borrower-1",
+        borrowerId: "borrower-1",
+        offerStatus: "declined",
+        applicationStatus: "open",
+      }),
+    ).toBe(false);
   });
 });
 

@@ -1,12 +1,13 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useActionState, useEffect, useRef } from "react";
+import { useCallback, useRef, useState, useTransition } from "react";
 import {
   createLoanOffer,
   type CreateLoanOfferState,
 } from "@/app/lender/applications/[id]/actions";
 import { CurrencyInput } from "@/components/currency-input";
+import { StatusToast } from "@/components/status-toast";
 
 type LenderOfferFormProps = {
   applicationId: string;
@@ -24,19 +25,29 @@ export function LenderOfferForm({
     ok: false,
     message: "",
   };
-  const [state, formAction, isPending] = useActionState(
-    createLoanOffer.bind(null, applicationId),
-    initialState,
-  );
+  const [state, setState] = useState<CreateLoanOfferState>(initialState);
+  const [isPending, startTransition] = useTransition();
+  const [toastMessage, setToastMessage] = useState("");
 
-  useEffect(() => {
-    if (state.ok) {
-      formRef.current?.reset();
-    }
-  }, [state.ok]);
+  const dismissToast = useCallback(() => {
+    setToastMessage("");
+  }, []);
+
+  function onSubmit(formData: FormData) {
+    startTransition(async () => {
+      const result = await createLoanOffer(applicationId, initialState, formData);
+      setState(result);
+
+      if (result.ok) {
+        formRef.current?.reset();
+        setToastMessage(result.message);
+      }
+    });
+  }
 
   return (
-    <form ref={formRef} action={formAction} className="grid gap-5">
+    <form ref={formRef} action={onSubmit} className="grid gap-5">
+      <StatusToast message={toastMessage} onDismiss={dismissToast} />
       <div className="grid gap-5 sm:grid-cols-2">
         <Field
           label="Approved amount"
@@ -92,10 +103,10 @@ export function LenderOfferForm({
         />
       </Field>
 
-      {state.message ? (
+      {state.message && !state.ok ? (
         <div
           className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-          role={state.ok ? "status" : "alert"}
+          role="alert"
         >
           {state.message}
         </div>
@@ -132,9 +143,9 @@ function Field({
         {label}
       </span>
       {children}
-      {error ? (
-        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
-      ) : null}
+      <span className="min-h-5 text-sm leading-5 text-[var(--accent)]">
+        {error ?? ""}
+      </span>
     </label>
   );
 }

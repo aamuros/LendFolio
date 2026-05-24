@@ -2,6 +2,29 @@ import type { ApplicationStatus, OfferStatus } from "@/lib/supabase/types";
 
 export const openApplicationStatuses = ["submitted", "open"] as const;
 
+export function canEditApplication(status: ApplicationStatus) {
+  return openApplicationStatuses.includes(
+    status as (typeof openApplicationStatuses)[number],
+  );
+}
+
+export function canWithdrawApplication(status: ApplicationStatus) {
+  return canEditApplication(status);
+}
+
+export function canDeclineOffer(input: {
+  borrowerId: string;
+  actorId: string;
+  offerStatus: OfferStatus;
+  applicationStatus: ApplicationStatus;
+}) {
+  return (
+    input.borrowerId === input.actorId &&
+    input.offerStatus === "pending" &&
+    canEditApplication(input.applicationStatus)
+  );
+}
+
 export function canAcceptOffer(input: {
   borrowerId: string;
   actorId: string;

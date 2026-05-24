@@ -8,11 +8,35 @@ export const preferredTermOptions = [
   "12_months",
 ] as const;
 
+function normalizeNumberInput(value: unknown) {
+  if (typeof value === "string") {
+    const normalizedValue = value.replace(/,/g, "").trim();
+
+    if (normalizedValue === "") {
+      return undefined;
+    }
+
+    const parsedValue = Number(normalizedValue);
+
+    return Number.isNaN(parsedValue) ? value : parsedValue;
+  }
+
+  return value;
+}
+
+function requiredNumber(schema: z.ZodNumber) {
+  return z.preprocess((value) => {
+    return normalizeNumberInput(value);
+  }, schema);
+}
+
 export const loanApplicationSchema = z.object({
-  requestedAmount: z.coerce
-    .number<number>({ error: "Enter the requested loan amount." })
-    .min(1_000, "Requested amount must be at least PHP 1,000.")
-    .max(1_000_000, "Requested amount must be PHP 1,000,000 or less."),
+  requestedAmount: requiredNumber(
+    z
+      .number({ error: "Enter the requested loan amount." })
+      .min(1_000, "Requested amount must be at least PHP 1,000.")
+      .max(1_000_000, "Requested amount must be PHP 1,000,000 or less."),
+  ),
   purpose: z
     .string()
     .trim()
@@ -30,6 +54,7 @@ export const loanApplicationSchema = z.object({
 });
 
 export type LoanApplicationInput = z.infer<typeof loanApplicationSchema>;
+export type LoanApplicationFormInput = z.input<typeof loanApplicationSchema>;
 
 export type LoanApplicationSummary = {
   id: string;

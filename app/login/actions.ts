@@ -42,7 +42,9 @@ export async function loginAction(
       .eq("id", data.user.id)
       .maybeSingle();
 
-    destination = profile ? getRouteForRole(profile.role) : "/?auth=unknown";
+    destination = profile
+      ? `${getRouteForRole(profile.role)}?message=signed-in`
+      : "/?auth=unknown";
   } catch {
     return {
       message: "Sign in is temporarily unavailable.",

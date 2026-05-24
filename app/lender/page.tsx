@@ -4,11 +4,17 @@ import {
   LenderApplicationsList,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
+import { RouteStatusToast } from "@/components/route-status-toast";
 import { loadOpenLenderApplications } from "@/lib/lender-applications";
 
 export const dynamic = "force-dynamic";
 
-export default async function LenderPage() {
+export default async function LenderPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ message?: string }>;
+}) {
+  const { message } = await searchParams;
   const result = await loadOpenLenderApplications();
 
   if (result.mode === "auth") {
@@ -16,6 +22,9 @@ export default async function LenderPage() {
       <main className="min-h-svh px-5 py-6 sm:px-8">
         <div className="mx-auto grid max-w-4xl gap-8">
           <DashboardHeader />
+          <RouteStatusToast
+            message={message === "signed-in" ? "Signed in successfully." : ""}
+          />
           <LenderHero />
           <AuthStatus role="lender" />
           <LenderApplicationsStatus message={result.message} tone="error" />
@@ -29,6 +38,9 @@ export default async function LenderPage() {
     <main className="min-h-svh px-5 py-6 sm:px-8">
       <div className="mx-auto grid max-w-4xl gap-8">
         <DashboardHeader />
+        <RouteStatusToast
+          message={message === "signed-in" ? "Signed in successfully." : ""}
+        />
         <LenderHero />
         <AuthStatus role="lender" />
 
@@ -49,10 +61,9 @@ export default async function LenderPage() {
               Open full list
             </Link>
           </div>
-          <LenderApplicationsStatus
-            message={result.ok ? result.message : result.message}
-            tone={result.ok ? "neutral" : "error"}
-          />
+          {!result.ok ? (
+            <LenderApplicationsStatus message={result.message} tone="error" />
+          ) : null}
           <LenderApplicationsList applications={result.applications} />
         </section>
       </div>
