@@ -1,9 +1,9 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
-import { useForm } from "react-hook-form";
+import type { FormEventHandler, ReactNode } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useForm, type FieldErrors, type UseFormRegister } from "react-hook-form";
 import {
   acceptLoanOffer,
   type BorrowerLoanApplicationSummary,
@@ -14,7 +14,7 @@ import {
   withdrawLoanApplication,
 } from "@/app/borrower/actions";
 import { CurrencyInput } from "@/components/currency-input";
-import { StatusToast } from "@/components/status-toast";
+import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import {
   loanApplicationSchema,
@@ -35,12 +35,20 @@ const defaultValues: LoanApplicationInput = {
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
 
-export function BorrowerLoanApplicationPanel() {
+type BorrowerLoanApplicationPanelProps = {
+  view?: "home" | "apply" | "offers";
+  onNavigate?: (tab: BorrowerTab) => void;
+};
+
+export function BorrowerLoanApplicationPanel({
+  view = "apply",
+  onNavigate,
+}: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [hasPortfolio, setHasPortfolio] = useState(false);
   const [message, setMessage] = useState("Loading applications...");
-  const [toastMessage, setToastMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState("");
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
   >([]);
@@ -99,11 +107,6 @@ export function BorrowerLoanApplicationPanel() {
     };
   }, [startTransition]);
 
-  const workflowSteps = useMemo(
-    () => getWorkflowSteps(hasPortfolio, applications),
-    [applications, hasPortfolio],
-  );
-
   const applicationCountLabel = useMemo(() => {
     if (applications.length === 1) {
       return "1 application";
@@ -111,10 +114,6 @@ export function BorrowerLoanApplicationPanel() {
 
     return `${applications.length} applications`;
   }, [applications.length]);
-
-  const dismissToast = useCallback(() => {
-    setToastMessage("");
-  }, []);
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
@@ -124,6 +123,7 @@ export function BorrowerLoanApplicationPanel() {
     }
 
     setMessage("Submitting application...");
+    setSuccessMessage("");
 
     startTransition(async () => {
       const result = await submitLoanApplication(values);
@@ -138,7 +138,7 @@ export function BorrowerLoanApplicationPanel() {
         );
         setLoadState("ready");
         setMessage("");
-        setToastMessage(result.message);
+        setSuccessMessage(result.message);
         reset(defaultValues);
         return;
       }
@@ -153,6 +153,7 @@ export function BorrowerLoanApplicationPanel() {
     values: LoanApplicationInput,
   ) {
     setMessage("Saving changes...");
+    setSuccessMessage("");
 
     startTransition(async () => {
       const result = await updateLoanApplication(applicationId, values);
@@ -173,14 +174,14 @@ export function BorrowerLoanApplicationPanel() {
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
-      setToastMessage(result.message);
+      setSuccessMessage(result.message);
     });
   }
 
   function onCancelEditing() {
     setEditingApplicationId(null);
     setMessage("");
-    setToastMessage("Changes discarded.");
+    setSuccessMessage("Changes discarded.");
   }
 
   function onWithdrawApplication(applicationId: string) {
@@ -189,6 +190,7 @@ export function BorrowerLoanApplicationPanel() {
     }
 
     setMessage("Withdrawing application...");
+    setSuccessMessage("");
 
     startTransition(async () => {
       const result = await withdrawLoanApplication(applicationId);
@@ -217,12 +219,13 @@ export function BorrowerLoanApplicationPanel() {
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
-      setToastMessage(result.message);
+      setSuccessMessage(result.message);
     });
   }
 
   function onAcceptOffer(applicationId: string, offerId: string) {
     setMessage("Accepting offer...");
+    setSuccessMessage("");
 
     startTransition(async () => {
       const result = await acceptLoanOffer(offerId);
@@ -260,12 +263,13 @@ export function BorrowerLoanApplicationPanel() {
       setExpandedOfferIds((current) => new Set([...current, offerId]));
       setLoadState("ready");
       setMessage("");
-      setToastMessage(result.message);
+      setSuccessMessage(result.message);
     });
   }
 
   function onDeclineOffer(applicationId: string, offerId: string) {
     setMessage("Declining offer...");
+    setSuccessMessage("");
 
     startTransition(async () => {
       const result = await declineLoanOffer(offerId);
@@ -290,7 +294,7 @@ export function BorrowerLoanApplicationPanel() {
       );
       setLoadState("ready");
       setMessage("");
-      setToastMessage(result.message);
+      setSuccessMessage(result.message);
     });
   }
 
@@ -322,356 +326,628 @@ export function BorrowerLoanApplicationPanel() {
     });
   }
 
+  const pendingOffers = applications.flatMap((application) =>
+    application.offers
+      .filter((offer) => offer.status === "pending")
+      .map((offer) => ({ application, offer })),
+  );
+  const closedOffers = applications.flatMap((application) =>
+    application.offers
+      .filter((offer) => offer.status !== "pending")
+      .map((offer) => ({ application, offer })),
+  );
+
   return (
-    <section className="grid gap-7 border-t border-[var(--border)] pt-7">
-      <StatusToast message={toastMessage} onDismiss={dismissToast} />
+    <section className="grid gap-5">
+      <InlineFeedback
+        loadState={loadState}
+        message={message}
+        successMessage={successMessage}
+      />
 
-      <WorkflowStepper steps={workflowSteps} />
-
-      {loadState === "loading" || loadState === "error" || loadState === "blocked" ? (
-        <div
-          className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-          role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
-        >
-          {loadState === "loading" ? "Loading applications..." : message}
-        </div>
+      {view === "home" ? (
+        <HomeSummary
+          applications={applications}
+          hasPortfolio={hasPortfolio}
+          loadState={loadState}
+          onNavigate={onNavigate}
+        />
       ) : null}
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+      {view === "apply" ? (
+        <>
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+            <SectionHeader
+              title="Apply"
+              description="Request financing after your business profile is saved."
+            />
+            <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+              {applicationCountLabel}
+            </p>
+          </div>
+
+          {!hasPortfolio ? (
+            <BlockedCard
+              message="Save your business profile before applying."
+              onClick={() => onNavigate?.("profile")}
+            />
+          ) : (
+            <ApplicationForm
+              errors={errors}
+              isPending={isPending}
+              register={register}
+              onSubmit={handleSubmit(onSubmit)}
+            />
+          )}
+
+          <ApplicationList
+            applications={applications}
+            editingApplicationId={editingApplicationId}
+            expandedApplicationIds={expandedApplicationIds}
+            isPending={isPending}
+            onCancelEditing={onCancelEditing}
+            onEdit={setEditingApplicationId}
+            onSaveApplication={onSaveApplication}
+            onToggleApplication={toggleApplication}
+            onWithdrawApplication={onWithdrawApplication}
+          />
+        </>
+      ) : null}
+
+      {view === "offers" ? (
+        <>
+          <SectionHeader
+            title="Offers"
+            description="Compare lender offers and accept the one that fits."
+          />
+          <OfferList
+            closedOffers={closedOffers}
+            expandedOfferIds={expandedOfferIds}
+            isPending={isPending}
+            onAcceptOffer={onAcceptOffer}
+            onDeclineOffer={onDeclineOffer}
+            onNavigate={onNavigate}
+            onToggleOffer={toggleOffer}
+            pendingOffers={pendingOffers}
+          />
+        </>
+      ) : null}
+    </section>
+  );
+}
+
+function HomeSummary({
+  applications,
+  hasPortfolio,
+  loadState,
+  onNavigate,
+}: {
+  applications: BorrowerLoanApplicationSummary[];
+  hasPortfolio: boolean;
+  loadState: LoadState;
+  onNavigate?: (tab: BorrowerTab) => void;
+}) {
+  const summary = getHomeSummary(hasPortfolio, applications);
+  const latestApplication = applications[0];
+  const pendingOfferCount = applications.reduce(
+    (count, application) =>
+      count +
+      application.offers.filter((offer) => offer.status === "pending").length,
+    0,
+  );
+
+  return (
+    <div className="grid gap-4">
+      <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
         <div className="grid gap-2">
+          <p className="text-sm font-semibold text-[var(--accent)]">
+            Next action
+          </p>
           <h2 className="text-2xl leading-tight font-semibold">
-            Loan application
+            {loadState === "loading" ? "Loading your workspace..." : summary.title}
           </h2>
-          <p className="max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-            Submit one request and review lender offers here.
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {loadState === "loading" ? "Checking your profile and applications." : summary.description}
           </p>
         </div>
-        <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-          {applicationCountLabel}
-        </p>
+        <button
+          type="button"
+          onClick={() => onNavigate?.(summary.tab)}
+          disabled={loadState === "loading"}
+          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70 sm:w-fit"
+        >
+          {summary.action}
+        </button>
+      </section>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <SummaryCard label="Profile" value={hasPortfolio ? "Ready" : "Needed"} />
+        <SummaryCard
+          label="Application"
+          value={latestApplication ? latestApplication.status : "Not started"}
+        />
+        <SummaryCard label="Pending offers" value={String(pendingOfferCount)} />
+      </div>
+    </div>
+  );
+}
+
+function ApplicationForm({
+  errors,
+  isPending,
+  onSubmit,
+  register,
+}: {
+  errors: FieldErrors<LoanApplicationFormInput>;
+  isPending: boolean;
+  onSubmit: FormEventHandler<HTMLFormElement>;
+  register: UseFormRegister<LoanApplicationFormInput>;
+}) {
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
+      aria-describedby="loan-application-state"
+    >
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Requested amount" error={errors.requestedAmount?.message}>
+          <CurrencyInput
+            className="h-11 rounded-xl"
+            registration={register("requestedAmount", {
+              setValueAs: parseMoneyInput,
+            })}
+          />
+        </Field>
+
+        <Field label="Preferred term" error={errors.preferredTerm?.message}>
+          <select
+            {...register("preferredTerm")}
+            className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          >
+            {preferredTermOptions.map((option) => (
+              <option key={option} value={option}>
+                {preferredTermLabels[option]}
+              </option>
+            ))}
+          </select>
+        </Field>
       </div>
 
-      <form
-        onSubmit={handleSubmit(onSubmit)}
-        className="grid gap-5 rounded-md border border-[var(--border)] bg-white px-4 py-4"
-        aria-describedby="loan-application-state"
-      >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <Field label="Requested amount" error={errors.requestedAmount?.message}>
-            <CurrencyInput
-              registration={register("requestedAmount", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-          </Field>
+      <Field label="Purpose" error={errors.purpose?.message}>
+        <input
+          {...register("purpose")}
+          className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          placeholder="Inventory, equipment, working capital"
+        />
+      </Field>
 
-          <Field label="Preferred term" error={errors.preferredTerm?.message}>
-            <select
-              {...register("preferredTerm")}
-              className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            >
-              {preferredTermOptions.map((option) => (
-                <option key={option} value={option}>
-                  {preferredTermLabels[option]}
-                </option>
-              ))}
-            </select>
-          </Field>
-        </div>
+      <Field label="Remarks" error={errors.remarks?.message}>
+        <textarea
+          {...register("remarks")}
+          rows={3}
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 text-base leading-6 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          placeholder="Optional notes for the lender."
+        />
+      </Field>
 
-        <Field label="Purpose" error={errors.purpose?.message}>
-          <input
-            {...register("purpose")}
-            className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            placeholder="Inventory restock, equipment, working capital"
-          />
-        </Field>
+      <div className="grid gap-3 border-t border-[var(--border)] pt-4 sm:flex sm:items-center sm:justify-between">
+        <p
+          id="loan-application-state"
+          className="text-sm leading-6 text-[var(--muted-foreground)]"
+        >
+          Lenders will review your request and send offers here.
+        </p>
+        <button
+          type="submit"
+          disabled={isPending}
+          className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {isPending ? "Submitting..." : "Submit application"}
+        </button>
+      </div>
+    </form>
+  );
+}
 
-        <Field label="Remarks" error={errors.remarks?.message}>
-          <textarea
-            {...register("remarks")}
-            rows={4}
-            className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            placeholder="Optional notes for the lender."
-          />
-        </Field>
+function ApplicationList({
+  applications,
+  editingApplicationId,
+  expandedApplicationIds,
+  isPending,
+  onCancelEditing,
+  onEdit,
+  onSaveApplication,
+  onToggleApplication,
+  onWithdrawApplication,
+}: {
+  applications: BorrowerLoanApplicationSummary[];
+  editingApplicationId: string | null;
+  expandedApplicationIds: Set<string>;
+  isPending: boolean;
+  onCancelEditing: () => void;
+  onEdit: (applicationId: string) => void;
+  onSaveApplication: (
+    applicationId: string,
+    values: LoanApplicationInput,
+  ) => void;
+  onToggleApplication: (applicationId: string) => void;
+  onWithdrawApplication: (applicationId: string) => void;
+}) {
+  if (applications.length === 0) {
+    return <EmptyState message="Your applications will appear here." />;
+  }
 
-        <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
-          <p
-            id="loan-application-state"
-            className="text-sm leading-6 text-[var(--muted-foreground)]"
-            aria-live="polite"
-          >
-            {hasPortfolio
-              ? "Next: compare offers when lenders respond."
-              : "Save your profile before applying."}
-          </p>
-          <button
-            type="submit"
-            disabled={isPending || loadState === "loading" || !hasPortfolio}
-            className="inline-flex h-12 items-center justify-center rounded-md bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
-          >
-            {isPending ? "Submitting..." : "Submit application"}
-          </button>
-        </div>
-      </form>
-
+  return (
+    <div className="grid gap-3">
+      <h3 className="text-lg font-semibold">Applications</h3>
       <div className="grid gap-3">
-        <h3 className="text-lg font-semibold">Applications and offers</h3>
-        {applications.length > 0 ? (
-          <div className="grid gap-3">
-            {applications.map((application) => {
-              const isExpanded = expandedApplicationIds.has(application.id);
-              const isEditing = editingApplicationId === application.id;
-              const isEditable = canEditApplication(application.status);
-              const pendingOfferCount = application.offers.filter(
-                (offer) => offer.status === "pending",
-              ).length;
-              const applicationDetailsId = `application-${application.id}-details`;
+        {applications.map((application) => {
+          const isExpanded = expandedApplicationIds.has(application.id);
+          const isEditing = editingApplicationId === application.id;
+          const isEditable = canEditApplication(application.status);
+          const applicationDetailsId = `application-${application.id}-details`;
 
-              return (
-                <article
-                  key={application.id}
-                  className="overflow-hidden rounded-md border border-[var(--border)] bg-white"
+          return (
+            <article
+              key={application.id}
+              className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm"
+            >
+              <button
+                type="button"
+                aria-expanded={isExpanded}
+                aria-controls={applicationDetailsId}
+                onClick={() => onToggleApplication(application.id)}
+                className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.3fr_1fr_auto] sm:items-center"
+              >
+                <span className="grid gap-1">
+                  <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+                    {application.purpose}
+                  </span>
+                  <span className="text-2xl font-semibold">
+                    PHP {formatCurrency(application.requestedAmount)}
+                  </span>
+                </span>
+                <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+                  <span>{preferredTermLabels[application.preferredTerm]}</span>
+                  <span>Submitted {formatDate(application.submittedAt)}</span>
+                </span>
+                <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                  <StatusBadge value={application.status} />
+                  <span className="text-sm font-semibold text-[var(--primary)]">
+                    {isExpanded ? "Hide" : "View details"}
+                  </span>
+                </span>
+              </button>
+
+              {isExpanded ? (
+                <div
+                  id={applicationDetailsId}
+                  className="border-t border-[var(--border)] px-4 py-4"
                 >
-                  <button
-                    type="button"
-                    aria-expanded={isExpanded}
-                    aria-controls={applicationDetailsId}
-                    onClick={() => toggleApplication(application.id)}
-                    className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.4fr_1fr_auto] sm:items-center"
-                  >
-                    <span className="grid gap-1">
-                      <span className="text-sm font-semibold text-[var(--muted-foreground)]">
-                        {application.purpose}
-                      </span>
-                      <span className="text-xl font-semibold">
-                        PHP {formatCurrency(application.requestedAmount)}
-                      </span>
-                    </span>
-                    <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
-                      <span>Submitted {formatDate(application.submittedAt)}</span>
-                      <span>
-                        {application.offers.length === 1
-                          ? "1 offer"
-                          : `${application.offers.length} offers`}
-                        {pendingOfferCount > 0
-                          ? `, ${pendingOfferCount} pending`
-                          : ""}
-                      </span>
-                    </span>
-                    <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-                      {pendingOfferCount > 0 ? (
-                        <span className="rounded-md bg-[#fff4cf] px-3 py-1 text-sm font-semibold text-[#6f4e00]">
-                          Pending offers
-                        </span>
-                      ) : null}
-                      <StatusBadge value={application.status} />
-                      <span className="text-sm font-semibold text-[var(--primary)]">
-                        {isExpanded ? "Hide" : "Review"}
-                      </span>
-                    </span>
-                  </button>
-
-                  {isExpanded ? (
-                    <div
-                      id={applicationDetailsId}
-                      className="border-t border-[var(--border)] px-4 py-4"
-                    >
-                      {isEditing ? (
-                        <ApplicationEditForm
-                          application={application}
-                          isPending={isPending}
-                          onCancel={onCancelEditing}
-                          onSave={(values) =>
-                            onSaveApplication(application.id, values)
-                          }
+                  {isEditing ? (
+                    <ApplicationEditForm
+                      application={application}
+                      isPending={isPending}
+                      onCancel={onCancelEditing}
+                      onSave={(values) => onSaveApplication(application.id, values)}
+                    />
+                  ) : (
+                    <>
+                      <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                        <SummaryItem
+                          label="Preferred term"
+                          value={preferredTermLabels[application.preferredTerm]}
                         />
-                      ) : (
-                        <>
-                          <dl className="grid gap-3 text-sm sm:grid-cols-3">
-                            <SummaryItem
-                              label="Preferred term"
-                              value={preferredTermLabels[application.preferredTerm]}
-                            />
-                            <SummaryItem
-                              label="Submitted"
-                              value={formatDate(application.submittedAt)}
-                            />
-                            <SummaryItem
-                              label="Remarks"
-                              value={application.remarks || "None"}
-                            />
-                          </dl>
+                        <SummaryItem
+                          label="Submitted"
+                          value={formatDate(application.submittedAt)}
+                        />
+                        <SummaryItem
+                          label="Remarks"
+                          value={application.remarks || "None"}
+                        />
+                      </dl>
 
-                          <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-[var(--border)] pt-4">
-                            <button
-                              type="button"
-                              disabled={!isEditable || isPending}
-                              onClick={() => setEditingApplicationId(application.id)}
-                              className="inline-flex h-10 items-center justify-center rounded-md border border-[var(--border)] px-3 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Edit application
-                            </button>
-                            <button
-                              type="button"
-                              disabled={!isEditable || isPending}
-                              onClick={() => onWithdrawApplication(application.id)}
-                              className="inline-flex h-10 items-center justify-center rounded-md px-3 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              Withdraw
-                            </button>
-                            {!isEditable ? (
-                              <p className="text-sm text-[var(--muted-foreground)]">
-                                Closed applications cannot be edited.
-                              </p>
-                            ) : null}
-                          </div>
-                        </>
-                      )}
-
-                      <div className="mt-5 border-t border-[var(--border)] pt-4">
-                        <h4 className="text-sm font-semibold">Offers</h4>
-                        {application.offers.length > 0 ? (
-                          <div className="mt-3 grid gap-3">
-                            {application.offers.map((offer) => {
-                              const isOfferExpanded = expandedOfferIds.has(
-                                offer.id,
-                              );
-                              const offerDetailsId = `offer-${offer.id}-details`;
-
-                              return (
-                                <div
-                                  key={offer.id}
-                                  className={`overflow-hidden rounded-md border bg-[var(--background)] ${
-                                    offer.status === "pending"
-                                      ? "border-[#d7a900]"
-                                      : "border-[var(--border)]"
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    aria-expanded={isOfferExpanded}
-                                    aria-controls={offerDetailsId}
-                                    onClick={() => toggleOffer(offer.id)}
-                                    className="grid w-full gap-3 px-3 py-3 text-left transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.2fr_1fr_auto] sm:items-center"
-                                  >
-                                    <span className="grid gap-1">
-                                      <span className="text-sm font-semibold text-[var(--muted-foreground)]">
-                                        {offer.lenderName}
-                                      </span>
-                                      <span className="text-lg font-semibold">
-                                        PHP {formatCurrency(offer.approvedAmount)}
-                                      </span>
-                                    </span>
-                                    <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
-                                      <span>
-                                        Repay PHP{" "}
-                                        {formatCurrency(offer.repaymentAmount)}
-                                      </span>
-                                      <span>Due {formatDateOnly(offer.dueDate)}</span>
-                                    </span>
-                                    <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-                                      <span
-                                        className={`rounded-md px-3 py-1 text-sm font-semibold capitalize ${getOfferStatusClassName(offer.status)}`}
-                                      >
-                                        {offer.status}
-                                      </span>
-                                      <span className="text-sm font-semibold text-[var(--primary)]">
-                                        {isOfferExpanded ? "Hide" : "Details"}
-                                      </span>
-                                    </span>
-                                  </button>
-
-                                  {isOfferExpanded ? (
-                                    <div
-                                      id={offerDetailsId}
-                                      className="border-t border-[var(--border)] px-3 py-3"
-                                    >
-                                      <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-                                        <SummaryItem
-                                          label="Fees"
-                                          value={`PHP ${formatCurrency(offer.fees)}`}
-                                        />
-                                        <SummaryItem
-                                          label="Remarks"
-                                          value={offer.remarks || "None"}
-                                        />
-                                        <SummaryItem
-                                          label="Sent"
-                                          value={formatDate(offer.sentAt)}
-                                        />
-                                        <SummaryItem
-                                          label="Status"
-                                          value={offer.status}
-                                        />
-                                      </dl>
-                                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-                                        <p className="text-sm text-[var(--muted-foreground)]">
-                                          Accepting an offer closes other pending offers.
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                          <button
-                                            type="button"
-                                            disabled={
-                                              isPending ||
-                                              offer.status !== "pending"
-                                            }
-                                            onClick={() =>
-                                              onDeclineOffer(
-                                                application.id,
-                                                offer.id,
-                                              )
-                                            }
-                                            className="inline-flex h-11 items-center justify-center rounded-md border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
-                                            Decline
-                                          </button>
-                                          <button
-                                            type="button"
-                                            disabled={
-                                              isPending ||
-                                              offer.status !== "pending"
-                                            }
-                                            onClick={() =>
-                                              onAcceptOffer(
-                                                application.id,
-                                                offer.id,
-                                              )
-                                            }
-                                            className="inline-flex h-11 items-center justify-center rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                                          >
-                                            {offer.status === "accepted"
-                                              ? "Accepted"
-                                              : offer.status === "declined"
-                                                ? "Closed"
-                                                : isPending
-                                                  ? "Working..."
-                                                  : "Accept offer"}
-                                          </button>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              );
-                            })}
-                          </div>
-                        ) : (
-                          <EmptyState message="Offers from lenders will appear here." />
-                        )}
+                      <div className="mt-4 grid gap-2 border-t border-[var(--border)] pt-4 sm:flex sm:items-center">
+                        <button
+                          type="button"
+                          disabled={!isEditable || isPending}
+                          onClick={() => onEdit(application.id)}
+                          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Edit application
+                        </button>
+                        <button
+                          type="button"
+                          disabled={!isEditable || isPending}
+                          onClick={() => onWithdrawApplication(application.id)}
+                          className="inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                          Withdraw
+                        </button>
+                        {!isEditable ? (
+                          <p className="text-sm text-[var(--muted-foreground)]">
+                            Closed applications cannot be edited.
+                          </p>
+                        ) : null}
                       </div>
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
+                    </>
+                  )}
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function OfferList({
+  closedOffers,
+  expandedOfferIds,
+  isPending,
+  onAcceptOffer,
+  onDeclineOffer,
+  onNavigate,
+  onToggleOffer,
+  pendingOffers,
+}: {
+  closedOffers: OfferListItem[];
+  expandedOfferIds: Set<string>;
+  isPending: boolean;
+  onAcceptOffer: (applicationId: string, offerId: string) => void;
+  onDeclineOffer: (applicationId: string, offerId: string) => void;
+  onNavigate?: (tab: BorrowerTab) => void;
+  onToggleOffer: (offerId: string) => void;
+  pendingOffers: OfferListItem[];
+}) {
+  if (pendingOffers.length === 0 && closedOffers.length === 0) {
+    return (
+      <BlockedCard
+        message="Offers from lenders will appear after you submit an application."
+        onClick={() => onNavigate?.("apply")}
+        action="Go to Apply"
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-5">
+      <div className="grid gap-3">
+        <h3 className="text-lg font-semibold">Pending</h3>
+        {pendingOffers.length > 0 ? (
+          <div className="grid gap-3">
+            {pendingOffers.map((item) => (
+              <OfferCard
+                key={item.offer.id}
+                item={item}
+                isExpanded={expandedOfferIds.has(item.offer.id)}
+                isPending={isPending}
+                onAcceptOffer={onAcceptOffer}
+                onDeclineOffer={onDeclineOffer}
+                onToggleOffer={onToggleOffer}
+              />
+            ))}
           </div>
         ) : (
-          <EmptyState message="Submit an application to start receiving offers." />
+          <EmptyState message="No pending offers right now." />
         )}
       </div>
-    </section>
+
+      {closedOffers.length > 0 ? (
+        <div className="grid gap-3">
+          <h3 className="text-lg font-semibold">Closed</h3>
+          <div className="grid gap-3">
+            {closedOffers.map((item) => (
+              <OfferCard
+                key={item.offer.id}
+                item={item}
+                isExpanded={expandedOfferIds.has(item.offer.id)}
+                isPending={isPending}
+                onAcceptOffer={onAcceptOffer}
+                onDeclineOffer={onDeclineOffer}
+                onToggleOffer={onToggleOffer}
+              />
+            ))}
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+type OfferListItem = {
+  application: BorrowerLoanApplicationSummary;
+  offer: BorrowerLoanApplicationSummary["offers"][number];
+};
+
+function OfferCard({
+  isExpanded,
+  isPending,
+  item,
+  onAcceptOffer,
+  onDeclineOffer,
+  onToggleOffer,
+}: {
+  isExpanded: boolean;
+  isPending: boolean;
+  item: OfferListItem;
+  onAcceptOffer: (applicationId: string, offerId: string) => void;
+  onDeclineOffer: (applicationId: string, offerId: string) => void;
+  onToggleOffer: (offerId: string) => void;
+}) {
+  const { application, offer } = item;
+  const offerDetailsId = `offer-${offer.id}-details`;
+  const isClosed = offer.status !== "pending";
+
+  return (
+    <article
+      className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${
+        offer.status === "pending"
+          ? "border-[#d7c37f]"
+          : "border-[var(--border)] opacity-75"
+      }`}
+    >
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={offerDetailsId}
+        onClick={() => onToggleOffer(offer.id)}
+        className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.2fr_1fr_auto] sm:items-center"
+      >
+        <span className="grid gap-1">
+          <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+            {offer.lenderName}
+          </span>
+          <span className="text-2xl font-semibold">
+            PHP {formatCurrency(offer.approvedAmount)}
+          </span>
+        </span>
+        <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+          <span>Repay PHP {formatCurrency(offer.repaymentAmount)}</span>
+          <span>Due {formatDateOnly(offer.dueDate)}</span>
+        </span>
+        <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+          <span
+            className={`rounded-full px-3 py-1 text-sm font-semibold capitalize ${getOfferStatusClassName(offer.status)}`}
+          >
+            {offer.status}
+          </span>
+          <span className="text-sm font-semibold text-[var(--primary)]">
+            {isExpanded ? "Hide" : "View details"}
+          </span>
+        </span>
+      </button>
+
+      {isExpanded ? (
+        <div id={offerDetailsId} className="border-t border-[var(--border)] px-4 py-4">
+          <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryItem label="Application" value={application.purpose} />
+            <SummaryItem label="Fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+            <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
+            <SummaryItem label="Remarks" value={offer.remarks || "None"} />
+          </dl>
+
+          <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+              Accepting an offer closes other pending offers for this application.
+            </p>
+            <div className="grid gap-2 sm:flex">
+              <button
+                type="button"
+                disabled={isPending || isClosed}
+                onClick={() => onDeclineOffer(application.id, offer.id)}
+                className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Decline
+              </button>
+              <button
+                type="button"
+                disabled={isPending || isClosed}
+                onClick={() => onAcceptOffer(application.id, offer.id)}
+                className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {offer.status === "accepted"
+                  ? "Accepted"
+                  : offer.status === "declined"
+                    ? "Closed"
+                    : isPending
+                      ? "Working..."
+                      : "Accept offer"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </article>
+  );
+}
+
+function InlineFeedback({
+  loadState,
+  message,
+  successMessage,
+}: {
+  loadState: LoadState;
+  message: string;
+  successMessage: string;
+}) {
+  if (loadState === "loading" || loadState === "error" || loadState === "blocked") {
+    return (
+      <div
+        className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+        role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
+      >
+        {loadState === "loading" ? "Loading applications..." : message}
+      </div>
+    );
+  }
+
+  if (successMessage) {
+    return (
+      <div
+        className="rounded-2xl border border-[#cdd8d2] bg-white px-4 py-3 text-sm font-medium text-[var(--accent)]"
+        role="status"
+      >
+        {successMessage}
+      </div>
+    );
+  }
+
+  return null;
+}
+
+function BlockedCard({
+  action = "Go to Profile",
+  message,
+  onClick,
+}: {
+  action?: string;
+  message: string;
+  onClick?: () => void;
+}) {
+  return (
+    <div className="grid gap-3 rounded-3xl border border-dashed border-[var(--border)] bg-white px-4 py-5 text-sm leading-6 text-[var(--muted-foreground)]">
+      <p>{message}</p>
+      {onClick ? (
+        <button
+          type="button"
+          onClick={onClick}
+          className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+        >
+          {action}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function SectionHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="grid gap-1">
+      <h2 className="text-2xl leading-tight font-semibold">{title}</h2>
+      <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
+      <p className="text-xs font-semibold tracking-[0.12em] text-[var(--muted-foreground)] uppercase">
+        {label}
+      </p>
+      <p className="mt-1 text-lg font-semibold capitalize">{value}</p>
+    </div>
   );
 }
 
@@ -702,10 +978,11 @@ function ApplicationEditForm({
   });
 
   return (
-    <form onSubmit={handleSubmit(onSave)} className="grid gap-5">
-      <div className="grid gap-5 sm:grid-cols-2">
+    <form onSubmit={handleSubmit(onSave)} className="grid gap-4">
+      <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Requested amount" error={errors.requestedAmount?.message}>
           <CurrencyInput
+            className="h-11 rounded-xl"
             registration={register("requestedAmount", {
               setValueAs: parseMoneyInput,
             })}
@@ -715,7 +992,7 @@ function ApplicationEditForm({
         <Field label="Preferred term" error={errors.preferredTerm?.message}>
           <select
             {...register("preferredTerm")}
-            className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+            className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
           >
             {preferredTermOptions.map((option) => (
               <option key={option} value={option}>
@@ -729,31 +1006,31 @@ function ApplicationEditForm({
       <Field label="Purpose" error={errors.purpose?.message}>
         <input
           {...register("purpose")}
-          className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
         />
       </Field>
 
       <Field label="Remarks" error={errors.remarks?.message}>
         <textarea
           {...register("remarks")}
-          rows={4}
-          className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          rows={3}
+          className="w-full resize-y rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 text-base leading-6 outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
         />
       </Field>
 
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="grid gap-2 sm:flex sm:justify-end">
         <button
           type="button"
           onClick={onCancel}
           disabled={isPending}
-          className="inline-flex h-11 items-center justify-center rounded-md border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           Cancel editing
         </button>
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex h-11 items-center justify-center rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isPending ? "Saving..." : "Save changes"}
         </button>
@@ -762,37 +1039,8 @@ function ApplicationEditForm({
   );
 }
 
-function WorkflowStepper({
-  steps,
-}: {
-  steps: { label: string; state: "complete" | "current" | "needs-action" }[];
-}) {
-  return (
-    <nav aria-label="Borrower workflow" className="rounded-md border border-[var(--border)] bg-white px-3 py-3">
-      <ol className="grid gap-2 sm:grid-cols-3">
-        {steps.map((step, index) => (
-          <li key={step.label} className="flex items-center gap-3">
-            <span
-              className={`grid size-8 shrink-0 place-items-center rounded-full text-sm font-semibold ${getStepClassName(step.state)}`}
-              aria-hidden="true"
-            >
-              {step.state === "complete" ? "✓" : index + 1}
-            </span>
-            <span className="min-w-0">
-              <span className="block text-sm font-semibold">{step.label}</span>
-              <span className="block text-xs capitalize text-[var(--muted-foreground)]">
-                {step.state === "needs-action" ? "Needs action" : step.state}
-              </span>
-            </span>
-          </li>
-        ))}
-      </ol>
-    </nav>
-  );
-}
-
-function getWorkflowSteps(
-  hasProfile: boolean,
+function getHomeSummary(
+  hasPortfolio: boolean,
   applications: BorrowerLoanApplicationSummary[],
 ) {
   const hasApplication = applications.length > 0;
@@ -803,41 +1051,56 @@ function getWorkflowSteps(
     application.offers.some((offer) => offer.status === "accepted"),
   );
 
-  return [
-    {
-      label: "Business profile",
-      state: hasProfile ? "complete" : "current",
-    },
-    {
-      label: "Loan application",
-      state: !hasProfile
-        ? "needs-action"
-        : hasApplication
-          ? "complete"
-          : "current",
-    },
-    {
-      label: "Offers",
-      state: hasAcceptedOffer
-        ? "complete"
-        : hasPendingOffer
-          ? "current"
-          : "needs-action",
-    },
-  ] satisfies { label: string; state: "complete" | "current" | "needs-action" }[];
-}
-
-function getStepClassName(state: "complete" | "current" | "needs-action") {
-  if (state === "complete") {
-    return "bg-[#e1f5ee] text-[#0f5f45]";
+  if (!hasPortfolio) {
+    return {
+      action: "Complete profile",
+      description: "Complete your business profile to apply.",
+      tab: "profile",
+      title: "Complete your business profile",
+    } satisfies HomeSummaryContent;
   }
 
-  if (state === "current") {
-    return "bg-[var(--primary)] text-[var(--primary-foreground)]";
+  if (hasPendingOffer) {
+    return {
+      action: "Review offers",
+      description: "You have pending offers to review.",
+      tab: "offers",
+      title: "Review lender offers",
+    } satisfies HomeSummaryContent;
   }
 
-  return "bg-[var(--muted)] text-[var(--muted-foreground)]";
+  if (hasAcceptedOffer) {
+    return {
+      action: "View accepted offer",
+      description: "Your application is accepted.",
+      tab: "offers",
+      title: "Offer accepted",
+    } satisfies HomeSummaryContent;
+  }
+
+  if (hasApplication) {
+    return {
+      action: "View application",
+      description: "Your application is submitted. Offers will appear when lenders respond.",
+      tab: "apply",
+      title: "Application submitted",
+    } satisfies HomeSummaryContent;
+  }
+
+  return {
+    action: "Start application",
+    description: "Your profile is ready. Submit a loan application.",
+    tab: "apply",
+    title: "Apply for financing",
+  } satisfies HomeSummaryContent;
 }
+
+type HomeSummaryContent = {
+  action: string;
+  description: string;
+  tab: BorrowerTab;
+  title: string;
+};
 
 function getDefaultExpandedApplicationIds(
   applications: BorrowerLoanApplicationSummary[],
@@ -942,14 +1205,14 @@ type FieldProps = {
 
 function Field({ label, error, children }: FieldProps) {
   return (
-    <label className="grid gap-2">
+    <label className="grid gap-1.5">
       <span className="text-sm font-semibold text-[var(--foreground)]">
         {label}
       </span>
       {children}
-      <span className="min-h-5 text-sm leading-5 text-[var(--accent)]">
-        {error ?? ""}
-      </span>
+      {error ? (
+        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
+      ) : null}
     </label>
   );
 }
