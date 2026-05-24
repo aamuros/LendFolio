@@ -40,6 +40,10 @@ type InsertedRow = {
 type AcceptanceResult = {
   ok: boolean;
   message?: string;
+  loan_application_id?: string;
+  accepted_offer_id?: string;
+  active_loan_id?: string;
+  declined_offer_count?: number;
 };
 
 function createSupabaseClient(key: string): TestClient {
@@ -64,6 +68,14 @@ async function signIn(email: string): Promise<TestClient> {
 }
 
 async function cleanWorkflowRows(admin: TestClient) {
+  await admin
+    .from("loan_repayment_schedules")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
+  await admin
+    .from("active_loans")
+    .delete()
+    .neq("id", "00000000-0000-0000-0000-000000000000");
   await admin.from("loan_offers").delete().in("borrower_id", [
     ids.borrower,
     ids.otherBorrower,
@@ -302,7 +314,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
     const { data: offers, error: offersError } = await borrower
       .from("loan_offers")
-      .select("id, status")
+      .select("id, status, lender_id")
       .eq("loan_application_id", applicationId);
 
     expect(offersError).toBeNull();
@@ -312,6 +324,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(offers?.filter((offer) => offer.status === "declined")).toHaveLength(
       1,
     );
+    const acceptedOffer = offers?.find((offer) => offer.status === "accepted");
+    expect(acceptedOffer?.id).toBeTruthy();
 
     const { data: application, error: applicationError } = await borrower
       .from("loan_applications")
@@ -322,6 +336,154 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(applicationError).toBeNull();
     expect(application).toMatchObject({ status: "accepted" });
 
+    const successfulAcceptance = acceptanceResults.find(
+      (result) => result?.ok === true,
+    );
+    expect(successfulAcceptance).toMatchObject({
+      loan_application_id: applicationId,
+      accepted_offer_id: acceptedOffer?.id,
+      declined_offer_count: 1,
+    });
+    expect(successfulAcceptance?.active_loan_id).toBeTruthy();
+
+    const { data: activeLoans, error: activeLoansError } = await borrower
+      .from("active_loans")
+      .select(
+        "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, outstanding_balance, status, due_date",
+      )
+      .eq("loan_application_id", applicationId);
+
+    expect(activeLoansError).toBeNull();
+    expect(activeLoans).toHaveLength(1);
+    expect(activeLoans?.[0]).toMatchObject({
+      loan_application_id: applicationId,
+      accepted_offer_id: acceptedOffer?.id,
+      borrower_id: ids.borrower,
+      lender_id: acceptedOffer?.lender_id,
+      principal_amount: acceptedOffer?.id === firstOffer.data.id ? 22000 : 23000,
+      status: "active",
+      due_date: "2026-08-24",
+    });
+    expect(Number(activeLoans?.[0].repayment_amount)).toBe(
+      Number(activeLoans?.[0].outstanding_balance),
+    );
+
+    const activeLoanId = activeLoans?.[0].id;
+    expect(activeLoanId).toBe(successfulAcceptance?.active_loan_id);
+
+    const { data: schedule, error: scheduleError } = await borrower
+      .from("loan_repayment_schedules")
+      .select(
+        "active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status",
+      )
+      .eq("active_loan_id", activeLoanId ?? "");
+
+    expect(scheduleError).toBeNull();
+    expect(schedule).toEqual([
+      expect.objectContaining({
+        active_loan_id: activeLoanId,
+        borrower_id: ids.borrower,
+        lender_id: acceptedOffer?.lender_id,
+        installment_number: 1,
+        amount_due: activeLoans?.[0].repayment_amount,
+        due_date: "2026-08-24",
+        status: "due",
+      }),
+    ]);
+
+    if (!acceptedOffer) {
+      throw new Error("Expected an accepted offer.");
+    }
+
+    const duplicateAcceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: acceptedOffer.id,
+    });
+
+    expect(duplicateAcceptance.error).toBeNull();
+    expect((duplicateAcceptance.data as Json as AcceptanceResult)).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: duplicateCheck, error: duplicateCheckError } = await manager
+      .from("active_loans")
+      .select("id")
+      .eq("loan_application_id", applicationId);
+
+    expect(duplicateCheckError).toBeNull();
+    expect(duplicateCheck).toHaveLength(1);
+
+    const { data: duplicateScheduleCheck, error: duplicateScheduleError } =
+      await manager
+        .from("loan_repayment_schedules")
+        .select("id")
+        .eq("active_loan_id", activeLoanId ?? "");
+
+    expect(duplicateScheduleError).toBeNull();
+    expect(duplicateScheduleCheck).toHaveLength(1);
+
+    const { data: borrowerReadableLoan, error: borrowerLoanReadError } =
+      await borrower
+        .from("active_loans")
+        .select("id")
+        .eq("id", activeLoanId ?? "");
+    expect(borrowerLoanReadError).toBeNull();
+    expect(borrowerReadableLoan).toHaveLength(1);
+
+    const acceptedLenderClient =
+      acceptedOffer.lender_id === ids.approvedLender
+        ? approvedLender
+        : partnerLender;
+    const unrelatedLenderClient =
+      acceptedOffer.lender_id === ids.approvedLender
+        ? partnerLender
+        : approvedLender;
+
+    const { data: lenderReadableLoan, error: lenderLoanReadError } =
+      await acceptedLenderClient
+        .from("active_loans")
+        .select("id")
+        .eq("id", activeLoanId ?? "");
+    expect(lenderLoanReadError).toBeNull();
+    expect(lenderReadableLoan).toHaveLength(1);
+
+    const { data: managerReadableLoan, error: managerLoanReadError } =
+      await manager
+        .from("active_loans")
+        .select("id")
+        .eq("id", activeLoanId ?? "");
+    expect(managerLoanReadError).toBeNull();
+    expect(managerReadableLoan).toHaveLength(1);
+
+    const { data: otherBorrowerLoan, error: otherBorrowerLoanError } =
+      await otherBorrower
+        .from("active_loans")
+        .select("id")
+        .eq("id", activeLoanId ?? "");
+    expect(otherBorrowerLoanError).toBeNull();
+    expect(otherBorrowerLoan).toEqual([]);
+
+    const { data: unrelatedLenderLoan, error: unrelatedLenderLoanError } =
+      await unrelatedLenderClient
+        .from("active_loans")
+        .select("id")
+        .eq("id", activeLoanId ?? "");
+    expect(unrelatedLenderLoanError).toBeNull();
+    expect(unrelatedLenderLoan).toEqual([]);
+
+    const blockedOfferAfterAcceptance = await createOffer(
+      acceptedLenderClient,
+      acceptedOffer.lender_id,
+      applicationId,
+      "Closed Application Capital",
+      24000,
+    );
+
+    expect(blockedOfferAfterAcceptance.data).toBeNull();
+    expect(blockedOfferAfterAcceptance.error?.message).toContain(
+      "row-level security policy",
+    );
+
     const { data: auditLogs, error: auditError } = await manager
       .from("audit_logs")
       .select("action")
@@ -329,6 +491,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         "offer_accepted",
         "competing_offers_declined",
         "application_accepted",
+        "loan_activated",
+        "repayment_schedule_created",
       ]);
 
     expect(auditError).toBeNull();
@@ -337,6 +501,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         expect.objectContaining({ action: "offer_accepted" }),
         expect.objectContaining({ action: "competing_offers_declined" }),
         expect.objectContaining({ action: "application_accepted" }),
+        expect.objectContaining({ action: "loan_activated" }),
+        expect.objectContaining({ action: "repayment_schedule_created" }),
       ]),
     );
   });

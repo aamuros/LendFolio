@@ -315,14 +315,35 @@ describe("database workflow safeguards", () => {
 
   it("defines the atomic offer acceptance RPC", () => {
     const migration = readFileSync(
-      "supabase/migrations/20260524073721_add_atomic_offer_acceptance_rpc.sql",
+      "supabase/migrations/20260524142104_add_active_loans.sql",
       "utf8",
     );
 
-    expect(migration).toContain("function public.accept_loan_offer");
+    expect(migration).toContain("function app_private.accept_loan_offer");
     expect(migration).toContain("offer_accepted");
     expect(migration).toContain("competing_offers_declined");
     expect(migration).toContain("application_accepted");
+    expect(migration).toContain("loan_activated");
+    expect(migration).toContain("repayment_schedule_created");
+  });
+
+  it("defines active loan and repayment schedule safeguards", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260524142104_add_active_loans.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("create table if not exists public.active_loans");
+    expect(migration).toContain("active_loans_one_per_application");
+    expect(migration).toContain("active_loans_one_per_accepted_offer");
+    expect(migration).toContain(
+      "create table if not exists public.loan_repayment_schedules",
+    );
+    expect(migration).toContain(
+      "loan_repayment_schedules_installment_unique",
+    );
+    expect(migration).toContain("active_loans_select_access");
+    expect(migration).toContain("loan_repayment_schedules_select_access");
   });
 
   it("limits offer creation to approved lenders in RLS", () => {

@@ -11,6 +11,7 @@ import { requireApprovedLender } from "@/lib/access-control";
 import {
   loadLenderOffers,
   loadOpenLenderApplications,
+  type LenderApplicationReview,
   type LenderOfferReview,
 } from "@/lib/lender-applications";
 
@@ -59,7 +60,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
         {activeTab === "home" ? (
           <HomeTab
-            applicationsCount={applications.length}
+            applications={applications}
             offers={offers}
             applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
             offersError={!offersResult.ok ? offersResult.message : ""}
@@ -81,22 +82,26 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 }
 
 function HomeTab({
-  applicationsCount,
+  applications,
   offers,
   applicationsError,
   offersError,
 }: {
-  applicationsCount: number;
+  applications: LenderApplicationReview[];
   offers: LenderOfferReview[];
   applicationsError: string;
   offersError: string;
 }) {
+  const needsReviewCount = applications.filter(
+    (application) => application.currentLenderOfferState === "not_offered",
+  ).length;
   const pendingOffers = offers.filter((offer) => offer.status === "pending").length;
   const acceptedOffers = offers.filter((offer) => offer.status === "accepted").length;
+  const activeLoans = offers.filter((offer) => offer.activeLoan).length;
   const nextAction =
-    applicationsCount > 0
+    needsReviewCount > 0
       ? {
-          title: `${applicationsCount} ${applicationsCount === 1 ? "application needs" : "applications need"} review`,
+          title: `${needsReviewCount} ${needsReviewCount === 1 ? "application needs" : "applications need"} review`,
           description: "Open the queue and review borrower context before sending terms.",
           href: "/lender/applications",
           label: "Review applications",
@@ -110,10 +115,13 @@ function HomeTab({
           }
         : acceptedOffers > 0
           ? {
-              title: "Offer accepted",
-              description: "Your accepted offers stay available for reference.",
+              title: activeLoans > 0 ? "Active loan" : "Offer accepted",
+              description:
+                activeLoans > 0
+                  ? "Accepted offers with active loans are ready to track."
+                  : "Your accepted offers stay available for reference.",
               href: "/lender?tab=offers",
-              label: "View offers",
+              label: activeLoans > 0 ? "View loans" : "View offers",
             }
           : {
               title: "No open applications",
@@ -145,9 +153,9 @@ function HomeTab({
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard label="Open" value={applicationsCount.toString()} />
-        <SummaryCard label="Sent" value={offers.length.toString()} />
-        <SummaryCard label="Accepted" value={acceptedOffers.toString()} />
+        <SummaryCard label="New" value={needsReviewCount.toString()} />
+        <SummaryCard label="Pending" value={pendingOffers.toString()} />
+        <SummaryCard label="Active" value={activeLoans.toString()} />
       </div>
 
       {applicationsError ? (
@@ -165,10 +173,16 @@ function OffersTab({
   offers: LenderOfferReview[];
   error: string;
 }) {
+  const knownStatuses = new Set(["pending", "accepted", "declined", "expired"]);
   const groups = [
     { label: "Pending", offers: offers.filter((offer) => offer.status === "pending") },
     { label: "Accepted", offers: offers.filter((offer) => offer.status === "accepted") },
     { label: "Declined", offers: offers.filter((offer) => offer.status === "declined") },
+    { label: "Expired", offers: offers.filter((offer) => offer.status === "expired") },
+    {
+      label: "Other",
+      offers: offers.filter((offer) => !knownStatuses.has(offer.status)),
+    },
   ];
 
   return (
@@ -268,6 +282,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 
 function OfferCard({ offer }: { offer: LenderOfferReview }) {
   const isQuiet = offer.status !== "pending";
+  const activeLoan = offer.activeLoan;
   const context = offer.application?.portfolio
     ? `${offer.application.portfolio.businessTypeLabel} in ${offer.application.portfolio.location}`
     : "Application context unavailable";
@@ -290,6 +305,12 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
         </span>
       </div>
       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        {offer.application ? (
+          <MiniMetric
+            label="Requested"
+            value={`PHP ${formatCurrency(offer.application.requestedAmount)}`}
+          />
+        ) : null}
         <MiniMetric
           label="Approved"
           value={`PHP ${formatCurrency(offer.approvedAmount)}`}
@@ -298,9 +319,39 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
           label="Repayment"
           value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
         />
+        {offer.application ? (
+          <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} />
+        ) : null}
         <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} />
         <MiniMetric label="Sent" value={formatDate(offer.sentAt)} />
       </dl>
+      {activeLoan ? (
+        <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-semibold text-[var(--accent)]">
+              Active loan
+            </p>
+            <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold capitalize text-[#0f5f45]">
+              {activeLoan.status}
+            </span>
+          </div>
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <MiniMetric
+              label="Principal"
+              value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
+            />
+            <MiniMetric
+              label="Repayment"
+              value={`PHP ${formatCurrency(activeLoan.repaymentAmount)}`}
+            />
+            <MiniMetric
+              label="Outstanding"
+              value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
+            />
+            <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
+          </dl>
+        </div>
+      ) : null}
     </article>
   );
 }

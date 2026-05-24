@@ -88,6 +88,30 @@ export async function createLoanOffer(
       };
     }
 
+    const { data: existingPendingOffer, error: existingPendingOfferError } =
+      await supabase
+        .from("loan_offers")
+        .select("id")
+        .eq("loan_application_id", application.id)
+        .eq("lender_id", access.profile.id)
+        .eq("status", "pending")
+        .maybeSingle();
+
+    if (existingPendingOfferError) {
+      return {
+        ok: false,
+        message:
+          "Could not confirm your current offer status before sending a new offer.",
+      };
+    }
+
+    if (existingPendingOffer) {
+      return {
+        ok: false,
+        message: "You already have a pending offer for this application.",
+      };
+    }
+
     const { error } = await supabase.from("loan_offers").insert({
       loan_application_id: application.id,
       borrower_id: application.borrower_id,

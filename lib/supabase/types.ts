@@ -24,10 +24,73 @@ export type LenderVerificationStatus = "pending" | "approved" | "rejected";
 export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 export type PreferredTerm = "1_month" | "3_months" | "6_months" | "12_months";
 export type ProfileStatus = "active" | "pending" | "suspended";
+export type ActiveLoanStatus =
+  | "active"
+  | "paid"
+  | "overdue"
+  | "defaulted"
+  | "closed";
+export type RepaymentStatus =
+  | "due"
+  | "submitted"
+  | "verified"
+  | "rejected"
+  | "late";
 
 export type Database = {
   public: {
     Tables: {
+      active_loans: {
+        Row: {
+          id: string;
+          loan_application_id: string;
+          accepted_offer_id: string;
+          borrower_id: string;
+          lender_id: string;
+          principal_amount: number;
+          repayment_amount: number;
+          fees: number;
+          outstanding_balance: number;
+          status: ActiveLoanStatus;
+          started_at: string;
+          due_date: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          loan_application_id: string;
+          accepted_offer_id: string;
+          borrower_id: string;
+          lender_id: string;
+          principal_amount: number;
+          repayment_amount: number;
+          fees?: number;
+          outstanding_balance: number;
+          status?: ActiveLoanStatus;
+          started_at?: string;
+          due_date: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          loan_application_id?: string;
+          accepted_offer_id?: string;
+          borrower_id?: string;
+          lender_id?: string;
+          principal_amount?: number;
+          repayment_amount?: number;
+          fees?: number;
+          outstanding_balance?: number;
+          status?: ActiveLoanStatus;
+          started_at?: string;
+          due_date?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       audit_logs: {
         Row: {
           id: string;
@@ -193,6 +256,45 @@ export type Database = {
         };
         Relationships: [];
       };
+      loan_repayment_schedules: {
+        Row: {
+          id: string;
+          active_loan_id: string;
+          borrower_id: string;
+          lender_id: string;
+          installment_number: number;
+          amount_due: number;
+          due_date: string;
+          status: RepaymentStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          active_loan_id: string;
+          borrower_id: string;
+          lender_id: string;
+          installment_number: number;
+          amount_due: number;
+          due_date: string;
+          status?: RepaymentStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          active_loan_id?: string;
+          borrower_id?: string;
+          lender_id?: string;
+          installment_number?: number;
+          amount_due?: number;
+          due_date?: string;
+          status?: RepaymentStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       lender_profiles: {
         Row: {
           id: string;
@@ -286,6 +388,7 @@ export type Database = {
       };
     };
     Enums: {
+      active_loan_status: ActiveLoanStatus;
       app_role: AppRole;
       application_status: ApplicationStatus;
       business_type: BusinessType;
@@ -293,6 +396,7 @@ export type Database = {
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;
       profile_status: ProfileStatus;
+      repayment_status: RepaymentStatus;
     };
     CompositeTypes: Record<string, never>;
   };

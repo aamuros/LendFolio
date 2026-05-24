@@ -38,6 +38,9 @@ export function LenderApplicationsList({
                 <span className="rounded-full bg-[var(--muted)] px-2.5 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
                   {application.status}
                 </span>
+                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                  {offerStateLabels[application.currentLenderOfferState]}
+                </span>
               </div>
               <p className="text-sm leading-6 text-[var(--muted-foreground)]">
                 {application.portfolio.location}
@@ -69,7 +72,9 @@ export function LenderApplicationsList({
               href={`/lender/applications/${application.id}`}
               className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
             >
-              Review
+              {application.currentLenderOfferState === "not_offered"
+                ? "Review"
+                : "View"}
             </Link>
           </div>
         </article>
@@ -77,6 +82,17 @@ export function LenderApplicationsList({
     </div>
   );
 }
+
+const offerStateLabels: Record<
+  LenderApplicationReview["currentLenderOfferState"],
+  string
+> = {
+  not_offered: "No offer yet",
+  offer_pending: "Offer pending",
+  offer_accepted: "Offer accepted",
+  offer_declined: "Offer declined",
+  offer_expired: "Offer expired",
+};
 
 export function LenderApplicationsStatus({
   message,

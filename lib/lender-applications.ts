@@ -4,6 +4,10 @@ import {
 } from "@/lib/borrower-portfolio";
 import { requireApprovedLender } from "@/lib/access-control";
 import {
+  loadLenderActiveLoans,
+  type ActiveLoanSummary,
+} from "@/lib/active-loans";
+import {
   mapLoanApplicationRow,
   preferredTermLabels,
   type LoanApplicationSummary,
@@ -18,6 +22,12 @@ type BorrowerPortfolioRow =
 
 export type LenderApplicationReview = LoanApplicationSummary & {
   borrowerId: string;
+  currentLenderOfferState:
+    | "not_offered"
+    | "offer_pending"
+    | "offer_accepted"
+    | "offer_declined"
+    | "offer_expired";
   portfolio: BorrowerPortfolioInput & {
     businessTypeLabel: string;
   };
@@ -29,11 +39,13 @@ export type LenderApplicationReview = LoanApplicationSummary & {
 };
 
 export type LenderOfferReview = LoanOfferSummary & {
+  activeLoan: ActiveLoanSummary | null;
   application: {
     id: string;
     status: LoanApplicationSummary["status"];
     requestedAmount: number;
     purpose: string;
+    submittedAt: string;
     portfolio: {
       businessTypeLabel: string;
       location: string;
@@ -130,9 +142,25 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
       };
     }
 
+    const applicationIds = applications.map((application) => application.id);
     const profileIds = [
       ...new Set(applications.map((application) => application.borrower_portfolio_id)),
     ];
+    const { data: lenderOffers, error: lenderOffersError } = await supabase
+      .from("loan_offers")
+      .select(lenderReviewOfferSelect)
+      .eq("lender_id", access.profile.id)
+      .in("loan_application_id", applicationIds);
+
+    if (lenderOffersError) {
+      return {
+        ok: false,
+        mode: "supabase",
+        applications: [],
+        message: "Could not load lender offer state.",
+      };
+    }
+
     const { data: portfolios, error: portfoliosError } = await supabase
       .from("borrower_portfolios")
       .select(lenderReviewPortfolioSelect)
@@ -150,7 +178,11 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
     return {
       ok: true,
       mode: "supabase",
-      applications: combineApplicationsWithPortfolios(applications, portfolios),
+      applications: combineApplicationsWithPortfolios(
+        applications,
+        portfolios,
+        lenderOffers,
+      ),
       message: "Applications loaded.",
     };
   } catch {
@@ -183,7 +215,6 @@ export async function loadLenderApplicationDetail(
       .from("loan_applications")
       .select(lenderReviewApplicationSelect)
       .eq("id", applicationId)
-      .in("status", [...openApplicationStatuses])
       .maybeSingle();
 
     if (applicationError) {
@@ -200,7 +231,7 @@ export async function loadLenderApplicationDetail(
         ok: false,
         mode: "not-found",
         application: null,
-        message: "This application is not open for lender review.",
+        message: "This application is not available for lender review.",
       };
     }
 
@@ -264,11 +295,15 @@ export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
       };
     }
 
-    const { data: offers, error: offersError } = await supabase
-      .from("loan_offers")
-      .select(lenderReviewOfferSelect)
-      .eq("lender_id", access.profile.id)
-      .order("sent_at", { ascending: false });
+    const [offersResult, activeLoansResult] = await Promise.all([
+      supabase
+        .from("loan_offers")
+        .select(lenderReviewOfferSelect)
+        .eq("lender_id", access.profile.id)
+        .order("sent_at", { ascending: false }),
+      loadLenderActiveLoans(),
+    ]);
+    const { data: offers, error: offersError } = offersResult;
 
     if (offersError) {
       return {
@@ -276,6 +311,15 @@ export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
         mode: "supabase",
         offers: [],
         message: "Could not load offers.",
+      };
+    }
+
+    if (!activeLoansResult.ok) {
+      return {
+        ok: false,
+        mode: activeLoansResult.mode,
+        offers: [],
+        message: activeLoansResult.message,
       };
     }
 
@@ -325,7 +369,12 @@ export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
     return {
       ok: true,
       mode: "supabase",
-      offers: combineOffersWithApplications(offers, applications, portfolios),
+      offers: combineOffersWithApplications(
+        offers,
+        applications,
+        portfolios,
+        activeLoansResult.loans,
+      ),
       message: "Offers loaded.",
     };
   } catch {
@@ -347,10 +396,12 @@ export function formatPreferredTerm(
 function combineApplicationsWithPortfolios(
   applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
   portfolios: BorrowerPortfolioRow[],
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
 ) {
   const portfoliosById = new Map(
     portfolios.map((portfolio) => [portfolio.id, portfolio]),
   );
+  const offersByApplicationId = groupOffersByApplicationId(offers);
 
   return applications.flatMap((application) => {
     const portfolio = portfoliosById.get(application.borrower_portfolio_id);
@@ -359,7 +410,13 @@ function combineApplicationsWithPortfolios(
       return [];
     }
 
-    return [toLenderApplicationReview(application, portfolio)];
+    return [
+      toLenderApplicationReview(
+        application,
+        portfolio,
+        offersByApplicationId.get(application.id) ?? [],
+      ),
+    ];
   });
 }
 
@@ -375,6 +432,7 @@ function toLenderApplicationReview(
   return {
     ...mappedApplication,
     borrowerId: application.borrower_id,
+    currentLenderOfferState: getCurrentLenderOfferState(offers),
     portfolio: {
       businessType: portfolio.business_type,
       businessTypeLabel: businessTypeLabels[portfolio.business_type],
@@ -398,6 +456,7 @@ function combineOffersWithApplications(
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
   applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
   portfolios: BorrowerPortfolioRow[],
+  activeLoans: ActiveLoanSummary[] = [],
 ) {
   const applicationsById = new Map(
     applications.map((application) => [application.id, application]),
@@ -406,13 +465,19 @@ function combineOffersWithApplications(
     portfolios.map((portfolio) => [portfolio.id, portfolio]),
   );
 
+  const activeLoansByOfferId = new Map(
+    activeLoans.map((loan) => [loan.acceptedOfferId, loan]),
+  );
+
   return offers.map((offer) => {
     const mappedOffer = mapLoanOfferRow(offer);
     const application = applicationsById.get(offer.loan_application_id);
+    const activeLoan = activeLoansByOfferId.get(offer.id) ?? null;
 
     if (!application) {
       return {
         ...mappedOffer,
+        activeLoan,
         application: null,
       };
     }
@@ -422,11 +487,13 @@ function combineOffersWithApplications(
 
     return {
       ...mappedOffer,
+      activeLoan,
       application: {
         id: application.id,
         status: mappedApplication.status,
         requestedAmount: mappedApplication.requestedAmount,
         purpose: mappedApplication.purpose,
+        submittedAt: mappedApplication.submittedAt,
         portfolio: portfolio
           ? {
               businessTypeLabel: businessTypeLabels[portfolio.business_type],
@@ -436,4 +503,40 @@ function combineOffersWithApplications(
       },
     };
   });
+}
+
+function groupOffersByApplicationId(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+) {
+  return offers.reduce(
+    (groups, offer) => {
+      const applicationOffers = groups.get(offer.loan_application_id) ?? [];
+      groups.set(offer.loan_application_id, [...applicationOffers, offer]);
+
+      return groups;
+    },
+    new Map<string, Database["public"]["Tables"]["loan_offers"]["Row"][]>(),
+  );
+}
+
+function getCurrentLenderOfferState(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+): LenderApplicationReview["currentLenderOfferState"] {
+  if (offers.some((offer) => offer.status === "accepted")) {
+    return "offer_accepted";
+  }
+
+  if (offers.some((offer) => offer.status === "pending")) {
+    return "offer_pending";
+  }
+
+  if (offers.some((offer) => offer.status === "declined")) {
+    return "offer_declined";
+  }
+
+  if (offers.some((offer) => offer.status === "expired")) {
+    return "offer_expired";
+  }
+
+  return "not_offered";
 }

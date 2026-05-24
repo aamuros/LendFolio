@@ -3,6 +3,10 @@
 import { revalidatePath } from "next/cache";
 import { requireBorrower } from "@/lib/access-control";
 import {
+  loadBorrowerActiveLoans,
+  type ActiveLoanSummary,
+} from "@/lib/active-loans";
+import {
   borrowerPortfolioSchema,
   mapBorrowerPortfolioRow,
   type BorrowerPortfolioInput,
@@ -19,6 +23,7 @@ import type { Json } from "@/lib/supabase/types";
 
 export type BorrowerLoanApplicationSummary = LoanApplicationSummary & {
   offers: LoanOfferSummary[];
+  activeLoan: ActiveLoanSummary | null;
 };
 
 export type BorrowerPortfolioSaveResult =
@@ -106,13 +111,22 @@ export type LoanOfferAcceptResult =
   | {
       ok: true;
       message: string;
+      activeLoanId: string | null;
     }
   | {
       ok: false;
       message: string;
     };
 
-export type LoanOfferDeclineResult = LoanOfferAcceptResult;
+export type LoanOfferDeclineResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
 
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
@@ -288,13 +302,17 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
     }
 
     const applicationIds = data.map((application) => application.id);
-    const { data: offers, error: offersError } = await supabase
-      .from("loan_offers")
-      .select(
-        "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at",
-      )
-      .in("loan_application_id", applicationIds)
-      .order("sent_at", { ascending: false });
+    const [offersResult, activeLoansResult] = await Promise.all([
+      supabase
+        .from("loan_offers")
+        .select(
+          "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at",
+        )
+        .in("loan_application_id", applicationIds)
+        .order("sent_at", { ascending: false }),
+      loadBorrowerActiveLoans(),
+    ]);
+    const { data: offers, error: offersError } = offersResult;
 
     if (offersError) {
       return {
@@ -303,6 +321,16 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         applications: [],
         hasPortfolio: Boolean(portfolio),
         message: "Could not load offers.",
+      };
+    }
+
+    if (!activeLoansResult.ok) {
+      return {
+        ok: false,
+        mode: activeLoansResult.mode,
+        applications: [],
+        hasPortfolio: Boolean(portfolio),
+        message: activeLoansResult.message,
       };
     }
 
@@ -318,6 +346,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mappedOffer,
       ]);
     });
+    const activeLoansByApplicationId = new Map(
+      activeLoansResult.loans.map((loan) => [loan.applicationId, loan]),
+    );
 
     return {
       ok: true,
@@ -328,6 +359,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         return {
           ...mappedApplication,
           offers: offersByApplicationId.get(mappedApplication.id) ?? [],
+          activeLoan: activeLoansByApplicationId.get(mappedApplication.id) ?? null,
         };
       }),
       hasPortfolio: Boolean(portfolio),
@@ -577,6 +609,7 @@ export async function acceptLoanOffer(
           ok?: boolean;
           message?: string;
           loan_application_id?: string;
+          active_loan_id?: string;
         }
       | null;
 
@@ -595,6 +628,7 @@ export async function acceptLoanOffer(
     return {
       ok: true,
       message: result.message ?? "Offer accepted.",
+      activeLoanId: result.active_loan_id ?? null,
     };
   } catch {
     return {

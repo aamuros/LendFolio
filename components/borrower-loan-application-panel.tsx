@@ -141,7 +141,7 @@ export function BorrowerLoanApplicationPanel({
 
       if (result.ok) {
         setApplications((current) => [
-          { ...result.application, offers: [] },
+          { ...result.application, offers: [], activeLoan: null },
           ...current,
         ]);
         setExpandedApplicationIds(
@@ -247,29 +247,34 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) => {
-          if (application.id !== applicationId) {
-            return application;
-          }
+      const refreshed = await loadBorrowerLoanApplications();
+      if (refreshed.ok) {
+        setApplications(refreshed.applications);
+      } else {
+        setApplications((current) =>
+          current.map((application) => {
+            if (application.id !== applicationId) {
+              return application;
+            }
 
-          return {
-            ...application,
-            status: "accepted",
-            offers: application.offers.map((offer) => {
-              if (offer.id === offerId) {
-                return { ...offer, status: "accepted" };
-              }
+            return {
+              ...application,
+              status: "accepted",
+              offers: application.offers.map((offer) => {
+                if (offer.id === offerId) {
+                  return { ...offer, status: "accepted" };
+                }
 
-              if (offer.status === "pending") {
-                return { ...offer, status: "declined" };
-              }
+                if (offer.status === "pending") {
+                  return { ...offer, status: "declined" };
+                }
 
-              return offer;
-            }),
-          };
-        }),
-      );
+                return offer;
+              }),
+            };
+          }),
+        );
+      }
       setExpandedApplicationIds((current) => new Set([...current, applicationId]));
       setExpandedOfferIds((current) => new Set([...current, offerId]));
       setLoadState("ready");
@@ -445,6 +450,10 @@ function HomeSummary({
 }) {
   const summary = getHomeSummary(hasPortfolio, applications);
   const latestApplication = applications[0];
+  const activeLoans = applications.flatMap((application) =>
+    application.activeLoan ? [application.activeLoan] : [],
+  );
+  const latestActiveLoan = activeLoans[0];
   const pendingOfferCount = applications.reduce(
     (count, application) =>
       count +
@@ -494,10 +503,14 @@ function HomeSummary({
           value={latestApplication ? formatApplicationStatus(latestApplication.status) : "Draft"}
         />
         <SummaryCard
-          label="Offers"
-          value={getOfferSummary(applications, pendingOfferCount)}
+          label="Loan"
+          value={latestActiveLoan ? formatLoanStatus(latestActiveLoan.status) : getOfferSummary(applications, pendingOfferCount)}
         />
       </div>
+
+      {latestActiveLoan ? (
+        <ActiveLoanCard loan={latestActiveLoan} onView={() => onNavigate?.("offers")} />
+      ) : null}
     </div>
   );
 }
@@ -859,9 +872,17 @@ function OfferCard({
             <SummaryItem label="Remarks" value={offer.remarks || "None"} />
           </dl>
 
+          {offer.status === "accepted" && application.activeLoan ? (
+            <div className="mt-4">
+              <ActiveLoanCard loan={application.activeLoan} compact />
+            </div>
+          ) : null}
+
           <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-              Accepting an offer closes other pending offers for this application.
+              {offer.status === "accepted" && application.activeLoan
+                ? "This offer is linked to your active loan."
+                : "Accepting an offer closes other pending offers for this application."}
             </p>
             <div className="grid gap-2 sm:flex">
               <button
@@ -981,6 +1002,62 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function ActiveLoanCard({
+  compact = false,
+  loan,
+  onView,
+}: {
+  compact?: boolean;
+  loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+  onView?: () => void;
+}) {
+  const repayment = loan.schedule[0];
+
+  return (
+    <article className="grid gap-4 rounded-3xl border border-[#cdd8d2] bg-white px-4 py-4 shadow-sm sm:px-5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-[var(--accent)]">
+            Active loan
+          </p>
+          <h3 className={compact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
+            PHP {formatCurrency(loan.principalAmount)}
+          </h3>
+        </div>
+        <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold capitalize text-[#0f5f45]">
+          {loan.status}
+        </span>
+      </div>
+
+      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+        <SummaryItem
+          label="Repayment"
+          value={`PHP ${formatCurrency(loan.repaymentAmount)}`}
+        />
+        <SummaryItem
+          label="Outstanding"
+          value={`PHP ${formatCurrency(loan.outstandingBalance)}`}
+        />
+        <SummaryItem label="Due date" value={formatDateOnly(loan.dueDate)} />
+        <SummaryItem
+          label="Repayment status"
+          value={repayment?.status === "due" ? "Payment due" : repayment?.status ?? "Payment due"}
+        />
+      </dl>
+
+      {onView ? (
+        <button
+          type="button"
+          onClick={onView}
+          className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+        >
+          View repayment details
+        </button>
+      ) : null}
+    </article>
+  );
+}
+
 function ApplicationEditForm({
   application,
   isPending,
@@ -1080,6 +1157,7 @@ function getHomeSummary(
   const hasAcceptedOffer = applications.some((application) =>
     application.offers.some((offer) => offer.status === "accepted"),
   );
+  const hasActiveLoan = applications.some((application) => application.activeLoan);
 
   if (!hasPortfolio) {
     return {
@@ -1098,6 +1176,16 @@ function getHomeSummary(
       label: "",
       tab: "offers",
       title: "Offer available",
+    } satisfies HomeSummaryContent;
+  }
+
+  if (hasActiveLoan) {
+    return {
+      action: "View loan",
+      description: "Your accepted offer is now an active loan.",
+      label: "Status",
+      tab: "offers",
+      title: "Active loan",
     } satisfies HomeSummaryContent;
   }
 
@@ -1128,6 +1216,14 @@ function getHomeSummary(
     tab: "apply",
     title: "Ready to apply",
   } satisfies HomeSummaryContent;
+}
+
+function formatLoanStatus(status: string) {
+  if (status === "active") {
+    return "Active";
+  }
+
+  return status;
 }
 
 type HomeSummaryContent = {

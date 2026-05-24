@@ -11,6 +11,8 @@ import {
   formatPreferredTerm,
   loadLenderApplicationDetail,
 } from "@/lib/lender-applications";
+import type { LoanOfferSummary } from "@/lib/loan-offer";
+import { openApplicationStatuses } from "@/lib/workflow-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -47,6 +49,14 @@ export default async function LenderApplicationDetailPage({
   const hasAcceptedOffer = application.offers.some(
     (offer) => offer.status === "accepted",
   );
+  const pendingOffer = application.offers.find(
+    (offer) => offer.status === "pending",
+  );
+  const isOpenForOffers = openApplicationStatuses.includes(
+    application.status as (typeof openApplicationStatuses)[number],
+  );
+  const hasAcceptedApplication =
+    application.status === "accepted" || hasAcceptedOffer;
 
   return (
     <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
@@ -129,22 +139,43 @@ export default async function LenderApplicationDetailPage({
 
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold">
-            {hasAcceptedOffer ? "Offer accepted" : "Send offer"}
+            {getActionTitle({
+              hasAcceptedApplication,
+              isOpenForOffers,
+              hasPendingOffer: Boolean(pendingOffer),
+            })}
           </h2>
           <div className="rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
-            {hasAcceptedOffer ? (
+            {hasAcceptedApplication ? (
               <div className="grid gap-1 text-sm leading-6 text-[var(--muted-foreground)]">
                 <p className="font-semibold text-[var(--foreground)]">
                   Offer accepted
                 </p>
                 <p>Offer creation is closed.</p>
               </div>
-            ) : (
+            ) : pendingOffer ? (
+              <div className="grid gap-4">
+                <div className="grid gap-1 text-sm leading-6 text-[var(--muted-foreground)]">
+                  <p className="font-semibold text-[var(--foreground)]">
+                    You already sent an offer.
+                  </p>
+                  <p>The borrower can review and respond to your pending offer.</p>
+                </div>
+                <OfferSummary offer={pendingOffer} />
+              </div>
+            ) : isOpenForOffers ? (
               <LenderOfferForm
                 applicationId={application.id}
                 requestedAmount={application.requestedAmount}
                 defaultDueDate={getDefaultDueDate()}
               />
+            ) : (
+              <div className="grid gap-1 text-sm leading-6 text-[var(--muted-foreground)]">
+                <p className="font-semibold text-[var(--foreground)]">
+                  Application closed
+                </p>
+                <p>Offer creation is closed.</p>
+              </div>
             )}
           </div>
         </section>
@@ -208,10 +239,7 @@ export default async function LenderApplicationDetailPage({
 
 function DetailHeader() {
   return (
-    <header className="flex min-h-10 items-center justify-between gap-4">
-      <p className="text-sm font-semibold text-[var(--foreground)]">
-        Application
-      </p>
+    <header className="flex min-h-10 items-center gap-3">
       <Link
         href="/lender/applications"
         aria-label="Back to applications"
@@ -230,8 +258,56 @@ function DetailHeader() {
           <path d="m15 18-6-6 6-6" />
         </svg>
       </Link>
+      <p className="text-sm font-semibold text-[var(--foreground)]">
+        Application
+      </p>
     </header>
   );
+}
+
+function OfferSummary({
+  offer,
+}: {
+  offer: LoanOfferSummary;
+}) {
+  return (
+    <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+      <ReviewItem
+        label="Approved"
+        value={`PHP ${formatCurrency(offer.approvedAmount)}`}
+      />
+      <ReviewItem
+        label="Repayment"
+        value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+      />
+      <ReviewItem label="Due" value={formatDateOnly(offer.dueDate)} />
+      <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
+    </dl>
+  );
+}
+
+function getActionTitle({
+  hasAcceptedApplication,
+  isOpenForOffers,
+  hasPendingOffer,
+}: {
+  hasAcceptedApplication: boolean;
+  isOpenForOffers: boolean;
+  hasPendingOffer: boolean;
+}) {
+  if (hasAcceptedApplication) {
+    return "Offer accepted";
+  }
+
+  if (hasPendingOffer) {
+    return "Offer pending";
+  }
+
+  if (isOpenForOffers) {
+    return "Send offer";
+  }
+
+  return "Application closed";
 }
 
 function ReviewItem({ label, value }: { label: string; value: string }) {
