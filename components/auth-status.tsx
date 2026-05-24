@@ -1,14 +1,15 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/login/actions";
-import { getDemoRole, type DemoRole } from "@/lib/demo-roles";
+import { getPortalConfig } from "@/lib/app-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AppRole } from "@/lib/supabase/types";
 
 type AuthStatusProps = {
-  role: DemoRole;
+  role: AppRole;
 };
 
 export async function AuthStatus({ role }: AuthStatusProps) {
-  const config = getDemoRole(role);
+  const config = getPortalConfig(role);
   const status = await getAuthStatus();
 
   if (!config) {
@@ -19,7 +20,7 @@ export async function AuthStatus({ role }: AuthStatusProps) {
     <section className="grid gap-3 rounded-md border border-[var(--border)] bg-white px-4 py-4 sm:grid-cols-[1fr_auto] sm:items-center">
       <div className="grid gap-1">
         <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-          Supabase session
+          Account
         </p>
         {status.email ? (
           <p className="break-words text-sm font-semibold">{status.email}</p>
@@ -61,7 +62,7 @@ async function getAuthStatus() {
     if (!user?.email) {
       return {
         email: null,
-        message: "Not signed in. Use demo sign-in for Supabase testing.",
+        message: "Sign in to continue.",
       };
     }
 
@@ -72,8 +73,7 @@ async function getAuthStatus() {
   } catch {
     return {
       email: null,
-      message:
-        "Supabase environment variables are missing. Add the public URL and anon key before signing in.",
+      message: "Sign in is temporarily unavailable.",
     };
   }
 }

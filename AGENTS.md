@@ -2,15 +2,28 @@
 
 ## Project
 
-This repository is for LendFolio — Agile MVP Build.
+LendFolio is a mobile-first responsive web application for Filipino
+micro-entrepreneurs, verified lenders, and platform managers.
 
-LendFolio is a mobile-first responsive web MVP for Filipino micro-entrepreneurs, verified lenders, and platform managers. The MVP must prove the first defendable workflow:
+The implemented happy path is:
 
-Borrower creates portfolio → borrower submits loan application → lender reviews application → lender sends official offer → borrower accepts offer → accepted offer becomes active loan → borrower uploads repayment proof → lender verifies repayment → platform manager monitors activity and audit logs.
+Borrower creates or updates a business profile -> borrower submits a loan
+application -> approved lender reviews the application -> approved lender sends
+an offer -> borrower reviews and accepts one offer.
 
-## Approved MVP stack
+## Product Direction
 
-Use only the approved Sprint 0/MVP stack unless explicitly instructed otherwise:
+- Present LendFolio as a simple, credible financing platform.
+- Keep user-facing copy concise and product-focused.
+- Do not expose sprint labels, issue IDs, demo-account framing, database setup,
+  migrations, RLS, local fallback behavior, or implementation notes in normal UI.
+- Keep setup and testing details in README or docs, not product surfaces.
+- Build requirements-first vertical slices and keep product UI production-style.
+- Manager pages may be minimal until monitoring features are implemented.
+
+## Approved MVP Stack
+
+Use only the approved MVP stack unless explicitly instructed otherwise:
 
 - Next.js App Router
 - TypeScript
@@ -21,34 +34,68 @@ Use only the approved Sprint 0/MVP stack unless explicitly instructed otherwise:
 - Supabase Row Level Security
 - Supabase Storage
 - Vercel
-- Resend only for selected transactional email later
+- Resend only for selected transactional email
 - React Hook Form
 - Zod
 - Vitest
 - Playwright
 - GitHub Actions
 
-Do not introduce Hono, Express, Railway, Prisma-first architecture, a separate backend service, native mobile, real payment integration, production e-KYC, AI credit scoring, or advanced analytics during Sprint 0.
+Do not introduce Hono, Express, Railway, Prisma-first architecture, a separate
+backend service, native mobile, real payment integration, production e-KYC, AI
+credit scoring, or advanced analytics unless the project direction changes
+explicitly.
 
-## Sprint 1 objective
+## Current Scope
 
-Build the first visible happy path: borrower submits one loan application, lender views it and sends an offer, borrower reviews and accepts the offer. Avoid advanced validation and reports in this sprint.
+Implemented:
 
-## Scope control
+- Borrower business profile save and load
+- Borrower loan application submission
+- Lender application list and application detail review
+- Lender offer creation
+- Borrower offer review and acceptance
+- Profile-based roles with approved lender verification
+- Supabase RLS policies for borrower, lender, and manager data access
+- Audit logging for the existing workflow
+- Minimal manager dashboard placeholder
 
-Do not build Sprint 1 features yet. Do not implement borrower portfolio forms, real loan application submission, lender offer creation, offer acceptance, active loans, repayment proof upload, credit scoring, manager reports, or audit logs unless the current task explicitly asks for a placeholder shell.
+Not implemented:
 
-When in doubt, create a documented placeholder and explain what later sprint should implement it.
+- Active loan records
+- Repayment schedules or repayment proof upload
+- Identity verification
+- Credit scoring
+- Manager reporting
+- Audit log views
+- Real payment integrations
 
-## Security and data rules
+When a not-yet-implemented area is needed, create a minimal product placeholder
+or documentation note instead of building beyond the requested scope.
 
-- Never hardcode real credentials, Supabase keys, service role keys, Resend keys, or Vercel secrets.
+## Business Rules
+
+- A borrower should save a business profile before submitting an application.
+- Loan applications use the current submitted/open flow.
+- Approved lenders can review submitted/open applications and send offers.
+- Borrowers can accept one pending offer for an application.
+- Accepting an offer should close other pending offers for that application.
+- Offer acceptance must stay atomic and preserve one accepted offer per
+  application.
+- Important workflow transitions must be protected server-side and by database
+  policies where applicable.
+
+## Security and Data Rules
+
+- Never hardcode real credentials, Supabase keys, service role keys, Resend keys,
+  or Vercel secrets.
 - Use `.env.example` with placeholder values only.
 - Do not expose Supabase service role keys to the browser.
-- Assume important business rules must eventually run server-side and/or be protected with Supabase RLS.
-- For Sprint 0, document RLS expectations even if full policies are not yet implemented.
+- Do not use hardcoded emails for authorization. Use `profiles` and
+  `lender_profiles` for role and lender approval decisions.
+- Use Supabase RLS for user data in exposed schemas.
 
-## Code style
+## Code Style
 
 - Use TypeScript.
 - Prefer simple, readable code over clever abstractions.
@@ -56,23 +103,25 @@ When in doubt, create a documented placeholder and explain what later sprint sho
 - Use mobile-first responsive layouts.
 - Use server components by default where appropriate.
 - Use client components only when interactivity requires them.
-- Use Zod for validation scaffolding where forms are introduced later.
+- Use Zod for validation.
 - Keep route names clear by role: borrower, lender, manager.
+- Preserve existing functionality while improving copy, polish, or structure.
 
-## Validation commands
+## Validation Commands
 
 After changes, run the relevant commands that exist in the repository:
 
-- package install command
-- lint
-- typecheck
-- build
-- unit tests if present
-- Playwright tests if present
+- `npm install` when dependencies change
+- `npm run lint`
+- `npm run typecheck`
+- `npm run build`
+- `npm run test`
+- Playwright tests if present and relevant
 
-If a command does not exist yet, either add the appropriate script or explain why it is not available.
+If a command does not exist or cannot run in the current environment, report it
+clearly.
 
-## Completion format
+## Completion Format
 
 At the end of every task, report:
 

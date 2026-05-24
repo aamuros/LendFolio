@@ -1,7 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { getDemoRedirectForEmail } from "@/lib/demo-roles";
+import { getRouteForRole } from "@/lib/app-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type LoginState = {
@@ -17,7 +17,7 @@ export async function loginAction(
 
   if (!email || !password) {
     return {
-      message: "Enter the demo email and the password set in Supabase Auth.",
+      message: "Enter your email and password.",
     };
   }
 
@@ -32,16 +32,20 @@ export async function loginAction(
 
     if (error || !data.user) {
       return {
-        message:
-          "Could not sign in. Check the demo email and the password set in Supabase Auth.",
+        message: "Could not sign in. Check your email and password.",
       };
     }
 
-    destination = getDemoRedirectForEmail(data.user.email) ?? "/?auth=unknown";
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    destination = profile ? getRouteForRole(profile.role) : "/?auth=unknown";
   } catch {
     return {
-      message:
-        "Supabase Auth is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      message: "Sign in is temporarily unavailable.",
     };
   }
 
@@ -53,7 +57,7 @@ export async function signOutAction() {
     const supabase = await createSupabaseServerClient();
     await supabase.auth.signOut();
   } catch {
-    // Missing Supabase env still lands the user back on the login page.
+    // Missing auth configuration still lands the user back on the login page.
   }
 
   redirect("/login?message=signed-out");

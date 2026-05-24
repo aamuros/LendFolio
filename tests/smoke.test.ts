@@ -1,15 +1,22 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { borrowerPortfolioSchema } from "../lib/borrower-portfolio";
 import { loanApplicationSchema } from "../lib/loan-application";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
+import { parseMoneyInput } from "../lib/money-input";
+import { canAccessRole, isApprovedLender } from "../lib/role-rules";
+import {
+  applyAcceptedOfferInvariant,
+  canAcceptOffer,
+} from "../lib/workflow-rules";
 
-describe("Sprint 0 foundation", () => {
+describe("product foundation", () => {
   it("names the product", () => {
     expect("LendFolio").toBe("LendFolio");
   });
 });
 
-describe("ADI-9 borrower portfolio schema", () => {
+describe("borrower portfolio schema", () => {
   it("accepts the MVP borrower portfolio fields", () => {
     const result = borrowerPortfolioSchema.safeParse({
       businessType: "sari_sari_store",
@@ -40,8 +47,8 @@ describe("ADI-9 borrower portfolio schema", () => {
   });
 });
 
-describe("ADI-10 loan application schema", () => {
-  it("accepts the Sprint 1 loan application fields", () => {
+describe("loan application schema", () => {
+  it("accepts the loan application fields", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: 25_000,
       purpose: "Inventory restock",
@@ -64,8 +71,24 @@ describe("ADI-10 loan application schema", () => {
   });
 });
 
-describe("ADI-12 loan offer schema", () => {
-  it("accepts the Sprint 1 pending offer fields", () => {
+describe("money input parsing", () => {
+  it("parses fast typed currency values without preserving a leading zero", () => {
+    expect(parseMoneyInput("100")).toBe(100);
+    expect(parseMoneyInput("0100")).toBe(100);
+  });
+
+  it("returns configured zero for empty optional money fields", () => {
+    expect(parseMoneyInput("", { emptyValue: 0 })).toBe(0);
+    expect(parseMoneyInput("   ", { emptyValue: 0 })).toBe(0);
+  });
+
+  it("keeps required empty money fields available for schema validation", () => {
+    expect(parseMoneyInput("")).toBe("");
+  });
+});
+
+describe("loan offer schema", () => {
+  it("accepts pending offer fields", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
       repaymentAmount: 22_000,
@@ -90,14 +113,14 @@ describe("ADI-12 loan offer schema", () => {
   });
 });
 
-describe("ADI-13 borrower offer acceptance", () => {
+describe("borrower offer acceptance", () => {
   it("maps accepted and declined offer statuses for borrower review", () => {
     const baseOffer = {
       id: "offer-1",
       loan_application_id: "application-1",
       borrower_id: "borrower-1",
       lender_id: "lender-1",
-      lender_name: "Lender Demo",
+      lender_name: "Partner Capital",
       approved_amount: 20_000,
       repayment_amount: 22_000,
       fees: 500,
@@ -110,11 +133,146 @@ describe("ADI-13 borrower offer acceptance", () => {
 
     expect(mapLoanOfferRow({ ...baseOffer, status: "accepted" })).toMatchObject({
       applicationId: "application-1",
-      lenderName: "Lender Demo",
+      lenderName: "Partner Capital",
       status: "accepted",
     });
     expect(mapLoanOfferRow({ ...baseOffer, status: "declined" })).toMatchObject({
       status: "declined",
     });
+  });
+
+  it("accepts one pending offer and declines competing pending offers", () => {
+    const result = applyAcceptedOfferInvariant({
+      actorId: "borrower-1",
+      selectedOfferId: "offer-1",
+      applicationStatus: "open",
+      offers: [
+        {
+          id: "offer-1",
+          loanApplicationId: "application-1",
+          borrowerId: "borrower-1",
+          status: "pending",
+        },
+        {
+          id: "offer-2",
+          loanApplicationId: "application-1",
+          borrowerId: "borrower-1",
+          status: "pending",
+        },
+      ],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.offers).toEqual([
+      expect.objectContaining({ id: "offer-1", status: "accepted" }),
+      expect.objectContaining({ id: "offer-2", status: "declined" }),
+    ]);
+    expect(
+      result.offers.filter(
+        (offer: { status: string }) => offer.status === "accepted",
+      ),
+    ).toHaveLength(1);
+  });
+
+  it("prevents a borrower from accepting another borrower's offer", () => {
+    expect(
+      canAcceptOffer({
+        actorId: "borrower-2",
+        borrowerId: "borrower-1",
+        offerStatus: "pending",
+        applicationStatus: "open",
+      }),
+    ).toBe(false);
+  });
+
+  it("rejects acceptance when the application is already closed", () => {
+    expect(
+      canAcceptOffer({
+        actorId: "borrower-1",
+        borrowerId: "borrower-1",
+        offerStatus: "pending",
+        applicationStatus: "accepted",
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("role helper logic", () => {
+  it("allows only active matching roles into role workspaces", () => {
+    expect(
+      canAccessRole(
+        {
+          role: "borrower",
+          status: "active",
+        },
+        "borrower",
+      ),
+    ).toBe(true);
+    expect(
+      canAccessRole(
+        {
+          role: "borrower",
+          status: "suspended",
+        },
+        "borrower",
+      ),
+    ).toBe(false);
+  });
+
+  it("requires approved lender status before offer creation", () => {
+    expect(
+      isApprovedLender({
+        role: "lender",
+        status: "active",
+        lenderProfile: {
+          verification_status: "approved",
+        },
+      }),
+    ).toBe(true);
+    expect(
+      isApprovedLender({
+        role: "lender",
+        status: "active",
+        lenderProfile: {
+          verification_status: "pending",
+        },
+      }),
+    ).toBe(false);
+  });
+});
+
+describe("database workflow safeguards", () => {
+  it("defines the accepted-offer uniqueness invariant", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260524073652_harden_foundation_profiles_rls_workflow.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "loan_offers_one_accepted_per_application_idx",
+    );
+    expect(migration).toContain("where status = 'accepted'");
+  });
+
+  it("defines the atomic offer acceptance RPC", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260524073721_add_atomic_offer_acceptance_rpc.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("function public.accept_loan_offer");
+    expect(migration).toContain("offer_accepted");
+    expect(migration).toContain("competing_offers_declined");
+    expect(migration).toContain("application_accepted");
+  });
+
+  it("limits offer creation to approved lenders in RLS", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260524073652_harden_foundation_profiles_rls_workflow.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("loan_offers_insert_approved_lender");
+    expect(migration).toContain("app_private.is_approved_lender");
   });
 });

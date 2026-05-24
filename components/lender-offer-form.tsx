@@ -6,6 +6,7 @@ import {
   createLoanOffer,
   type CreateLoanOfferState,
 } from "@/app/lender/applications/[id]/actions";
+import { CurrencyInput } from "@/components/currency-input";
 
 type LenderOfferFormProps = {
   applicationId: string;
@@ -62,7 +63,12 @@ export function LenderOfferForm({
 
       <div className="grid gap-5 sm:grid-cols-2">
         <Field label="Fees" error={state.fieldErrors?.fees?.[0]}>
-          <CurrencyInput name="fees" defaultValue={0} disabled={isPending} />
+          <CurrencyInput
+            name="fees"
+            defaultValue={0}
+            disabled={isPending}
+            emptyValue={0}
+          />
         </Field>
 
         <Field label="Due date" error={state.fieldErrors?.dueDate?.[0]}>
@@ -97,15 +103,14 @@ export function LenderOfferForm({
 
       <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          Offer expiry and active loan creation are deferred; this sends a
-          pending offer for borrower review.
+          The borrower can review and accept this offer.
         </p>
         <button
           type="submit"
           disabled={isPending}
           className="inline-flex h-12 items-center justify-center rounded-md bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isPending ? "Sending..." : "Send pending offer"}
+          {isPending ? "Sending..." : "Send offer"}
         </button>
       </div>
     </form>
@@ -131,33 +136,5 @@ function Field({
         <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
       ) : null}
     </label>
-  );
-}
-
-function CurrencyInput({
-  name,
-  defaultValue,
-  disabled,
-}: {
-  name: string;
-  defaultValue: number;
-  disabled: boolean;
-}) {
-  return (
-    <div className="flex h-12 overflow-hidden rounded-md border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20">
-      <span className="grid w-14 place-items-center border-r border-[var(--border)] text-sm font-semibold text-[var(--muted-foreground)]">
-        PHP
-      </span>
-      <input
-        type="number"
-        min="0"
-        step="100"
-        inputMode="decimal"
-        name={name}
-        defaultValue={defaultValue}
-        disabled={disabled}
-        className="min-w-0 flex-1 px-3 text-base outline-none disabled:cursor-not-allowed disabled:opacity-70"
-      />
-    </div>
   );
 }

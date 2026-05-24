@@ -42,6 +42,9 @@ export default async function LenderApplicationDetailPage({
   }
 
   const { application } = result;
+  const hasAcceptedOffer = application.offers.some(
+    (offer) => offer.status === "accepted",
+  );
 
   return (
     <main className="min-h-svh px-5 py-6 sm:px-8">
@@ -51,7 +54,7 @@ export default async function LenderApplicationDetailPage({
         <section className="grid gap-4 pt-4">
           <div className="flex flex-wrap items-center gap-2">
             <p className="text-sm font-semibold text-[var(--accent)]">
-              Application review
+              Review application
             </p>
             <span className="rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
               {application.status}
@@ -145,27 +148,34 @@ export default async function LenderApplicationDetailPage({
         <section className="grid gap-5 border-t border-[var(--border)] pt-8">
           <div>
             <p className="text-sm font-semibold text-[var(--accent)]">
-              Official offer
+              Send offer
             </p>
             <h2 className="mt-2 text-2xl font-semibold">
-              Send a pending offer
+              {hasAcceptedOffer ? "Offer accepted" : "Send offer"}
             </h2>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-              This creates a basic pending offer for borrower review. Expiry
-              enforcement and active loan creation are deferred.
+              {hasAcceptedOffer
+                ? "The borrower accepted an offer for this application."
+                : "Send financing terms for borrower review."}
             </p>
           </div>
-          <LenderOfferForm
-            applicationId={application.id}
-            requestedAmount={application.requestedAmount}
-            defaultDueDate={getDefaultDueDate()}
-          />
+          {hasAcceptedOffer ? (
+            <div className="rounded-md border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]">
+              Offer creation is closed because an offer has already been accepted.
+            </div>
+          ) : (
+            <LenderOfferForm
+              applicationId={application.id}
+              requestedAmount={application.requestedAmount}
+              defaultDueDate={getDefaultDueDate()}
+            />
+          )}
         </section>
 
         <section className="grid gap-5">
           <div>
             <p className="text-sm font-semibold text-[var(--accent)]">
-              Sent offers
+              Offers
             </p>
             <h2 className="mt-2 text-2xl font-semibold">Offer status</h2>
           </div>

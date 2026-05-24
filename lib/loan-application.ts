@@ -37,7 +37,7 @@ export type LoanApplicationSummary = {
   purpose: string;
   preferredTerm: (typeof preferredTermOptions)[number];
   remarks: string | null;
-  status: "submitted" | "open";
+  status: Database["public"]["Enums"]["application_status"];
   submittedAt: string;
 };
 

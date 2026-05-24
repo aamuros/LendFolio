@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireBorrower } from "@/lib/access-control";
 import {
   borrowerPortfolioSchema,
   mapBorrowerPortfolioRow,
@@ -27,7 +28,7 @@ export type BorrowerPortfolioSaveResult =
     }
   | {
       ok: false;
-      mode: "local-placeholder" | "validation" | "supabase";
+      mode: "auth" | "validation" | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof BorrowerPortfolioInput, string[]>>;
     };
@@ -41,7 +42,7 @@ export type BorrowerPortfolioLoadResult =
     }
   | {
       ok: false;
-      mode: "local-placeholder" | "supabase";
+      mode: "auth" | "supabase";
       data: null;
       message: string;
     };
@@ -55,11 +56,7 @@ export type LoanApplicationSubmitResult =
     }
   | {
       ok: false;
-      mode:
-        | "local-placeholder"
-        | "validation"
-        | "missing-portfolio"
-        | "supabase";
+      mode: "auth" | "validation" | "missing-portfolio" | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
     };
@@ -74,7 +71,7 @@ export type LoanApplicationsLoadResult =
     }
   | {
       ok: false;
-      mode: "local-placeholder" | "supabase";
+      mode: "auth" | "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
       message: string;
@@ -93,18 +90,14 @@ export type LoanOfferAcceptResult =
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireBorrower(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
+        mode: "auth",
         data: null,
-        message:
-          "No Supabase borrower session yet. The form can use a device draft for now.",
+        message: access.message,
       };
     }
 
@@ -113,7 +106,7 @@ export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResu
       .select(
         "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at",
       )
-      .eq("borrower_id", user.id)
+      .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
     if (error) {
@@ -121,8 +114,7 @@ export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResu
         ok: false,
         mode: "supabase",
         data: null,
-        message:
-          "Could not load the Supabase portfolio. Confirm the borrower_portfolios migration and RLS policies.",
+        message: "Could not load your profile.",
       };
     }
 
@@ -130,17 +122,14 @@ export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResu
       ok: true,
       mode: "supabase",
       data: data ? mapBorrowerPortfolioRow(data) : null,
-      message: data
-        ? "Loaded your saved Supabase portfolio."
-        : "No saved Supabase portfolio yet.",
+      message: data ? "Profile loaded." : "Add your business details to continue.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
+      mode: "auth",
       data: null,
-      message:
-        "Supabase is not configured yet. The form can use a device draft for now.",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -163,23 +152,19 @@ export async function saveBorrowerPortfolio(
 
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireBorrower(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
-        message:
-          "Saved as a device draft. Supabase save needs borrower authentication.",
+        mode: "auth",
+        message: access.message,
       };
     }
 
     const { error } = await supabase.from("borrower_portfolios").upsert(
       {
-        borrower_id: user.id,
+        borrower_id: access.profile.id,
         business_type: parsed.data.businessType,
         location: parsed.data.location,
         monthly_gross_revenue: parsed.data.monthlyGrossRevenue,
@@ -196,22 +181,20 @@ export async function saveBorrowerPortfolio(
       return {
         ok: false,
         mode: "supabase",
-        message:
-          "Saved as a device draft. Supabase rejected the portfolio write; confirm the borrower_portfolios table and RLS policies.",
+        message: "Could not save your profile.",
       };
     }
 
     return {
       ok: true,
       mode: "supabase",
-      message: "Portfolio saved to Supabase.",
+      message: "Profile saved.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
-      message:
-        "Saved as a device draft. Supabase environment variables or schema are not configured yet.",
+      mode: "auth",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -219,26 +202,22 @@ export async function saveBorrowerPortfolio(
 export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLoadResult> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireBorrower(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
+        mode: "auth",
         applications: [],
         hasPortfolio: false,
-        message:
-          "No Supabase borrower session yet. Submitted demo applications can be kept on this device.",
+        message: access.message,
       };
     }
 
     const { data: portfolio, error: portfolioError } = await supabase
       .from("borrower_portfolios")
       .select("id")
-      .eq("borrower_id", user.id)
+      .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
     if (portfolioError) {
@@ -247,8 +226,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: false,
-        message:
-          "Could not confirm the saved portfolio. Confirm the borrower_portfolios migration and RLS policies.",
+        message: "Could not confirm your profile.",
       };
     }
 
@@ -257,7 +235,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       .select(
         "id, borrower_id, borrower_portfolio_id, requested_amount, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
       )
-      .eq("borrower_id", user.id)
+      .eq("borrower_id", access.profile.id)
       .order("submitted_at", { ascending: false });
 
     if (error) {
@@ -266,8 +244,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
-        message:
-          "Could not load loan applications. Confirm the loan_applications migration and RLS policies.",
+        message: "Could not load applications.",
       };
     }
 
@@ -278,8 +255,8 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         applications: [],
         hasPortfolio: Boolean(portfolio),
         message: portfolio
-          ? "Loaded submitted Supabase loan applications."
-          : "Create and save a borrower portfolio before submitting a loan application.",
+          ? "Applications loaded."
+          : "Save your business profile before submitting an application.",
       };
     }
 
@@ -298,8 +275,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
-        message:
-          "Could not load offers. Confirm the loan_offers migration and RLS policies.",
+        message: "Could not load offers.",
       };
     }
 
@@ -329,17 +305,16 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       }),
       hasPortfolio: Boolean(portfolio),
       message: portfolio
-        ? "Loaded submitted Supabase loan applications."
-        : "Create and save a borrower portfolio before submitting a loan application.",
+        ? "Applications loaded."
+        : "Save your business profile before submitting an application.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
+      mode: "auth",
       applications: [],
       hasPortfolio: false,
-      message:
-        "Supabase is not configured yet. Submitted demo applications can be kept on this device.",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -362,32 +337,27 @@ export async function submitLoanApplication(
 
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireBorrower(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
-        message:
-          "Saved as a device demo application. Supabase submission needs borrower authentication.",
+        mode: "auth",
+        message: access.message,
       };
     }
 
     const { data: portfolio, error: portfolioError } = await supabase
       .from("borrower_portfolios")
       .select("id")
-      .eq("borrower_id", user.id)
+      .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
     if (portfolioError) {
       return {
         ok: false,
         mode: "supabase",
-        message:
-          "Could not confirm the saved borrower portfolio. Confirm the borrower_portfolios migration and RLS policies.",
+        message: "Could not confirm your profile.",
       };
     }
 
@@ -395,14 +365,14 @@ export async function submitLoanApplication(
       return {
         ok: false,
         mode: "missing-portfolio",
-        message: "Save a borrower portfolio before submitting a loan application.",
+        message: "Save your business profile before submitting an application.",
       };
     }
 
     const { data, error } = await supabase
       .from("loan_applications")
       .insert({
-        borrower_id: user.id,
+        borrower_id: access.profile.id,
         borrower_portfolio_id: portfolio.id,
         requested_amount: parsed.data.requestedAmount,
         purpose: parsed.data.purpose,
@@ -419,8 +389,7 @@ export async function submitLoanApplication(
       return {
         ok: false,
         mode: "supabase",
-        message:
-          "Supabase rejected the loan application. Confirm the loan_applications table and RLS policies.",
+        message: "Could not submit application.",
       };
     }
 
@@ -428,14 +397,13 @@ export async function submitLoanApplication(
       ok: true,
       mode: "supabase",
       application: mapLoanApplicationRow(data),
-      message: "Loan application submitted to Supabase.",
+      message: "Application submitted.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
-      message:
-        "Saved as a device demo application. Supabase environment variables or schema are not configured yet.",
+      mode: "auth",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -445,69 +413,47 @@ export async function acceptLoanOffer(
 ): Promise<LoanOfferAcceptResult> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireBorrower(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        message: "Sign in with the borrower demo account before accepting an offer.",
+        message: access.message,
       };
     }
 
-    const { data: offer, error: offerError } = await supabase
-      .from("loan_offers")
-      .update({
-        status: "accepted",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", offerId)
-      .eq("borrower_id", user.id)
-      .eq("status", "pending")
-      .select("id, loan_application_id")
-      .maybeSingle();
+    const { data, error } = await supabase.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
 
-    if (offerError || !offer) {
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+          loan_application_id?: string;
+        }
+      | null;
+
+    if (error || !result?.ok) {
       return {
         ok: false,
-        message:
-          "Could not accept this offer. Confirm it is still pending and belongs to this borrower.",
-      };
-    }
-
-    const { error: declineError } = await supabase
-      .from("loan_offers")
-      .update({
-        status: "declined",
-        updated_at: new Date().toISOString(),
-      })
-      .eq("loan_application_id", offer.loan_application_id)
-      .eq("borrower_id", user.id)
-      .eq("status", "pending")
-      .neq("id", offer.id);
-
-    if (declineError) {
-      return {
-        ok: false,
-        message:
-          "Accepted the selected offer, but could not close the other pending offers for this application.",
+        message: result?.message ?? "Could not accept offer.",
       };
     }
 
     revalidatePath("/borrower");
-    revalidatePath(`/lender/applications/${offer.loan_application_id}`);
+    if (result.loan_application_id) {
+      revalidatePath(`/lender/applications/${result.loan_application_id}`);
+    }
 
     return {
       ok: true,
-      message: "Offer accepted. Other pending offers for this application were declined.",
+      message: result.message ?? "Offer accepted.",
     };
   } catch {
     return {
       ok: false,
-      message:
-        "Supabase is not configured yet. Offer acceptance needs the ADI-13 schema and borrower demo sign-in.",
+      message: "Could not accept offer.",
     };
   }
 }

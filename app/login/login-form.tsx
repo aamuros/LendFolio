@@ -4,15 +4,11 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { loginAction, type LoginState } from "@/app/login/actions";
 
-type LoginFormProps = {
-  defaultEmail: string;
-};
-
 const initialState: LoginState = {
   message: "",
 };
 
-export function LoginForm({ defaultEmail }: LoginFormProps) {
+export function LoginForm() {
   const [state, formAction] = useActionState(loginAction, initialState);
 
   return (
@@ -25,10 +21,9 @@ export function LoginForm({ defaultEmail }: LoginFormProps) {
           id="email"
           name="email"
           type="email"
-          defaultValue={defaultEmail}
           autoComplete="email"
           className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          placeholder="borrower.demo@example.com"
+          placeholder="you@example.com"
           required
         />
       </div>
@@ -43,7 +38,7 @@ export function LoginForm({ defaultEmail }: LoginFormProps) {
           type="password"
           autoComplete="current-password"
           className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          placeholder="Set manually in Supabase"
+          placeholder="Enter your password"
           required
         />
       </div>

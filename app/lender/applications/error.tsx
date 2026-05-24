@@ -17,8 +17,7 @@ export default function LenderApplicationsError() {
             Applications could not load
           </h1>
           <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">
-            Confirm Supabase environment variables, migrations, and demo RLS
-            policies before retrying the lender review queue.
+            Please try again in a moment.
           </p>
         </section>
       </div>

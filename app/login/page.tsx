@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LoginForm } from "@/app/login/login-form";
-import { demoRoles, getDemoRole, type DemoRole } from "@/lib/demo-roles";
+import { getPortalConfig, portalConfigs } from "@/lib/app-roles";
+import type { AppRole } from "@/lib/supabase/types";
 
 type LoginPageProps = {
   searchParams?: Promise<{
@@ -12,8 +13,7 @@ type LoginPageProps = {
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const selectedRole = getRoleParam(params?.role);
-  const selectedConfig = selectedRole ? getDemoRole(selectedRole) : undefined;
-  const defaultEmail = selectedConfig?.demoEmail ?? "";
+  const selectedConfig = selectedRole ? getPortalConfig(selectedRole) : undefined;
 
   return (
     <main className="min-h-svh px-5 py-6 sm:px-8">
@@ -26,21 +26,17 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             &lt;- LendFolio
           </Link>
           <p className="text-xs font-semibold tracking-[0.16em] text-[var(--muted-foreground)] uppercase">
-            ADI-14
+            Login
           </p>
         </header>
 
         <section className="grid gap-4">
-          <p className="text-sm font-semibold text-[var(--accent)]">
-            Supabase Auth
-          </p>
           <div className="grid gap-3">
             <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
-              Demo sign-in
+              Sign in
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-              Use one of the demo emails and the password set manually in
-              Supabase Auth. Passwords are not stored in this repository.
+              Use your email and password to access LendFolio.
             </p>
           </div>
         </section>
@@ -50,33 +46,34 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
             role="status"
           >
-            Signed out. Sign in again to continue the Supabase-backed flow.
+            Signed out.
           </p>
         ) : null}
 
         <section className="grid gap-6 border-y border-[var(--border)] py-6 lg:grid-cols-[1fr_0.9fr]">
           <div className="grid gap-5">
-            <LoginForm defaultEmail={defaultEmail} />
+            <LoginForm />
           </div>
 
-          <aside className="grid content-start gap-3">
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Demo accounts
+          <aside className="grid content-start gap-3 text-sm leading-6 text-[var(--muted-foreground)]">
+            <p className="font-semibold text-[var(--foreground)]">
+              {selectedConfig?.title ?? "Access your workspace"}
             </p>
-            {demoRoles.map((role) => (
-              <Link
-                key={role.role}
-                href={role.loginRoute}
-                className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 transition-colors hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-              >
-                <span className="block font-semibold">
-                  Sign in as {role.title}
-                </span>
-                <span className="block break-words text-[var(--muted-foreground)]">
-                  {role.demoEmail}
-                </span>
-              </Link>
-            ))}
+            <p>
+              {selectedConfig?.description ??
+                "Borrowers, lenders, and managers use the same secure login."}
+            </p>
+            <div className="grid gap-2 border-t border-[var(--border)] pt-3">
+              {portalConfigs.map((portal) => (
+                <Link
+                  key={portal.role}
+                  href={portal.loginRoute}
+                  className="text-sm font-semibold text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+                >
+                  {portal.title}
+                </Link>
+              ))}
+            </div>
           </aside>
         </section>
       </div>
@@ -84,7 +81,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   );
 }
 
-function getRoleParam(role?: string): DemoRole | undefined {
+function getRoleParam(role?: string): AppRole | undefined {
   if (role === "borrower" || role === "lender" || role === "manager") {
     return role;
   }

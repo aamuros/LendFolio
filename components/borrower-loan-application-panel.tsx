@@ -3,24 +3,24 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useForm, type UseFormRegisterReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import {
   acceptLoanOffer,
   type BorrowerLoanApplicationSummary,
   loadBorrowerLoanApplications,
   submitLoanApplication,
 } from "@/app/borrower/actions";
+import { CurrencyInput } from "@/components/currency-input";
 import {
-  borrowerLoanApplicationsDraftKey,
-  borrowerPortfolioDraftKey,
   borrowerPortfolioSavedEvent,
-} from "@/lib/borrower-demo-storage";
+} from "@/lib/borrower-workflow-events";
 import {
   loanApplicationSchema,
   preferredTermLabels,
   preferredTermOptions,
   type LoanApplicationInput,
 } from "@/lib/loan-application";
+import { parseMoneyInput } from "@/lib/money-input";
 
 const defaultValues: LoanApplicationInput = {
   requestedAmount: 0,
@@ -35,10 +35,16 @@ export function BorrowerLoanApplicationPanel() {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [hasPortfolio, setHasPortfolio] = useState(false);
-  const [message, setMessage] = useState("Checking portfolio and applications...");
+  const [message, setMessage] = useState("Loading applications...");
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
   >([]);
+  const [expandedApplicationIds, setExpandedApplicationIds] = useState<
+    Set<string>
+  >(new Set());
+  const [expandedOfferIds, setExpandedOfferIds] = useState<Set<string>>(
+    new Set(),
+  );
 
   const {
     register,
@@ -61,21 +67,20 @@ export function BorrowerLoanApplicationPanel() {
             return;
           }
 
-          const localHasPortfolio = hasLocalPortfolioDraft();
-          const localApplications = getLocalApplications();
-          const nextHasPortfolio = result.hasPortfolio || localHasPortfolio;
-          const nextApplications =
-            result.ok && result.mode === "supabase"
-              ? result.applications
-              : localApplications;
+          const nextHasPortfolio = result.hasPortfolio;
+          const nextApplications = result.ok ? result.applications : [];
 
           setHasPortfolio(nextHasPortfolio);
           setApplications(nextApplications);
+          setExpandedApplicationIds(
+            getDefaultExpandedApplicationIds(nextApplications),
+          );
+          setExpandedOfferIds(getDefaultExpandedOfferIds(nextApplications));
           setLoadState(nextHasPortfolio ? "ready" : "blocked");
           setMessage(
             nextHasPortfolio
               ? result.message
-              : "Save your borrower portfolio before submitting a loan application.",
+              : "Save your business profile before submitting an application.",
           );
         });
       });
@@ -101,11 +106,11 @@ export function BorrowerLoanApplicationPanel() {
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
-      setMessage("Save your borrower portfolio before submitting a loan application.");
+      setMessage("Save your business profile before submitting an application.");
       return;
     }
 
-    setMessage("Submitting loan application...");
+    setMessage("Submitting application...");
 
     startTransition(async () => {
       const result = await submitLoanApplication(values);
@@ -115,22 +120,9 @@ export function BorrowerLoanApplicationPanel() {
           { ...result.application, offers: [] },
           ...current,
         ]);
-        setLoadState("ready");
-        setMessage(result.message);
-        reset(defaultValues);
-        return;
-      }
-
-      if (result.mode === "local-placeholder") {
-        const localApplication = toLocalApplication(values);
-        setApplications((current) => {
-          const nextApplications = [localApplication, ...current];
-          window.localStorage.setItem(
-            borrowerLoanApplicationsDraftKey,
-            JSON.stringify(nextApplications),
-          );
-          return nextApplications;
-        });
+        setExpandedApplicationIds(
+          (current) => new Set([...current, result.application.id]),
+        );
         setLoadState("ready");
         setMessage(result.message);
         reset(defaultValues);
@@ -176,8 +168,38 @@ export function BorrowerLoanApplicationPanel() {
           };
         }),
       );
+      setExpandedApplicationIds((current) => new Set([...current, applicationId]));
+      setExpandedOfferIds((current) => new Set([...current, offerId]));
       setLoadState("ready");
       setMessage(result.message);
+    });
+  }
+
+  function toggleApplication(applicationId: string) {
+    setExpandedApplicationIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(applicationId)) {
+        next.delete(applicationId);
+      } else {
+        next.add(applicationId);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleOffer(offerId: string) {
+    setExpandedOfferIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(offerId)) {
+        next.delete(offerId);
+      } else {
+        next.add(offerId);
+      }
+
+      return next;
     });
   }
 
@@ -190,11 +212,10 @@ export function BorrowerLoanApplicationPanel() {
         <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
           <div className="grid gap-2">
             <h2 className="text-2xl leading-tight font-semibold">
-              Submit one loan application
+              Request financing
             </h2>
             <p className="max-w-2xl text-sm leading-6 text-[var(--muted-foreground)]">
-              This Sprint 1 request uses the saved borrower portfolio. Credit
-              limit checks stay as a later mocked guard.
+              Submit a loan request using your saved business profile.
             </p>
           </div>
           <p className="text-sm font-semibold text-[var(--muted-foreground)]">
@@ -207,7 +228,7 @@ export function BorrowerLoanApplicationPanel() {
         className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
         role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
       >
-        {loadState === "loading" ? "Loading loan application status..." : message}
+        {loadState === "loading" ? "Loading applications..." : message}
       </div>
 
       <form
@@ -218,7 +239,9 @@ export function BorrowerLoanApplicationPanel() {
         <div className="grid gap-5 sm:grid-cols-2">
           <Field label="Requested amount" error={errors.requestedAmount?.message}>
             <CurrencyInput
-              registration={register("requestedAmount", { valueAsNumber: true })}
+              registration={register("requestedAmount", {
+                setValueAs: parseMoneyInput,
+              })}
             />
           </Field>
 
@@ -249,7 +272,7 @@ export function BorrowerLoanApplicationPanel() {
             {...register("remarks")}
             rows={4}
             className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-            placeholder="Optional notes for the lender demo review."
+            placeholder="Optional notes for the lender."
           />
         </Field>
 
@@ -259,7 +282,7 @@ export function BorrowerLoanApplicationPanel() {
             className="text-sm leading-6 text-[var(--muted-foreground)]"
             aria-live="polite"
           >
-            Accepted offers remain offer records only; active loans start in a later sprint.
+            Review lender offers when they arrive.
           </p>
           <button
             type="submit"
@@ -272,129 +295,204 @@ export function BorrowerLoanApplicationPanel() {
       </form>
 
       <div className="grid gap-3">
-        <h3 className="text-lg font-semibold">Borrower applications</h3>
+        <h3 className="text-lg font-semibold">Applications</h3>
         {applications.length > 0 ? (
           <div className="grid gap-3">
-            {applications.map((application) => (
-              <article
-                key={application.id}
-                className="rounded-md border border-[var(--border)] bg-white px-4 py-4"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div className="grid gap-1">
-                    <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-                      {application.purpose}
-                    </p>
-                    <p className="text-2xl font-semibold">
-                      PHP {formatCurrency(application.requestedAmount)}
-                    </p>
-                  </div>
-                  <span className="rounded-md bg-[var(--muted)] px-3 py-1 text-sm font-semibold capitalize">
-                    {application.status}
-                  </span>
-                </div>
-                <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-                  <SummaryItem
-                    label="Preferred term"
-                    value={preferredTermLabels[application.preferredTerm]}
-                  />
-                  <SummaryItem
-                    label="Submitted"
-                    value={formatDate(application.submittedAt)}
-                  />
-                  <SummaryItem
-                    label="Remarks"
-                    value={application.remarks || "None"}
-                  />
-                </dl>
-                <div className="mt-5 border-t border-[var(--border)] pt-4">
-                  <h4 className="text-sm font-semibold">Offers for review</h4>
-                  {application.offers.length > 0 ? (
-                    <div className="mt-3 grid gap-3">
-                      {application.offers.map((offer) => (
-                        <div
-                          key={offer.id}
-                          className="rounded-md border border-[var(--border)] bg-[var(--background)] px-3 py-3"
-                        >
-                          <div className="flex flex-wrap items-start justify-between gap-3">
-                            <div>
-                              <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-                                Approved amount
-                              </p>
-                              <p className="mt-1 text-xl font-semibold">
-                                PHP {formatCurrency(offer.approvedAmount)}
-                              </p>
-                              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-                                {offer.lenderName}
-                              </p>
-                            </div>
-                            <span
-                              className={`rounded-md px-3 py-1 text-sm font-semibold capitalize ${getOfferStatusClassName(offer.status)}`}
-                            >
-                              {offer.status}
-                            </span>
+            {applications.map((application) => {
+              const isExpanded = expandedApplicationIds.has(application.id);
+              const pendingOfferCount = application.offers.filter(
+                (offer) => offer.status === "pending",
+              ).length;
+              const applicationDetailsId = `application-${application.id}-details`;
+
+              return (
+                <article
+                  key={application.id}
+                  className="overflow-hidden rounded-md border border-[var(--border)] bg-white"
+                >
+                  <button
+                    type="button"
+                    aria-expanded={isExpanded}
+                    aria-controls={applicationDetailsId}
+                    onClick={() => toggleApplication(application.id)}
+                    className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/60 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.4fr_1fr_auto] sm:items-center"
+                  >
+                    <span className="grid gap-1">
+                      <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+                        {application.purpose}
+                      </span>
+                      <span className="text-xl font-semibold">
+                        PHP {formatCurrency(application.requestedAmount)}
+                      </span>
+                    </span>
+                    <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+                      <span>Submitted {formatDate(application.submittedAt)}</span>
+                      <span>
+                        {application.offers.length === 1
+                          ? "1 offer"
+                          : `${application.offers.length} offers`}
+                        {pendingOfferCount > 0
+                          ? `, ${pendingOfferCount} pending`
+                          : ""}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                      {pendingOfferCount > 0 ? (
+                        <span className="rounded-md bg-[#fff4cf] px-3 py-1 text-sm font-semibold text-[#6f4e00]">
+                          Pending offers
+                        </span>
+                      ) : null}
+                      <span className="rounded-md bg-[var(--muted)] px-3 py-1 text-sm font-semibold capitalize text-[var(--foreground)]">
+                        {application.status}
+                      </span>
+                      <span className="text-sm font-semibold text-[var(--primary)]">
+                        {isExpanded ? "Hide" : "Review"}
+                      </span>
+                    </span>
+                  </button>
+
+                  {isExpanded ? (
+                    <div
+                      id={applicationDetailsId}
+                      className="border-t border-[var(--border)] px-4 py-4"
+                    >
+                      <dl className="grid gap-3 text-sm sm:grid-cols-3">
+                        <SummaryItem
+                          label="Preferred term"
+                          value={preferredTermLabels[application.preferredTerm]}
+                        />
+                        <SummaryItem
+                          label="Submitted"
+                          value={formatDate(application.submittedAt)}
+                        />
+                        <SummaryItem
+                          label="Remarks"
+                          value={application.remarks || "None"}
+                        />
+                      </dl>
+
+                      <div className="mt-5 border-t border-[var(--border)] pt-4">
+                        <h4 className="text-sm font-semibold">
+                          Offers for review
+                        </h4>
+                        {application.offers.length > 0 ? (
+                          <div className="mt-3 grid gap-3">
+                            {application.offers.map((offer) => {
+                              const isOfferExpanded = expandedOfferIds.has(
+                                offer.id,
+                              );
+                              const offerDetailsId = `offer-${offer.id}-details`;
+
+                              return (
+                                <div
+                                  key={offer.id}
+                                  className={`overflow-hidden rounded-md border bg-[var(--background)] ${
+                                    offer.status === "pending"
+                                      ? "border-[#d7a900]"
+                                      : "border-[var(--border)]"
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    aria-expanded={isOfferExpanded}
+                                    aria-controls={offerDetailsId}
+                                    onClick={() => toggleOffer(offer.id)}
+                                    className="grid w-full gap-3 px-3 py-3 text-left transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.2fr_1fr_auto] sm:items-center"
+                                  >
+                                    <span className="grid gap-1">
+                                      <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+                                        {offer.lenderName}
+                                      </span>
+                                      <span className="text-lg font-semibold">
+                                        PHP {formatCurrency(offer.approvedAmount)}
+                                      </span>
+                                    </span>
+                                    <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+                                      <span>
+                                        Repay PHP{" "}
+                                        {formatCurrency(offer.repaymentAmount)}
+                                      </span>
+                                      <span>Due {formatDateOnly(offer.dueDate)}</span>
+                                    </span>
+                                    <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+                                      <span
+                                        className={`rounded-md px-3 py-1 text-sm font-semibold capitalize ${getOfferStatusClassName(offer.status)}`}
+                                      >
+                                        {offer.status}
+                                      </span>
+                                      <span className="text-sm font-semibold text-[var(--primary)]">
+                                        {isOfferExpanded ? "Hide" : "Details"}
+                                      </span>
+                                    </span>
+                                  </button>
+
+                                  {isOfferExpanded ? (
+                                    <div
+                                      id={offerDetailsId}
+                                      className="border-t border-[var(--border)] px-3 py-3"
+                                    >
+                                      <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+                                        <SummaryItem
+                                          label="Fees"
+                                          value={`PHP ${formatCurrency(offer.fees)}`}
+                                        />
+                                        <SummaryItem
+                                          label="Remarks"
+                                          value={offer.remarks || "None"}
+                                        />
+                                        <SummaryItem
+                                          label="Sent"
+                                          value={formatDate(offer.sentAt)}
+                                        />
+                                        <SummaryItem
+                                          label="Status"
+                                          value={offer.status}
+                                        />
+                                      </dl>
+                                      <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
+                                        <p className="text-sm text-[var(--muted-foreground)]">
+                                          Accepting an offer closes other pending offers for this application.
+                                        </p>
+                                        <button
+                                          type="button"
+                                          disabled={
+                                            isPending ||
+                                            offer.status !== "pending"
+                                          }
+                                          onClick={() =>
+                                            onAcceptOffer(
+                                              application.id,
+                                              offer.id,
+                                            )
+                                          }
+                                          className="inline-flex h-11 items-center justify-center rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                          {offer.status === "accepted"
+                                            ? "Accepted"
+                                            : offer.status === "declined"
+                                              ? "Closed"
+                                              : isPending
+                                                ? "Working..."
+                                                : "Accept offer"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : null}
+                                </div>
+                              );
+                            })}
                           </div>
-                          <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
-                            <SummaryItem
-                              label="Lender"
-                              value={offer.lenderName}
-                            />
-                            <SummaryItem
-                              label="Amount"
-                              value={`PHP ${formatCurrency(offer.approvedAmount)}`}
-                            />
-                            <SummaryItem
-                              label="Repayment"
-                              value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
-                            />
-                            <SummaryItem
-                              label="Fees"
-                              value={`PHP ${formatCurrency(offer.fees)}`}
-                            />
-                            <SummaryItem
-                              label="Due date"
-                              value={formatDateOnly(offer.dueDate)}
-                            />
-                            <SummaryItem
-                              label="Term"
-                              value={`Due ${formatDateOnly(offer.dueDate)}`}
-                            />
-                          </dl>
-                          {offer.remarks ? (
-                            <p className="mt-3 text-sm leading-6 text-[var(--muted-foreground)]">
-                              {offer.remarks}
-                            </p>
-                          ) : null}
-                          <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--border)] pt-3">
-                            <p className="text-sm text-[var(--muted-foreground)]">
-                              Sent {formatDate(offer.sentAt)}
-                            </p>
-                            <button
-                              type="button"
-                              disabled={isPending || offer.status !== "pending"}
-                              onClick={() => onAcceptOffer(application.id, offer.id)}
-                              className="inline-flex h-11 items-center justify-center rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                              {offer.status === "accepted"
-                                ? "Accepted"
-                                : offer.status === "declined"
-                                  ? "Closed"
-                                  : isPending
-                                    ? "Working..."
-                                    : "Accept offer"}
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        ) : (
+                          <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+                            No offers for this application yet.
+                          </p>
+                        )}
+                      </div>
                     </div>
-                  ) : (
-                    <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-                      No offers for this application yet.
-                    </p>
-                  )}
-                </div>
-              </article>
-            ))}
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         ) : (
           <div className="rounded-md border border-dashed border-[var(--border)] px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]">
@@ -406,48 +504,34 @@ export function BorrowerLoanApplicationPanel() {
   );
 }
 
-function hasLocalPortfolioDraft() {
-  return Boolean(window.localStorage.getItem(borrowerPortfolioDraftKey));
+function getDefaultExpandedApplicationIds(
+  applications: BorrowerLoanApplicationSummary[],
+) {
+  const pendingApplicationIds = applications
+    .filter((application) =>
+      application.offers.some((offer) => offer.status === "pending"),
+    )
+    .map((application) => application.id);
+
+  if (pendingApplicationIds.length > 0) {
+    return new Set(pendingApplicationIds);
+  }
+
+  if (applications.length === 1) {
+    return new Set([applications[0].id]);
+  }
+
+  return new Set<string>();
 }
 
-function getLocalApplications(): BorrowerLoanApplicationSummary[] {
-  const storedApplications = window.localStorage.getItem(
-    borrowerLoanApplicationsDraftKey,
+function getDefaultExpandedOfferIds(applications: BorrowerLoanApplicationSummary[]) {
+  return new Set(
+    applications.flatMap((application) =>
+      application.offers
+        .filter((offer) => offer.status === "pending")
+        .map((offer) => offer.id),
+    ),
   );
-
-  if (!storedApplications) {
-    return [];
-  }
-
-  try {
-    const parsed = JSON.parse(storedApplications);
-
-    if (Array.isArray(parsed)) {
-      return parsed.map((application) => ({
-        ...application,
-        offers: Array.isArray(application.offers) ? application.offers : [],
-      }));
-    }
-  } catch {
-    window.localStorage.removeItem(borrowerLoanApplicationsDraftKey);
-  }
-
-  return [];
-}
-
-function toLocalApplication(
-  values: LoanApplicationInput,
-): BorrowerLoanApplicationSummary {
-  return {
-    id: window.crypto.randomUUID(),
-    requestedAmount: values.requestedAmount,
-    purpose: values.purpose.trim(),
-    preferredTerm: values.preferredTerm,
-    remarks: values.remarks?.trim() || null,
-    status: "submitted",
-    submittedAt: new Date().toISOString(),
-    offers: [],
-  };
 }
 
 function getOfferStatusClassName(status: string) {
@@ -457,6 +541,10 @@ function getOfferStatusClassName(status: string) {
 
   if (status === "declined") {
     return "bg-[#f5e8df] text-[#8a3d13]";
+  }
+
+  if (status === "pending") {
+    return "bg-[#fff4cf] text-[#6f4e00]";
   }
 
   return "bg-[var(--muted)] text-[var(--foreground)]";
@@ -512,27 +600,5 @@ function Field({ label, error, children }: FieldProps) {
         <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
       ) : null}
     </label>
-  );
-}
-
-type CurrencyInputProps = {
-  registration: UseFormRegisterReturn;
-};
-
-function CurrencyInput({ registration }: CurrencyInputProps) {
-  return (
-    <div className="flex h-12 overflow-hidden rounded-md border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20">
-      <span className="grid w-14 place-items-center border-r border-[var(--border)] text-sm font-semibold text-[var(--muted-foreground)]">
-        PHP
-      </span>
-      <input
-        type="number"
-        min="0"
-        step="100"
-        inputMode="decimal"
-        {...registration}
-        className="min-w-0 flex-1 px-3 text-base outline-none"
-      />
-    </div>
   );
 }

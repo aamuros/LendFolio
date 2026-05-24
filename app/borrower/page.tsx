@@ -2,16 +2,12 @@ import Link from "next/link";
 import { AuthStatus } from "@/components/auth-status";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
-import { getDemoRole } from "@/lib/demo-roles";
+import { requireBorrower } from "@/lib/access-control";
 
 export const dynamic = "force-dynamic";
 
-export default function BorrowerPage() {
-  const config = getDemoRole("borrower");
-
-  if (!config) {
-    return null;
-  }
+export default async function BorrowerPage() {
+  const access = await requireBorrower();
 
   return (
     <main className="min-h-svh px-5 py-6 sm:px-8">
@@ -24,23 +20,20 @@ export default function BorrowerPage() {
             &lt;- LendFolio
           </Link>
           <p className="text-xs font-semibold tracking-[0.16em] text-[var(--muted-foreground)] uppercase">
-            ADI-13
+            Borrower
           </p>
         </header>
 
         <section className="grid gap-5 pt-4">
           <p className="text-sm font-semibold text-[var(--accent)]">
-            {config.title} dashboard
+            Borrower portal
           </p>
           <div className="grid gap-4">
             <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
-              Build your portfolio and request financing
+              Business profile
             </h1>
             <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-              Save the business profile first, then submit one Sprint 1 loan
-              application for lender demo review. You can now review and accept
-              one pending offer; active loans, repayment, and manager tools
-              remain outside this issue.
+              Add your business details to request financing.
             </p>
           </div>
         </section>
@@ -48,33 +41,40 @@ export default function BorrowerPage() {
         <section className="grid gap-5 border-y border-[var(--border)] py-6 sm:grid-cols-3">
           <div>
             <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Demo account
+              Profile
             </p>
-            <p className="mt-2 break-words text-lg font-semibold">
-              {config.demoEmail}
+            <p className="mt-2 break-words text-lg font-semibold">Business details</p>
+          </div>
+          <div>
+            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
+              Request
+            </p>
+            <p className="mt-2 text-lg font-semibold">
+              Loan application
             </p>
           </div>
           <div>
             <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Current state
+              Offers
             </p>
-            <p className="mt-2 text-lg font-semibold">
-              Portfolio and loan request
-            </p>
-          </div>
-          <div>
-            <p className="text-xs font-semibold tracking-[0.14em] text-[var(--muted-foreground)] uppercase">
-              Not in ADI-13
-            </p>
-            <p className="mt-2 text-lg font-semibold">
-              Active loans and repayments
-            </p>
+            <p className="mt-2 text-lg font-semibold">Review and accept</p>
           </div>
         </section>
 
         <AuthStatus role="borrower" />
-        <BorrowerPortfolioForm />
-        <BorrowerLoanApplicationPanel />
+        {access.ok ? (
+          <>
+            <BorrowerPortfolioForm />
+            <BorrowerLoanApplicationPanel />
+          </>
+        ) : (
+          <section
+            className="rounded-md border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]"
+            role="alert"
+          >
+            {access.message}
+          </section>
+        )}
       </div>
     </main>
   );

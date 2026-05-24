@@ -16,8 +16,7 @@ export function LenderApplicationsList({
       <div className="rounded-md border border-dashed border-[var(--border)] bg-white px-4 py-8 text-center">
         <h2 className="text-xl font-semibold">No open applications</h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
-          Submitted borrower applications will appear here once ADI-10 creates
-          them in Supabase for lender review and offer creation.
+          New borrower applications will appear here.
         </p>
       </div>
     );

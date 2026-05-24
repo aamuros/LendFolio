@@ -3,21 +3,20 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
-import { useForm, type UseFormRegisterReturn } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import {
   loadBorrowerPortfolio,
   saveBorrowerPortfolio,
 } from "@/app/borrower/actions";
+import { CurrencyInput } from "@/components/currency-input";
 import {
   borrowerPortfolioSchema,
   businessTypeLabels,
   businessTypeOptions,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
-import {
-  borrowerPortfolioDraftKey,
-  borrowerPortfolioSavedEvent,
-} from "@/lib/borrower-demo-storage";
+import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import { parseMoneyInput } from "@/lib/money-input";
 
 const defaultValues: BorrowerPortfolioInput = {
   businessType: "sari_sari_store",
@@ -34,9 +33,7 @@ type LoadState = "loading" | "empty" | "ready" | "error";
 export function BorrowerPortfolioForm() {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [saveMessage, setSaveMessage] = useState<string>(
-    "Checking for a saved portfolio...",
-  );
+  const [saveMessage, setSaveMessage] = useState<string>("Loading profile...");
 
   const {
     register,
@@ -65,15 +62,6 @@ export function BorrowerPortfolioForm() {
           return;
         }
 
-        const localDraft = getLocalDraft();
-
-        if (localDraft) {
-          reset(localDraft);
-          setLoadState("ready");
-          setSaveMessage("Loaded the saved device draft for this borrower demo.");
-          return;
-        }
-
         setLoadState(result.ok ? "empty" : "error");
         setSaveMessage(result.message);
       });
@@ -85,14 +73,15 @@ export function BorrowerPortfolioForm() {
   }, [reset, startTransition]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
-    window.localStorage.setItem(borrowerPortfolioDraftKey, JSON.stringify(values));
-    window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
-    setSaveMessage("Saving portfolio...");
+    setSaveMessage("Saving profile...");
 
     startTransition(async () => {
       const result = await saveBorrowerPortfolio(values);
       setLoadState(result.ok ? "ready" : "error");
       setSaveMessage(result.message);
+      if (result.ok) {
+        window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
+      }
     });
   }
 
@@ -107,14 +96,13 @@ export function BorrowerPortfolioForm() {
         role={loadState === "error" ? "alert" : "status"}
       >
         {loadState === "loading"
-          ? "Loading any saved borrower portfolio..."
+          ? "Loading profile..."
           : saveMessage}
       </div>
 
       {loadState === "empty" ? (
         <div className="rounded-md border border-dashed border-[var(--border)] px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]">
-          No portfolio has been saved for this borrower yet. Fill out the
-          required fields below to create one.
+          Add your business details to continue.
         </div>
       ) : null}
 
@@ -146,8 +134,9 @@ export function BorrowerPortfolioForm() {
         >
           <CurrencyInput
             registration={register("monthlyGrossRevenue", {
-              valueAsNumber: true,
+              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
             })}
+            emptyValue={0}
           />
         </Field>
 
@@ -156,7 +145,10 @@ export function BorrowerPortfolioForm() {
           error={errors.monthlyExpenses?.message}
         >
           <CurrencyInput
-            registration={register("monthlyExpenses", { valueAsNumber: true })}
+            registration={register("monthlyExpenses", {
+              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
+            })}
+            emptyValue={0}
           />
         </Field>
 
@@ -166,8 +158,9 @@ export function BorrowerPortfolioForm() {
         >
           <CurrencyInput
             registration={register("existingLoanPayments", {
-              valueAsNumber: true,
+              setValueAs: (value) => parseMoneyInput(value, { emptyValue: 0 }),
             })}
+            emptyValue={0}
           />
         </Field>
 
@@ -205,39 +198,19 @@ export function BorrowerPortfolioForm() {
           className="text-sm leading-6 text-[var(--muted-foreground)]"
           aria-live="polite"
         >
-          {loadState === "loading" ? "Loading saved values..." : saveMessage}
-          {isDirty ? " Use Save portfolio to update the draft." : ""}
+          {loadState === "loading" ? "Loading profile..." : saveMessage}
+          {isDirty ? " Save changes when ready." : ""}
         </p>
         <button
           type="submit"
           disabled={isPending || loadState === "loading"}
           className="inline-flex h-12 items-center justify-center rounded-md bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
-          {isPending ? "Saving..." : "Save portfolio"}
+          {isPending ? "Saving..." : "Save profile"}
         </button>
       </div>
     </form>
   );
-}
-
-function getLocalDraft(): BorrowerPortfolioInput | null {
-  const storedDraft = window.localStorage.getItem(borrowerPortfolioDraftKey);
-
-  if (!storedDraft) {
-    return null;
-  }
-
-  try {
-    const parsed = borrowerPortfolioSchema.safeParse(JSON.parse(storedDraft));
-
-    if (parsed.success) {
-      return parsed.data;
-    }
-  } catch {
-    window.localStorage.removeItem(borrowerPortfolioDraftKey);
-  }
-
-  return null;
 }
 
 type FieldProps = {
@@ -257,27 +230,5 @@ function Field({ label, error, children }: FieldProps) {
         <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
       ) : null}
     </label>
-  );
-}
-
-type CurrencyInputProps = {
-  registration: UseFormRegisterReturn;
-};
-
-function CurrencyInput({ registration }: CurrencyInputProps) {
-  return (
-    <div className="flex h-12 overflow-hidden rounded-md border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20">
-      <span className="grid w-14 place-items-center border-r border-[var(--border)] text-sm font-semibold text-[var(--muted-foreground)]">
-        PHP
-      </span>
-      <input
-        type="number"
-        min="0"
-        step="100"
-        inputMode="decimal"
-        {...registration}
-        className="min-w-0 flex-1 px-3 text-base outline-none"
-      />
-    </div>
   );
 }

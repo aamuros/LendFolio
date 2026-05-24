@@ -14,13 +14,50 @@ export type BusinessType =
   | "market_vendor"
   | "service_provider"
   | "other";
-export type ApplicationStatus = "submitted" | "open";
-export type OfferStatus = "pending" | "accepted" | "declined";
+export type ApplicationStatus =
+  | "submitted"
+  | "open"
+  | "accepted"
+  | "declined"
+  | "withdrawn";
+export type LenderVerificationStatus = "pending" | "approved" | "rejected";
+export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 export type PreferredTerm = "1_month" | "3_months" | "6_months" | "12_months";
+export type ProfileStatus = "active" | "pending" | "suspended";
 
 export type Database = {
   public: {
     Tables: {
+      audit_logs: {
+        Row: {
+          id: string;
+          actor_id: string | null;
+          action: string;
+          target_table: string;
+          target_id: string;
+          metadata: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_id?: string | null;
+          action: string;
+          target_table: string;
+          target_id: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_id?: string | null;
+          action?: string;
+          target_table?: string;
+          target_id?: string;
+          metadata?: Json;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       borrower_portfolios: {
         Row: {
           id: string;
@@ -156,15 +193,84 @@ export type Database = {
         };
         Relationships: [];
       };
+      lender_profiles: {
+        Row: {
+          id: string;
+          user_id: string;
+          organization_name: string;
+          verification_status: LenderVerificationStatus;
+          approved_at: string | null;
+          approved_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          organization_name: string;
+          verification_status?: LenderVerificationStatus;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          organization_name?: string;
+          verification_status?: LenderVerificationStatus;
+          approved_at?: string | null;
+          approved_by?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      profiles: {
+        Row: {
+          id: string;
+          role: AppRole;
+          display_name: string;
+          status: ProfileStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id: string;
+          role: AppRole;
+          display_name: string;
+          status?: ProfileStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          role?: AppRole;
+          display_name?: string;
+          status?: ProfileStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      accept_loan_offer: {
+        Args: {
+          p_offer_id: string;
+        };
+        Returns: Json;
+      };
+    };
     Enums: {
       app_role: AppRole;
       application_status: ApplicationStatus;
       business_type: BusinessType;
+      lender_verification_status: LenderVerificationStatus;
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;
+      profile_status: ProfileStatus;
     };
     CompositeTypes: Record<string, never>;
   };

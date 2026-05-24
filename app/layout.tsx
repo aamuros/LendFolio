@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "LendFolio",
-  description: "Sprint 0 foundation for the LendFolio MVP.",
+  description: "Financing workflows for micro-businesses and lenders.",
 };
 
 export default function RootLayout({

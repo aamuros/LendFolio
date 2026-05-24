@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { requireApprovedLender } from "@/lib/access-control";
 import { loanOfferSchema, type LoanOfferInput } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { openApplicationStatuses } from "@/lib/workflow-rules";
 
 export type CreateLoanOfferState =
   | {
@@ -41,16 +43,12 @@ export async function createLoanOffer(
 
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireApprovedLender(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        message:
-          "Sign in with the lender demo account before sending an offer.",
+        message: access.message,
       };
     }
 
@@ -58,7 +56,7 @@ export async function createLoanOffer(
       .from("loan_applications")
       .select("id, borrower_id, status")
       .eq("id", applicationId)
-      .in("status", ["submitted", "open"])
+      .in("status", [...openApplicationStatuses])
       .maybeSingle();
 
     if (applicationError || !application) {
@@ -68,11 +66,35 @@ export async function createLoanOffer(
       };
     }
 
+    const { data: acceptedOffer, error: acceptedOfferError } = await supabase
+      .from("loan_offers")
+      .select("id")
+      .eq("loan_application_id", application.id)
+      .eq("status", "accepted")
+      .maybeSingle();
+
+    if (acceptedOfferError) {
+      return {
+        ok: false,
+        message:
+          "Could not confirm current offer status before sending a new offer.",
+      };
+    }
+
+    if (acceptedOffer) {
+      return {
+        ok: false,
+        message: "This application already has an accepted offer.",
+      };
+    }
+
     const { error } = await supabase.from("loan_offers").insert({
       loan_application_id: application.id,
       borrower_id: application.borrower_id,
-      lender_id: user.id,
-      lender_name: getLenderDisplayName(user.email),
+      lender_id: access.profile.id,
+      lender_name:
+        access.profile.lenderProfile?.organization_name ??
+        access.profile.display_name,
       approved_amount: parsed.data.approvedAmount,
       repayment_amount: parsed.data.repaymentAmount,
       fees: parsed.data.fees,
@@ -84,8 +106,7 @@ export async function createLoanOffer(
     if (error) {
       return {
         ok: false,
-        message:
-          "Supabase rejected the offer. Confirm the loan_offers table and demo RLS policies.",
+        message: "Could not send offer.",
       };
     }
 
@@ -94,31 +115,12 @@ export async function createLoanOffer(
 
     return {
       ok: true,
-      message: "Pending offer sent to the borrower.",
+      message: "Offer sent.",
     };
   } catch {
     return {
       ok: false,
-      message:
-        "Supabase is not configured yet. Offer creation needs the ADI-12 schema and lender demo sign-in.",
+      message: "Could not send offer.",
     };
   }
-}
-
-function getLenderDisplayName(email?: string) {
-  if (!email) {
-    return "Verified lender";
-  }
-
-  const localPart = email.split("@")[0]?.replace(/[._-]+/g, " ").trim();
-
-  if (!localPart) {
-    return "Verified lender";
-  }
-
-  return localPart
-    .split(" ")
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }

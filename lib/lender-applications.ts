@@ -2,6 +2,7 @@ import {
   businessTypeLabels,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
+import { requireApprovedLender } from "@/lib/access-control";
 import {
   mapLoanApplicationRow,
   preferredTermLabels,
@@ -10,6 +11,7 @@ import {
 import { mapLoanOfferRow, type LoanOfferSummary } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import { openApplicationStatuses } from "@/lib/workflow-rules";
 
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
@@ -35,7 +37,7 @@ export type LenderApplicationsLoadResult =
     }
   | {
       ok: false;
-      mode: "local-placeholder" | "supabase";
+      mode: "auth" | "supabase";
       applications: LenderApplicationReview[];
       message: string;
     };
@@ -49,7 +51,7 @@ export type LenderApplicationDetailResult =
     }
   | {
       ok: false;
-      mode: "local-placeholder" | "not-found" | "supabase";
+      mode: "auth" | "not-found" | "supabase";
       application: null;
       message: string;
     };
@@ -66,25 +68,21 @@ const lenderReviewOfferSelect =
 export async function loadOpenLenderApplications(): Promise<LenderApplicationsLoadResult> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireApprovedLender(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
+        mode: "auth",
         applications: [],
-        message:
-          "No Supabase lender session yet. Sign in with the lender demo account to review submitted applications.",
+        message: access.message,
       };
     }
 
     const { data: applications, error: applicationsError } = await supabase
       .from("loan_applications")
       .select(lenderReviewApplicationSelect)
-      .in("status", ["submitted", "open"])
+      .in("status", [...openApplicationStatuses])
       .order("submitted_at", { ascending: false });
 
     if (applicationsError) {
@@ -92,8 +90,7 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
         ok: false,
         mode: "supabase",
         applications: [],
-        message:
-          "Could not load submitted applications. Confirm the loan_applications table and lender demo RLS policies.",
+        message: "Could not load applications.",
       };
     }
 
@@ -102,7 +99,7 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
         ok: true,
         mode: "supabase",
         applications: [],
-        message: "No submitted or open applications are ready for lender review.",
+        message: "No open applications.",
       };
     }
 
@@ -119,8 +116,7 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
         ok: false,
         mode: "supabase",
         applications: [],
-        message:
-          "Could not load borrower portfolio review fields. Confirm the borrower_portfolios lender review RLS policy.",
+        message: "Could not load application details.",
       };
     }
 
@@ -128,15 +124,14 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
       ok: true,
       mode: "supabase",
       applications: combineApplicationsWithPortfolios(applications, portfolios),
-      message: "Loaded submitted and open applications for lender review.",
+      message: "Applications loaded.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
+      mode: "auth",
       applications: [],
-      message:
-        "Supabase is not configured yet. Lender application browsing needs the Sprint 1 Supabase schema and demo sign-in.",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -146,18 +141,14 @@ export async function loadLenderApplicationDetail(
 ): Promise<LenderApplicationDetailResult> {
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-      error: userError,
-    } = await supabase.auth.getUser();
+    const access = await requireApprovedLender(supabase);
 
-    if (userError || !user) {
+    if (!access.ok) {
       return {
         ok: false,
-        mode: "local-placeholder",
+        mode: "auth",
         application: null,
-        message:
-          "No Supabase lender session yet. Sign in with the lender demo account to review this application.",
+        message: access.message,
       };
     }
 
@@ -165,7 +156,7 @@ export async function loadLenderApplicationDetail(
       .from("loan_applications")
       .select(lenderReviewApplicationSelect)
       .eq("id", applicationId)
-      .in("status", ["submitted", "open"])
+      .in("status", [...openApplicationStatuses])
       .maybeSingle();
 
     if (applicationError) {
@@ -173,8 +164,7 @@ export async function loadLenderApplicationDetail(
         ok: false,
         mode: "supabase",
         application: null,
-        message:
-          "Could not load this application. Confirm the loan_applications table and lender demo RLS policies.",
+        message: "Could not load this application.",
       };
     }
 
@@ -198,8 +188,7 @@ export async function loadLenderApplicationDetail(
         ok: false,
         mode: "supabase",
         application: null,
-        message:
-          "Could not load borrower portfolio review fields. Confirm the borrower_portfolios lender review RLS policy.",
+        message: "Could not load borrower profile.",
       };
     }
 
@@ -214,8 +203,7 @@ export async function loadLenderApplicationDetail(
         ok: false,
         mode: "supabase",
         application: null,
-        message:
-          "Could not load existing offers. Confirm the loan_offers table and RLS policies.",
+        message: "Could not load offers.",
       };
     }
 
@@ -223,15 +211,14 @@ export async function loadLenderApplicationDetail(
       ok: true,
       mode: "supabase",
       application: toLenderApplicationReview(application, portfolio, offers),
-      message: "Loaded application detail for lender review.",
+      message: "Application loaded.",
     };
   } catch {
     return {
       ok: false,
-      mode: "local-placeholder",
+      mode: "auth",
       application: null,
-      message:
-        "Supabase is not configured yet. Application detail review needs the Sprint 1 Supabase schema and demo sign-in.",
+      message: "Sign in to continue.",
     };
   }
 }
