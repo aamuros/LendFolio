@@ -61,11 +61,13 @@ export function BorrowerPortfolioForm() {
           reset(result.data);
           setLoadState("ready");
           setStatusMessage("");
+          setSuccessMessage("");
           return;
         }
 
         setLoadState(result.ok ? "empty" : "error");
         setStatusMessage(result.message);
+        setSuccessMessage("");
       });
     });
 
@@ -73,6 +75,16 @@ export function BorrowerPortfolioForm() {
       isActive = false;
     };
   }, [reset, startTransition]);
+
+  useEffect(() => {
+    if (!successMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setSuccessMessage(""), 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
     setStatusMessage("Saving profile...");
@@ -84,6 +96,7 @@ export function BorrowerPortfolioForm() {
       if (result.ok) {
         setStatusMessage("");
         setSuccessMessage(result.message);
+        reset(values);
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
         setStatusMessage(result.message);
@@ -94,6 +107,11 @@ export function BorrowerPortfolioForm() {
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
+      onChange={() => {
+        if (successMessage) {
+          setSuccessMessage("");
+        }
+      }}
       className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
       aria-describedby="portfolio-save-state"
     >

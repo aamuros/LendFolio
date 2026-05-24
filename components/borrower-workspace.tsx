@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { signOutAction } from "@/app/login/actions";
 import {
   BorrowerBottomTabs,
   type BorrowerTab,
@@ -9,25 +10,46 @@ import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-applica
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 
 type BorrowerWorkspaceProps = {
-  routeMessage?: string;
+  accountEmail?: string;
 };
 
-export function BorrowerWorkspace({ routeMessage = "" }: BorrowerWorkspaceProps) {
+export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
+
+  function changeTab(tab: BorrowerTab) {
+    setActiveTab(tab);
+  }
 
   return (
     <div className="grid gap-5">
-      {routeMessage ? (
-        <div
-          className="rounded-2xl border border-[#cdd8d2] bg-white px-4 py-3 text-sm font-medium text-[var(--accent)]"
-          role="status"
+      <header className="flex items-center justify-between gap-4">
+        <p className="text-sm font-semibold text-[var(--foreground)]">
+          LendFolio
+        </p>
+        <button
+          type="button"
+          aria-label="Open profile"
+          onClick={() => changeTab("profile")}
+          className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
-          {routeMessage}
-        </div>
-      ) : null}
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            className="size-5"
+            fill="none"
+            stroke="currentColor"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="2"
+          >
+            <circle cx="12" cy="8" r="4" />
+            <path d="M4 21a8 8 0 0 1 16 0" />
+          </svg>
+        </button>
+      </header>
 
       {activeTab === "home" ? (
-        <BorrowerLoanApplicationPanel view="home" onNavigate={setActiveTab} />
+        <BorrowerLoanApplicationPanel view="home" onNavigate={changeTab} />
       ) : null}
 
       {activeTab === "profile" ? (
@@ -37,18 +59,19 @@ export function BorrowerWorkspace({ routeMessage = "" }: BorrowerWorkspaceProps)
             description="Keep your business details current before requesting financing."
           />
           <BorrowerPortfolioForm />
+          <AccountSection email={accountEmail} />
         </section>
       ) : null}
 
       {activeTab === "apply" ? (
-        <BorrowerLoanApplicationPanel view="apply" onNavigate={setActiveTab} />
+        <BorrowerLoanApplicationPanel view="apply" onNavigate={changeTab} />
       ) : null}
 
       {activeTab === "offers" ? (
-        <BorrowerLoanApplicationPanel view="offers" onNavigate={setActiveTab} />
+        <BorrowerLoanApplicationPanel view="offers" onNavigate={changeTab} />
       ) : null}
 
-      <BorrowerBottomTabs activeTab={activeTab} onTabChange={setActiveTab} />
+      <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
     </div>
   );
 }
@@ -67,5 +90,26 @@ function SectionHeader({
         {description}
       </p>
     </div>
+  );
+}
+
+function AccountSection({ email }: { email: string }) {
+  return (
+    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="grid gap-1">
+        <h3 className="text-sm font-semibold">Account</h3>
+        <p className="break-words text-sm text-[var(--muted-foreground)]">
+          {email || "Signed in"}
+        </p>
+      </div>
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          Sign out
+        </button>
+      </form>
+    </section>
   );
 }

@@ -9,6 +9,7 @@ type LoginPageProps = {
 
 export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
+  const signedOut = params?.message === "signed-out";
 
   return (
     <main className="grid min-h-svh bg-[var(--background)] px-5 py-6 sm:px-8">
@@ -30,16 +31,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
               </h1>
             </div>
 
-            {params?.message === "signed-out" ? (
-              <p
-                className="border-l-2 border-[var(--accent)] bg-[var(--background)] px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-                role="status"
-              >
-                Signed out.
-              </p>
-            ) : null}
-
-            <LoginForm />
+            <LoginForm signedOut={signedOut} />
           </div>
         </section>
 

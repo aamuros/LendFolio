@@ -76,7 +76,7 @@ async function getPostLoginDestination(
   }
 
   if (profile.role !== "lender") {
-    return `${getRouteForRole(profile.role)}?message=signed-in`;
+    return getRouteForRole(profile.role);
   }
 
   const { data: lenderProfile } = await supabase
@@ -86,7 +86,7 @@ async function getPostLoginDestination(
     .maybeSingle();
 
   if (lenderProfile?.verification_status === "approved") {
-    return `${getRouteForRole(profile.role)}?message=signed-in`;
+    return getRouteForRole(profile.role);
   }
 
   return "/?auth=lender-pending";

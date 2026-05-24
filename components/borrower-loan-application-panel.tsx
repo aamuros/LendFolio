@@ -94,6 +94,7 @@ export function BorrowerLoanApplicationPanel({
           setExpandedOfferIds(getDefaultExpandedOfferIds(nextApplications));
           setLoadState(nextHasPortfolio ? "ready" : "blocked");
           setMessage(result.ok ? "" : result.message);
+          setSuccessMessage("");
         });
       });
     }
@@ -106,6 +107,16 @@ export function BorrowerLoanApplicationPanel({
       window.removeEventListener(borrowerPortfolioSavedEvent, load);
     };
   }, [startTransition]);
+
+  useEffect(() => {
+    if (!successMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setSuccessMessage(""), 3000);
+
+    return () => window.clearTimeout(timeout);
+  }, [successMessage]);
 
   const applicationCountLabel = useMemo(() => {
     if (applications.length === 1) {
@@ -299,6 +310,7 @@ export function BorrowerLoanApplicationPanel({
   }
 
   function toggleApplication(applicationId: string) {
+    setSuccessMessage("");
     setExpandedApplicationIds((current) => {
       const next = new Set(current);
 
@@ -313,6 +325,7 @@ export function BorrowerLoanApplicationPanel({
   }
 
   function toggleOffer(offerId: string) {
+    setSuccessMessage("");
     setExpandedOfferIds((current) => {
       const next = new Set(current);
 
@@ -386,7 +399,10 @@ export function BorrowerLoanApplicationPanel({
             expandedApplicationIds={expandedApplicationIds}
             isPending={isPending}
             onCancelEditing={onCancelEditing}
-            onEdit={setEditingApplicationId}
+            onEdit={(applicationId) => {
+              setSuccessMessage("");
+              setEditingApplicationId(applicationId);
+            }}
             onSaveApplication={onSaveApplication}
             onToggleApplication={toggleApplication}
             onWithdrawApplication={onWithdrawApplication}
@@ -438,11 +454,22 @@ function HomeSummary({
 
   return (
     <div className="grid gap-4">
-      <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
+      <div className="grid gap-1">
+        <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">
+          Home
+        </h1>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          Track your financing request and next step.
+        </p>
+      </div>
+
+      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
         <div className="grid gap-2">
-          <p className="text-sm font-semibold text-[var(--accent)]">
-            Next action
-          </p>
+          {summary.label ? (
+            <p className="text-sm font-semibold text-[var(--accent)]">
+              {summary.label}
+            </p>
+          ) : null}
           <h2 className="text-2xl leading-tight font-semibold">
             {loadState === "loading" ? "Loading your workspace..." : summary.title}
           </h2>
@@ -461,12 +488,15 @@ function HomeSummary({
       </section>
 
       <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Profile" value={hasPortfolio ? "Ready" : "Needed"} />
+        <SummaryCard label="Profile" value={hasPortfolio ? "Ready" : "Needs info"} />
         <SummaryCard
           label="Application"
-          value={latestApplication ? latestApplication.status : "Not started"}
+          value={latestApplication ? formatApplicationStatus(latestApplication.status) : "Draft"}
         />
-        <SummaryCard label="Pending offers" value={String(pendingOfferCount)} />
+        <SummaryCard
+          label="Offers"
+          value={getOfferSummary(applications, pendingOfferCount)}
+        />
       </div>
     </div>
   );
@@ -1055,8 +1085,9 @@ function getHomeSummary(
     return {
       action: "Complete profile",
       description: "Complete your business profile to apply.",
+      label: "",
       tab: "profile",
-      title: "Complete your business profile",
+      title: "Complete your profile",
     } satisfies HomeSummaryContent;
   }
 
@@ -1064,15 +1095,17 @@ function getHomeSummary(
     return {
       action: "Review offers",
       description: "You have pending offers to review.",
+      label: "",
       tab: "offers",
-      title: "Review lender offers",
+      title: "Offer available",
     } satisfies HomeSummaryContent;
   }
 
   if (hasAcceptedOffer) {
     return {
-      action: "View accepted offer",
-      description: "Your application is accepted.",
+      action: "View offer",
+      description: "Your application has been accepted.",
+      label: "Status",
       tab: "offers",
       title: "Offer accepted",
     } satisfies HomeSummaryContent;
@@ -1082,6 +1115,7 @@ function getHomeSummary(
     return {
       action: "View application",
       description: "Your application is submitted. Offers will appear when lenders respond.",
+      label: "",
       tab: "apply",
       title: "Application submitted",
     } satisfies HomeSummaryContent;
@@ -1090,17 +1124,54 @@ function getHomeSummary(
   return {
     action: "Start application",
     description: "Your profile is ready. Submit a loan application.",
+    label: "",
     tab: "apply",
-    title: "Apply for financing",
+    title: "Ready to apply",
   } satisfies HomeSummaryContent;
 }
 
 type HomeSummaryContent = {
   action: string;
   description: string;
+  label: string;
   tab: BorrowerTab;
   title: string;
 };
+
+function formatApplicationStatus(status: string) {
+  if (status === "submitted" || status === "open") {
+    return "Submitted";
+  }
+
+  if (status === "accepted") {
+    return "Accepted";
+  }
+
+  if (status === "withdrawn") {
+    return "Withdrawn";
+  }
+
+  return status;
+}
+
+function getOfferSummary(
+  applications: BorrowerLoanApplicationSummary[],
+  pendingOfferCount: number,
+) {
+  const hasAcceptedOffer = applications.some((application) =>
+    application.offers.some((offer) => offer.status === "accepted"),
+  );
+
+  if (hasAcceptedOffer) {
+    return "Accepted";
+  }
+
+  if (pendingOfferCount > 0) {
+    return "Pending";
+  }
+
+  return "None";
+}
 
 function getDefaultExpandedApplicationIds(
   applications: BorrowerLoanApplicationSummary[],
