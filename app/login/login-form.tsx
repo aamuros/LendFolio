@@ -14,7 +14,10 @@ export function LoginForm() {
   return (
     <form action={formAction} className="grid gap-5">
       <div className="grid gap-2">
-        <label className="text-sm font-semibold" htmlFor="email">
+        <label
+          className="text-sm font-medium text-[var(--foreground)]"
+          htmlFor="email"
+        >
           Email
         </label>
         <input
@@ -22,14 +25,17 @@ export function LoginForm() {
           name="email"
           type="email"
           autoComplete="email"
-          className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3.5 text-base outline-none transition-colors placeholder:text-[var(--subtle-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/15"
           placeholder="you@example.com"
           required
         />
       </div>
 
       <div className="grid gap-2">
-        <label className="text-sm font-semibold" htmlFor="password">
+        <label
+          className="text-sm font-medium text-[var(--foreground)]"
+          htmlFor="password"
+        >
           Password
         </label>
         <input
@@ -37,7 +43,7 @@ export function LoginForm() {
           name="password"
           type="password"
           autoComplete="current-password"
-          className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
+          className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3.5 text-base outline-none transition-colors placeholder:text-[var(--subtle-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/15"
           placeholder="Enter your password"
           required
         />
@@ -45,7 +51,7 @@ export function LoginForm() {
 
       {state.message ? (
         <p
-          className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+          className="border-l-2 border-[var(--accent)] bg-[var(--background)] px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
           role="alert"
         >
           {state.message}
@@ -64,7 +70,7 @@ function SubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="h-12 rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+      className="mt-1 h-12 rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Signing in..." : "Sign in"}
     </button>

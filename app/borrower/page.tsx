@@ -35,7 +35,7 @@ export default async function BorrowerPage({
 
         <section className="grid gap-5 pt-4">
           <p className="text-sm font-semibold text-[var(--accent)]">
-            Borrower portal
+            Borrower workspace
           </p>
           <div className="grid gap-4">
             <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">

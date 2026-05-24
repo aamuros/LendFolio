@@ -24,7 +24,7 @@ export default async function ManagerPage() {
 
         <section className="grid gap-5">
           <p className="text-sm font-semibold text-[var(--accent)]">
-            Manager portal
+            Manager workspace
           </p>
           <div className="grid gap-4">
             <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">

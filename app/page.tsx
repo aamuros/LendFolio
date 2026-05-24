@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { portalConfigs } from "@/lib/app-roles";
 
 type HomeProps = {
   searchParams?: Promise<{
@@ -9,71 +8,106 @@ type HomeProps = {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
+  const authMessage = getAuthMessage(params?.auth);
 
   return (
-    <main className="min-h-svh bg-[var(--background)]">
-      <section className="flex min-h-svh flex-col justify-between px-5 py-6 sm:px-8 lg:px-12">
-        <header className="flex items-center justify-between gap-4">
-          <p className="text-sm font-semibold tracking-[0.18em] text-[var(--primary)] uppercase">
-            LendFolio
+    <main className="min-h-svh bg-[#F6F5F2] text-[#161616]">
+      <section className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-5 py-5 sm:px-8 lg:px-10">
+        <header className="flex min-h-12 items-center justify-between gap-4 border-b border-[#D9D7D1]">
+          <p className="text-xs font-semibold tracking-[0.18em] text-[#1F1F1F] uppercase">
+            LENDFOLIO
           </p>
           <Link
             href="/login"
-            className="text-sm font-semibold text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
           >
-            Log in
+            Sign in
           </Link>
         </header>
 
-        <div className="mx-auto grid w-full max-w-6xl gap-10 py-12 lg:grid-cols-[1.05fr_0.95fr] lg:items-end">
-          <div className="max-w-2xl">
-            <h1 className="text-5xl leading-[0.95] font-semibold text-balance sm:text-6xl lg:text-7xl">
-              LendFolio
-            </h1>
-            <p className="mt-6 max-w-xl text-lg leading-8 text-[var(--muted-foreground)]">
-              Simple financing workflows for micro-businesses and verified
-              lenders.
-            </p>
-          </div>
-
-          <nav aria-label="LendFolio portals" className="grid gap-3">
-            {params?.auth === "unknown" ? (
+        <div className="flex flex-1 flex-col justify-center gap-10 py-10 sm:py-12 lg:gap-12 lg:py-14">
+          <div className="grid max-w-4xl gap-8 lg:pt-4">
+            {authMessage ? (
               <p
-                className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+                className="max-w-xl border-l-2 border-[#1F1F1F] bg-white/70 px-4 py-3 text-sm leading-6 text-[#5F5F5F]"
                 role="status"
               >
-                Sign in to continue.
+                {authMessage}
               </p>
             ) : null}
-            {portalConfigs.map((area) => (
+            <div className="grid gap-5">
+              <p className="text-xs font-semibold tracking-[0.16em] text-[#6A6863] uppercase">
+                MICRO-BUSINESS LENDING
+              </p>
+              <h1 className="max-w-4xl text-4xl leading-[1.04] font-semibold tracking-[-0.01em] text-balance text-[#161616] sm:text-5xl lg:text-6xl">
+                Simple financing workflows for micro-business lending.
+              </h1>
+              <p className="max-w-2xl text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
+                LendFolio helps borrowers submit business profiles, lenders
+                review applications, and teams manage offer decisions.
+              </p>
+            </div>
+            <div>
               <Link
-                key={area.route}
-                href={area.route}
-                className="group grid gap-2 border-t border-[var(--border)] py-5 transition-colors hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+                href="/login"
+                className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#1F1F1F] px-6 text-sm font-semibold !text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#0F0F0F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
               >
-                <span className="flex items-center justify-between gap-4 text-2xl font-semibold">
-                  {area.title}
-                  <span
-                    aria-hidden="true"
-                    className="transition-transform group-hover:translate-x-1"
-                  >
-                    -&gt;
-                  </span>
-                </span>
-                <span className="max-w-md text-sm leading-6 text-[var(--muted-foreground)]">
-                  {area.description}
-                </span>
+                Sign in
               </Link>
-            ))}
-          </nav>
-        </div>
+            </div>
+          </div>
 
-        <footer className="grid gap-2 border-t border-[var(--border)] pt-5 text-sm text-[var(--muted-foreground)] sm:grid-cols-3">
-          <p>Business profiles</p>
-          <p>Loan applications</p>
-          <p>Lender offers</p>
-        </footer>
+          <section
+            aria-label="Core workflow"
+            className="grid overflow-hidden rounded-lg border border-[#D9D7D1] bg-white/45 sm:grid-cols-3 sm:divide-x sm:divide-[#D9D7D1]"
+          >
+            {features.map((feature) => (
+              <article
+                key={feature.title}
+                className="grid gap-3 border-b border-[#D9D7D1] p-5 last:border-b-0 sm:border-b-0 sm:p-6"
+              >
+                <h2 className="text-sm font-semibold text-[#1F1F1F]">
+                  {feature.title}
+                </h2>
+                <p className="max-w-xs text-sm leading-6 text-[#5F5F5F]">
+                  {feature.description}
+                </p>
+              </article>
+            ))}
+          </section>
+        </div>
       </section>
     </main>
   );
+}
+
+const features = [
+  {
+    title: "Business profiles",
+    description: "Keep borrower details ready for review.",
+  },
+  {
+    title: "Loan applications",
+    description: "Submit and review financing requests.",
+  },
+  {
+    title: "Lender offers",
+    description: "Compare, decline, or accept structured offers.",
+  },
+];
+
+function getAuthMessage(auth?: string) {
+  if (auth === "unknown") {
+    return "Your account is signed in, but it does not have access to a workspace yet.";
+  }
+
+  if (auth === "lender-pending") {
+    return "Your lender access is pending review. You will be able to continue when your account is approved.";
+  }
+
+  if (auth === "access") {
+    return "Your account does not have access to this workspace.";
+  }
+
+  return "";
 }

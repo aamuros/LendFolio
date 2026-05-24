@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { getRouteForRole } from "@/lib/app-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import type { AppRole, ProfileStatus } from "@/lib/supabase/types";
 
 export type LoginState = {
   message: string;
@@ -38,12 +39,12 @@ export async function loginAction(
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, status")
       .eq("id", data.user.id)
       .maybeSingle();
 
     destination = profile
-      ? `${getRouteForRole(profile.role)}?message=signed-in`
+      ? await getPostLoginDestination(supabase, data.user.id, profile)
       : "/?auth=unknown";
   } catch {
     return {
@@ -63,4 +64,30 @@ export async function signOutAction() {
   }
 
   redirect("/login?message=signed-out");
+}
+
+async function getPostLoginDestination(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+  profile: { role: AppRole; status: ProfileStatus },
+) {
+  if (profile.status !== "active") {
+    return "/?auth=access";
+  }
+
+  if (profile.role !== "lender") {
+    return `${getRouteForRole(profile.role)}?message=signed-in`;
+  }
+
+  const { data: lenderProfile } = await supabase
+    .from("lender_profiles")
+    .select("verification_status")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (lenderProfile?.verification_status === "approved") {
+    return `${getRouteForRole(profile.role)}?message=signed-in`;
+  }
+
+  return "/?auth=lender-pending";
 }

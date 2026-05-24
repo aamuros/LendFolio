@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signOutAction } from "@/app/login/actions";
-import { getPortalConfig } from "@/lib/app-roles";
+import { getWorkspaceConfig } from "@/lib/app-roles";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppRole } from "@/lib/supabase/types";
 
@@ -9,7 +9,7 @@ type AuthStatusProps = {
 };
 
 export async function AuthStatus({ role }: AuthStatusProps) {
-  const config = getPortalConfig(role);
+  const config = getWorkspaceConfig(role);
   const status = await getAuthStatus();
 
   if (!config) {
@@ -42,7 +42,7 @@ export async function AuthStatus({ role }: AuthStatusProps) {
         </form>
       ) : (
         <Link
-          href={config.loginRoute}
+          href="/login"
           className="inline-flex h-10 items-center justify-center rounded-md bg-[var(--primary)] px-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
           Sign in
