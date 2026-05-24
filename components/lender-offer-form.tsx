@@ -46,9 +46,9 @@ export function LenderOfferForm({
   }
 
   return (
-    <form ref={formRef} action={onSubmit} className="grid gap-5">
+    <form ref={formRef} action={onSubmit} className="grid gap-3">
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Approved amount"
           error={state.fieldErrors?.approvedAmount?.[0]}
@@ -72,7 +72,7 @@ export function LenderOfferForm({
         </Field>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Fees" error={state.fieldErrors?.fees?.[0]}>
           <CurrencyInput
             name="fees"
@@ -88,7 +88,7 @@ export function LenderOfferForm({
             name="dueDate"
             defaultValue={defaultDueDate}
             disabled={isPending}
-            className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3 text-base outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
+            className="h-12 w-full rounded-2xl border border-[var(--border)] bg-white px-3 text-base outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
           />
         </Field>
       </div>
@@ -98,28 +98,28 @@ export function LenderOfferForm({
           name="remarks"
           rows={4}
           disabled={isPending}
-          className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
+          className="w-full resize-y rounded-2xl border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
           placeholder="Optional offer notes for the borrower."
         />
       </Field>
 
       {state.message && !state.ok ? (
         <div
-          className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+          className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
           role="alert"
         >
           {state.message}
         </div>
       ) : null}
 
-      <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
+      <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-between">
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
           The borrower can review and accept this offer.
         </p>
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex h-12 items-center justify-center rounded-md bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isPending ? "Sending..." : "Send offer"}
         </button>
@@ -138,14 +138,14 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-2">
+    <label className="grid gap-1.5">
       <span className="text-sm font-semibold text-[var(--foreground)]">
         {label}
       </span>
       {children}
-      <span className="min-h-5 text-sm leading-5 text-[var(--accent)]">
-        {error ?? ""}
-      </span>
+      {error ? (
+        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
+      ) : null}
     </label>
   );
 }

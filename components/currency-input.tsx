@@ -59,7 +59,7 @@ export function CurrencyInput({
 
   return (
     <div
-      className={`flex h-12 overflow-hidden rounded-md border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 ${className}`}
+      className={`flex h-12 overflow-hidden rounded-2xl border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 ${className}`}
     >
       <span className="grid w-14 place-items-center border-r border-[var(--border)] text-sm font-semibold text-[var(--muted-foreground)]">
         PHP

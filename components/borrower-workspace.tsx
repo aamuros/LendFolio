@@ -22,7 +22,7 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
 
   return (
     <div className="grid gap-5">
-      <header className="flex items-center justify-between gap-4">
+      <header className="flex min-h-10 items-center justify-between gap-4">
         <p className="text-sm font-semibold text-[var(--foreground)]">
           LendFolio
         </p>
@@ -95,21 +95,36 @@ function SectionHeader({
 
 function AccountSection({ email }: { email: string }) {
   return (
-    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center">
+    <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
       <div className="grid gap-1">
-        <h3 className="text-sm font-semibold">Account</h3>
+        <h3 className="text-lg font-semibold">Account</h3>
         <p className="break-words text-sm text-[var(--muted-foreground)]">
           {email || "Signed in"}
         </p>
       </div>
+      <div className="grid gap-3 rounded-2xl border border-[var(--border)] px-4 py-3">
+        <AccountRow label="Role" value="Borrower" />
+        <AccountRow label="Status" value="Active" />
+      </div>
       <form action={signOutAction}>
         <button
           type="submit"
-          className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
           Sign out
         </button>
       </form>
     </section>
+  );
+}
+
+function AccountRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] py-2 last:border-0">
+      <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </p>
+      <p className="text-right text-sm font-semibold">{value}</p>
+    </div>
   );
 }

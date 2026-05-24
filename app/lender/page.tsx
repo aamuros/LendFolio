@@ -1,106 +1,336 @@
 import Link from "next/link";
-import { AuthStatus } from "@/components/auth-status";
+import { redirect } from "next/navigation";
+import { signOutAction } from "@/app/login/actions";
+import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
-  LenderApplicationsList,
+  formatCurrency,
+  formatDate,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { RouteStatusToast } from "@/components/route-status-toast";
-import { loadOpenLenderApplications } from "@/lib/lender-applications";
+import { requireApprovedLender } from "@/lib/access-control";
+import {
+  loadLenderOffers,
+  loadOpenLenderApplications,
+  type LenderOfferReview,
+} from "@/lib/lender-applications";
 
 export const dynamic = "force-dynamic";
 
-export default async function LenderPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ message?: string }>;
-}) {
-  const { message } = await searchParams;
-  const result = await loadOpenLenderApplications();
+type LenderPageProps = {
+  searchParams: Promise<{ message?: string; tab?: string }>;
+};
 
-  if (result.mode === "auth") {
+export default async function LenderPage({ searchParams }: LenderPageProps) {
+  const { message, tab } = await searchParams;
+
+  if (message === "signed-in") {
+    redirect("/lender");
+  }
+
+  const activeTab = tab === "offers" || tab === "account" ? tab : "home";
+  const [applicationsResult, offersResult, access] = await Promise.all([
+    loadOpenLenderApplications(),
+    loadLenderOffers(),
+    requireApprovedLender(),
+  ]);
+
+  if (!access.ok) {
     return (
-      <main className="min-h-svh px-5 py-6 sm:px-8">
-        <div className="mx-auto grid max-w-4xl gap-8">
-          <DashboardHeader />
-          <RouteStatusToast
-            message={message === "signed-in" ? "Signed in successfully." : ""}
-          />
-          <LenderHero />
-          <AuthStatus role="lender" />
-          <LenderApplicationsStatus message={result.message} tone="error" />
-          <LenderApplicationsList applications={[]} />
+      <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+        <div className="mx-auto grid max-w-4xl gap-5">
+          <LenderHeader showAccountLink={false} />
+          <LenderApplicationsStatus message={access.message} tone="error" />
+          <LenderBottomTabs activeTab={activeTab} />
         </div>
       </main>
     );
   }
 
-  return (
-    <main className="min-h-svh px-5 py-6 sm:px-8">
-      <div className="mx-auto grid max-w-4xl gap-8">
-        <DashboardHeader />
-        <RouteStatusToast
-          message={message === "signed-in" ? "Signed in successfully." : ""}
-        />
-        <LenderHero />
-        <AuthStatus role="lender" />
+  const {
+    data: { user },
+  } = await access.supabase.auth.getUser();
+  const applications = applicationsResult.ok ? applicationsResult.applications : [];
+  const offers = offersResult.ok ? offersResult.offers : [];
 
-        <section className="grid gap-5">
-          <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
-            <div>
-              <p className="text-sm font-semibold text-[var(--accent)]">
-                Review queue
-              </p>
-              <h2 className="mt-2 text-2xl font-semibold">
-                Submitted applications
-              </h2>
-            </div>
-            <Link
-              href="/lender/applications"
-              className="text-sm font-semibold text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            >
-              Open full list
-            </Link>
-          </div>
-          {!result.ok ? (
-            <LenderApplicationsStatus message={result.message} tone="error" />
-          ) : null}
-          <LenderApplicationsList applications={result.applications} />
-        </section>
+  return (
+    <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+      <div className="mx-auto grid max-w-4xl gap-5">
+        <LenderHeader showAccountLink={activeTab !== "account"} />
+
+        {activeTab === "home" ? (
+          <HomeTab
+            applicationsCount={applications.length}
+            offers={offers}
+            applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
+            offersError={!offersResult.ok ? offersResult.message : ""}
+          />
+        ) : null}
+
+        {activeTab === "offers" ? (
+          <OffersTab offers={offers} error={!offersResult.ok ? offersResult.message : ""} />
+        ) : null}
+
+        {activeTab === "account" ? (
+          <AccountTab email={user?.email ?? ""} access={access.profile} />
+        ) : null}
+
+        <LenderBottomTabs activeTab={activeTab} />
       </div>
     </main>
   );
 }
 
-function DashboardHeader() {
+function HomeTab({
+  applicationsCount,
+  offers,
+  applicationsError,
+  offersError,
+}: {
+  applicationsCount: number;
+  offers: LenderOfferReview[];
+  applicationsError: string;
+  offersError: string;
+}) {
+  const pendingOffers = offers.filter((offer) => offer.status === "pending").length;
+  const acceptedOffers = offers.filter((offer) => offer.status === "accepted").length;
+  const nextAction =
+    applicationsCount > 0
+      ? {
+          title: `${applicationsCount} ${applicationsCount === 1 ? "application needs" : "applications need"} review`,
+          description: "Open the queue and review borrower context before sending terms.",
+          href: "/lender/applications",
+          label: "Review applications",
+        }
+      : pendingOffers > 0
+        ? {
+            title: "Offer sent",
+            description: "Track pending borrower responses from your offers list.",
+            href: "/lender?tab=offers",
+            label: "View offers",
+          }
+        : acceptedOffers > 0
+          ? {
+              title: "Offer accepted",
+              description: "Your accepted offers stay available for reference.",
+              href: "/lender?tab=offers",
+              label: "View offers",
+            }
+          : {
+              title: "No open applications",
+              description: "New borrower requests will appear in your review queue.",
+              href: "/lender/applications",
+              label: "Open applications",
+            };
+
   return (
-    <header className="flex items-center justify-between gap-4">
-      <Link
-        href="/"
-        className="text-sm font-medium text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        &lt;- LendFolio
-      </Link>
-      <p className="text-xs font-semibold tracking-[0.16em] text-[var(--muted-foreground)] uppercase">
-        Lender
-      </p>
-    </header>
+    <section className="grid gap-4">
+      <div className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
+        <div className="grid gap-3">
+          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+            Today
+          </p>
+          <h1 className="text-3xl leading-tight font-semibold">
+            {nextAction.title}
+          </h1>
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {nextAction.description}
+          </p>
+          <Link
+            href={nextAction.href}
+            className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          >
+            {nextAction.label}
+          </Link>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-3">
+        <SummaryCard label="Open" value={applicationsCount.toString()} />
+        <SummaryCard label="Sent" value={offers.length.toString()} />
+        <SummaryCard label="Accepted" value={acceptedOffers.toString()} />
+      </div>
+
+      {applicationsError ? (
+        <LenderApplicationsStatus message={applicationsError} tone="error" />
+      ) : null}
+      {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
+    </section>
   );
 }
 
-function LenderHero() {
+function OffersTab({
+  offers,
+  error,
+}: {
+  offers: LenderOfferReview[];
+  error: string;
+}) {
+  const groups = [
+    { label: "Pending", offers: offers.filter((offer) => offer.status === "pending") },
+    { label: "Accepted", offers: offers.filter((offer) => offer.status === "accepted") },
+    { label: "Declined", offers: offers.filter((offer) => offer.status === "declined") },
+  ];
+
   return (
-    <section className="grid gap-5 pt-4">
-      <p className="text-sm font-semibold text-[var(--accent)]">
-        Lender dashboard
-      </p>
-      <div className="grid gap-4">
-        <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
-          Applications
-        </h1>
-        <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-          Review borrower requests and send offers.
+    <section className="grid gap-4">
+      <div className="grid gap-1">
+        <h1 className="text-2xl leading-tight font-semibold">Offers</h1>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          Sent offers grouped by borrower response.
         </p>
       </div>
+
+      {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
+
+      {offers.length === 0 && !error ? (
+        <div className="rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-8 text-center shadow-sm">
+          <h2 className="text-xl font-semibold">No sent offers</h2>
+          <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+            Sent offers will appear here.
+          </p>
+        </div>
+      ) : null}
+
+      {groups.map((group) =>
+        group.offers.length > 0 ? (
+          <div key={group.label} className="grid gap-3">
+            <h2 className="text-sm font-semibold text-[var(--muted-foreground)]">
+              {group.label}
+            </h2>
+            {group.offers.map((offer) => (
+              <OfferCard key={offer.id} offer={offer} />
+            ))}
+          </div>
+        ) : null,
+      )}
     </section>
   );
+}
+
+function AccountTab({
+  email,
+  access,
+}: {
+  email: string;
+  access: {
+    role: string;
+    status: string;
+    lenderProfile: {
+      organization_name: string;
+      verification_status: string;
+    } | null;
+  };
+}) {
+  return (
+    <section className="grid gap-4">
+      <div className="grid gap-1">
+        <h1 className="text-2xl leading-tight font-semibold">Account</h1>
+        <p className="break-words text-sm leading-6 text-[var(--muted-foreground)]">
+          {email || "Signed in"}
+        </p>
+      </div>
+
+      <div className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
+        <AccountRow label="Role" value={access.role} />
+        <AccountRow label="Account status" value={access.status} />
+        <AccountRow
+          label="Organization"
+          value={access.lenderProfile?.organization_name ?? "Not provided"}
+        />
+        <AccountRow
+          label="Verification"
+          value={access.lenderProfile?.verification_status ?? "Pending"}
+        />
+      </div>
+
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          Sign out
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function SummaryCard({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-[var(--border)] bg-white px-3 py-4 text-center shadow-sm">
+      <p className="text-2xl font-semibold">{value}</p>
+      <p className="mt-1 text-xs font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </p>
+    </div>
+  );
+}
+
+function OfferCard({ offer }: { offer: LenderOfferReview }) {
+  const isQuiet = offer.status !== "pending";
+  const context = offer.application?.portfolio
+    ? `${offer.application.portfolio.businessTypeLabel} in ${offer.application.portfolio.location}`
+    : "Application context unavailable";
+
+  return (
+    <article
+      className={`rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm ${
+        isQuiet ? "opacity-75" : ""
+      }`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <h3 className="font-semibold">{context}</h3>
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {offer.application?.purpose ?? "Offer sent"}
+          </p>
+        </div>
+        <span className="rounded-full bg-[var(--muted)] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
+          {offer.status}
+        </span>
+      </div>
+      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+        <MiniMetric
+          label="Approved"
+          value={`PHP ${formatCurrency(offer.approvedAmount)}`}
+        />
+        <MiniMetric
+          label="Repayment"
+          value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+        />
+        <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} />
+        <MiniMetric label="Sent" value={formatDate(offer.sentAt)} />
+      </dl>
+    </article>
+  );
+}
+
+function MiniMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="mt-1 break-words font-semibold">{value}</dd>
+    </div>
+  );
+}
+
+function AccountRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] py-2 last:border-0">
+      <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </p>
+      <p className="break-words text-right text-sm font-semibold capitalize">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function formatDateOnly(value: string) {
+  return new Intl.DateTimeFormat("en-PH", {
+    dateStyle: "medium",
+  }).format(new Date(`${value}T00:00:00`));
 }

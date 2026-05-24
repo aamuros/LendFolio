@@ -13,7 +13,7 @@ export function LenderApplicationsList({
 }: LenderApplicationsListProps) {
   if (applications.length === 0) {
     return (
-      <div className="rounded-md border border-dashed border-[var(--border)] bg-white px-4 py-8 text-center">
+      <div className="rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-8 text-center shadow-sm">
         <h2 className="text-xl font-semibold">No open applications</h2>
         <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
           New borrower applications will appear here.
@@ -27,60 +27,49 @@ export function LenderApplicationsList({
       {applications.map((application) => (
         <article
           key={application.id}
-          className="rounded-md border border-[var(--border)] bg-white px-4 py-4"
+          className="rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm"
         >
-          <div className="grid gap-4 sm:grid-cols-[1fr_auto] sm:items-start">
+          <div className="grid gap-3">
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-xl font-semibold">
+                <h2 className="text-lg font-semibold">
                   {application.portfolio.businessTypeLabel}
                 </h2>
-                <span className="rounded-md bg-[var(--muted)] px-2 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
+                <span className="rounded-full bg-[var(--muted)] px-2.5 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
                   {application.status}
                 </span>
               </div>
               <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-                {application.portfolio.location} {" | "}
-                {formatYears(application.portfolio.yearsInOperation)} in
-                operation
-              </p>
-              <p className="text-sm leading-6">{application.purpose}</p>
-            </div>
-            <div className="grid gap-1 sm:text-right">
-              <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-                Requested
-              </p>
-              <p className="text-2xl font-semibold">
-                PHP {formatCurrency(application.requestedAmount)}
+                {application.portfolio.location}
               </p>
             </div>
+
+            <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <SummaryItem
+                label="Requested"
+                value={`PHP ${formatCurrency(application.requestedAmount)}`}
+              />
+              <SummaryItem
+                label="Term"
+                value={formatPreferredTerm(application.preferredTerm)}
+              />
+              <SummaryItem
+                label="Net revenue"
+                value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+              />
+              <SummaryItem
+                label="Submitted"
+                value={formatDate(application.submittedAt)}
+              />
+            </dl>
           </div>
 
-          <dl className="mt-5 grid gap-3 border-t border-[var(--border)] pt-4 text-sm sm:grid-cols-4">
-            <SummaryItem
-              label="Preferred term"
-              value={formatPreferredTerm(application.preferredTerm)}
-            />
-            <SummaryItem
-              label="Monthly revenue"
-              value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
-            />
-            <SummaryItem
-              label="Net before loans"
-              value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-            />
-            <SummaryItem
-              label="Submitted"
-              value={formatDate(application.submittedAt)}
-            />
-          </dl>
-
-          <div className="mt-5 flex justify-end">
+          <div className="mt-4 flex justify-end">
             <Link
               href={`/lender/applications/${application.id}`}
-              className="inline-flex min-h-11 items-center justify-center rounded-md bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
             >
-              Review application
+              Review
             </Link>
           </div>
         </article>
@@ -98,7 +87,7 @@ export function LenderApplicationsStatus({
 }) {
   return (
     <div
-      className="rounded-md border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+      className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)] shadow-sm"
       role={tone === "error" ? "alert" : "status"}
     >
       {message}
@@ -110,7 +99,9 @@ function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
       <dt className="font-semibold text-[var(--muted-foreground)]">{label}</dt>
-      <dd className="mt-1 break-words text-[var(--foreground)]">{value}</dd>
+      <dd className="mt-1 break-words font-semibold text-[var(--foreground)]">
+        {value}
+      </dd>
     </div>
   );
 }

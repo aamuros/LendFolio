@@ -28,6 +28,19 @@ export type LenderApplicationReview = LoanApplicationSummary & {
   offers: LoanOfferSummary[];
 };
 
+export type LenderOfferReview = LoanOfferSummary & {
+  application: {
+    id: string;
+    status: LoanApplicationSummary["status"];
+    requestedAmount: number;
+    purpose: string;
+    portfolio: {
+      businessTypeLabel: string;
+      location: string;
+    } | null;
+  } | null;
+};
+
 export type LenderApplicationsLoadResult =
   | {
       ok: true;
@@ -53,6 +66,20 @@ export type LenderApplicationDetailResult =
       ok: false;
       mode: "auth" | "not-found" | "supabase";
       application: null;
+      message: string;
+    };
+
+export type LenderOffersLoadResult =
+  | {
+      ok: true;
+      mode: "supabase";
+      offers: LenderOfferReview[];
+      message: string;
+    }
+  | {
+      ok: false;
+      mode: "auth" | "supabase";
+      offers: LenderOfferReview[];
       message: string;
     };
 
@@ -223,6 +250,94 @@ export async function loadLenderApplicationDetail(
   }
 }
 
+export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        mode: "auth",
+        offers: [],
+        message: access.message,
+      };
+    }
+
+    const { data: offers, error: offersError } = await supabase
+      .from("loan_offers")
+      .select(lenderReviewOfferSelect)
+      .eq("lender_id", access.profile.id)
+      .order("sent_at", { ascending: false });
+
+    if (offersError) {
+      return {
+        ok: false,
+        mode: "supabase",
+        offers: [],
+        message: "Could not load offers.",
+      };
+    }
+
+    if (offers.length === 0) {
+      return {
+        ok: true,
+        mode: "supabase",
+        offers: [],
+        message: "No sent offers.",
+      };
+    }
+
+    const applicationIds = [
+      ...new Set(offers.map((offer) => offer.loan_application_id)),
+    ];
+    const { data: applications, error: applicationsError } = await supabase
+      .from("loan_applications")
+      .select(lenderReviewApplicationSelect)
+      .in("id", applicationIds);
+
+    if (applicationsError) {
+      return {
+        ok: false,
+        mode: "supabase",
+        offers: [],
+        message: "Could not load offer details.",
+      };
+    }
+
+    const portfolioIds = [
+      ...new Set(applications.map((application) => application.borrower_portfolio_id)),
+    ];
+    const { data: portfolios, error: portfoliosError } = await supabase
+      .from("borrower_portfolios")
+      .select(lenderReviewPortfolioSelect)
+      .in("id", portfolioIds);
+
+    if (portfoliosError) {
+      return {
+        ok: false,
+        mode: "supabase",
+        offers: [],
+        message: "Could not load offer context.",
+      };
+    }
+
+    return {
+      ok: true,
+      mode: "supabase",
+      offers: combineOffersWithApplications(offers, applications, portfolios),
+      message: "Offers loaded.",
+    };
+  } catch {
+    return {
+      ok: false,
+      mode: "auth",
+      offers: [],
+      message: "Sign in to continue.",
+    };
+  }
+}
+
 export function formatPreferredTerm(
   term: LenderApplicationReview["preferredTerm"],
 ) {
@@ -277,4 +392,48 @@ function toLenderApplicationReview(
     },
     offers: offers.map(mapLoanOfferRow),
   };
+}
+
+function combineOffersWithApplications(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+  applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
+  portfolios: BorrowerPortfolioRow[],
+) {
+  const applicationsById = new Map(
+    applications.map((application) => [application.id, application]),
+  );
+  const portfoliosById = new Map(
+    portfolios.map((portfolio) => [portfolio.id, portfolio]),
+  );
+
+  return offers.map((offer) => {
+    const mappedOffer = mapLoanOfferRow(offer);
+    const application = applicationsById.get(offer.loan_application_id);
+
+    if (!application) {
+      return {
+        ...mappedOffer,
+        application: null,
+      };
+    }
+
+    const portfolio = portfoliosById.get(application.borrower_portfolio_id);
+    const mappedApplication = mapLoanApplicationRow(application);
+
+    return {
+      ...mappedOffer,
+      application: {
+        id: application.id,
+        status: mappedApplication.status,
+        requestedAmount: mappedApplication.requestedAmount,
+        purpose: mappedApplication.purpose,
+        portfolio: portfolio
+          ? {
+              businessTypeLabel: businessTypeLabels[portfolio.business_type],
+              location: portfolio.location,
+            }
+          : null,
+      },
+    };
+  });
 }
