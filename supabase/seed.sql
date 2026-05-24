@@ -1,0 +1,311 @@
+create extension if not exists pgcrypto;
+
+insert into auth.users (
+  instance_id,
+  id,
+  aud,
+  role,
+  email,
+  encrypted_password,
+  email_confirmed_at,
+  confirmation_token,
+  recovery_token,
+  email_change_token_new,
+  email_change,
+  phone_change,
+  phone_change_token,
+  email_change_token_current,
+  reauthentication_token,
+  raw_app_meta_data,
+  raw_user_meta_data,
+  is_super_admin,
+  is_sso_user,
+  is_anonymous,
+  created_at,
+  updated_at
+)
+values
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '11111111-1111-1111-1111-111111111111',
+    'authenticated',
+    'authenticated',
+    'borrower@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '22222222-2222-2222-2222-222222222222',
+    'authenticated',
+    'authenticated',
+    'borrower.alt@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '33333333-3333-3333-3333-333333333333',
+    'authenticated',
+    'authenticated',
+    'lender@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '44444444-4444-4444-4444-444444444444',
+    'authenticated',
+    'authenticated',
+    'lender.partner@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '55555555-5555-5555-5555-555555555555',
+    'authenticated',
+    'authenticated',
+    'lender.pending@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  ),
+  (
+    '00000000-0000-0000-0000-000000000000',
+    '66666666-6666-6666-6666-666666666666',
+    'authenticated',
+    'authenticated',
+    'manager@lendfolio.local',
+    crypt('LendFolio123!', gen_salt('bf')),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '',
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{}'::jsonb,
+    false,
+    false,
+    false,
+    now(),
+    now()
+  )
+on conflict (id) do update
+set
+  email = excluded.email,
+  encrypted_password = excluded.encrypted_password,
+  email_confirmed_at = excluded.email_confirmed_at,
+  confirmation_token = excluded.confirmation_token,
+  recovery_token = excluded.recovery_token,
+  email_change_token_new = excluded.email_change_token_new,
+  email_change = excluded.email_change,
+  phone_change = excluded.phone_change,
+  phone_change_token = excluded.phone_change_token,
+  email_change_token_current = excluded.email_change_token_current,
+  reauthentication_token = excluded.reauthentication_token,
+  raw_app_meta_data = excluded.raw_app_meta_data,
+  raw_user_meta_data = excluded.raw_user_meta_data,
+  updated_at = now();
+
+insert into auth.identities (
+  id,
+  provider_id,
+  user_id,
+  identity_data,
+  provider,
+  last_sign_in_at,
+  created_at,
+  updated_at
+)
+select
+  id,
+  id::text,
+  id,
+  jsonb_build_object(
+    'sub',
+    id::text,
+    'email',
+    email,
+    'email_verified',
+    true,
+    'phone_verified',
+    false
+  ),
+  'email',
+  now(),
+  now(),
+  now()
+from auth.users
+where id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+  '33333333-3333-3333-3333-333333333333',
+  '44444444-4444-4444-4444-444444444444',
+  '55555555-5555-5555-5555-555555555555',
+  '66666666-6666-6666-6666-666666666666'
+)
+on conflict (provider, provider_id) do update
+set
+  identity_data = excluded.identity_data,
+  updated_at = now();
+
+insert into public.profiles (id, role, display_name, status)
+values
+  (
+    '11111111-1111-1111-1111-111111111111',
+    'borrower',
+    'Borrower One',
+    'active'
+  ),
+  (
+    '22222222-2222-2222-2222-222222222222',
+    'borrower',
+    'Borrower Two',
+    'active'
+  ),
+  (
+    '33333333-3333-3333-3333-333333333333',
+    'lender',
+    'Approved Lender',
+    'active'
+  ),
+  (
+    '44444444-4444-4444-4444-444444444444',
+    'lender',
+    'Partner Lender',
+    'active'
+  ),
+  (
+    '55555555-5555-5555-5555-555555555555',
+    'lender',
+    'Pending Lender',
+    'active'
+  ),
+  (
+    '66666666-6666-6666-6666-666666666666',
+    'manager',
+    'Platform Manager',
+    'active'
+  )
+on conflict (id) do update
+set
+  role = excluded.role,
+  display_name = excluded.display_name,
+  status = excluded.status,
+  updated_at = now();
+
+insert into public.lender_profiles (
+  user_id,
+  organization_name,
+  verification_status,
+  approved_at,
+  approved_by
+)
+values
+  (
+    '33333333-3333-3333-3333-333333333333',
+    'Approved Capital',
+    'approved',
+    now(),
+    '66666666-6666-6666-6666-666666666666'
+  ),
+  (
+    '44444444-4444-4444-4444-444444444444',
+    'Partner Capital',
+    'approved',
+    now(),
+    '66666666-6666-6666-6666-666666666666'
+  ),
+  (
+    '55555555-5555-5555-5555-555555555555',
+    'Pending Capital',
+    'pending',
+    null,
+    null
+  )
+on conflict (user_id) do update
+set
+  organization_name = excluded.organization_name,
+  verification_status = excluded.verification_status,
+  approved_at = excluded.approved_at,
+  approved_by = excluded.approved_by,
+  updated_at = now();

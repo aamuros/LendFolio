@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start Supabase
+        run: supabase start
+
+      - name: Reset and seed database
+        run: supabase db reset
+
+      - name: Export Supabase test environment
+        shell: bash
+        run: |
+          supabase status -o env > supabase.env
+          {
+            echo "NEXT_PUBLIC_SUPABASE_URL=$(grep '^API_URL=' supabase.env | cut -d= -f2- | tr -d '\"')"
+            echo "NEXT_PUBLIC_SUPABASE_ANON_KEY=$(grep '^ANON_KEY=' supabase.env | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_TEST_URL=$(grep '^API_URL=' supabase.env | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_TEST_ANON_KEY=$(grep '^ANON_KEY=' supabase.env | cut -d= -f2- | tr -d '\"')"
+            echo "SUPABASE_TEST_SERVICE_ROLE_KEY=$(grep '^SERVICE_ROLE_KEY=' supabase.env | cut -d= -f2- | tr -d '\"')"
+          } >> "$GITHUB_ENV"
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm run test
+
+      - name: Build
+        run: npm run build

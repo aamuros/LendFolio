@@ -88,6 +88,8 @@ belong in docs, not product surfaces.
 Supabase setup and schema notes live in:
 
 - `docs/supabase-setup.md`
+- `docs/foundation-verification.md`
+- `docs/application-offer-state-machine.md`
 - `docs/database-schema-plan.md`
 - `docs/storage-buckets-plan.md`
 - `docs/rls-plan.md`
@@ -99,6 +101,17 @@ submissions, lender offers, and borrower offer acceptance:
 ```bash
 supabase migration up
 ```
+
+For a repeatable clean local verification run, use:
+
+```bash
+supabase start
+supabase db reset
+npm run test
+```
+
+The database integration tests run when local Supabase test environment
+variables are set; see `docs/foundation-verification.md` for the exact command.
 
 ## Manual Test Flow
 
