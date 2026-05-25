@@ -276,6 +276,11 @@ describe("manager operations helpers", () => {
     expect(managerBottomTabs).toContain("/manager/repayments");
     expect(managerBottomTabs).toContain("/manager/applications");
     expect(managerBottomTabs).toContain("More manager sections");
+    expect(managerBottomTabs).toContain('label: "Apps"');
+    expect(managerBottomTabs).toContain('ariaLabel: "Applications and offers"');
+    expect(managerBottomTabs).toContain("rounded-full");
+    expect(managerBottomTabs).toContain("-translate-y-7 scale-105");
+    expect(managerBottomTabs).not.toContain("grid grid-cols-3 gap-2 rounded-3xl");
     expect(managerBottomTabs).toContain('activeTab === "proofs"');
     expect(managerBottomTabs).toContain('activeTab === "audit"');
     expect(managerBottomTabs).toContain('activeTab === "applications"');
