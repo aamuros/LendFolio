@@ -1,7 +1,12 @@
 import Link from "next/link";
 import type React from "react";
-import { AuthStatus } from "@/components/auth-status";
+import { signOutAction } from "@/app/login/actions";
+import {
+  ManagerBottomTabs,
+  type ManagerTab,
+} from "@/components/manager-bottom-tabs";
 import { getShortId, managerStatusLabels } from "@/lib/manager-operations";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const managerNavItems = [
   { href: "/manager/loans", title: "Active loans", description: "Track funded loans and repayment progress." },
@@ -14,82 +19,43 @@ export const managerNavItems = [
 export function ManagerShell({
   title,
   description,
+  activeTab = "home",
   children,
 }: {
   title: string;
   description: string;
+  activeTab?: ManagerTab | null;
   children: React.ReactNode;
 }) {
   return (
-    <main className="min-h-svh px-5 pt-4 pb-10 sm:px-8 sm:pt-6">
-      <div className="mx-auto grid max-w-6xl gap-5">
-        <header className="grid gap-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <Link
-              href="/"
-              className="text-sm font-medium text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            >
-              &lt;- LendFolio
-            </Link>
-            <AuthStatus role="manager" />
-          </div>
-          <div className="grid gap-3">
-            <p className="text-xs font-semibold tracking-[0.16em] text-[var(--muted-foreground)] uppercase">
-              Manager operations
-            </p>
-            <div className="grid gap-2">
-              <h1 className="text-3xl leading-tight font-semibold sm:text-4xl">
-                {title}
-              </h1>
-              <p className="max-w-3xl text-sm leading-6 text-[var(--muted-foreground)]">
-                {description}
-              </p>
-            </div>
-          </div>
-          <ManagerNav />
+    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+      <div className="mx-auto grid max-w-4xl gap-5">
+        <header className="flex min-h-10 items-center justify-between gap-4">
+          <Link
+            href="/manager"
+            className="text-sm font-semibold text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          >
+            LendFolio
+          </Link>
+          <ManagerAccountState />
         </header>
+        <section className="grid gap-1">
+          <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {description}
+          </p>
+        </section>
         {children}
+        <ManagerBottomTabs activeTab={activeTab} />
       </div>
     </main>
-  );
-}
-
-export function ManagerNav() {
-  return (
-    <nav aria-label="Manager operations" className="overflow-x-auto">
-      <div className="flex min-w-max gap-2">
-        <NavPill href="/manager">Overview</NavPill>
-        {managerNavItems.map((item) => (
-          <NavPill key={item.href} href={item.href}>
-            {item.title}
-          </NavPill>
-        ))}
-      </div>
-    </nav>
-  );
-}
-
-function NavPill({
-  href,
-  children,
-}: {
-  href: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Link
-      href={href}
-      className="rounded-full border border-[var(--border)] bg-white px-4 py-2 text-sm font-semibold shadow-sm transition hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-    >
-      {children}
-    </Link>
   );
 }
 
 export function AccessDenied({ message }: { message: string }) {
   return (
     <section
-      className="rounded-md border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]"
+      className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 text-sm leading-6 text-[var(--muted-foreground)] shadow-sm"
       role="alert"
     >
       {message}
@@ -106,7 +72,7 @@ export function StatusMessage({
 }) {
   return (
     <p
-      className={`rounded-md border px-4 py-3 text-sm leading-6 ${
+      className={`rounded-3xl border px-4 py-3 text-sm leading-6 shadow-sm ${
         tone === "error"
           ? "border-red-200 bg-red-50 text-red-800"
           : "border-[var(--border)] bg-white text-[var(--muted-foreground)]"
@@ -119,7 +85,7 @@ export function StatusMessage({
 
 export function FilterGrid({ children }: { children: React.ReactNode }) {
   return (
-    <form className="grid gap-3 rounded-md border border-[var(--border)] bg-white p-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+    <form className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
       {children}
       <div className="flex items-end gap-2">
         <button
@@ -130,7 +96,7 @@ export function FilterGrid({ children }: { children: React.ReactNode }) {
         </button>
         <Link
           href="?"
-          className="inline-flex h-10 items-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold"
+          className="inline-flex h-10 items-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
           Clear
         </Link>
@@ -157,7 +123,7 @@ export function TextFilter({
         name={name}
         type={type}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       />
     </label>
   );
@@ -180,7 +146,7 @@ export function SelectFilter({
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-md border border-[var(--border)] bg-white px-3 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         <option value="">Any</option>
         {options.map((option) => (
@@ -195,7 +161,7 @@ export function SelectFilter({
 
 export function DataCard({ children }: { children: React.ReactNode }) {
   return (
-    <article className="grid gap-3 rounded-md border border-[var(--border)] bg-white p-4 shadow-sm">
+    <article className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
       {children}
     </article>
   );
@@ -203,20 +169,51 @@ export function DataCard({ children }: { children: React.ReactNode }) {
 
 export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="grid gap-1">
+    <div className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
       <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
         {label}
       </dt>
-      <dd className="text-sm font-semibold break-words">{value}</dd>
+      <dd className="mt-1 text-sm font-semibold break-words">{value}</dd>
     </div>
   );
 }
 
 export function StatusBadge({ status }: { status: string }) {
+  const positive = ["verified", "paid", "accepted", "active"];
+  const warning = ["submitted", "pending", "due", "open"];
+  const danger = ["rejected", "overdue", "defaulted", "declined", "late"];
+  const muted = ["closed", "withdrawn", "expired"];
+  const className = positive.includes(status)
+    ? "bg-[#e1f5ee] text-[#0f5f45]"
+    : warning.includes(status)
+      ? "bg-[#fff7df] text-[#806000]"
+      : danger.includes(status)
+        ? "bg-[#fff4f4] text-[#8f1d1d]"
+        : muted.includes(status)
+          ? "bg-[var(--muted)] text-[var(--muted-foreground)]"
+          : "bg-[#f7f9fc] text-[var(--foreground)]";
+
   return (
-    <span className="inline-flex w-fit rounded-full border border-[var(--border)] bg-[var(--muted)] px-3 py-1 text-xs font-semibold">
+    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
       {managerStatusLabels[status as keyof typeof managerStatusLabels] ?? status}
     </span>
+  );
+}
+
+export function EmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-8 text-center shadow-sm">
+      <h2 className="text-xl font-semibold">{title}</h2>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+        {description}
+      </p>
+    </div>
   );
 }
 
@@ -233,6 +230,7 @@ export function formatDateOnly(value: string | null) {
 
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
+    timeZone: "Asia/Manila",
   }).format(new Date(`${value}T00:00:00`));
 }
 
@@ -242,6 +240,7 @@ export function formatDateTime(value: string | null) {
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
     timeStyle: "short",
+    timeZone: "Asia/Manila",
   }).format(new Date(value));
 }
 
@@ -257,5 +256,70 @@ export function PersonLabel({
         {getShortId(person.id)}
       </span>
     </span>
+  );
+}
+
+async function ManagerAccountState() {
+  const user = await getManagerUser();
+
+  if (!user?.email) {
+    return (
+      <Link
+        href="/login"
+        aria-label="Sign in"
+        className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+      >
+        <AccountIcon />
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex min-w-0 items-center gap-2">
+      <span className="hidden max-w-52 truncate text-right text-xs font-semibold text-[var(--muted-foreground)] sm:block">
+        {user.email}
+      </span>
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          aria-label="Sign out"
+          title={user.email}
+          className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          <AccountIcon />
+        </button>
+      </form>
+    </div>
+  );
+}
+
+async function getManagerUser() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    return user;
+  } catch {
+    return null;
+  }
+}
+
+function AccountIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className="size-5"
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      <circle cx="12" cy="8" r="4" />
+      <path d="M4 21a8 8 0 0 1 16 0" />
+    </svg>
   );
 }

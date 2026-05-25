@@ -7,6 +7,7 @@ import {
 import {
   AccessDenied,
   DataCard,
+  EmptyState,
   Field,
   ManagerShell,
   PersonLabel,
@@ -32,6 +33,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       <ManagerShell
         title="Lookup"
         description="Search borrower portfolios, applications, offers, loans, and repayment schedules."
+        activeTab="lookup"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -44,8 +46,9 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
     <ManagerShell
       title="Lookup"
       description="Find records by borrower name or ID, application ID, business location, or loan purpose."
+      activeTab="lookup"
     >
-      <form className="grid gap-3 rounded-md border border-[var(--border)] bg-white p-4 shadow-sm sm:grid-cols-[1fr_auto]">
+      <form className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-[1fr_auto]">
         <TextFilter label="Search" name="q" defaultValue={q} />
         <div className="flex items-end">
           <button
@@ -60,6 +63,17 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
       <section className="grid gap-3">
+        {result.results.length === 0 ? (
+          <EmptyState
+            title={q ? "No records found" : "Search manager records"}
+            description={
+              q
+                ? "Matching borrowers, applications, and loans will appear here."
+                : "Enter a borrower, application, location, or purpose to begin."
+            }
+          />
+        ) : null}
+
         {result.results.map((resultItem) => (
           <DataCard key={resultItem.borrower.id}>
             <div className="grid gap-1">
@@ -72,7 +86,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
             </div>
 
             {resultItem.portfolio ? (
-              <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <Field label="Business location" value={resultItem.portfolio.location} />
                 <Field
                   label="Monthly gross revenue"
@@ -99,7 +113,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
               {resultItem.applications.map((application) => (
                 <div
                   key={application.id}
-                  className="grid gap-3 border-t border-[var(--border)] pt-3"
+                  className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/20 px-4 py-4"
                 >
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
@@ -112,7 +126,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                     </div>
                     <StatusBadge status={application.status} />
                   </div>
-                  <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                  <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                     <Field
                       label="Requested amount"
                       value={formatCurrency(application.requestedAmount)}

@@ -10,7 +10,9 @@ export type AppTabIcon =
   | "offers"
   | "loans"
   | "applications"
-  | "account";
+  | "account"
+  | "proofs"
+  | "lookup";
 
 export type AppBottomTab<T extends string> = {
   id: T;
@@ -21,7 +23,7 @@ export type AppBottomTab<T extends string> = {
 
 type AppBottomTabsProps<T extends string> = {
   tabs: AppBottomTab<T>[];
-  activeTab: T;
+  activeTab: T | null;
   ariaLabel: string;
   onTabChange?: (tab: T) => void;
 };
@@ -220,6 +222,44 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         <path d="M4 6h16" />
         <path d="M4 12h16" />
         <path d="M4 18h10" />
+      </svg>
+    );
+  }
+
+  if (name === "proofs") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M7 3h7l4 4v14H7z" />
+        <path d="M14 3v5h5" />
+        <path d="M9 14h6" />
+        <path d="M9 18h4" />
+      </svg>
+    );
+  }
+
+  if (name === "lookup") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-4.5-4.5" />
       </svg>
     );
   }

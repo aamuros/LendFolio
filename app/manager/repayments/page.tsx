@@ -3,6 +3,7 @@ import { getShortId, loadManagerRepayments } from "@/lib/manager-operations";
 import {
   AccessDenied,
   DataCard,
+  EmptyState,
   Field,
   FilterGrid,
   ManagerShell,
@@ -38,6 +39,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
       <ManagerShell
         title="Repayment proofs"
         description="Read-only monitor for repayment proof submissions and review outcomes."
+        activeTab="proofs"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -50,6 +52,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     <ManagerShell
       title="Repayment proofs"
       description="Monitor submitted evidence, repayment status, and lender review notes."
+      activeTab="proofs"
     >
       <FilterGrid>
         <SelectFilter
@@ -97,6 +100,13 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
       <section className="grid gap-3">
+        {result.proofs.length === 0 ? (
+          <EmptyState
+            title="No repayment proofs found"
+            description="Proofs matching the current filters will appear here."
+          />
+        ) : null}
+
         {result.proofs.map((proof) => (
           <DataCard key={proof.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -112,7 +122,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
                 <StatusBadge status={proof.repaymentStatus} />
               </div>
             </div>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Field label="Borrower" value={<PersonLabel person={proof.borrower} />} />
               <Field label="Lender" value={<PersonLabel person={proof.lender} />} />
               <Field label="Amount due" value={formatCurrency(proof.amountDue)} />

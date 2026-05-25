@@ -3,6 +3,7 @@ import { getShortId, loadManagerAuditLogs } from "@/lib/manager-operations";
 import {
   AccessDenied,
   DataCard,
+  EmptyState,
   Field,
   FilterGrid,
   ManagerShell,
@@ -33,6 +34,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       <ManagerShell
         title="Audit logs"
         description="Read-only workflow event history for manager review."
+        activeTab={null}
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -45,6 +47,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
     <ManagerShell
       title="Audit logs"
       description="Review workflow events by actor, action, target, and date."
+      activeTab={null}
     >
       <FilterGrid>
         <TextFilter label="Action" name="action" defaultValue={filters.action} />
@@ -71,6 +74,13 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
       <section className="grid gap-3">
+        {result.logs.length === 0 ? (
+          <EmptyState
+            title="No audit logs found"
+            description="Audit events matching the current filters will appear here."
+          />
+        ) : null}
+
         {result.logs.map((log) => (
           <DataCard key={log.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -84,7 +94,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
                 {log.targetTable}
               </span>
             </div>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Field
                 label="Actor"
                 value={

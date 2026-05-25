@@ -3,6 +3,7 @@ import { getShortId, loadManagerLoans } from "@/lib/manager-operations";
 import {
   AccessDenied,
   DataCard,
+  EmptyState,
   Field,
   FilterGrid,
   ManagerShell,
@@ -36,6 +37,7 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
       <ManagerShell
         title="Active loans"
         description="Read-only portfolio view for funded loans and repayment schedule progress."
+        activeTab="loans"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -48,6 +50,7 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
     <ManagerShell
       title="Active loans"
       description="Review funded loans by status, borrower, lender, and due date."
+      activeTab="loans"
     >
       <FilterGrid>
         <SelectFilter
@@ -85,6 +88,13 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
       <section className="grid gap-3">
+        {result.loans.length === 0 ? (
+          <EmptyState
+            title="No active loans found"
+            description="Loans matching the current filters will appear here."
+          />
+        ) : null}
+
         {result.loans.map((loan) => (
           <DataCard key={loan.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -96,7 +106,7 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
               </div>
               <StatusBadge status={loan.status} />
             </div>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Field label="Borrower" value={<PersonLabel person={loan.borrower} />} />
               <Field label="Lender" value={<PersonLabel person={loan.lender} />} />
               <Field label="Principal" value={formatCurrency(loan.principalAmount)} />

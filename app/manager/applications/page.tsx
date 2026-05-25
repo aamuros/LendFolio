@@ -7,6 +7,7 @@ import {
 import {
   AccessDenied,
   DataCard,
+  EmptyState,
   Field,
   FilterGrid,
   ManagerShell,
@@ -41,6 +42,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
       <ManagerShell
         title="Applications & offers"
         description="Read-only application and offer lifecycle visibility."
+        activeTab={null}
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -53,6 +55,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
     <ManagerShell
       title="Applications & offers"
       description="Track borrower requests, preferred terms, offer counts, and accepted terms."
+      activeTab={null}
     >
       <FilterGrid>
         <SelectFilter
@@ -100,6 +103,13 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
       <section className="grid gap-3">
+        {result.applications.length === 0 ? (
+          <EmptyState
+            title="No applications found"
+            description="Applications matching the current filters will appear here."
+          />
+        ) : null}
+
         {result.applications.map((application) => (
           <DataCard key={application.id}>
             <div className="flex flex-wrap items-start justify-between gap-3">
@@ -113,7 +123,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
               </div>
               <StatusBadge status={application.status} />
             </div>
-            <dl className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Field
                 label="Borrower"
                 value={<PersonLabel person={application.borrower} />}
