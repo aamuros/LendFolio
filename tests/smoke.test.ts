@@ -141,7 +141,7 @@ describe("manager operations helpers", () => {
     expect(createMetadataPreview("x".repeat(220))).toHaveLength(180);
   });
 
-  it("guards manager detail pages with manager access and not-found handling", () => {
+  it("guards manager detail pages with manager access and clean user error states", () => {
     const userDetailPage = readFileSync(
       "app/manager/users/[id]/page.tsx",
       "utf8",
@@ -152,7 +152,9 @@ describe("manager operations helpers", () => {
     );
 
     expect(userDetailPage).toContain("requireManager");
-    expect(userDetailPage).toContain("notFound()");
+    expect(userDetailPage).toContain("Invalid user link");
+    expect(userDetailPage).toContain("User not found");
+    expect(userDetailPage).not.toContain("notFound()");
     expect(proofDetailPage).toContain("requireManager");
     expect(proofDetailPage).toContain("notFound()");
   });
@@ -170,6 +172,18 @@ describe("manager operations helpers", () => {
     expect(repaymentsPage).toContain("/manager/repayments/");
     expect(repaymentsPage).not.toContain("<details");
     expect(repaymentsPage).not.toContain("<summary");
+  });
+
+  it("keeps manager user detail links on full profile UUIDs", () => {
+    const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
+
+    expect(lookupPage).toContain(
+      "href={`/manager/users/${user.profile.id}`}",
+    );
+    expect(lookupPage).toContain(
+      "href={`/manager/users/${resultItem.borrower.id}`}",
+    );
+    expect(lookupPage).not.toContain("/manager/users/${getShortId");
   });
 
   it("maps proof date presets to submitted_at bounds using Manila dates", () => {

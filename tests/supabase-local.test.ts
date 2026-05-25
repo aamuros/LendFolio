@@ -1962,6 +1962,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     const borrowerDetail = await loadManagerUserDetail(managerClient, ids.borrower);
     expect(borrowerDetail).toMatchObject({
       ok: true,
+      mode: "loaded",
       user: expect.objectContaining({
         role: "borrower",
         profile: expect.objectContaining({ displayName: "Borrower One" }),
@@ -1981,8 +1982,20 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
     expect(invalidUserDetail).toMatchObject({
       ok: false,
+      mode: "invalid-id",
       user: null,
       message: "Invalid user ID.",
+    });
+
+    const missingUserDetail = await loadManagerUserDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingUserDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      user: null,
+      message: "User not found.",
     });
 
     const lenders = await loadManagerUserDirectory(managerClient, {
@@ -2011,6 +2024,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
     expect(lenderDetail).toMatchObject({
       ok: true,
+      mode: "loaded",
       user: expect.objectContaining({
         role: "lender",
         profile: expect.objectContaining({ displayName: "Approved Lender" }),

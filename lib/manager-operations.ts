@@ -107,6 +107,26 @@ export type ManagerUserDetail =
   | ManagerLenderUserDetail
   | ManagerProfileUserDetail;
 
+export type ManagerUserDetailLoadResult =
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      user: ManagerUserDetail;
+    }
+  | {
+      ok: false;
+      mode: "partial";
+      message: string;
+      user: ManagerUserDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      user: null;
+    };
+
 export type ManagerAuditLogRow = {
   id: string;
   timestamp: string;
@@ -726,13 +746,14 @@ export async function loadManagerUserDirectory(
 export async function loadManagerUserDetail(
   supabase: SupabaseServerClient,
   userId: string,
-): Promise<{
-  ok: boolean;
-  message: string;
-  user: ManagerUserDetail | null;
-}> {
+): Promise<ManagerUserDetailLoadResult> {
   if (!isUuid(userId)) {
-    return { ok: false, message: "Invalid user ID.", user: null };
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid user ID.",
+      user: null,
+    };
   }
 
   const { data: profile, error } = await supabase
@@ -742,11 +763,21 @@ export async function loadManagerUserDetail(
     .maybeSingle();
 
   if (error) {
-    return { ok: false, message: "Could not load user.", user: null };
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load user.",
+      user: null,
+    };
   }
 
   if (!profile) {
-    return { ok: true, message: "User not found.", user: null };
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "User not found.",
+      user: null,
+    };
   }
 
   const [directoryUser] = await mapManagerUsers(supabase, [profile]);
@@ -774,18 +805,30 @@ export async function loadManagerUserDetail(
           : mapManagerLoans(supabase, activeLoansResult.data),
       ]);
 
+    const user = {
+      ...directoryUser,
+      portfolio: portfolioMap.get(profile.id) ?? null,
+      applications: mappedApplications.map((application) => ({
+        ...application,
+        activeLoan: loansByApplicationId.get(application.id) ?? null,
+      })),
+      activeLoans,
+    };
+
+    if (activeLoansResult.error) {
+      return {
+        ok: false,
+        mode: "partial",
+        message: "Could not load full user details.",
+        user,
+      };
+    }
+
     return {
-      ok: !activeLoansResult.error,
-      message: activeLoansResult.error ? "Could not load full user details." : "User loaded.",
-      user: {
-        ...directoryUser,
-        portfolio: portfolioMap.get(profile.id) ?? null,
-        applications: mappedApplications.map((application) => ({
-          ...application,
-          activeLoan: loansByApplicationId.get(application.id) ?? null,
-        })),
-        activeLoans,
-      },
+      ok: true,
+      mode: "loaded",
+      message: "User loaded.",
+      user,
     };
   }
 
@@ -808,23 +851,32 @@ export async function loadManagerUserDetail(
       ? []
       : await mapManagerLoans(supabase, activeLoansResult.data);
 
+    const user = {
+      ...directoryUser,
+      lenderProfile: lenderProfiles.get(profile.id) ?? null,
+      offers: offersByLenderId.get(profile.id) ?? [],
+      activeLoans,
+      submittedProofs: submittedProofs.proofs,
+    };
+
+    if (activeLoansResult.error || !submittedProofs.ok) {
+      return {
+        ok: false,
+        mode: "partial",
+        message: "Could not load full user details.",
+        user,
+      };
+    }
+
     return {
-      ok: !activeLoansResult.error && submittedProofs.ok,
-      message:
-        activeLoansResult.error || !submittedProofs.ok
-          ? "Could not load full user details."
-          : "User loaded.",
-      user: {
-        ...directoryUser,
-        lenderProfile: lenderProfiles.get(profile.id) ?? null,
-        offers: offersByLenderId.get(profile.id) ?? [],
-        activeLoans,
-        submittedProofs: submittedProofs.proofs,
-      },
+      ok: true,
+      mode: "loaded",
+      message: "User loaded.",
+      user,
     };
   }
 
-  return { ok: true, message: "User loaded.", user: directoryUser };
+  return { ok: true, mode: "loaded", message: "User loaded.", user: directoryUser };
 }
 
 export async function loadManagerRepaymentProofDetail(

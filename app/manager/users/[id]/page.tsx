@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
@@ -49,7 +48,69 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
 
   const result = await loadManagerUserDetail(access.supabase, id);
 
-  if (!result.user) notFound();
+  if (result.mode === "invalid-id") {
+    return (
+      <ManagerShell
+        title="Invalid user link"
+        description="This user link is not valid."
+        activeTab="lookup"
+        showHeading={false}
+      >
+        <ManagerUserErrorState
+          title="Invalid user link"
+          message="This user link is not valid. Return to users and try again."
+        />
+      </ManagerShell>
+    );
+  }
+
+  if (result.mode === "not-found") {
+    return (
+      <ManagerShell
+        title="User not found"
+        description="This user record could not be found."
+        activeTab="lookup"
+        showHeading={false}
+      >
+        <ManagerUserErrorState
+          title="User not found"
+          message="This user record could not be found. Return to users and try again."
+        />
+      </ManagerShell>
+    );
+  }
+
+  if (result.mode === "supabase") {
+    return (
+      <ManagerShell
+        title="Could not load user"
+        description="This user record could not be loaded."
+        activeTab="lookup"
+        showHeading={false}
+      >
+        <ManagerUserErrorState
+          title="Could not load user"
+          message={result.message}
+        />
+      </ManagerShell>
+    );
+  }
+
+  if (!result.user) {
+    return (
+      <ManagerShell
+        title="Could not load user"
+        description="This user record could not be loaded."
+        activeTab="lookup"
+        showHeading={false}
+      >
+        <ManagerUserErrorState
+          title="Could not load user"
+          message="This user record could not be loaded. Return to users and try again."
+        />
+      </ManagerShell>
+    );
+  }
 
   const { user } = result;
 
@@ -309,6 +370,31 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
         </>
       ) : null}
     </ManagerShell>
+  );
+}
+
+function ManagerUserErrorState({
+  title,
+  message,
+}: {
+  title: string;
+  message: string;
+}) {
+  return (
+    <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+      <Link
+        href="/manager/lookup"
+        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+      >
+        &larr; Back to users
+      </Link>
+      <div className="grid gap-1">
+        <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          {message}
+        </p>
+      </div>
+    </section>
   );
 }
 
