@@ -1,10 +1,11 @@
+import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import { resolveSubmittedDateRangeFilters } from "@/lib/date-ranges";
 import { getShortId, loadManagerRepayments } from "@/lib/manager-operations";
 import {
   AccessDenied,
+  AutoFilterGrid,
   EmptyState,
-  FilterGrid,
   ManagerDetailsLink,
   ManagerRecordHeader,
   ManagerRecordList,
@@ -54,6 +55,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     ...filters,
     ...submittedDateFilters,
   });
+  const hasActiveFilters = Object.values(filters).some(Boolean);
   const proofGridClass =
     "sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_5rem] sm:items-center sm:gap-3";
 
@@ -63,7 +65,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
       description="Monitor submitted evidence, repayment status, and lender review notes."
       activeTab="proofs"
     >
-      <FilterGrid>
+      <AutoFilterGrid>
         <SelectFilter
           label="Proof status"
           name="proofStatus"
@@ -116,7 +118,16 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
           type="date"
           defaultValue={filters.submittedTo}
         />
-      </FilterGrid>
+      </AutoFilterGrid>
+
+      {hasActiveFilters ? (
+        <Link
+          href="/manager/repayments"
+          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+        >
+          Reset filters
+        </Link>
+      ) : null}
 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 

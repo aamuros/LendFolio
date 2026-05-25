@@ -7,6 +7,9 @@ import {
 } from "@/components/manager-bottom-tabs";
 import { getShortId, managerStatusLabels } from "@/lib/manager-operations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AutoFilterForm } from "./auto-filter-form";
+
+export { formatDateOnly, formatDateTime } from "@/lib/manager-date-format";
 
 export const managerNavItems = [
   { href: "/manager/loans", title: "Active loans", description: "Track funded loans and repayment progress." },
@@ -106,6 +109,14 @@ export function FilterGrid({ children }: { children: React.ReactNode }) {
         </Link>
       </div>
     </form>
+  );
+}
+
+export function AutoFilterGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <AutoFilterForm className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+      {children}
+    </AutoFilterForm>
   );
 }
 
@@ -329,25 +340,6 @@ export function formatCurrency(value: number) {
     currency: "PHP",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-export function formatDateOnly(value: string | null) {
-  if (!value) return "Not set";
-
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeZone: "Asia/Manila",
-  }).format(new Date(`${value}T00:00:00`));
-}
-
-export function formatDateTime(value: string | null) {
-  if (!value) return "Not reviewed";
-
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Manila",
-  }).format(new Date(value));
 }
 
 export function PersonLabel({

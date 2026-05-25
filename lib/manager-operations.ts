@@ -50,8 +50,8 @@ export type ManagerLoanRow = {
   repaymentAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
-  startedAt: string;
-  dueDate: string;
+  startedAt: string | null;
+  dueDate: string | null;
   schedule: ManagerRepaymentScheduleSummary;
 };
 
@@ -966,8 +966,8 @@ async function mapManagerLoans(
     repaymentAmount: loan.repayment_amount,
     outstandingBalance: loan.outstanding_balance,
     status: loan.status,
-    startedAt: loan.started_at,
-    dueDate: loan.due_date,
+    startedAt: loan.started_at ?? null,
+    dueDate: loan.due_date ?? null,
     schedule: createScheduleSummary(schedules.get(loan.id) ?? []),
   }));
 }

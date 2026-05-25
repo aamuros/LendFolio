@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
@@ -6,8 +7,8 @@ import {
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
+  AutoFilterGrid,
   EmptyState,
-  FilterGrid,
   ManagerDetailsLink,
   ManagerRecordHeader,
   ManagerShell,
@@ -76,6 +77,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
     "sm:grid-cols-[minmax(0,1.45fr)_0.65fr_0.75fr_minmax(0,1.5fr)_4.5rem] sm:items-center sm:gap-3";
   const borrowerGridClass =
     "sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_0.7fr_minmax(0,1fr)_4.5rem] sm:items-center sm:gap-3";
+  const hasActiveFilters = Boolean(q || filters.role || filters.status);
 
   return (
     <ManagerShell
@@ -83,7 +85,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       description="Review users and find borrower records by name, ID, business location, application ID, or loan purpose."
       activeTab="lookup"
     >
-      <FilterGrid>
+      <AutoFilterGrid>
         <TextFilter label="Search users" name="q" defaultValue={q} />
         <SelectFilter
           label="Role"
@@ -107,7 +109,16 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
             { value: "suspended", label: "Suspended" },
           ]}
         />
-      </FilterGrid>
+      </AutoFilterGrid>
+
+      {hasActiveFilters ? (
+        <Link
+          href="/manager/lookup"
+          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+        >
+          Reset filters
+        </Link>
+      ) : null}
 
       <StatusMessage
         message={directoryResult.message}

@@ -12,6 +12,26 @@ export function AutoFilterForm({
 }) {
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  function omitEmptyFields(form: HTMLFormElement) {
+    const disabledFields: Array<HTMLInputElement | HTMLSelectElement> = [];
+    const fields = form.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+      "input[name], select[name]",
+    );
+
+    fields.forEach((field) => {
+      if (field.value.trim() === "") {
+        field.disabled = true;
+        disabledFields.push(field);
+      }
+    });
+
+    window.requestAnimationFrame(() => {
+      disabledFields.forEach((field) => {
+        field.disabled = false;
+      });
+    });
+  }
+
   function submit(form: HTMLFormElement, delay = 0) {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
 
@@ -23,6 +43,9 @@ export function AutoFilterForm({
   return (
     <form
       className={className}
+      onSubmit={(event) => {
+        omitEmptyFields(event.currentTarget);
+      }}
       onChange={(event) => {
         const target = event.target;
         if (!(target instanceof HTMLInputElement || target instanceof HTMLSelectElement)) {

@@ -12,6 +12,7 @@ import {
   createScheduleSummary,
   getShortId,
 } from "../lib/manager-operations";
+import { formatDateOnly, formatDateTime } from "../lib/manager-date-format";
 import { parseMoneyInput } from "../lib/money-input";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import { isUuid } from "../lib/validation/uuid";
@@ -118,6 +119,25 @@ describe("money input parsing", () => {
 });
 
 describe("manager operations helpers", () => {
+  it("formats manager date-only values without throwing on missing or invalid input", () => {
+    expect(formatDateOnly(null)).toBe("Not provided");
+    expect(formatDateOnly(undefined)).toBe("Not provided");
+    expect(formatDateOnly("")).toBe("Not provided");
+    expect(formatDateOnly("bad-date")).toBe("Not provided");
+    expect(formatDateOnly("2026-05-25")).toBe("May 25, 2026");
+    expect(formatDateOnly("2026-05-25T02:30:00.000Z")).toBe("May 25, 2026");
+  });
+
+  it("formats manager date-time values without throwing on missing or invalid input", () => {
+    expect(formatDateTime(null)).toBe("Not reviewed");
+    expect(formatDateTime(undefined)).toBe("Not reviewed");
+    expect(formatDateTime("")).toBe("Not reviewed");
+    expect(formatDateTime("bad-date")).toBe("Not provided");
+    expect(formatDateTime("2026-05-25T02:30:00.000Z")).toContain(
+      "May 25, 2026",
+    );
+  });
+
   it("summarizes preferred-term repayment schedules", () => {
     const summary = createScheduleSummary([
       { due_date: "2026-06-25", status: "verified" },
