@@ -169,7 +169,7 @@ export function AppBottomTabs<T extends string>({
       ref={navRef}
       aria-label={ariaLabel}
       onFocusCapture={() => setIsVisible(true)}
-      className={`fixed inset-x-0 bottom-0 z-40 px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] will-change-transform sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${
+      className={`fixed inset-x-0 bottom-0 z-40 px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] will-change-transform motion-reduce:transform-none motion-reduce:transition-none sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${
         isVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
       }`}
       style={{
@@ -177,18 +177,25 @@ export function AppBottomTabs<T extends string>({
           ? "translateY(0)"
           : "translateY(calc(100% + 20px + env(safe-area-inset-bottom)))",
         transition:
-          "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease",
+          "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease",
       }}
     >
-      {isFloatingMenuOpen && floatingMenu ? (
-        <div className="mx-auto mb-3 max-w-lg px-2">{floatingMenu}</div>
-      ) : null}
+      <div
+        className={`mx-auto mb-3 max-w-lg transform-gpu px-2 transition-all duration-300 ease-out motion-reduce:transform-none motion-reduce:transition-none ${
+          isFloatingMenuOpen && floatingMenu
+            ? "pointer-events-auto translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-6 opacity-0"
+        }`}
+        aria-hidden={isFloatingMenuOpen ? undefined : true}
+      >
+        {floatingMenu}
+      </div>
       <div
         className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-[var(--border)] bg-white/95 p-2 shadow-[0_18px_45px_rgba(22,22,22,0.16)] backdrop-blur"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const className = `flex h-[3.25rem] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${
+          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${
             isActive
               ? "bg-[var(--primary)] !text-white shadow-sm"
               : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]/70 hover:text-[var(--foreground)]"

@@ -264,11 +264,16 @@ describe("manager operations helpers", () => {
     );
 
     expect(appBottomTabs).toContain('| "others"');
-    expect(appBottomTabs).toContain("isFloatingMenuOpen && floatingMenu");
+    expect(appBottomTabs).toContain("pointer-events-auto translate-y-0 opacity-100");
+    expect(appBottomTabs).toContain("pointer-events-none translate-y-6 opacity-0");
+    expect(appBottomTabs).toContain("aria-hidden={isFloatingMenuOpen ? undefined : true}");
     expect(appBottomTabs).toContain("aria-expanded=");
     expect(appBottomTabs).toContain("onAnyTabPress?:");
     expect(appBottomTabs).toContain("navRef.current?.contains(target)");
     expect(appBottomTabs).toContain("!isVisible && isFloatingMenuOpen");
+    expect(appBottomTabs).toContain("transform 280ms cubic-bezier(0.16, 1, 0.3, 1)");
+    expect(appBottomTabs).toContain("transition-all duration-200 ease-out active:scale-[0.97]");
+    expect(appBottomTabs).toContain("motion-reduce:transition-none");
 
     expect(managerBottomTabs).toContain('label: "Home"');
     expect(managerBottomTabs).toContain('label: "Users"');
@@ -282,10 +287,18 @@ describe("manager operations helpers", () => {
     expect(managerBottomTabs).toContain('label: "Apps"');
     expect(managerBottomTabs).toContain('ariaLabel: "Applications and offers"');
     expect(managerBottomTabs).toContain("rounded-full");
-    expect(managerBottomTabs).toContain("-translate-y-6 scale-105");
-    expect(managerBottomTabs).toContain('activeTab={isOthersOpen ? "others" : visibleActiveTab}');
+    expect(managerBottomTabs).toContain("origin-bottom");
+    expect(managerBottomTabs).toContain("duration-300");
+    expect(managerBottomTabs).toContain(
+      "-translate-y-7 scale-105 hover:-translate-y-8 hover:scale-110",
+    );
+    expect(managerBottomTabs).toContain("hover:scale-105");
+    expect(managerBottomTabs).toContain("active:scale-95");
+    expect(managerBottomTabs).toContain('style={{ transitionDelay: `${index * 45}ms` }}');
+    expect(managerBottomTabs).toContain('activeTab={visibleActiveTab}');
     expect(managerBottomTabs).toContain("onAnyTabPress=");
     expect(managerBottomTabs).not.toContain("grid grid-cols-3 gap-2 rounded-3xl");
+    expect(managerBottomTabs).toContain("isOthersOpen ||");
     expect(managerBottomTabs).toContain('activeTab === "proofs"');
     expect(managerBottomTabs).toContain('activeTab === "audit"');
     expect(managerBottomTabs).toContain('activeTab === "applications"');

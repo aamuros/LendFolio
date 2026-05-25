@@ -41,6 +41,7 @@ const floatingLinks = [
 export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null }) {
   const [isOthersOpen, setIsOthersOpen] = useState(false);
   const visibleActiveTab =
+    isOthersOpen ||
     activeTab === "proofs" ||
     activeTab === "audit" ||
     activeTab === "applications"
@@ -50,7 +51,7 @@ export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null 
   return (
     <AppBottomTabs
       tabs={tabs}
-      activeTab={isOthersOpen ? "others" : visibleActiveTab}
+      activeTab={visibleActiveTab}
       ariaLabel="Manager sections"
       onTabChange={(tab) => {
         if (tab === "others") {
@@ -74,7 +75,7 @@ export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null 
 
 function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
   const baseBubbleClass =
-    "grid size-16 transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.65rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition duration-200 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
+    "grid size-16 origin-bottom transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.65rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition-all duration-300 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] active:scale-95 motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
 
   return (
     <div
@@ -85,8 +86,8 @@ function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
       {floatingLinks.map((link, index) => {
         const positionClass =
           index === 1
-            ? "-translate-y-6 scale-105 hover:-translate-y-7"
-            : "translate-y-0 hover:-translate-y-1";
+            ? "-translate-y-7 scale-105 hover:-translate-y-8 hover:scale-110"
+            : "translate-y-0 hover:-translate-y-1 hover:scale-105";
 
         return (
           <Link
@@ -95,6 +96,7 @@ function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
             aria-label={link.ariaLabel}
             onClick={onClose}
             className={`${baseBubbleClass} ${positionClass}`}
+            style={{ transitionDelay: `${index * 45}ms` }}
           >
             <FloatingMenuIcon name={link.icon} />
             <span className="max-w-14 leading-tight">{link.label}</span>
