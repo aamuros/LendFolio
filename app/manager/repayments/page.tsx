@@ -5,6 +5,10 @@ import {
   AccessDenied,
   EmptyState,
   FilterGrid,
+  ManagerDetailsLink,
+  ManagerRecordHeader,
+  ManagerRecordList,
+  ManagerRecordRow,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -13,7 +17,6 @@ import {
   TextFilter,
   formatCurrency,
   formatDateOnly,
-  formatDateTime,
 } from "../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -51,6 +54,8 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     ...filters,
     ...submittedDateFilters,
   });
+  const proofGridClass =
+    "sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_5rem] sm:items-center sm:gap-3";
 
   return (
     <ManagerShell
@@ -115,7 +120,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
-      <section className="grid gap-2">
+      <section>
         {result.proofs.length === 0 ? (
           <EmptyState
             title="No repayment proofs found"
@@ -124,89 +129,86 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
         ) : null}
 
         {result.proofs.length > 0 ? (
-          <div className="hidden rounded-t-2xl border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] sm:grid sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_auto] sm:items-center sm:gap-3">
-            <span>Proof</span>
-            <span>Borrower</span>
-            <span>Lender</span>
-            <span>Amount</span>
-            <span>Status</span>
-            <span className="justify-self-end">Details</span>
-          </div>
-        ) : null}
+          <ManagerRecordList>
+            <ManagerRecordHeader className={proofGridClass}>
+              <span>Proof</span>
+              <span>Borrower</span>
+              <span>Lender</span>
+              <span>Amount</span>
+              <span>Status</span>
+              <span className="justify-self-end">Details</span>
+            </ManagerRecordHeader>
 
-        {result.proofs.map((proof) => (
-          <details
-            key={proof.id}
-            className="group rounded-2xl border border-[var(--border)] bg-white shadow-sm [&>summary::-webkit-details-marker]:hidden"
-          >
-            <summary className="grid cursor-pointer list-none gap-2 px-3 py-3 text-sm transition hover:bg-[var(--muted)]/20 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_auto] sm:items-center sm:gap-3">
-              <div className="min-w-0">
-                <h2 className="truncate text-sm font-semibold">{proof.fileName}</h2>
-                <p className="text-xs text-[var(--muted-foreground)]">
-                  Loan {getShortId(proof.activeLoanId)} · installment{" "}
-                  {proof.installmentNumber}
-                </p>
-              </div>
-              <div className="min-w-0 text-xs sm:text-sm">
-                <PersonLabel person={proof.borrower} />
-              </div>
-              <div className="min-w-0 text-xs sm:text-sm">
-                <PersonLabel person={proof.lender} />
-              </div>
-              <div className="text-sm font-semibold">
-                {formatCurrency(proof.amountDue)}
-                <span className="block text-xs font-normal text-[var(--muted-foreground)]">
-                  Due {formatDateOnly(proof.dueDate)}
-                </span>
-              </div>
-              <div className="flex items-center">
-                <StatusBadge status={proof.proofStatus} />
-              </div>
-              <span className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--foreground)] transition group-open:border-[var(--primary)] group-open:text-[var(--primary)] sm:justify-self-end">
-                <span className="group-open:hidden">View details</span>
-                <span className="hidden group-open:inline">Hide details</span>
-              </span>
-            </summary>
-            <div className="border-t border-[var(--border)] bg-[var(--muted)]/10 px-3 py-2">
-              <dl className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
-                {proof.repaymentStatus !== proof.proofStatus ? (
-                  <div className="flex items-center gap-2">
-                    <dt className="font-semibold text-[var(--muted-foreground)]">
-                      Repayment
-                    </dt>
-                    <dd>
-                      <StatusBadge status={proof.repaymentStatus} />
-                    </dd>
+            {result.proofs.map((proof) => (
+              <ManagerRecordRow key={proof.id}>
+                <article
+                  className={`grid gap-2 px-3 py-2.5 sm:grid ${proofGridClass}`}
+                >
+                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold">
+                        {proof.fileName}
+                      </h2>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Loan {getShortId(proof.activeLoanId)} · installment{" "}
+                        {proof.installmentNumber}
+                      </p>
+                    </div>
+
+                    <ManagerDetailsLink href={`/manager/repayments/${proof.id}`} />
                   </div>
-                ) : null}
-                <div className="flex items-center gap-2">
-                  <dt className="font-semibold text-[var(--muted-foreground)]">
-                    Submitted
-                  </dt>
-                  <dd className="font-medium">
-                    {formatDateTime(proof.submittedAt)}
-                  </dd>
-                </div>
-                <div className="flex items-center gap-2">
-                  <dt className="font-semibold text-[var(--muted-foreground)]">
-                    Reviewed
-                  </dt>
-                  <dd className="font-medium">
-                    {formatDateTime(proof.reviewedAt)}
-                  </dd>
-                </div>
-                <div className="flex min-w-0 flex-1 items-center gap-2">
-                  <dt className="font-semibold text-[var(--muted-foreground)]">
-                    Notes
-                  </dt>
-                  <dd className="min-w-0 break-words font-medium">
-                    {proof.reviewNotes ?? "No notes"}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-          </details>
-        ))}
+
+                  <p className="truncate text-xs text-[var(--muted-foreground)] sm:hidden">
+                    {proof.borrower.displayName} → {proof.lender.displayName}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(proof.amountDue)}
+                    </span>
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      Due {formatDateOnly(proof.dueDate)}
+                    </span>
+                    <StatusBadge status={proof.proofStatus} />
+                  </div>
+
+                  <div className="hidden min-w-0 sm:block">
+                    <h2 className="truncate text-sm font-semibold">
+                      {proof.fileName}
+                    </h2>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      Loan {getShortId(proof.activeLoanId)} · installment{" "}
+                      {proof.installmentNumber}
+                    </p>
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={proof.borrower} />
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={proof.lender} />
+                  </div>
+
+                  <div className="hidden text-sm font-semibold sm:block">
+                    {formatCurrency(proof.amountDue)}
+                    <span className="block text-xs font-normal text-[var(--muted-foreground)]">
+                      Due {formatDateOnly(proof.dueDate)}
+                    </span>
+                  </div>
+
+                  <div className="hidden items-center sm:flex">
+                    <StatusBadge status={proof.proofStatus} />
+                  </div>
+
+                  <span className="hidden sm:inline-flex sm:justify-self-end">
+                    <ManagerDetailsLink href={`/manager/repayments/${proof.id}`} />
+                  </span>
+                </article>
+              </ManagerRecordRow>
+            ))}
+          </ManagerRecordList>
+        ) : null}
       </section>
     </ManagerShell>
   );

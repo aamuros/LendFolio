@@ -20,11 +20,13 @@ export function ManagerShell({
   title,
   description,
   activeTab = "home",
+  showHeading = true,
   children,
 }: {
   title: string;
   description: string;
   activeTab?: ManagerTab | null;
+  showHeading?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -39,12 +41,14 @@ export function ManagerShell({
           </Link>
           <ManagerAccountState />
         </header>
-        <section className="grid gap-1">
-          <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {description}
-          </p>
-        </section>
+        {showHeading ? (
+          <section className="grid gap-1">
+            <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+              {description}
+            </p>
+          </section>
+        ) : null}
         {children}
         <ManagerBottomTabs activeTab={activeTab} />
       </div>
@@ -161,6 +165,72 @@ export function SelectFilter({
   );
 }
 
+export function ManagerRecordList({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
+      {children}
+    </section>
+  );
+}
+
+export function ManagerRecordHeader({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`hidden border-b border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] sm:grid ${className}`}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function ManagerDetailsLink({
+  href,
+  label = "Details",
+}: {
+  href: string;
+  label?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex h-7 w-20 items-center justify-center rounded-full border border-[var(--border)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+    >
+      {label}
+    </Link>
+  );
+}
+
+export function RoleBadge({ role }: { role: string }) {
+  const className =
+    role === "manager"
+      ? "bg-[#ffe8ef] text-[#9f1744]"
+      : role === "lender"
+        ? "bg-[#e6f4ff] text-[#075985]"
+        : "bg-[var(--muted)] text-[var(--muted-foreground)]";
+
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${className}`}
+    >
+      {role}
+    </span>
+  );
+}
+
+export function ManagerRecordRow({ children }: { children: React.ReactNode }) {
+  return (
+    <article className="border-b border-[var(--border)] last:border-b-0">
+      {children}
+    </article>
+  );
+}
+
 export function DataCard({ children }: { children: React.ReactNode }) {
   return (
     <article className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
@@ -176,6 +246,40 @@ export function Field({ label, value }: { label: string; value: React.ReactNode 
         {label}
       </dt>
       <dd className="mt-1 text-sm font-semibold break-words">{value}</dd>
+    </div>
+  );
+}
+
+export function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-3">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <dl className="grid gap-2 text-sm">{children}</dl>
+    </section>
+  );
+}
+
+export function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--border)]/70 pb-2 last:border-b-0 last:pb-0">
+      <dt className="shrink-0 text-xs font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="min-w-0 text-right text-sm font-medium break-words">
+        {value}
+      </dd>
     </div>
   );
 }
@@ -196,7 +300,7 @@ export function StatusBadge({ status }: { status: string }) {
           : "bg-[#f7f9fc] text-[var(--foreground)]";
 
   return (
-    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>
       {managerStatusLabels[status as keyof typeof managerStatusLabels] ?? status}
     </span>
   );

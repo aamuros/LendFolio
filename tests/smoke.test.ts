@@ -141,6 +141,37 @@ describe("manager operations helpers", () => {
     expect(createMetadataPreview("x".repeat(220))).toHaveLength(180);
   });
 
+  it("guards manager detail pages with manager access and not-found handling", () => {
+    const userDetailPage = readFileSync(
+      "app/manager/users/[id]/page.tsx",
+      "utf8",
+    );
+    const proofDetailPage = readFileSync(
+      "app/manager/repayments/[id]/page.tsx",
+      "utf8",
+    );
+
+    expect(userDetailPage).toContain("requireManager");
+    expect(userDetailPage).toContain("notFound()");
+    expect(proofDetailPage).toContain("requireManager");
+    expect(proofDetailPage).toContain("notFound()");
+  });
+
+  it("keeps manager lookup and proof lists link-based instead of expandable", () => {
+    const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
+    const repaymentsPage = readFileSync(
+      "app/manager/repayments/page.tsx",
+      "utf8",
+    );
+
+    expect(lookupPage).toContain("/manager/users/");
+    expect(lookupPage).not.toContain("<details");
+    expect(lookupPage).not.toContain("<summary");
+    expect(repaymentsPage).toContain("/manager/repayments/");
+    expect(repaymentsPage).not.toContain("<details");
+    expect(repaymentsPage).not.toContain("<summary");
+  });
+
   it("maps proof date presets to submitted_at bounds using Manila dates", () => {
     const now = new Date("2026-05-25T04:00:00.000Z");
 

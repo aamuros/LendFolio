@@ -57,6 +57,10 @@ export type ManagerLoanRow = {
 export type ManagerRepaymentProofRow = {
   id: string;
   fileName: string;
+  fileType: string | null;
+  fileSize: number | null;
+  storageBucket: string;
+  storagePath: string;
   proofStatus: Database["public"]["Enums"]["repayment_proof_status"];
   repaymentStatus: Database["public"]["Enums"]["repayment_status"];
   borrower: ManagerProfileSummary;
@@ -69,6 +73,39 @@ export type ManagerRepaymentProofRow = {
   reviewedAt: string | null;
   reviewNotes: string | null;
 };
+
+export type ManagerBorrowerUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "borrower" }
+> & {
+  portfolio: BorrowerPortfolioRow | null;
+  applications: Array<
+    ManagerApplicationRow & {
+      activeLoan: ManagerLoanRow | null;
+    }
+  >;
+  activeLoans: ManagerLoanRow[];
+};
+
+export type ManagerLenderUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "lender" }
+> & {
+  lenderProfile: LenderProfileRow | null;
+  offers: LoanOfferRow[];
+  activeLoans: ManagerLoanRow[];
+  submittedProofs: ManagerRepaymentProofRow[];
+};
+
+export type ManagerProfileUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "manager" }
+>;
+
+export type ManagerUserDetail =
+  | ManagerBorrowerUserDetail
+  | ManagerLenderUserDetail
+  | ManagerProfileUserDetail;
 
 export type ManagerAuditLogRow = {
   id: string;
@@ -423,6 +460,10 @@ export async function loadManagerRepayments(
         {
           id: proof.id,
           fileName: proof.file_name,
+          fileType: proof.file_type,
+          fileSize: proof.file_size,
+          storageBucket: proof.storage_bucket,
+          storagePath: proof.storage_path,
           proofStatus: proof.status,
           repaymentStatus: schedule.status,
           borrower: getProfileSummary(profiles, proof.borrower_id),
@@ -679,6 +720,175 @@ export async function loadManagerUserDirectory(
     ok: true,
     message: users.length ? "Users loaded." : "No users matched these filters.",
     users,
+  };
+}
+
+export async function loadManagerUserDetail(
+  supabase: SupabaseServerClient,
+  userId: string,
+): Promise<{
+  ok: boolean;
+  message: string;
+  user: ManagerUserDetail | null;
+}> {
+  if (!isUuid(userId)) {
+    return { ok: false, message: "Invalid user ID.", user: null };
+  }
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select(profileSelect)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: "Could not load user.", user: null };
+  }
+
+  if (!profile) {
+    return { ok: true, message: "User not found.", user: null };
+  }
+
+  const [directoryUser] = await mapManagerUsers(supabase, [profile]);
+
+  if (directoryUser.role === "borrower") {
+    const [portfolioMap, applicationsMap, activeLoansResult] = await Promise.all([
+      loadPortfoliosByBorrowerIds(supabase, [profile.id]),
+      loadApplicationsByBorrowerIds(supabase, [profile.id]),
+      supabase
+        .from("active_loans")
+        .select(activeLoanSelect)
+        .eq("borrower_id", profile.id)
+        .order("due_date", { ascending: true }),
+    ]);
+    const applicationRows = applicationsMap.get(profile.id) ?? [];
+    const [mappedApplications, loansByApplicationId, activeLoans] =
+      await Promise.all([
+        mapManagerApplications(supabase, applicationRows),
+        loadLoansByApplicationIds(
+          supabase,
+          applicationRows.map((application) => application.id),
+        ),
+        activeLoansResult.error
+          ? Promise.resolve([])
+          : mapManagerLoans(supabase, activeLoansResult.data),
+      ]);
+
+    return {
+      ok: !activeLoansResult.error,
+      message: activeLoansResult.error ? "Could not load full user details." : "User loaded.",
+      user: {
+        ...directoryUser,
+        portfolio: portfolioMap.get(profile.id) ?? null,
+        applications: mappedApplications.map((application) => ({
+          ...application,
+          activeLoan: loansByApplicationId.get(application.id) ?? null,
+        })),
+        activeLoans,
+      },
+    };
+  }
+
+  if (directoryUser.role === "lender") {
+    const [lenderProfiles, offersByLenderId, activeLoansResult, submittedProofs] =
+      await Promise.all([
+        loadLenderProfilesByUserIds(supabase, [profile.id]),
+        loadOffersByLenderIds(supabase, [profile.id]),
+        supabase
+          .from("active_loans")
+          .select(activeLoanSelect)
+          .eq("lender_id", profile.id)
+          .order("due_date", { ascending: true }),
+        loadManagerRepayments(supabase, {
+          proofStatus: "submitted",
+          lender: profile.id,
+        }),
+      ]);
+    const activeLoans = activeLoansResult.error
+      ? []
+      : await mapManagerLoans(supabase, activeLoansResult.data);
+
+    return {
+      ok: !activeLoansResult.error && submittedProofs.ok,
+      message:
+        activeLoansResult.error || !submittedProofs.ok
+          ? "Could not load full user details."
+          : "User loaded.",
+      user: {
+        ...directoryUser,
+        lenderProfile: lenderProfiles.get(profile.id) ?? null,
+        offers: offersByLenderId.get(profile.id) ?? [],
+        activeLoans,
+        submittedProofs: submittedProofs.proofs,
+      },
+    };
+  }
+
+  return { ok: true, message: "User loaded.", user: directoryUser };
+}
+
+export async function loadManagerRepaymentProofDetail(
+  supabase: SupabaseServerClient,
+  proofId: string,
+): Promise<{
+  ok: boolean;
+  message: string;
+  proof: ManagerRepaymentProofRow | null;
+}> {
+  if (!isUuid(proofId)) {
+    return { ok: false, message: "Invalid repayment proof ID.", proof: null };
+  }
+
+  const { data: proof, error } = await supabase
+    .from("repayment_proofs")
+    .select(repaymentProofSelect)
+    .eq("id", proofId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: "Could not load repayment proof.", proof: null };
+  }
+
+  if (!proof) {
+    return { ok: true, message: "Repayment proof not found.", proof: null };
+  }
+
+  const [schedules, profiles] = await Promise.all([
+    loadSchedulesByIds(supabase, [proof.repayment_schedule_id]),
+    loadProfilesByIds(supabase, [proof.borrower_id, proof.lender_id]),
+  ]);
+  const schedule = schedules.get(proof.repayment_schedule_id);
+
+  if (!schedule) {
+    return {
+      ok: false,
+      message: "Could not load repayment schedule for this proof.",
+      proof: null,
+    };
+  }
+
+  return {
+    ok: true,
+    message: "Repayment proof loaded.",
+    proof: {
+      id: proof.id,
+      fileName: proof.file_name,
+      fileType: proof.file_type,
+      fileSize: proof.file_size,
+      storageBucket: proof.storage_bucket,
+      storagePath: proof.storage_path,
+      proofStatus: proof.status,
+      repaymentStatus: schedule.status,
+      borrower: getProfileSummary(profiles, proof.borrower_id),
+      lender: getProfileSummary(profiles, proof.lender_id),
+      activeLoanId: proof.active_loan_id,
+      installmentNumber: schedule.installment_number,
+      amountDue: schedule.amount_due,
+      dueDate: schedule.due_date,
+      submittedAt: proof.submitted_at,
+      reviewedAt: proof.reviewed_at,
+      reviewNotes: proof.review_notes,
+    },
   };
 }
 

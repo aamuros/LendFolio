@@ -8,6 +8,8 @@ import {
   loadManagerLookup,
   loadManagerOverview,
   loadManagerRepayments,
+  loadManagerRepaymentProofDetail,
+  loadManagerUserDetail,
   loadManagerUserDirectory,
 } from "../lib/manager-operations";
 import type { Database, Json } from "../lib/supabase/types";
@@ -1831,6 +1833,31 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
     expect(submittedProofRow).toBeDefined();
 
+    const proofDetail = await loadManagerRepaymentProofDetail(
+      managerClient,
+      submittedProof.proof_id ?? "",
+    );
+    expect(proofDetail).toMatchObject({
+      ok: true,
+      proof: expect.objectContaining({
+        id: submittedProof.proof_id,
+        proofStatus: "submitted",
+        repaymentStatus: "submitted",
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        lender: expect.objectContaining({ displayName: "Approved Lender" }),
+      }),
+    });
+
+    const invalidProofDetail = await loadManagerRepaymentProofDetail(
+      managerClient,
+      "not-a-proof-id",
+    );
+    expect(invalidProofDetail).toMatchObject({
+      ok: false,
+      proof: null,
+      message: "Invalid repayment proof ID.",
+    });
+
     for (const range of ["this_week", "this_month", "this_year"]) {
       const rangeFilters = resolveSubmittedDateRangeFilters({
         range,
@@ -1932,6 +1959,32 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       ]),
     );
 
+    const borrowerDetail = await loadManagerUserDetail(managerClient, ids.borrower);
+    expect(borrowerDetail).toMatchObject({
+      ok: true,
+      user: expect.objectContaining({
+        role: "borrower",
+        profile: expect.objectContaining({ displayName: "Borrower One" }),
+        portfolio: expect.objectContaining({ location: "Quezon City" }),
+        applications: [
+          expect.objectContaining({
+            id: applicationId,
+            activeLoan: expect.objectContaining({ id: activeLoanId }),
+          }),
+        ],
+      }),
+    });
+
+    const invalidUserDetail = await loadManagerUserDetail(
+      managerClient,
+      "not-a-user-id",
+    );
+    expect(invalidUserDetail).toMatchObject({
+      ok: false,
+      user: null,
+      message: "Invalid user ID.",
+    });
+
     const lenders = await loadManagerUserDirectory(managerClient, {
       role: "lender",
     });
@@ -1951,6 +2004,23 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         }),
       ]),
     );
+
+    const lenderDetail = await loadManagerUserDetail(
+      managerClient,
+      ids.approvedLender,
+    );
+    expect(lenderDetail).toMatchObject({
+      ok: true,
+      user: expect.objectContaining({
+        role: "lender",
+        profile: expect.objectContaining({ displayName: "Approved Lender" }),
+        lenderProfile: expect.objectContaining({
+          organization_name: "Approved Capital",
+        }),
+        activeLoans: [expect.objectContaining({ id: activeLoanId })],
+        submittedProofs: [expect.objectContaining({ id: submittedProof.proof_id })],
+      }),
+    });
 
     const managers = await loadManagerUserDirectory(managerClient, {
       role: "manager",
