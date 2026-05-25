@@ -364,13 +364,46 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("loan_balance_updated");
   });
 
-  it("limits offer creation to approved lenders in RLS", () => {
+  it("hardens repayment proof re-upload lifecycle", () => {
     const migration = readFileSync(
-      "supabase/migrations/20260524073652_harden_foundation_profiles_rls_workflow.sql",
+      "supabase/migrations/20260525014423_harden_repayment_proof_lifecycle_v2.sql",
       "utf8",
     );
 
-    expect(migration).toContain("loan_offers_insert_approved_lender");
+    expect(migration).toContain("loan_repayment_schedules.status in ('due', 'late', 'rejected')");
+    expect(migration).toContain("A proof is already waiting for lender review.");
+    expect(migration).toContain("This repayment is already verified.");
+    expect(migration).toContain("'repayment_proof_submitted'");
+    expect(migration).toContain("'repayment_proof_rejected'");
+    expect(migration).toContain("'repayment_proof_verified'");
+    expect(migration).toContain("'loan_balance_updated'");
+  });
+
+  it("moves offer creation into an approved-lender RPC", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260525013039_harden_offer_workflow_and_repayment_schedules.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("function app_private.create_loan_offer");
+    expect(migration).toContain("for update");
+    expect(migration).toContain("revoke insert on public.loan_offers");
     expect(migration).toContain("app_private.is_approved_lender");
+  });
+
+  it("defines accepted-lender closed-context visibility and term schedules", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260525013039_harden_offer_workflow_and_repayment_schedules.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "lender_has_accepted_offer_on_application",
+    );
+    expect(migration).toContain("portfolio_has_accepted_lender_offer");
+    expect(migration).toContain("loan_applications_select_access");
+    expect(migration).toContain("borrower_portfolios_select_access");
+    expect(migration).toContain("v_installment_count := case");
+    expect(migration).toContain("repayment_schedule_created");
   });
 });

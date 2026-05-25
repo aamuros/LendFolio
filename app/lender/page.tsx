@@ -373,6 +373,8 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
               <h4 className="text-sm font-semibold">Repayment schedule</h4>
               {activeLoan.schedule.map((repayment) => {
                 const latestProof = repayment.latestProof;
+                const currentSubmittedProof =
+                  latestProof?.status === "submitted" ? latestProof : null;
 
                 return (
                   <div
@@ -396,15 +398,20 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
                         label="Proof"
                         value={
                           latestProof
-                            ? `${latestProof.fileName} (${latestProof.status})`
+                            ? formatProofStatus(latestProof.status)
                             : "Not submitted"
                         }
                       />
                     </dl>
-                    {latestProof?.status === "submitted" ? (
-                      <LenderRepaymentProofActions
-                        proofId={latestProof.id}
-                        proofUrl={latestProof.viewUrl}
+                    {latestProof?.reviewNotes ? (
+                      <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm leading-6 text-[#8f1d1d]">
+                        {latestProof.reviewNotes}
+                      </p>
+                    ) : null}
+                    {repayment.proofs.length > 0 ? (
+                      <LenderProofHistory
+                        currentSubmittedProofId={currentSubmittedProof?.id ?? null}
+                        proofs={repayment.proofs}
                       />
                     ) : null}
                   </div>
@@ -415,6 +422,72 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
         </div>
       ) : null}
     </article>
+  );
+}
+
+function LenderProofHistory({
+  currentSubmittedProofId,
+  proofs,
+}: {
+  currentSubmittedProofId: string | null;
+  proofs: NonNullable<LenderOfferReview["activeLoan"]>["schedule"][number]["proofs"];
+}) {
+  return (
+    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-white px-3 py-3">
+      <p className="text-sm font-semibold">Proof attempts</p>
+      {proofs.map((proof) => (
+        <div
+          key={proof.id}
+          className="grid gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
+        >
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div className="grid gap-1">
+              <p className="break-words text-sm font-semibold">{proof.fileName}</p>
+              <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+                Submitted {formatDate(proof.submittedAt)}
+                {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
+              </p>
+            </div>
+            <ProofStatusBadge status={proof.status} />
+          </div>
+          {proof.reviewNotes ? (
+            <p className="rounded-xl bg-[var(--muted)]/50 px-3 py-2 text-sm leading-6 text-[var(--muted-foreground)]">
+              {proof.reviewNotes}
+            </p>
+          ) : null}
+          {proof.id === currentSubmittedProofId ? (
+            <LenderRepaymentProofActions
+              proofId={proof.id}
+              proofUrl={proof.viewUrl}
+            />
+          ) : proof.viewUrl ? (
+            <a
+              href={proof.viewUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+            >
+              View proof
+            </a>
+          ) : null}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function ProofStatusBadge({ status }: { status: string }) {
+  const className =
+    status === "rejected"
+      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      : status === "verified"
+        ? "bg-[#e1f5ee] text-[#0f5f45]"
+        : "bg-[#f7f9fc] text-[var(--foreground)]";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+      {formatProofStatus(status)}
+    </span>
   );
 }
 
@@ -446,4 +519,20 @@ function formatDateOnly(value: string) {
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
   }).format(new Date(`${value}T00:00:00`));
+}
+
+function formatProofStatus(status: string) {
+  if (status === "submitted") {
+    return "Waiting for review";
+  }
+
+  if (status === "verified") {
+    return "Verified";
+  }
+
+  if (status === "rejected") {
+    return "Rejected";
+  }
+
+  return status;
 }

@@ -45,6 +45,12 @@ type AcceptanceResult = {
   active_loan_id?: string;
   declined_offer_count?: number;
 };
+type OfferRpcResult = {
+  ok: boolean;
+  message?: string;
+  offer_id?: string;
+  loan_application_id?: string;
+};
 type RepaymentProofResult = {
   ok: boolean;
   message?: string;
@@ -53,6 +59,10 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
+
+function toCents(value: number | string) {
+  return Math.round(Number(value) * 100);
+}
 
 function createSupabaseClient(key: string): TestClient {
   return createClient<Database>(supabaseUrl, key, {
@@ -106,6 +116,7 @@ async function cleanWorkflowRows(admin: TestClient) {
 async function createPortfolioAndApplication(
   client: TestClient,
   borrowerId: string = ids.borrower,
+  preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
 ) {
   const { data: portfolio, error: portfolioError } = await client
     .from("borrower_portfolios")
@@ -136,7 +147,7 @@ async function createPortfolioAndApplication(
       borrower_portfolio_id: portfolio.id,
       requested_amount: 25000,
       purpose: "Inventory restock",
-      preferred_term: "3_months",
+      preferred_term: preferredTerm,
       remarks: "Review against current cash flow.",
     })
     .select("id, status")
@@ -156,29 +167,33 @@ async function createPortfolioAndApplication(
 
 async function createOffer(
   client: TestClient,
-  lenderId: string,
+  _lenderId: string,
   applicationId: string,
-  lenderName: string,
+  _lenderName: string,
   approvedAmount = 22000,
-  borrowerId: string = ids.borrower,
 ) {
-  const { data, error } = await client
+  const { data: rpcData, error } = await client.rpc("create_loan_offer", {
+    p_loan_application_id: applicationId,
+    p_approved_amount: approvedAmount,
+    p_repayment_amount: approvedAmount + 1800,
+    p_fees: 500,
+    p_due_date: "2026-08-24",
+    p_remarks: "Offer based on submitted business profile.",
+  });
+
+  const result = rpcData as Json as OfferRpcResult | null;
+
+  if (error || !result?.ok || !result.offer_id) {
+    return { data: null, error, result };
+  }
+
+  const { data, error: offerError } = await client
     .from("loan_offers")
-    .insert({
-      loan_application_id: applicationId,
-      borrower_id: borrowerId,
-      lender_id: lenderId,
-      lender_name: lenderName,
-      approved_amount: approvedAmount,
-      repayment_amount: approvedAmount + 1800,
-      fees: 500,
-      due_date: "2026-08-24",
-      remarks: "Offer based on submitted business profile.",
-    })
     .select("id, status")
+    .eq("id", result.offer_id)
     .single<InsertedRow>();
 
-  return { data, error };
+  return { data, error: offerError, result };
 }
 
 async function acceptOfferAndLoadActiveLoan(
@@ -211,7 +226,11 @@ async function createAcceptedLoanWithSchedule(
   borrowerClient: TestClient,
   lenderClient: TestClient,
 ) {
-  const { applicationId } = await createPortfolioAndApplication(borrowerClient);
+  const { applicationId } = await createPortfolioAndApplication(
+    borrowerClient,
+    ids.borrower,
+    "1_month",
+  );
   const offer = await createOffer(
     lenderClient,
     ids.approvedLender,
@@ -245,6 +264,53 @@ async function createAcceptedLoanWithSchedule(
     activeLoanId,
     repaymentScheduleId: schedule?.id as string,
     amountDue: Number(schedule?.amount_due),
+  };
+}
+
+async function createAcceptedLoanWithTerm(
+  borrowerClient: TestClient,
+  lenderClient: TestClient,
+  preferredTerm: Database["public"]["Enums"]["preferred_term"],
+  repaymentAmount = 23801,
+) {
+  const { applicationId } = await createPortfolioAndApplication(
+    borrowerClient,
+    ids.borrower,
+    preferredTerm,
+  );
+  const offer = await createOffer(
+    lenderClient,
+    ids.approvedLender,
+    applicationId,
+    "Approved Capital",
+    repaymentAmount - 1800,
+  );
+
+  expect(offer.error).toBeNull();
+  if (!offer.data) {
+    throw new Error("Expected offer insert to return a row.");
+  }
+
+  const { activeLoanId } = await acceptOfferAndLoadActiveLoan(
+    borrowerClient,
+    offer.data.id,
+    applicationId,
+  );
+
+  const { data: schedules, error: schedulesError } = await borrowerClient
+    .from("loan_repayment_schedules")
+    .select("id, installment_number, amount_due, due_date, status")
+    .eq("active_loan_id", activeLoanId)
+    .order("installment_number");
+
+  expect(schedulesError).toBeNull();
+
+  return {
+    applicationId,
+    offerId: offer.data.id as string,
+    activeLoanId,
+    schedules: schedules ?? [],
+    repaymentAmount,
   };
 }
 
@@ -330,9 +396,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
 
     expect(blockedOffer.data).toBeNull();
-    expect(blockedOffer.error?.message).toContain(
-      "row-level security policy",
-    );
+    expect(blockedOffer.error).toBeNull();
+    expect(blockedOffer.result).toMatchObject({ ok: false });
 
     const approvedOffer = await createOffer(
       approvedLender,
@@ -362,6 +427,112 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         }),
       ]),
     );
+  });
+
+  it("creates lender offers through the RPC and preserves offer audit logging", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const offer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+    );
+
+    expect(offer.error).toBeNull();
+    expect(offer.result).toMatchObject({
+      ok: true,
+      loan_application_id: applicationId,
+    });
+    expect(offer.result?.offer_id).toBeTruthy();
+    expect(offer.data).toMatchObject({ status: "pending" });
+
+    const { data: auditLogs, error: auditError } = await manager
+      .from("audit_logs")
+      .select("action, target_table, target_id")
+      .eq("action", "offer_created")
+      .eq("target_id", offer.result?.offer_id ?? "");
+
+    expect(auditError).toBeNull();
+    expect(auditLogs).toEqual([
+      expect.objectContaining({
+        action: "offer_created",
+        target_table: "loan_offers",
+      }),
+    ]);
+  });
+
+  it("blocks invalid offer creation through the RPC", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const pendingOffer = await createOffer(
+      pendingLender,
+      ids.pendingLender,
+      applicationId,
+      "Pending Capital",
+    );
+    expect(pendingOffer.error).toBeNull();
+    expect(pendingOffer.result).toMatchObject({ ok: false });
+
+    const borrowerOffer = await borrower.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 22000,
+      p_repayment_amount: 23800,
+      p_fees: 500,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(borrowerOffer.error).toBeNull();
+    expect(borrowerOffer.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Only approved lenders can send offers.",
+    });
+
+    const pastDueDate = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 23000,
+      p_repayment_amount: 24800,
+      p_fees: 500,
+      p_due_date: "2020-01-01",
+      p_remarks: "",
+    });
+    expect(pastDueDate.error).toBeNull();
+    expect(pastDueDate.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Choose a future due date.",
+    });
+
+    const today = new Date().toISOString().slice(0, 10);
+    const todayDueDate = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 23000,
+      p_repayment_amount: 24800,
+      p_fees: 500,
+      p_due_date: today,
+      p_remarks: "",
+    });
+    expect(todayDueDate.error).toBeNull();
+    expect(todayDueDate.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Choose a future due date.",
+    });
+
+    const repaymentBelowApproved = await approvedLender.rpc(
+      "create_loan_offer",
+      {
+        p_loan_application_id: applicationId,
+        p_approved_amount: 24000,
+        p_repayment_amount: 23000,
+        p_fees: 500,
+        p_due_date: "2026-08-24",
+        p_remarks: "",
+      },
+    );
+    expect(repaymentBelowApproved.error).toBeNull();
+    expect(repaymentBelowApproved.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Repayment amount must be at least the approved amount.",
+    });
   });
 
   it("accepts only one competing offer atomically and records workflow audit logs", async () => {
@@ -475,20 +646,23 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       .select(
         "active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status",
       )
-      .eq("active_loan_id", activeLoanId ?? "");
+      .eq("active_loan_id", activeLoanId ?? "")
+      .order("installment_number");
 
     expect(scheduleError).toBeNull();
-    expect(schedule).toEqual([
-      expect.objectContaining({
-        active_loan_id: activeLoanId,
-        borrower_id: ids.borrower,
-        lender_id: acceptedOffer?.lender_id,
-        installment_number: 1,
-        amount_due: activeLoans?.[0].repayment_amount,
-        due_date: "2026-08-24",
-        status: "due",
-      }),
-    ]);
+    expect(schedule).toHaveLength(3);
+    expect(schedule?.map((row) => row.installment_number)).toEqual([1, 2, 3]);
+    expect(schedule?.at(-1)).toMatchObject({
+      active_loan_id: activeLoanId,
+      borrower_id: ids.borrower,
+      lender_id: acceptedOffer?.lender_id,
+      installment_number: 3,
+      due_date: "2026-08-24",
+      status: "due",
+    });
+    expect(
+      schedule?.reduce((total, row) => total + toCents(row.amount_due), 0),
+    ).toBe(toCents(activeLoans?.[0].repayment_amount ?? 0));
 
     if (!acceptedOffer) {
       throw new Error("Expected an accepted offer.");
@@ -519,7 +693,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         .eq("active_loan_id", activeLoanId ?? "");
 
     expect(duplicateScheduleError).toBeNull();
-    expect(duplicateScheduleCheck).toHaveLength(1);
+    expect(duplicateScheduleCheck).toHaveLength(3);
 
     const { data: borrowerReadableLoan, error: borrowerLoanReadError } =
       await borrower
@@ -579,9 +753,11 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
 
     expect(blockedOfferAfterAcceptance.data).toBeNull();
-    expect(blockedOfferAfterAcceptance.error?.message).toContain(
-      "row-level security policy",
-    );
+    expect(blockedOfferAfterAcceptance.error).toBeNull();
+    expect(blockedOfferAfterAcceptance.result).toMatchObject({
+      ok: false,
+      message: "This application is not open for offers.",
+    });
 
     const { data: auditLogs, error: auditError } = await manager
       .from("audit_logs")
@@ -674,9 +850,11 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
 
     expect(blockedOffer.data).toBeNull();
-    expect(blockedOffer.error?.message).toContain(
-      "row-level security policy",
-    );
+    expect(blockedOffer.error).toBeNull();
+    expect(blockedOffer.result).toMatchObject({
+      ok: false,
+      message: "This application is not open for offers.",
+    });
   });
 
   it("lets a borrower decline a pending offer and prevents later acceptance", async () => {
@@ -794,10 +972,43 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       business_type: "sari_sari_store",
       location: "Quezon City",
     });
+
+    const { data: borrowerApplication, error: borrowerApplicationError } =
+      await borrower
+        .from("loan_applications")
+        .select("id")
+        .eq("id", applicationId);
+    expect(borrowerApplicationError).toBeNull();
+    expect(borrowerApplication).toHaveLength(1);
+
+    const { data: borrowerPortfolio, error: borrowerPortfolioError } =
+      await borrower
+        .from("borrower_portfolios")
+        .select("id")
+        .eq("id", portfolioId);
+    expect(borrowerPortfolioError).toBeNull();
+    expect(borrowerPortfolio).toHaveLength(1);
+
+    const { data: managerApplication, error: managerApplicationError } =
+      await manager
+        .from("loan_applications")
+        .select("id")
+        .eq("id", applicationId);
+    expect(managerApplicationError).toBeNull();
+    expect(managerApplication).toHaveLength(1);
+
+    const { data: managerPortfolio, error: managerPortfolioError } =
+      await manager
+        .from("borrower_portfolios")
+        .select("id")
+        .eq("id", portfolioId);
+    expect(managerPortfolioError).toBeNull();
+    expect(managerPortfolio).toHaveLength(1);
   });
 
-  it("blocks unrelated lenders from closed application and active loan context", async () => {
-    const { applicationId } = await createPortfolioAndApplication(borrower);
+  it("blocks unrelated and pending lenders from closed application, portfolio, and active loan context", async () => {
+    const { portfolioId, applicationId } =
+      await createPortfolioAndApplication(borrower);
     const offer = await createOffer(
       approvedLender,
       ids.approvedLender,
@@ -824,6 +1035,14 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(applicationError).toBeNull();
     expect(application).toEqual([]);
 
+    const { data: portfolio, error: portfolioError } = await partnerLender
+      .from("borrower_portfolios")
+      .select("id")
+      .eq("id", portfolioId);
+
+    expect(portfolioError).toBeNull();
+    expect(portfolio).toEqual([]);
+
     const { data: activeLoan, error: activeLoanError } = await partnerLender
       .from("active_loans")
       .select("id")
@@ -831,6 +1050,22 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
     expect(activeLoanError).toBeNull();
     expect(activeLoan).toEqual([]);
+
+    const { data: pendingApplication, error: pendingApplicationError } =
+      await pendingLender
+        .from("loan_applications")
+        .select("id")
+        .eq("id", applicationId);
+    expect(pendingApplicationError).toBeNull();
+    expect(pendingApplication).toEqual([]);
+
+    const { data: pendingPortfolio, error: pendingPortfolioError } =
+      await pendingLender
+        .from("borrower_portfolios")
+        .select("id")
+        .eq("id", portfolioId);
+    expect(pendingPortfolioError).toBeNull();
+    expect(pendingPortfolio).toEqual([]);
   });
 
   it("blocks duplicate pending offers from the same lender at the database level", async () => {
@@ -854,7 +1089,11 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     );
 
     expect(secondOffer.data).toBeNull();
-    expect(secondOffer.error?.code).toBe("23505");
+    expect(secondOffer.error).toBeNull();
+    expect(secondOffer.result).toMatchObject({
+      ok: false,
+      message: "You already have a pending offer for this application.",
+    });
 
     const { data: pendingOffers, error: pendingOffersError } = await manager
       .from("loan_offers")
@@ -896,7 +1135,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         .select(scheduleSelect)
         .eq("active_loan_id", activeLoanId);
     expect(borrowerScheduleError).toBeNull();
-    expect(borrowerSchedule).toHaveLength(1);
+    expect(borrowerSchedule).toHaveLength(3);
 
     const { data: lenderSchedule, error: lenderScheduleError } =
       await approvedLender
@@ -904,7 +1143,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         .select(scheduleSelect)
         .eq("active_loan_id", activeLoanId);
     expect(lenderScheduleError).toBeNull();
-    expect(lenderSchedule).toHaveLength(1);
+    expect(lenderSchedule).toHaveLength(3);
 
     const { data: otherBorrowerSchedule, error: otherBorrowerScheduleError } =
       await otherBorrower
@@ -927,7 +1166,133 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       .select(scheduleSelect)
       .eq("active_loan_id", activeLoanId);
     expect(managerScheduleError).toBeNull();
-    expect(managerSchedule).toHaveLength(1);
+    expect(managerSchedule).toHaveLength(3);
+  });
+
+  it("creates repayment schedules from the application preferred term", async () => {
+    const cases: Array<[
+      Database["public"]["Enums"]["preferred_term"],
+      number,
+    ]> = [
+      ["1_month", 1],
+      ["3_months", 3],
+      ["6_months", 6],
+      ["12_months", 12],
+    ];
+
+    for (const [preferredTerm, installmentCount] of cases) {
+      await cleanWorkflowRows(admin);
+
+      const { offerId, activeLoanId, schedules, repaymentAmount } =
+        await createAcceptedLoanWithTerm(
+          borrower,
+          approvedLender,
+          preferredTerm,
+          23801,
+        );
+
+      expect(schedules).toHaveLength(installmentCount);
+      expect(schedules.map((row) => row.installment_number)).toEqual(
+        Array.from({ length: installmentCount }, (_value, index) => index + 1),
+      );
+      expect(schedules.at(-1)?.due_date).toBe("2026-08-24");
+      expect(
+        schedules.reduce((total, row) => total + toCents(row.amount_due), 0),
+      ).toBe(toCents(repaymentAmount));
+
+      const duplicateAcceptance = await borrower.rpc("accept_loan_offer", {
+        p_offer_id: offerId,
+      });
+      expect(duplicateAcceptance.error).toBeNull();
+      expect(duplicateAcceptance.data as Json as AcceptanceResult).toMatchObject(
+        {
+          ok: true,
+          active_loan_id: activeLoanId,
+        },
+      );
+
+      const { data: duplicateSchedules, error: duplicateSchedulesError } =
+        await manager
+          .from("loan_repayment_schedules")
+          .select("id")
+          .eq("active_loan_id", activeLoanId);
+      expect(duplicateSchedulesError).toBeNull();
+      expect(duplicateSchedules).toHaveLength(installmentCount);
+    }
+  });
+
+  it("verifying one installment reduces only that installment and pays the loan at zero balance", async () => {
+    const { activeLoanId, schedules, repaymentAmount } =
+      await createAcceptedLoanWithTerm(
+        borrower,
+        approvedLender,
+        "3_months",
+        23801,
+      );
+    const firstSchedule = schedules[0];
+    const secondSchedule = schedules[1];
+    const finalSchedule = schedules[2];
+
+    const firstSubmitResult = await submitProofForSchedule(
+      borrower,
+      firstSchedule.id,
+      activeLoanId,
+    );
+    expect(firstSubmitResult.ok).toBe(true);
+
+    const firstVerifyResult = await approvedLender.rpc(
+      "review_repayment_proof",
+      {
+        p_proof_id: firstSubmitResult.proof_id ?? "",
+        p_decision: "verified",
+        p_review_notes: "",
+      },
+    );
+    expect(firstVerifyResult.error).toBeNull();
+    expect(
+      firstVerifyResult.data as Json as RepaymentProofResult,
+    ).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+      loan_status: "active",
+    });
+
+    const { data: loanAfterFirst, error: loanAfterFirstError } =
+      await approvedLender
+        .from("active_loans")
+        .select("outstanding_balance, status")
+        .eq("id", activeLoanId)
+        .single();
+    expect(loanAfterFirstError).toBeNull();
+    expect(toCents(loanAfterFirst?.outstanding_balance ?? 0)).toBe(
+      toCents(repaymentAmount) - toCents(firstSchedule.amount_due),
+    );
+    expect(loanAfterFirst).toMatchObject({ status: "active" });
+
+    for (const schedule of [secondSchedule, finalSchedule]) {
+      const submitResult = await submitProofForSchedule(
+        borrower,
+        schedule.id,
+        activeLoanId,
+      );
+      expect(submitResult.ok).toBe(true);
+
+      const verifyResult = await approvedLender.rpc("review_repayment_proof", {
+        p_proof_id: submitResult.proof_id ?? "",
+        p_decision: "verified",
+        p_review_notes: "",
+      });
+      expect(verifyResult.error).toBeNull();
+    }
+
+    const { data: paidLoan, error: paidLoanError } = await approvedLender
+      .from("active_loans")
+      .select("outstanding_balance, status")
+      .eq("id", activeLoanId)
+      .single();
+    expect(paidLoanError).toBeNull();
+    expect(toCents(paidLoan?.outstanding_balance ?? 0)).toBe(0);
+    expect(paidLoan).toMatchObject({ status: "paid" });
   });
 
   it("lets a borrower submit repayment proof for their own active loan repayment", async () => {
@@ -1190,5 +1555,154 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         expect.objectContaining({ action: "repayment_proof_rejected" }),
       ]),
     );
+  });
+
+  it("supports repayment proof rejection, re-upload history, and final verification", async () => {
+    const { activeLoanId, amountDue, repaymentScheduleId } =
+      await createAcceptedLoanWithSchedule(borrower, approvedLender);
+
+    const firstSubmitResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "initial",
+    );
+    expect(firstSubmitResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const duplicateSubmitResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "duplicate",
+    );
+    expect(duplicateSubmitResult).toMatchObject({
+      ok: false,
+      message: "A proof is already waiting for lender review.",
+    });
+
+    const unrelatedReview = await partnerLender.rpc("review_repayment_proof", {
+      p_proof_id: firstSubmitResult.proof_id ?? "",
+      p_decision: "rejected",
+      p_review_notes: "Not your loan.",
+    });
+    expect(unrelatedReview.error).toBeNull();
+    expect(unrelatedReview.data as Json as RepaymentProofResult).toMatchObject({
+      ok: false,
+    });
+
+    const pendingLenderReview = await pendingLender.rpc("review_repayment_proof", {
+      p_proof_id: firstSubmitResult.proof_id ?? "",
+      p_decision: "rejected",
+      p_review_notes: "Pending lender cannot review.",
+    });
+    expect(pendingLenderReview.error).toBeNull();
+    expect(pendingLenderReview.data as Json as RepaymentProofResult).toMatchObject({
+      ok: false,
+      message: "Only approved lenders can review repayment proof.",
+    });
+
+    const { data: loanBeforeRejection, error: loanBeforeRejectionError } =
+      await approvedLender
+        .from("active_loans")
+        .select("outstanding_balance")
+        .eq("id", activeLoanId)
+        .single();
+    expect(loanBeforeRejectionError).toBeNull();
+
+    const rejectResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: firstSubmitResult.proof_id ?? "",
+      p_decision: "rejected",
+      p_review_notes: "Receipt amount is unclear.",
+    });
+    expect(rejectResult.error).toBeNull();
+    expect(rejectResult.data as Json as RepaymentProofResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: loanAfterRejection, error: loanAfterRejectionError } =
+      await approvedLender
+        .from("active_loans")
+        .select("outstanding_balance")
+        .eq("id", activeLoanId)
+        .single();
+    expect(loanAfterRejectionError).toBeNull();
+    expect(Number(loanAfterRejection?.outstanding_balance)).toBe(
+      Number(loanBeforeRejection?.outstanding_balance),
+    );
+
+    const secondSubmitResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "corrected",
+    );
+    expect(secondSubmitResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+    expect(secondSubmitResult.proof_id).not.toBe(firstSubmitResult.proof_id);
+
+    const { data: proofHistory, error: proofHistoryError } = await manager
+      .from("repayment_proofs")
+      .select("id, status, review_notes")
+      .eq("repayment_schedule_id", repaymentScheduleId)
+      .order("created_at", { ascending: true });
+
+    expect(proofHistoryError).toBeNull();
+    expect(proofHistory).toEqual([
+      expect.objectContaining({
+        id: firstSubmitResult.proof_id,
+        status: "rejected",
+        review_notes: "Receipt amount is unclear.",
+      }),
+      expect.objectContaining({
+        id: secondSubmitResult.proof_id,
+        status: "submitted",
+        review_notes: null,
+      }),
+    ]);
+
+    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: secondSubmitResult.proof_id ?? "",
+      p_decision: "verified",
+      p_review_notes: "Payment matched.",
+    });
+    expect(verifyResult.error).toBeNull();
+    expect(verifyResult.data as Json as RepaymentProofResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+      loan_status: "paid",
+    });
+
+    const { data: loanAfterVerification, error: loanAfterVerificationError } =
+      await approvedLender
+        .from("active_loans")
+        .select("outstanding_balance, status")
+        .eq("id", activeLoanId)
+        .single();
+    expect(loanAfterVerificationError).toBeNull();
+    expect(Number(loanAfterVerification?.outstanding_balance)).toBe(
+      Number(loanBeforeRejection?.outstanding_balance) - amountDue,
+    );
+    expect(loanAfterVerification).toMatchObject({ status: "paid" });
+
+    const submitAfterVerificationResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "after-verified",
+    );
+    expect(submitAfterVerificationResult).toMatchObject({
+      ok: false,
+      message: "This repayment is already verified.",
+    });
   });
 });

@@ -37,6 +37,7 @@ const defaultValues: LoanApplicationInput = {
 const collapsedApplicationsStorageKey =
   "lendfolio.borrower.collapsedApplications";
 const collapsedOffersStorageKey = "lendfolio.borrower.collapsedOffers";
+const collapsedRepaymentsStorageKey = "lendfolio.borrower.collapsedRepayments";
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
 type ProofFeedback = {
@@ -65,6 +66,9 @@ export function BorrowerLoanApplicationPanel({
     Set<string>
   >(new Set());
   const [expandedOfferIds, setExpandedOfferIds] = useState<Set<string>>(
+    new Set(),
+  );
+  const [expandedRepaymentIds, setExpandedRepaymentIds] = useState<Set<string>>(
     new Set(),
   );
   const [editingApplicationId, setEditingApplicationId] = useState<
@@ -110,6 +114,12 @@ export function BorrowerLoanApplicationPanel({
             getDefaultExpandedOfferIds(
               nextApplications,
               readStoredIdSet(collapsedOffersStorageKey),
+            ),
+          );
+          setExpandedRepaymentIds(
+            getDefaultExpandedRepaymentIds(
+              nextApplications,
+              readStoredIdSet(collapsedRepaymentsStorageKey),
             ),
           );
           setLoadState(nextHasPortfolio ? "ready" : "blocked");
@@ -365,6 +375,12 @@ export function BorrowerLoanApplicationPanel({
 
       if (refreshed.ok) {
         setApplications(refreshed.applications);
+        setExpandedRepaymentIds(
+          getDefaultExpandedRepaymentIds(
+            refreshed.applications,
+            readStoredIdSet(collapsedRepaymentsStorageKey),
+          ),
+        );
       }
 
       setProofFeedback((current) => ({
@@ -405,6 +421,23 @@ export function BorrowerLoanApplicationPanel({
       } else {
         next.add(offerId);
         setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
+      }
+
+      return next;
+    });
+  }
+
+  function toggleRepayment(repaymentId: string) {
+    setSuccessMessage("");
+    setExpandedRepaymentIds((current) => {
+      const next = new Set(current);
+
+      if (next.has(repaymentId)) {
+        next.delete(repaymentId);
+        setStoredIdCollapsed(collapsedRepaymentsStorageKey, repaymentId, true);
+      } else {
+        next.add(repaymentId);
+        setStoredIdCollapsed(collapsedRepaymentsStorageKey, repaymentId, false);
       }
 
       return next;
@@ -509,8 +542,10 @@ export function BorrowerLoanApplicationPanel({
           />
           <BorrowerLoansPanel
             applications={applications}
+            expandedRepaymentIds={expandedRepaymentIds}
             onNavigate={onNavigate}
             onSubmitProof={onSubmitProof}
+            onToggleRepayment={toggleRepayment}
             proofFeedback={proofFeedback}
           />
         </>
@@ -1136,13 +1171,17 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 
 function BorrowerLoansPanel({
   applications,
+  expandedRepaymentIds,
   onNavigate,
   onSubmitProof,
+  onToggleRepayment,
   proofFeedback,
 }: {
   applications: BorrowerLoanApplicationSummary[];
+  expandedRepaymentIds: Set<string>;
   onNavigate?: (tab: BorrowerTab) => void;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  onToggleRepayment: (repaymentScheduleId: string) => void;
   proofFeedback: Record<string, ProofFeedback>;
 }) {
   const activeLoans = applications.flatMap((application) =>
@@ -1164,8 +1203,10 @@ function BorrowerLoansPanel({
       {activeLoans.map((loan) => (
         <ActiveLoanCard
           key={loan.id}
+          expandedRepaymentIds={expandedRepaymentIds}
           loan={loan}
           onSubmitProof={onSubmitProof}
+          onToggleRepayment={onToggleRepayment}
           proofFeedback={proofFeedback}
         />
       ))}
@@ -1174,12 +1215,16 @@ function BorrowerLoansPanel({
 }
 
 function ActiveLoanCard({
+  expandedRepaymentIds,
   loan,
   onSubmitProof,
+  onToggleRepayment,
   proofFeedback,
 }: {
+  expandedRepaymentIds: Set<string>;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  onToggleRepayment: (repaymentScheduleId: string) => void;
   proofFeedback: Record<string, ProofFeedback>;
 }) {
   const paidAmount = Math.max(loan.repaymentAmount - loan.outstandingBalance, 0);
@@ -1268,8 +1313,10 @@ function ActiveLoanCard({
             {loan.schedule.map((repayment) => (
               <RepaymentScheduleItem
                 key={repayment.id}
+                isExpanded={expandedRepaymentIds.has(repayment.id)}
                 repayment={repayment}
                 onSubmitProof={onSubmitProof}
+                onToggle={() => onToggleRepayment(repayment.id)}
                 proofFeedback={proofFeedback[repayment.id] ?? null}
               />
             ))}
@@ -1285,10 +1332,14 @@ function ActiveLoanCard({
 }
 
 function RepaymentScheduleItem({
+  isExpanded,
+  onToggle,
   repayment,
   onSubmitProof,
   proofFeedback,
 }: {
+  isExpanded: boolean;
+  onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   proofFeedback: ProofFeedback | null;
@@ -1305,71 +1356,123 @@ function RepaymentScheduleItem({
     repayment.status === "verified" || latestProof?.status === "verified";
   const isSubmitted =
     repayment.status === "submitted" || latestProof?.status === "submitted";
+  const repaymentDetailsId = `repayment-${repayment.id}-details`;
+  const statusText = getRepaymentStatusText(repayment.status, latestProof?.status);
 
   return (
     <div className="grid gap-3 bg-white px-4 py-4">
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
-        <div className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h5 className="text-sm font-semibold">
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={repaymentDetailsId}
+        onClick={onToggle}
+        className="grid gap-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:grid-cols-[1fr_auto] sm:items-center"
+      >
+        <span className="grid gap-1">
+          <span className="flex flex-wrap items-center gap-2">
+            <span className="text-sm font-semibold">
               Installment {repayment.installmentNumber}
-            </h5>
+            </span>
             <RepaymentStatusPill status={repayment.status} />
-          </div>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Due {formatDateOnly(repayment.dueDate)}
-          </p>
-        </div>
-        <MoneyText value={repayment.amountDue} className="text-xl font-semibold" />
-      </div>
-
-      {isVerified ? (
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          Payment verified.
-          {latestProof?.fileName ? (
-            <>
-              {" "}
-              <span className="break-words font-semibold text-[var(--foreground)]">
-                {latestProof.fileName}
-              </span>
-            </>
-          ) : null}
-        </p>
-      ) : latestProof ? (
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          Latest proof:{" "}
-          <span className="break-words font-semibold text-[var(--foreground)]">
-            {latestProof.fileName}
+            {latestProof ? <ProofStatusPill status={latestProof.status} /> : null}
           </span>
-        </p>
-      ) : null}
+          <span className="text-sm text-[var(--muted-foreground)]">
+            Due {formatDateOnly(repayment.dueDate)} · {statusText}
+          </span>
+        </span>
+        <span className="flex flex-wrap items-center gap-3 sm:justify-end">
+          <MoneyText value={repayment.amountDue} className="text-xl font-semibold" />
+          <span className="text-sm font-semibold text-[var(--primary)]">
+            {isExpanded ? "Hide" : "Details"}
+          </span>
+        </span>
+      </button>
 
-      {isRejected ? (
-        <ActionBanner
-          tone="error"
-          title="Proof rejected"
-          message={
-            latestProof?.reviewNotes ||
-            "Upload a clearer proof so the lender can review it again."
-          }
-        />
-      ) : null}
-      {isSubmitted && !isRejected ? (
-        <ActionBanner
-          tone="info"
-          title="Proof submitted. Waiting for lender review."
-          message=""
-        />
-      ) : null}
+      {isExpanded ? (
+        <div id={repaymentDetailsId} className="grid gap-3 border-t border-[var(--border)] pt-3">
+          <div className="grid gap-3 sm:grid-cols-3">
+            <SummaryItem label="Repayment" value={formatRepaymentStatus(repayment.status)} />
+            <SummaryItem
+              label="Latest proof"
+              value={latestProof ? formatProofStatus(latestProof.status) : "Not submitted"}
+            />
+            <SummaryItem label="Amount due" value={formatMoney(repayment.amountDue)} />
+          </div>
 
-      {canUploadProof ? (
-        <RepaymentProofForm
-          isRejected={isRejected}
-          repaymentId={repayment.id}
-          proofFeedback={proofFeedback}
-          onSubmitProof={onSubmitProof}
-        />
+          {isVerified ? (
+            <ActionBanner
+              tone="success"
+              title="Repayment verified"
+              message="This repayment is paid."
+            />
+          ) : null}
+
+          {isRejected ? (
+            <ActionBanner
+              tone="error"
+              title="Proof rejected"
+              message={
+                latestProof?.reviewNotes ||
+                "Upload a clearer proof so the lender can review it again."
+              }
+            />
+          ) : null}
+          {isSubmitted && !isRejected ? (
+            <ActionBanner
+              tone="info"
+              title="Waiting for lender review"
+              message="The latest proof is submitted."
+            />
+          ) : null}
+
+          {repayment.proofs.length > 0 ? (
+            <ProofHistory proofs={repayment.proofs} />
+          ) : null}
+
+          {canUploadProof ? (
+            <RepaymentProofForm
+              isRejected={isRejected}
+              repaymentId={repayment.id}
+              proofFeedback={proofFeedback}
+              onSubmitProof={onSubmitProof}
+            />
+          ) : null}
+        </div>
       ) : null}
+    </div>
+  );
+}
+
+function ProofHistory({
+  proofs,
+}: {
+  proofs: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number]["proofs"];
+}) {
+  return (
+    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
+      <p className="text-sm font-semibold">Proof history</p>
+      <div className="grid gap-2">
+        {proofs.map((proof) => (
+          <div
+            key={proof.id}
+            className="grid gap-1 border-t border-[var(--border)] pt-2 text-sm first:border-t-0 first:pt-0"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="break-words font-semibold">{proof.fileName}</span>
+              <ProofStatusPill status={proof.status} />
+            </div>
+            <p className="text-[var(--muted-foreground)]">
+              Submitted {formatDate(proof.submittedAt)}
+              {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
+            </p>
+            {proof.reviewNotes ? (
+              <p className="rounded-xl bg-white px-3 py-2 text-[var(--muted-foreground)]">
+                {proof.reviewNotes}
+              </p>
+            ) : null}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1766,6 +1869,45 @@ function formatRepaymentStatus(status: string) {
   return status;
 }
 
+function formatProofStatus(status: string) {
+  if (status === "submitted") {
+    return "Waiting for review";
+  }
+
+  if (status === "verified") {
+    return "Verified";
+  }
+
+  if (status === "rejected") {
+    return "Rejected";
+  }
+
+  return status;
+}
+
+function getRepaymentStatusText(
+  repaymentStatus: string,
+  proofStatus?: string,
+) {
+  if (repaymentStatus === "verified" || proofStatus === "verified") {
+    return "Repayment verified";
+  }
+
+  if (repaymentStatus === "submitted" || proofStatus === "submitted") {
+    return "Waiting for lender review";
+  }
+
+  if (repaymentStatus === "rejected" || proofStatus === "rejected") {
+    return "Proof rejected, upload a new proof";
+  }
+
+  if (repaymentStatus === "late") {
+    return "Upload proof when paid";
+  }
+
+  return "Upload proof when paid";
+}
+
 function LoanStatusPill({ status }: { status: string }) {
   return (
     <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold text-[#0f5f45]">
@@ -1799,6 +1941,21 @@ function RepaymentStatusPill({ status }: { status: string }) {
   return (
     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
       {formatRepaymentStatus(status)}
+    </span>
+  );
+}
+
+function ProofStatusPill({ status }: { status: string }) {
+  const className =
+    status === "rejected"
+      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      : status === "verified"
+        ? "bg-[#e1f5ee] text-[#0f5f45]"
+        : "bg-[#f7f9fc] text-[var(--foreground)]";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+      {formatProofStatus(status)}
     </span>
   );
 }
@@ -1914,6 +2071,28 @@ function getDefaultExpandedOfferIds(
         )
         .map((offer) => offer.id),
     ),
+  );
+}
+
+function getDefaultExpandedRepaymentIds(
+  applications: BorrowerLoanApplicationSummary[],
+  collapsedRepaymentIds = new Set<string>(),
+) {
+  const activeLoans = applications.flatMap((application) =>
+    application.activeLoan ? [application.activeLoan] : [],
+  );
+  const priorityRepayments = activeLoans
+    .flatMap((loan) => loan.schedule)
+    .filter(
+      (repayment) =>
+        ["rejected", "submitted", "due", "late"].includes(repayment.status) ||
+        ["rejected", "submitted"].includes(repayment.latestProof?.status ?? ""),
+    );
+
+  return new Set(
+    priorityRepayments
+      .map((repayment) => repayment.id)
+      .filter((id) => !collapsedRepaymentIds.has(id)),
   );
 }
 

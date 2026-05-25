@@ -767,6 +767,13 @@ export async function submitRepaymentProof(
       };
     }
 
+    if (repayment.status === "submitted") {
+      return {
+        ok: false,
+        message: "A proof is already waiting for lender review.",
+      };
+    }
+
     const { data: activeLoan, error: activeLoanError } = await supabase
       .from("active_loans")
       .select("id, status")

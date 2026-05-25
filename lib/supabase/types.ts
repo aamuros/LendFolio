@@ -425,6 +425,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_loan_offer: {
+        Args: {
+          p_loan_application_id: string;
+          p_approved_amount: number;
+          p_repayment_amount: number;
+          p_fees: number;
+          p_due_date: string;
+          p_remarks?: string | null;
+        };
+        Returns: Json;
+      };
       review_repayment_proof: {
         Args: {
           p_proof_id: string;
