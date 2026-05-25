@@ -1,5 +1,6 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveSubmittedDateRangeFilters } from "../lib/date-ranges";
 import {
   loadManagerApplications,
   loadManagerAuditLogs,
@@ -7,6 +8,7 @@ import {
   loadManagerLookup,
   loadManagerOverview,
   loadManagerRepayments,
+  loadManagerUserDirectory,
 } from "../lib/manager-operations";
 import type { Database, Json } from "../lib/supabase/types";
 
@@ -1824,6 +1826,27 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       expect.objectContaining({ id: submittedProof.proof_id }),
     ]);
 
+    const submittedProofRow = repayments.proofs.find(
+      (proof) => proof.id === submittedProof.proof_id,
+    );
+    expect(submittedProofRow).toBeDefined();
+
+    for (const range of ["this_week", "this_month", "this_year"]) {
+      const rangeFilters = resolveSubmittedDateRangeFilters({
+        range,
+        now: new Date(submittedProofRow?.submittedAt ?? ""),
+      });
+      const filteredRepayments = await loadManagerRepayments(managerClient, {
+        proofStatus: "submitted",
+        repaymentStatus: "submitted",
+        ...rangeFilters,
+      });
+
+      expect(filteredRepayments.proofs).toEqual([
+        expect.objectContaining({ id: submittedProof.proof_id }),
+      ]);
+    }
+
     const applications = await loadManagerApplications(managerClient, {
       status: "accepted",
     });
@@ -1884,5 +1907,64 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         ],
       }),
     ]);
+
+    const allUsers = await loadManagerUserDirectory(managerClient, {});
+    expect(allUsers).toMatchObject({ ok: true });
+    expect(new Set(allUsers.users.map((user) => user.role))).toEqual(
+      new Set(["borrower", "lender", "manager"]),
+    );
+
+    const borrowers = await loadManagerUserDirectory(managerClient, {
+      role: "borrower",
+    });
+    expect(borrowers.users.length).toBeGreaterThan(0);
+    expect(borrowers.users.every((user) => user.role === "borrower")).toBe(true);
+    expect(borrowers.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "borrower",
+          profile: expect.objectContaining({ displayName: "Borrower One" }),
+          portfolioLocation: "Quezon City",
+          applicationCount: 1,
+          activeLoanCount: 1,
+          latestApplicationStatus: "accepted",
+        }),
+      ]),
+    );
+
+    const lenders = await loadManagerUserDirectory(managerClient, {
+      role: "lender",
+    });
+    expect(lenders.users.length).toBeGreaterThan(0);
+    expect(lenders.users.every((user) => user.role === "lender")).toBe(true);
+    expect(lenders.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "lender",
+          profile: expect.objectContaining({ displayName: "Approved Lender" }),
+          organizationName: "Approved Capital",
+          verificationStatus: "approved",
+          offerCount: 1,
+          acceptedOfferCount: 1,
+          activeLoanCount: 1,
+          submittedProofCount: 1,
+        }),
+      ]),
+    );
+
+    const managers = await loadManagerUserDirectory(managerClient, {
+      role: "manager",
+    });
+    expect(managers.users.length).toBeGreaterThan(0);
+    expect(managers.users.every((user) => user.role === "manager")).toBe(true);
+    expect(managers.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "manager",
+          profile: expect.objectContaining({ displayName: "Platform Manager" }),
+          status: "active",
+        }),
+      ]),
+    );
   });
 });

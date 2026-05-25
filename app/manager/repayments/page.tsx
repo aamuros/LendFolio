@@ -1,4 +1,5 @@
 import { requireManager } from "@/lib/access-control";
+import { resolveSubmittedDateRangeFilters } from "@/lib/date-ranges";
 import { getShortId, loadManagerRepayments } from "@/lib/manager-operations";
 import {
   AccessDenied,
@@ -25,6 +26,7 @@ type PageProps = {
     repaymentStatus?: string;
     lender?: string;
     borrower?: string;
+    range?: string;
     submittedFrom?: string;
     submittedTo?: string;
   }>;
@@ -46,7 +48,11 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     );
   }
 
-  const result = await loadManagerRepayments(access.supabase, filters);
+  const submittedDateFilters = resolveSubmittedDateRangeFilters(filters);
+  const result = await loadManagerRepayments(access.supabase, {
+    ...filters,
+    ...submittedDateFilters,
+  });
 
   return (
     <ManagerShell
@@ -82,6 +88,18 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
           label="Borrower"
           name="borrower"
           defaultValue={filters.borrower}
+        />
+        <SelectFilter
+          label="Submitted range"
+          name="range"
+          defaultValue={filters.range}
+          emptyLabel="Any time"
+          options={[
+            { value: "this_week", label: "This week" },
+            { value: "this_month", label: "This month" },
+            { value: "this_year", label: "This year" },
+            { value: "custom", label: "Custom" },
+          ]}
         />
         <TextFilter
           label="Submitted from"

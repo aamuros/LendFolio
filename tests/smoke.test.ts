@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { borrowerPortfolioSchema } from "../lib/borrower-portfolio";
+import {
+  getManagerSubmittedDateRange,
+  resolveSubmittedDateRangeFilters,
+} from "../lib/date-ranges";
 import { loanApplicationSchema } from "../lib/loan-application";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
 import {
@@ -135,6 +139,45 @@ describe("manager operations helpers", () => {
       "repayment_verified",
     );
     expect(createMetadataPreview("x".repeat(220))).toHaveLength(180);
+  });
+
+  it("maps proof date presets to submitted_at bounds using Manila dates", () => {
+    const now = new Date("2026-05-25T04:00:00.000Z");
+
+    expect(getManagerSubmittedDateRange("this_week", now)).toEqual({
+      submittedFrom: "2026-05-25",
+      submittedTo: "2026-05-31",
+    });
+    expect(resolveSubmittedDateRangeFilters({ range: "this_week", now })).toEqual({
+      submittedFrom: "2026-05-25T00:00:00.000+08:00",
+      submittedTo: "2026-05-31T23:59:59.999+08:00",
+    });
+    expect(resolveSubmittedDateRangeFilters({ range: "this_month", now })).toEqual({
+      submittedFrom: "2026-05-01T00:00:00.000+08:00",
+      submittedTo: "2026-05-31T23:59:59.999+08:00",
+    });
+    expect(resolveSubmittedDateRangeFilters({ range: "this_year", now })).toEqual({
+      submittedFrom: "2026-01-01T00:00:00.000+08:00",
+      submittedTo: "2026-12-31T23:59:59.999+08:00",
+    });
+    expect(
+      resolveSubmittedDateRangeFilters({
+        range: "custom",
+        submittedFrom: "2026-05-10",
+        submittedTo: "2026-05-12",
+      }),
+    ).toEqual({
+      submittedFrom: "2026-05-10T00:00:00.000+08:00",
+      submittedTo: "2026-05-12T23:59:59.999+08:00",
+    });
+    expect(
+      resolveSubmittedDateRangeFilters({
+        submittedFrom: "2026-05-10",
+      }),
+    ).toEqual({
+      submittedFrom: "2026-05-10T00:00:00.000+08:00",
+      submittedTo: undefined,
+    });
   });
 });
 

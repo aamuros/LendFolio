@@ -11,7 +11,7 @@ const tabs: AppBottomTab<ManagerTab>[] = [
     icon: "proofs",
     href: "/manager/repayments",
   },
-  { id: "lookup", label: "Lookup", icon: "lookup", href: "/manager/lookup" },
+  { id: "lookup", label: "Users", icon: "lookup", href: "/manager/lookup" },
 ];
 
 export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null }) {

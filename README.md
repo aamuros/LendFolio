@@ -13,7 +13,7 @@ Borrowers can upload repayment proof for a due installment, and approved lenders
 can verify or reject submitted proof.
 
 Managers can monitor operational activity across loans, repayment proofs,
-applications, offers, audit events, and borrower lookup.
+applications, offers, audit events, user lookup, and borrower record lookup.
 
 ## Stack
 
@@ -81,7 +81,7 @@ Implemented:
 - Outstanding balance reduction after proof verification
 - Profile-based roles and approved-lender access checks
 - Manager operations dashboard for loans, repayment proofs, audit logs,
-  applications, offers, and lookup
+  applications, offers, user lookup, and borrower record lookup
 - Audit logging for major workflow events
 
 Not implemented:

@@ -13,7 +13,7 @@ export const managerNavItems = [
   { href: "/manager/repayments", title: "Repayment proofs", description: "Monitor submitted, verified, and rejected proof." },
   { href: "/manager/audit-logs", title: "Audit logs", description: "Review workflow events across the platform." },
   { href: "/manager/applications", title: "Applications & offers", description: "Follow application and offer lifecycles." },
-  { href: "/manager/lookup", title: "Lookup", description: "Search borrower, application, and loan records." },
+  { href: "/manager/lookup", title: "Users", description: "Search users, borrower records, applications, and loans." },
 ];
 
 export function ManagerShell({
@@ -85,9 +85,9 @@ export function StatusMessage({
 
 export function FilterGrid({ children }: { children: React.ReactNode }) {
   return (
-    <form className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+    <form className="flex items-end gap-3 overflow-x-auto rounded-3xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
       {children}
-      <div className="flex items-end gap-2">
+      <div className="flex shrink-0 items-end gap-2">
         <button
           type="submit"
           className="h-10 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
@@ -123,7 +123,7 @@ export function TextFilter({
         name={name}
         type={type}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-44 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       />
     </label>
   );
@@ -134,11 +134,13 @@ export function SelectFilter({
   name,
   defaultValue,
   options,
+  emptyLabel = "Any",
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   options: Array<{ value: string; label: string }>;
+  emptyLabel?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm font-semibold">
@@ -146,9 +148,9 @@ export function SelectFilter({
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-40 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
-        <option value="">Any</option>
+        <option value="">{emptyLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -179,9 +181,9 @@ export function Field({ label, value }: { label: string; value: React.ReactNode 
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const positive = ["verified", "paid", "accepted", "active"];
+  const positive = ["verified", "paid", "accepted", "active", "approved"];
   const warning = ["submitted", "pending", "due", "open"];
-  const danger = ["rejected", "overdue", "defaulted", "declined", "late"];
+  const danger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
   const muted = ["closed", "withdrawn", "expired"];
   const className = positive.includes(status)
     ? "bg-[#e1f5ee] text-[#0f5f45]"

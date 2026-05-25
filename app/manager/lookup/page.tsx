@@ -2,6 +2,7 @@ import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
   loadManagerLookup,
+  loadManagerUserDirectory,
   managerPreferredTermLabels,
 } from "@/lib/manager-operations";
 import {
@@ -9,8 +10,10 @@ import {
   DataCard,
   EmptyState,
   Field,
+  FilterGrid,
   ManagerShell,
   PersonLabel,
+  SelectFilter,
   StatusBadge,
   StatusMessage,
   TextFilter,
@@ -21,11 +24,12 @@ import {
 export const dynamic = "force-dynamic";
 
 type PageProps = {
-  searchParams: Promise<{ q?: string }>;
+  searchParams: Promise<{ q?: string; role?: string; status?: string }>;
 };
 
 export default async function ManagerLookupPage({ searchParams }: PageProps) {
-  const { q } = await searchParams;
+  const filters = await searchParams;
+  const { q } = filters;
   const access = await requireManager();
 
   if (!access.ok) {
@@ -40,41 +44,157 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
     );
   }
 
-  const result = await loadManagerLookup(access.supabase, q);
+  const [directoryResult, borrowerLookupResult] = await Promise.all([
+    loadManagerUserDirectory(access.supabase, filters),
+    loadManagerLookup(access.supabase, q),
+  ]);
 
   return (
     <ManagerShell
       title="Lookup"
-      description="Find records by borrower name or ID, application ID, business location, or loan purpose."
+      description="Review users and find borrower records by name, ID, business location, application ID, or loan purpose."
       activeTab="lookup"
     >
-      <form className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-[1fr_auto]">
-        <TextFilter label="Search" name="q" defaultValue={q} />
-        <div className="flex items-end">
-          <button
-            type="submit"
-            className="h-10 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            Search
-          </button>
-        </div>
-      </form>
+      <FilterGrid>
+        <TextFilter label="Search users" name="q" defaultValue={q} />
+        <SelectFilter
+          label="Role"
+          name="role"
+          defaultValue={filters.role}
+          emptyLabel="All roles"
+          options={[
+            { value: "borrower", label: "Borrower" },
+            { value: "lender", label: "Lender" },
+            { value: "manager", label: "Manager" },
+          ]}
+        />
+        <SelectFilter
+          label="Status"
+          name="status"
+          defaultValue={filters.status}
+          emptyLabel="Any status"
+          options={[
+            { value: "active", label: "Active" },
+            { value: "pending", label: "Pending" },
+            { value: "suspended", label: "Suspended" },
+          ]}
+        />
+      </FilterGrid>
 
-      <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
+      <StatusMessage
+        message={directoryResult.message}
+        tone={directoryResult.ok ? "neutral" : "error"}
+      />
 
       <section className="grid gap-3">
-        {result.results.length === 0 ? (
+        {directoryResult.users.length === 0 ? (
           <EmptyState
-            title={q ? "No records found" : "Search manager records"}
-            description={
-              q
-                ? "Matching borrowers, applications, and loans will appear here."
-                : "Enter a borrower, application, location, or purpose to begin."
-            }
+            title="No users found"
+            description="Users matching the current filters will appear here."
           />
         ) : null}
 
-        {result.results.map((resultItem) => (
+        {directoryResult.users.map((user) => (
+          <DataCard key={user.profile.id}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold">
+                  <PersonLabel person={user.profile} />
+                </h2>
+                <p className="text-sm capitalize text-[var(--muted-foreground)]">
+                  {user.role}
+                </p>
+              </div>
+              <StatusBadge status={user.status} />
+            </div>
+
+            {user.role === "borrower" ? (
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <Field
+                  label="Portfolio location"
+                  value={user.portfolioLocation ?? "Not provided"}
+                />
+                <Field
+                  label="Applications"
+                  value={user.applicationCount.toString()}
+                />
+                <Field
+                  label="Active loans"
+                  value={user.activeLoanCount.toString()}
+                />
+                <Field
+                  label="Latest application"
+                  value={
+                    user.latestApplicationStatus ? (
+                      <StatusBadge status={user.latestApplicationStatus} />
+                    ) : (
+                      "None"
+                    )
+                  }
+                />
+              </dl>
+            ) : null}
+
+            {user.role === "lender" ? (
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <Field
+                  label="Organization"
+                  value={user.organizationName ?? "Not provided"}
+                />
+                <Field
+                  label="Verification"
+                  value={
+                    user.verificationStatus ? (
+                      <StatusBadge status={user.verificationStatus} />
+                    ) : (
+                      "Not provided"
+                    )
+                  }
+                />
+                <Field label="Offers" value={user.offerCount.toString()} />
+                <Field
+                  label="Accepted offers"
+                  value={user.acceptedOfferCount.toString()}
+                />
+                <Field
+                  label="Active loans"
+                  value={user.activeLoanCount.toString()}
+                />
+                <Field
+                  label="Proofs awaiting review"
+                  value={user.submittedProofCount.toString()}
+                />
+              </dl>
+            ) : null}
+
+            {user.role === "manager" ? (
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <Field label="Profile name" value={user.profile.displayName} />
+                <Field label="Status" value={<StatusBadge status={user.status} />} />
+                <Field label="Short ID" value={getShortId(user.profile.id)} />
+              </dl>
+            ) : null}
+          </DataCard>
+        ))}
+      </section>
+
+      {q ? (
+        <StatusMessage
+          message={borrowerLookupResult.message}
+          tone={borrowerLookupResult.ok ? "neutral" : "error"}
+        />
+      ) : null}
+
+      {q ? (
+        <section className="grid gap-3">
+          {borrowerLookupResult.results.length === 0 ? (
+            <EmptyState
+              title="No borrower records found"
+              description="Matching borrower portfolios, applications, and loans will appear here."
+            />
+          ) : null}
+
+          {borrowerLookupResult.results.map((resultItem) => (
           <DataCard key={resultItem.borrower.id}>
             <div className="grid gap-1">
               <h2 className="text-lg font-semibold">
@@ -168,8 +288,9 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
               ))}
             </div>
           </DataCard>
-        ))}
-      </section>
+          ))}
+        </section>
+      ) : null}
     </ManagerShell>
   );
 }

@@ -10,6 +10,7 @@ type ApplicationRow = Database["public"]["Tables"]["loan_applications"]["Row"];
 type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
+type LenderProfileRow = Database["public"]["Tables"]["lender_profiles"]["Row"];
 type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type RepaymentScheduleRow =
@@ -106,6 +107,37 @@ export type ManagerLookupResult = {
     }
   >;
 };
+
+export type ManagerUserDirectoryRow =
+  | {
+      role: "borrower";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+      portfolioLocation: string | null;
+      applicationCount: number;
+      activeLoanCount: number;
+      latestApplicationStatus:
+        | Database["public"]["Enums"]["application_status"]
+        | null;
+    }
+  | {
+      role: "lender";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+      organizationName: string | null;
+      verificationStatus:
+        | Database["public"]["Enums"]["lender_verification_status"]
+        | null;
+      offerCount: number;
+      acceptedOfferCount: number;
+      activeLoanCount: number;
+      submittedProofCount: number;
+    }
+  | {
+      role: "manager";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+    };
 
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
@@ -342,7 +374,9 @@ export async function loadManagerRepayments(
 
   if (isProofStatus(filters.proofStatus)) query = query.eq("status", filters.proofStatus);
   if (filters.submittedFrom) query = query.gte("submitted_at", filters.submittedFrom);
-  if (filters.submittedTo) query = query.lte("submitted_at", endOfDay(filters.submittedTo));
+  if (filters.submittedTo) {
+    query = query.lte("submitted_at", endOfDateFilter(filters.submittedTo));
+  }
   if (lenderIds) query = query.in("lender_id", lenderIds);
   if (borrowerIds) query = query.in("borrower_id", borrowerIds);
 
@@ -608,6 +642,46 @@ export async function loadManagerLookup(
   };
 }
 
+export async function loadManagerUserDirectory(
+  supabase: SupabaseServerClient,
+  filters: {
+    q?: string;
+    role?: string;
+    status?: string;
+  },
+): Promise<{ ok: boolean; message: string; users: ManagerUserDirectoryRow[] }> {
+  const term = filters.q?.trim();
+
+  let query = supabase
+    .from("profiles")
+    .select(profileSelect)
+    .order("display_name", { ascending: true })
+    .limit(100);
+
+  if (isAppRole(filters.role)) query = query.eq("role", filters.role);
+  if (isProfileStatus(filters.status)) query = query.eq("status", filters.status);
+  if (term) {
+    const safeTerm = escapeFilterTerm(term);
+    query = isUuid(term)
+      ? query.or(`id.eq.${safeTerm},display_name.ilike.%${safeTerm}%`)
+      : query.ilike("display_name", `%${term}%`);
+  }
+
+  const { data: profiles, error } = await query;
+
+  if (error) {
+    return { ok: false, message: "Could not load users.", users: [] };
+  }
+
+  const users = await mapManagerUsers(supabase, profiles);
+
+  return {
+    ok: true,
+    message: users.length ? "Users loaded." : "No users matched these filters.",
+    users,
+  };
+}
+
 async function mapManagerLoans(
   supabase: SupabaseServerClient,
   loans: ActiveLoanRow[],
@@ -633,6 +707,78 @@ async function mapManagerLoans(
     dueDate: loan.due_date,
     schedule: createScheduleSummary(schedules.get(loan.id) ?? []),
   }));
+}
+
+async function mapManagerUsers(
+  supabase: SupabaseServerClient,
+  profiles: ProfileRow[],
+): Promise<ManagerUserDirectoryRow[]> {
+  const borrowerIds = profiles
+    .filter((profile) => profile.role === "borrower")
+    .map((profile) => profile.id);
+  const lenderIds = profiles
+    .filter((profile) => profile.role === "lender")
+    .map((profile) => profile.id);
+
+  const [
+    portfolios,
+    applicationsByBorrowerId,
+    borrowerActiveLoanCounts,
+    lenderProfiles,
+    offersByLenderId,
+    lenderActiveLoanCounts,
+    submittedProofCounts,
+  ] = await Promise.all([
+    loadPortfoliosByBorrowerIds(supabase, borrowerIds),
+    loadApplicationsByBorrowerIds(supabase, borrowerIds),
+    countActiveLoansByColumn(supabase, "borrower_id", borrowerIds),
+    loadLenderProfilesByUserIds(supabase, lenderIds),
+    loadOffersByLenderIds(supabase, lenderIds),
+    countActiveLoansByColumn(supabase, "lender_id", lenderIds),
+    countSubmittedProofsByLenderIds(supabase, lenderIds),
+  ]);
+
+  return profiles.map((profile) => {
+    const summary = toProfileSummary(profile);
+
+    if (profile.role === "borrower") {
+      const applications = applicationsByBorrowerId.get(profile.id) ?? [];
+
+      return {
+        role: "borrower",
+        profile: summary,
+        status: profile.status,
+        portfolioLocation: portfolios.get(profile.id)?.location ?? null,
+        applicationCount: applications.length,
+        activeLoanCount: borrowerActiveLoanCounts.get(profile.id) ?? 0,
+        latestApplicationStatus: applications[0]?.status ?? null,
+      };
+    }
+
+    if (profile.role === "lender") {
+      const offers = offersByLenderId.get(profile.id) ?? [];
+      const lenderProfile = lenderProfiles.get(profile.id);
+
+      return {
+        role: "lender",
+        profile: summary,
+        status: profile.status,
+        organizationName: lenderProfile?.organization_name ?? null,
+        verificationStatus: lenderProfile?.verification_status ?? null,
+        offerCount: offers.length,
+        acceptedOfferCount: offers.filter((offer) => offer.status === "accepted")
+          .length,
+        activeLoanCount: lenderActiveLoanCounts.get(profile.id) ?? 0,
+        submittedProofCount: submittedProofCounts.get(profile.id) ?? 0,
+      };
+    }
+
+    return {
+      role: "manager",
+      profile: summary,
+      status: profile.status,
+    };
+  });
 }
 
 async function mapManagerApplications(
@@ -722,6 +868,125 @@ async function loadOffersByApplicationIds(
     ]);
     return groups;
   }, new Map<string, LoanOfferRow[]>());
+}
+
+async function loadPortfoliosByBorrowerIds(
+  supabase: SupabaseServerClient,
+  borrowerIds: string[],
+) {
+  if (borrowerIds.length === 0) return new Map<string, BorrowerPortfolioRow>();
+
+  const { data, error } = await supabase
+    .from("borrower_portfolios")
+    .select(portfolioSelect)
+    .in("borrower_id", borrowerIds);
+
+  if (error) return new Map<string, BorrowerPortfolioRow>();
+
+  return new Map(data.map((portfolio) => [portfolio.borrower_id, portfolio]));
+}
+
+async function loadApplicationsByBorrowerIds(
+  supabase: SupabaseServerClient,
+  borrowerIds: string[],
+) {
+  if (borrowerIds.length === 0) return new Map<string, ApplicationRow[]>();
+
+  const { data, error } = await supabase
+    .from("loan_applications")
+    .select(applicationSelect)
+    .in("borrower_id", borrowerIds)
+    .order("submitted_at", { ascending: false });
+
+  if (error) return new Map<string, ApplicationRow[]>();
+
+  return data.reduce((groups, application) => {
+    groups.set(application.borrower_id, [
+      ...(groups.get(application.borrower_id) ?? []),
+      application,
+    ]);
+    return groups;
+  }, new Map<string, ApplicationRow[]>());
+}
+
+async function loadLenderProfilesByUserIds(
+  supabase: SupabaseServerClient,
+  userIds: string[],
+) {
+  if (userIds.length === 0) return new Map<string, LenderProfileRow>();
+
+  const { data, error } = await supabase
+    .from("lender_profiles")
+    .select("id, user_id, organization_name, verification_status, approved_at, approved_by, created_at, updated_at")
+    .in("user_id", userIds);
+
+  if (error) return new Map<string, LenderProfileRow>();
+
+  return new Map(data.map((profile) => [profile.user_id, profile]));
+}
+
+async function loadOffersByLenderIds(
+  supabase: SupabaseServerClient,
+  lenderIds: string[],
+) {
+  if (lenderIds.length === 0) return new Map<string, LoanOfferRow[]>();
+
+  const { data, error } = await supabase
+    .from("loan_offers")
+    .select(offerSelect)
+    .in("lender_id", lenderIds);
+
+  if (error) return new Map<string, LoanOfferRow[]>();
+
+  return data.reduce((groups, offer) => {
+    groups.set(offer.lender_id, [...(groups.get(offer.lender_id) ?? []), offer]);
+    return groups;
+  }, new Map<string, LoanOfferRow[]>());
+}
+
+async function countActiveLoansByColumn(
+  supabase: SupabaseServerClient,
+  column: "borrower_id" | "lender_id",
+  ids: string[],
+) {
+  if (ids.length === 0) return new Map<string, number>();
+
+  const { data, error } = await supabase
+    .from("active_loans")
+    .select(`id, ${column}`)
+    .eq("status", "active")
+    .in(column, ids);
+
+  if (error) return new Map<string, number>();
+
+  const rows = data as Array<{ borrower_id?: string; lender_id?: string }>;
+
+  return rows.reduce((counts, row) => {
+    const id = row[column];
+    if (!id) return counts;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+}
+
+async function countSubmittedProofsByLenderIds(
+  supabase: SupabaseServerClient,
+  lenderIds: string[],
+) {
+  if (lenderIds.length === 0) return new Map<string, number>();
+
+  const { data, error } = await supabase
+    .from("repayment_proofs")
+    .select("id, lender_id")
+    .eq("status", "submitted")
+    .in("lender_id", lenderIds);
+
+  if (error) return new Map<string, number>();
+
+  return data.reduce((counts, proof) => {
+    counts.set(proof.lender_id, (counts.get(proof.lender_id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 }
 
 async function loadProfilesByIds(
@@ -869,6 +1134,10 @@ function endOfDay(date: string) {
   return `${date}T23:59:59.999Z`;
 }
 
+function endOfDateFilter(value: string) {
+  return value.includes("T") ? value : endOfDay(value);
+}
+
 function escapeFilterTerm(value: string) {
   return value.replace(/[%(),]/g, "");
 }
@@ -897,6 +1166,18 @@ function isPreferredTerm(
   value: string | undefined,
 ): value is Database["public"]["Enums"]["preferred_term"] {
   return ["1_month", "3_months", "6_months", "12_months"].includes(value ?? "");
+}
+
+function isAppRole(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["app_role"] {
+  return ["borrower", "lender", "manager"].includes(value ?? "");
+}
+
+function isProfileStatus(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["profile_status"] {
+  return ["active", "pending", "suspended"].includes(value ?? "");
 }
 
 function isProofStatus(
