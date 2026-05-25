@@ -1,60 +1,75 @@
-# Demo Accounts
+# Local Demo Accounts And Workflow Data
 
-ADI-14 uses real Supabase Auth sessions for the Sprint 1 happy-path test flow.
-Create these users manually in Supabase Auth. Do not commit passwords.
+Use the seeded local Supabase accounts when you need repeatable borrower,
+lender, and manager records for QA. These accounts are for local development
+only.
 
-| Role | Placeholder Email | Password |
+## Reset Local Data
+
+```bash
+supabase start
+supabase db reset
+```
+
+`supabase db reset` applies every migration and then runs `supabase/seed.sql`.
+The reset removes workflow rows created by prior manual testing and recreates
+the local users below.
+
+## Seeded Accounts
+
+All seeded users use the password `LendFolio123!`.
+
+| Role | Email | Purpose |
 | --- | --- | --- |
-| Borrower | `borrower.demo@example.com` | Set manually in Supabase dashboard |
-| Lender | `lender.demo@example.com` | Set manually in Supabase dashboard |
-| Manager | `manager.demo@example.com` | Set manually in Supabase dashboard |
+| Borrower | `borrower@lendfolio.local` | Creates the business profile, loan application, offer acceptance, and repayment proofs. |
+| Borrower | `borrower.alt@lendfolio.local` | Verifies borrower isolation. |
+| Approved lender | `lender@lendfolio.local` | Reviews applications, creates offers, and reviews repayment proofs. |
+| Approved lender | `lender.partner@lendfolio.local` | Creates competing offers for acceptance checks. |
+| Pending lender | `lender.pending@lendfolio.local` | Verifies unapproved lenders cannot create offers. |
+| Manager | `manager@lendfolio.local` | Verifies manager dashboard records, lookup, and audit logs. |
 
-## Sign-In Routes
+## Manual QA Flow
 
-- Borrower: `/login?role=borrower`
-- Lender: `/login?role=lender`
-- Manager: `/login?role=manager`
+1. Sign in as `borrower@lendfolio.local` at `/login?role=borrower`.
+2. Open `/borrower`, save a business profile, and submit a loan application.
+3. Sign in as `lender@lendfolio.local` at `/login?role=lender`.
+4. Open `/lender/applications`, review the submitted application, and send an offer.
+5. Sign in again as `borrower@lendfolio.local`.
+6. Accept the offer and confirm an active loan and repayment schedule appear.
+7. Upload repayment proof for a due installment.
+8. Sign in as `lender@lendfolio.local` and verify or reject the submitted proof.
+9. Sign in as `manager@lendfolio.local` at `/login?role=manager`.
+10. Check `/manager`, `/manager/loans`, `/manager/repayments`,
+    `/manager/applications`, `/manager/audit-logs`, and `/manager/lookup`.
 
-The login page pre-fills the selected demo email only. Passwords must be entered
-from the manually configured Supabase Auth users.
+Useful manager states to verify:
 
-## Temporary Redirects
+- `loan_applications.status` becomes `accepted` after offer acceptance.
+- One `loan_offers` row is `accepted`; competing pending offers become
+  `declined`.
+- One `active_loans` row is created for the accepted application and offer.
+- `loan_repayment_schedules` rows match the application preferred term.
+- `repayment_proofs.status` moves through `submitted`, `rejected`, or
+  `verified`.
+- `audit_logs` includes application, offer, loan, repayment schedule, proof, and
+  balance events.
 
-- Borrower accounts should redirect to `/borrower`.
-- Lender accounts should redirect to `/lender`.
-- Manager accounts should redirect to `/manager`.
-- Unknown emails redirect to `/` with a generic signed-in message.
+## Automated Verification
 
-This is a temporary ADI-14 email mapping for testing. Replace it with trusted
-role authorization when role management is in scope.
+Run the local integration suite with Supabase test variables set:
 
-## Sprint Mapping
+```bash
+export SUPABASE_TEST_URL=http://127.0.0.1:54321
+export SUPABASE_TEST_ANON_KEY="$(supabase status -o env | awk -F= '/^ANON_KEY=/{gsub(/"/, "", $2); print $2}')"
+export SUPABASE_TEST_SERVICE_ROLE_KEY="$(supabase status -o env | awk -F= '/^SERVICE_ROLE_KEY=/{gsub(/"/, "", $2); print $2}')"
+npm run test
+```
 
-- ADI-8 creates the mocked role selection and dashboard shells.
-- Sprint 1 should add borrower portfolio and loan application functionality.
-- Sprint 1 or Sprint 2 should add lender review and offer functionality.
-- ADI-14 replaces mocked homepage role links with a minimal Supabase Auth bridge.
-- Later sprints should add repayment proof verification, monitoring, and audit logs.
+The database-backed tests are skipped when these variables are absent.
 
-## Manual Verification Checklist
+## Safety Notes
 
-- [ ] Created demo users manually in Supabase Auth.
-- [ ] Applied migrations with `supabase migration up`.
-- [ ] Borrower can sign in.
-- [ ] Borrower can save portfolio to Supabase.
-- [ ] Borrower can submit loan application to Supabase.
-- [ ] Lender can sign in.
-- [ ] Lender can see submitted/open applications.
-- [ ] Lender can open application detail.
-- [ ] Lender can send pending offer.
-- [ ] Borrower can see offer.
-- [ ] Borrower can accept offer.
-- [ ] Other pending offers are declined.
-- [ ] Sign-out works.
-- [ ] No passwords or service role keys committed.
-
-## Security Notes
-
-- Do not commit demo passwords.
-- Do not store role authorization in user-editable metadata.
-- Use database-backed roles or trusted app metadata when role redirects are implemented.
+- Do not commit real passwords or service role keys.
+- Use the seeded local accounts only for local QA.
+- Keep authorization based on `profiles` and `lender_profiles`, not hardcoded
+  emails.

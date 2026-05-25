@@ -1,5 +1,13 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  loadManagerApplications,
+  loadManagerAuditLogs,
+  loadManagerLoans,
+  loadManagerLookup,
+  loadManagerOverview,
+  loadManagerRepayments,
+} from "../lib/manager-operations";
 import type { Database, Json } from "../lib/supabase/types";
 
 const supabaseUrl =
@@ -1704,5 +1712,177 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       ok: false,
       message: "This repayment is already verified.",
     });
+  });
+
+  it("projects completed workflow records into manager dashboard data loaders", async () => {
+    const { applicationId, activeLoanId, schedules } =
+      await createAcceptedLoanWithTerm(
+        borrower,
+        approvedLender,
+        "3_months",
+        23801,
+      );
+
+    const verifiedProof = await submitProofForSchedule(
+      borrower,
+      schedules[0].id,
+      activeLoanId,
+      ids.borrower,
+      "verified",
+    );
+    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: verifiedProof.proof_id ?? "",
+      p_decision: "verified",
+      p_review_notes: "Payment matched.",
+    });
+    expect(verifyResult.error).toBeNull();
+
+    const rejectedProof = await submitProofForSchedule(
+      borrower,
+      schedules[1].id,
+      activeLoanId,
+      ids.borrower,
+      "rejected",
+    );
+    const rejectResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: rejectedProof.proof_id ?? "",
+      p_decision: "rejected",
+      p_review_notes: "Receipt amount is unclear.",
+    });
+    expect(rejectResult.error).toBeNull();
+
+    const submittedProof = await submitProofForSchedule(
+      borrower,
+      schedules[2].id,
+      activeLoanId,
+      ids.borrower,
+      "submitted",
+    );
+    expect(submittedProof).toMatchObject({ ok: true });
+
+    const managerClient = manager as Parameters<typeof loadManagerOverview>[0];
+
+    const overview = await loadManagerOverview(managerClient);
+    const metrics = new Map(
+      overview.metrics.map((metric) => [metric.label, metric.value]),
+    );
+    expect(overview.ok).toBe(true);
+    expect(metrics.get("Active loans")).toBe(1);
+    expect(metrics.get("Submitted proofs")).toBe(1);
+    expect(metrics.get("Rejected proofs")).toBe(1);
+    expect(metrics.get("Verified repayments")).toBe(1);
+    expect(metrics.get("Accepted applications")).toBe(1);
+
+    const loans = await loadManagerLoans(managerClient, { status: "active" });
+    expect(loans).toMatchObject({ ok: true });
+    expect(loans.loans).toEqual([
+      expect.objectContaining({
+        id: activeLoanId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        lender: expect.objectContaining({ displayName: "Approved Lender" }),
+        status: "active",
+        schedule: {
+          installmentCount: 3,
+          verifiedCount: 1,
+          submittedCount: 1,
+          rejectedCount: 1,
+          nextDueDate: schedules[1].due_date,
+        },
+      }),
+    ]);
+
+    const repayments = await loadManagerRepayments(managerClient, {});
+    expect(repayments).toMatchObject({ ok: true });
+    expect(repayments.proofs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: verifiedProof.proof_id,
+          proofStatus: "verified",
+          repaymentStatus: "verified",
+          installmentNumber: 1,
+        }),
+        expect.objectContaining({
+          id: rejectedProof.proof_id,
+          proofStatus: "rejected",
+          repaymentStatus: "rejected",
+          installmentNumber: 2,
+        }),
+        expect.objectContaining({
+          id: submittedProof.proof_id,
+          proofStatus: "submitted",
+          repaymentStatus: "submitted",
+          installmentNumber: 3,
+        }),
+      ]),
+    );
+
+    const submittedRepayments = await loadManagerRepayments(managerClient, {
+      proofStatus: "submitted",
+      repaymentStatus: "submitted",
+    });
+    expect(submittedRepayments.proofs).toEqual([
+      expect.objectContaining({ id: submittedProof.proof_id }),
+    ]);
+
+    const applications = await loadManagerApplications(managerClient, {
+      status: "accepted",
+    });
+    expect(applications).toMatchObject({ ok: true });
+    expect(applications.applications).toEqual([
+      expect.objectContaining({
+        id: applicationId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        status: "accepted",
+        offerCounts: expect.objectContaining({ accepted: 1 }),
+        acceptedOffer: expect.objectContaining({
+          lenderName: "Approved Capital",
+          repaymentAmount: 23801,
+        }),
+      }),
+    ]);
+
+    const auditLogs = await loadManagerAuditLogs(managerClient, {
+      action: "repayment_proof",
+    });
+    expect(auditLogs).toMatchObject({ ok: true });
+    expect(auditLogs.logs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          action: "repayment_proof_submitted",
+          targetTable: "repayment_proofs",
+        }),
+        expect.objectContaining({
+          action: "repayment_proof_verified",
+          targetTable: "repayment_proofs",
+        }),
+        expect.objectContaining({
+          action: "repayment_proof_rejected",
+          targetTable: "repayment_proofs",
+        }),
+      ]),
+    );
+
+    const lookup = await loadManagerLookup(managerClient, "Borrower One");
+    expect(lookup).toMatchObject({ ok: true });
+    expect(lookup.results).toEqual([
+      expect.objectContaining({
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        portfolio: expect.objectContaining({ location: "Quezon City" }),
+        applications: [
+          expect.objectContaining({
+            id: applicationId,
+            activeLoan: expect.objectContaining({
+              id: activeLoanId,
+              schedule: expect.objectContaining({
+                installmentCount: 3,
+                verifiedCount: 1,
+                submittedCount: 1,
+                rejectedCount: 1,
+              }),
+            }),
+          }),
+        ],
+      }),
+    ]);
   });
 });
