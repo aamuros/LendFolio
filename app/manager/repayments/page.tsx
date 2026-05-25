@@ -4,7 +4,6 @@ import { getShortId, loadManagerRepayments } from "@/lib/manager-operations";
 import {
   AccessDenied,
   EmptyState,
-  Field,
   FilterGrid,
   ManagerShell,
   PersonLabel,
@@ -125,7 +124,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
         ) : null}
 
         {result.proofs.length > 0 ? (
-          <div className="hidden rounded-t-2xl border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] sm:grid sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_1fr_auto] sm:gap-3">
+          <div className="hidden rounded-t-2xl border border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] sm:grid sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_auto] sm:items-center sm:gap-3">
             <span>Proof</span>
             <span>Borrower</span>
             <span>Lender</span>
@@ -140,7 +139,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
             key={proof.id}
             className="group rounded-2xl border border-[var(--border)] bg-white shadow-sm [&>summary::-webkit-details-marker]:hidden"
           >
-            <summary className="grid cursor-pointer list-none gap-2 px-3 py-3 text-sm transition hover:bg-[var(--muted)]/20 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_1fr_auto] sm:items-center sm:gap-3">
+            <summary className="grid cursor-pointer list-none gap-2 px-3 py-3 text-sm transition hover:bg-[var(--muted)]/20 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_auto] sm:items-center sm:gap-3">
               <div className="min-w-0">
                 <h2 className="truncate text-sm font-semibold">{proof.fileName}</h2>
                 <p className="text-xs text-[var(--muted-foreground)]">
@@ -160,24 +159,50 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
                   Due {formatDateOnly(proof.dueDate)}
                 </span>
               </div>
-              <div className="flex flex-wrap gap-1.5">
+              <div className="flex items-center">
                 <StatusBadge status={proof.proofStatus} />
-                <StatusBadge status={proof.repaymentStatus} />
               </div>
-              <span className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--foreground)] transition group-open:border-[var(--primary)] group-open:text-[var(--primary)]">
+              <span className="inline-flex h-8 items-center justify-center rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--foreground)] transition group-open:border-[var(--primary)] group-open:text-[var(--primary)] sm:justify-self-end">
                 <span className="group-open:hidden">View details</span>
                 <span className="hidden group-open:inline">Hide details</span>
               </span>
             </summary>
-            <div className="border-t border-[var(--border)] px-3 py-3">
-              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-                <Field label="Borrower" value={<PersonLabel person={proof.borrower} />} />
-                <Field label="Lender" value={<PersonLabel person={proof.lender} />} />
-                <Field label="Amount due" value={formatCurrency(proof.amountDue)} />
-                <Field label="Due date" value={formatDateOnly(proof.dueDate)} />
-                <Field label="Submitted" value={formatDateTime(proof.submittedAt)} />
-                <Field label="Reviewed" value={formatDateTime(proof.reviewedAt)} />
-                <Field label="Review notes" value={proof.reviewNotes ?? "No notes"} />
+            <div className="border-t border-[var(--border)] bg-[var(--muted)]/10 px-3 py-3">
+              <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+                {proof.repaymentStatus !== proof.proofStatus ? (
+                  <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
+                    <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                      Repayment status
+                    </dt>
+                    <dd>
+                      <StatusBadge status={proof.repaymentStatus} />
+                    </dd>
+                  </div>
+                ) : null}
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
+                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                    Submitted
+                  </dt>
+                  <dd className="text-right text-xs font-semibold sm:text-left">
+                    {formatDateTime(proof.submittedAt)}
+                  </dd>
+                </div>
+                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
+                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                    Reviewed
+                  </dt>
+                  <dd className="text-right text-xs font-semibold sm:text-left">
+                    {formatDateTime(proof.reviewedAt)}
+                  </dd>
+                </div>
+                <div className="grid gap-1 sm:col-span-2">
+                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                    Review notes
+                  </dt>
+                  <dd className="text-xs leading-5 text-[var(--foreground)]">
+                    {proof.reviewNotes ?? "No notes"}
+                  </dd>
+                </div>
               </dl>
             </div>
           </details>
