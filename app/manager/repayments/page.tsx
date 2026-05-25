@@ -130,7 +130,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
             <span>Lender</span>
             <span>Amount</span>
             <span>Status</span>
-            <span className="text-right">Details</span>
+            <span className="justify-self-end">Details</span>
           </div>
         ) : null}
 
@@ -167,39 +167,39 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
                 <span className="hidden group-open:inline">Hide details</span>
               </span>
             </summary>
-            <div className="border-t border-[var(--border)] bg-[var(--muted)]/10 px-3 py-3">
-              <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
+            <div className="border-t border-[var(--border)] bg-[var(--muted)]/10 px-3 py-2">
+              <dl className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
                 {proof.repaymentStatus !== proof.proofStatus ? (
-                  <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
-                    <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-                      Repayment status
+                  <div className="flex items-center gap-2">
+                    <dt className="font-semibold text-[var(--muted-foreground)]">
+                      Repayment
                     </dt>
                     <dd>
                       <StatusBadge status={proof.repaymentStatus} />
                     </dd>
                   </div>
                 ) : null}
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
-                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-[var(--muted-foreground)]">
                     Submitted
                   </dt>
-                  <dd className="text-right text-xs font-semibold sm:text-left">
+                  <dd className="font-medium">
                     {formatDateTime(proof.submittedAt)}
                   </dd>
                 </div>
-                <div className="flex items-center justify-between gap-3 border-b border-[var(--border)]/70 pb-2 sm:justify-start sm:border-b-0 sm:pb-0">
-                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                <div className="flex items-center gap-2">
+                  <dt className="font-semibold text-[var(--muted-foreground)]">
                     Reviewed
                   </dt>
-                  <dd className="text-right text-xs font-semibold sm:text-left">
+                  <dd className="font-medium">
                     {formatDateTime(proof.reviewedAt)}
                   </dd>
                 </div>
-                <div className="grid gap-1 sm:col-span-2">
-                  <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-                    Review notes
+                <div className="flex min-w-0 flex-1 items-center gap-2">
+                  <dt className="font-semibold text-[var(--muted-foreground)]">
+                    Notes
                   </dt>
-                  <dd className="text-xs leading-5 text-[var(--foreground)]">
+                  <dd className="min-w-0 break-words font-medium">
                     {proof.reviewNotes ?? "No notes"}
                   </dd>
                 </div>
