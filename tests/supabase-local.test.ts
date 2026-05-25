@@ -3,6 +3,8 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { resolveSubmittedDateRangeFilters } from "../lib/date-ranges";
 import {
   loadManagerApplications,
+  loadManagerApplicationDetail,
+  loadManagerAuditLogDetail,
   loadManagerAuditLogs,
   loadManagerLoanDetail,
   loadManagerLoans,
@@ -1941,6 +1943,48 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       }),
     ]);
 
+    const applicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      applicationId,
+    );
+    expect(applicationDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      application: expect.objectContaining({
+        id: applicationId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        offers: expect.arrayContaining([
+          expect.objectContaining({
+            status: "accepted",
+            lender_name: "Approved Capital",
+          }),
+        ]),
+        activeLoan: expect.objectContaining({ id: activeLoanId }),
+      }),
+    });
+
+    const invalidApplicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      "not-an-application-id",
+    );
+    expect(invalidApplicationDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      application: null,
+      message: "Invalid application ID.",
+    });
+
+    const missingApplicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingApplicationDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      application: null,
+      message: "Application not found.",
+    });
+
     const auditLogs = await loadManagerAuditLogs(managerClient, {
       action: "repayment_proof",
     });
@@ -1961,6 +2005,48 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         }),
       ]),
     );
+
+    const auditLogId = auditLogs.logs.find(
+      (log) => log.action === "repayment_proof_submitted",
+    )?.id;
+    expect(auditLogId).toBeDefined();
+
+    const auditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      auditLogId ?? "",
+    );
+    expect(auditLogDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      log: expect.objectContaining({
+        id: auditLogId,
+        action: "repayment_proof_submitted",
+        targetTable: "repayment_proofs",
+        metadata: expect.anything(),
+      }),
+    });
+
+    const invalidAuditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      "not-an-audit-log-id",
+    );
+    expect(invalidAuditLogDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      log: null,
+      message: "Invalid audit log ID.",
+    });
+
+    const missingAuditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingAuditLogDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      log: null,
+      message: "Audit log not found.",
+    });
 
     const lookup = await loadManagerLookup(managerClient, "Borrower One");
     expect(lookup).toMatchObject({ ok: true });

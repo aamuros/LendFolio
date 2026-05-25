@@ -218,6 +218,70 @@ describe("manager operations helpers", () => {
     expect(loanDetailPage).toContain("Loan not found");
   });
 
+  it("keeps manager application lists compact and links details by full UUID", () => {
+    const applicationsPage = readFileSync(
+      "app/manager/applications/page.tsx",
+      "utf8",
+    );
+    const applicationDetailPage = readFileSync(
+      "app/manager/applications/[id]/page.tsx",
+      "utf8",
+    );
+
+    expect(applicationsPage).toContain("AutoFilterGrid");
+    expect(applicationsPage).toContain("ManagerRecordList");
+    expect(applicationsPage).toContain("ManagerDetailsLink");
+    expect(applicationsPage).toContain(
+      "href={`/manager/applications/${application.id}`}",
+    );
+    expect(applicationsPage).toContain('name="status"');
+    expect(applicationsPage).toContain('name="borrower"');
+    expect(applicationsPage).toContain('name="preferredTerm"');
+    expect(applicationsPage).toContain('name="submittedFrom"');
+    expect(applicationsPage).toContain('name="submittedTo"');
+    expect(applicationsPage).not.toContain("<FilterGrid");
+    expect(applicationsPage).not.toContain("  FilterGrid,");
+    expect(applicationsPage).not.toContain("DataCard");
+    expect(applicationsPage).not.toContain("Field");
+    expect(applicationsPage).not.toContain("Apply");
+    expect(applicationsPage).not.toContain("Clear");
+    expect(applicationsPage).not.toContain("/manager/applications/${getShortId");
+    expect(applicationDetailPage).toContain("loadManagerApplicationDetail");
+    expect(applicationDetailPage).toContain("Invalid application link");
+    expect(applicationDetailPage).toContain("Application not found");
+  });
+
+  it("keeps manager audit log lists compact and links details by full UUID", () => {
+    const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
+    const auditLogDetailPage = readFileSync(
+      "app/manager/audit-logs/[id]/page.tsx",
+      "utf8",
+    );
+
+    expect(auditLogsPage).toContain("AutoFilterGrid");
+    expect(auditLogsPage).toContain("ManagerRecordList");
+    expect(auditLogsPage).toContain("ManagerDetailsLink");
+    expect(auditLogsPage).toContain(
+      "href={`/manager/audit-logs/${log.id}`}",
+    );
+    expect(auditLogsPage).toContain('name="action"');
+    expect(auditLogsPage).toContain('name="targetTable"');
+    expect(auditLogsPage).toContain('name="actor"');
+    expect(auditLogsPage).toContain('name="createdFrom"');
+    expect(auditLogsPage).toContain('name="createdTo"');
+    expect(auditLogsPage).not.toContain("<FilterGrid");
+    expect(auditLogsPage).not.toContain("  FilterGrid,");
+    expect(auditLogsPage).not.toContain("DataCard");
+    expect(auditLogsPage).not.toContain("Field");
+    expect(auditLogsPage).not.toContain("Apply");
+    expect(auditLogsPage).not.toContain("Clear");
+    expect(auditLogsPage).not.toContain("/manager/audit-logs/${getShortId");
+    expect(auditLogDetailPage).toContain("loadManagerAuditLogDetail");
+    expect(auditLogDetailPage).toContain("Invalid audit log link");
+    expect(auditLogDetailPage).toContain("Audit log not found");
+    expect(auditLogDetailPage).toContain("JSON.stringify(log.metadata, null, 2)");
+  });
+
   it("keeps manager auto-filtered pages free of apply and clear buttons", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
     const repaymentsPage = readFileSync(
@@ -225,8 +289,19 @@ describe("manager operations helpers", () => {
       "utf8",
     );
     const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/manager/applications/page.tsx",
+      "utf8",
+    );
+    const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
 
-    for (const page of [lookupPage, repaymentsPage, loansPage]) {
+    for (const page of [
+      lookupPage,
+      repaymentsPage,
+      loansPage,
+      applicationsPage,
+      auditLogsPage,
+    ]) {
       expect(page).toContain("AutoFilterGrid");
       expect(page).not.toContain("<FilterGrid");
       expect(page).not.toContain("  FilterGrid,");

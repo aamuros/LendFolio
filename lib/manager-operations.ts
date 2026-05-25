@@ -12,7 +12,7 @@ type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 type LenderProfileRow = Database["public"]["Tables"]["lender_profiles"]["Row"];
-type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
+export type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
@@ -149,6 +149,10 @@ export type ManagerAuditLogRow = {
   metadataPreview: string;
 };
 
+export type ManagerAuditLogDetail = ManagerAuditLogRow & {
+  metadata: Json;
+};
+
 export type ManagerApplicationRow = {
   id: string;
   borrower: ManagerProfileSummary;
@@ -164,6 +168,11 @@ export type ManagerApplicationRow = {
     repaymentAmount: number;
     dueDate: string;
   } | null;
+};
+
+export type ManagerApplicationDetail = ManagerApplicationRow & {
+  offers: LoanOfferRow[];
+  activeLoan: ManagerLoanRow | null;
 };
 
 export type ManagerLookupResult = {
@@ -653,6 +662,72 @@ export async function loadManagerAuditLogs(
   };
 }
 
+export async function loadManagerAuditLogDetail(
+  supabase: SupabaseServerClient,
+  logId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      log: ManagerAuditLogDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      log: null;
+    }
+> {
+  if (!isUuid(logId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid audit log ID.",
+      log: null,
+    };
+  }
+
+  const { data: log, error } = await supabase
+    .from("audit_logs")
+    .select(auditLogSelect)
+    .eq("id", logId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load audit log.",
+      log: null,
+    };
+  }
+
+  if (!log) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Audit log not found.",
+      log: null,
+    };
+  }
+
+  const profiles = await loadProfilesByIds(
+    supabase,
+    log.actor_id ? [log.actor_id] : [],
+  );
+
+  return {
+    ok: true,
+    mode: "loaded",
+    message: "Audit log loaded.",
+    log: {
+      ...mapAuditLog(log, profiles),
+      metadata: log.metadata,
+    },
+  };
+}
+
 export async function loadManagerApplications(
   supabase: SupabaseServerClient,
   filters: {
@@ -703,6 +778,85 @@ export async function loadManagerApplications(
       ? "Applications loaded."
       : "No applications matched these filters.",
     applications: await mapManagerApplications(supabase, applications),
+  };
+}
+
+export async function loadManagerApplicationDetail(
+  supabase: SupabaseServerClient,
+  applicationId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      application: ManagerApplicationDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      application: null;
+    }
+> {
+  if (!isUuid(applicationId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid application ID.",
+      application: null,
+    };
+  }
+
+  const { data: application, error } = await supabase
+    .from("loan_applications")
+    .select(applicationSelect)
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load application.",
+      application: null,
+    };
+  }
+
+  if (!application) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Application not found.",
+      application: null,
+    };
+  }
+
+  const [mappedApplications, offersByApplicationId, loansByApplicationId] =
+    await Promise.all([
+      mapManagerApplications(supabase, [application]),
+      loadOffersByApplicationIds(supabase, [application.id]),
+      loadLoansByApplicationIds(supabase, [application.id]),
+    ]);
+  const mappedApplication = mappedApplications[0];
+
+  if (!mappedApplication) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load application.",
+      application: null,
+    };
+  }
+
+  return {
+    ok: true,
+    mode: "loaded",
+    message: "Application loaded.",
+    application: {
+      ...mappedApplication,
+      offers: offersByApplicationId.get(application.id) ?? [],
+      activeLoan: loansByApplicationId.get(application.id) ?? null,
+    },
   };
 }
 
