@@ -10,6 +10,7 @@ import {
 import { CreditProfileSection } from "@/components/borrower-credit-summary";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
+import { NotificationButton } from "@/components/notification-button";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import type { BorrowerCreditSummary } from "@/lib/credit-limit";
 
@@ -86,26 +87,29 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
         <p className="text-sm font-semibold text-[var(--foreground)]">
           LendFolio
         </p>
-        <button
-          type="button"
-          aria-label="Open profile"
-          onClick={() => changeTab("profile")}
-          className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="size-5"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
+        <div className="flex items-center gap-2">
+          <NotificationButton />
+          <button
+            type="button"
+            aria-label="Open profile"
+            onClick={() => changeTab("profile")}
+            className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
           >
-            <circle cx="12" cy="8" r="4" />
-            <path d="M4 21a8 8 0 0 1 16 0" />
-          </svg>
-        </button>
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 24 24"
+              className="size-5"
+              fill="none"
+              stroke="currentColor"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth="2"
+            >
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21a8 8 0 0 1 16 0" />
+            </svg>
+          </button>
+        </div>
       </header>
 
       {activeTab === "profile" ? (

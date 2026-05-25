@@ -40,7 +40,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     return (
       <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
         <div className="mx-auto grid max-w-4xl gap-5">
-          <LenderHeader showAccountLink={false} />
+          <LenderHeader showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={access.message} tone="error" />
           <LenderBottomTabs activeTab={activeTab} />
         </div>

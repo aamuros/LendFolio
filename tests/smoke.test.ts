@@ -20,6 +20,12 @@ import {
   getShortId,
 } from "../lib/manager-operations";
 import { parseMoneyInput } from "../lib/money-input";
+import {
+  countUnreadNotifications,
+  formatNotificationDate,
+  mapNotificationRow,
+  normalizeNotificationHref,
+} from "../lib/notifications";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
   applyAcceptedOfferInvariant,
@@ -269,6 +275,109 @@ describe("overdue repayment migration", () => {
     expect(migration).toContain("status = 'overdue'");
     expect(migration).toContain("status = 'active'");
     expect(migration).toContain("outstanding_balance > 0");
+  });
+});
+
+describe("notifications migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260525090048_add_notifications_foundation.sql",
+    "utf8",
+  );
+
+  it("creates the notifications table, indexes, and RLS policies", () => {
+    expect(migration).toContain("create table if not exists public.notifications");
+    expect(migration).toContain(
+      "alter table public.notifications enable row level security",
+    );
+    expect(migration).toContain("notifications_user_select_own");
+    expect(migration).toContain("notifications_user_update_own");
+    expect(migration).toContain("notifications_manager_select_all");
+    expect(migration).toContain("notifications_user_created_idx");
+    expect(migration).toContain("notifications_user_unread_idx");
+  });
+
+  it("keeps notification creation private", () => {
+    expect(migration).toContain("function app_private.create_notification");
+    expect(migration).toContain(
+      "revoke insert, update, delete on public.notifications from authenticated",
+    );
+    expect(migration).toContain(
+      "grant update (read_at) on public.notifications to authenticated",
+    );
+  });
+});
+
+describe("workflow notifications migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260525091146_wire_workflow_notifications.sql",
+    "utf8",
+  );
+
+  it("wires the expected workflow notification event types", () => {
+    expect(migration).toContain("offer_received");
+    expect(migration).toContain("offer_accepted");
+    expect(migration).toContain("offer_declined");
+    expect(migration).toContain("repayment_proof_submitted");
+    expect(migration).toContain("repayment_verified");
+    expect(migration).toContain("repayment_rejected");
+    expect(migration).toContain("repayment_late");
+    expect(migration).toContain("loan_overdue");
+  });
+
+  it("uses private notification creation without opening client inserts", () => {
+    expect(migration).toContain("app_private.create_notification");
+    expect(migration).toContain("app_private.try_create_notification");
+    expect(migration).not.toContain(
+      "grant insert on public.notifications to authenticated",
+    );
+  });
+});
+
+describe("notification UI helpers", () => {
+  it("maps notification rows for display", () => {
+    const notification = mapNotificationRow({
+      id: "99999999-9999-4999-8999-999999999999",
+      user_id: "11111111-1111-1111-1111-111111111111",
+      type: "offer_received",
+      title: "New offer received",
+      message: "A lender sent an offer for your application.",
+      href: "/borrower",
+      read_at: null,
+      created_at: "2026-05-25T09:15:00.000Z",
+    });
+
+    expect(notification).toMatchObject({
+      id: "99999999-9999-4999-8999-999999999999",
+      title: "New offer received",
+      href: "/borrower",
+      readAt: null,
+      isUnread: true,
+    });
+  });
+
+  it("counts unread notifications and keeps hrefs internal", () => {
+    expect(
+      countUnreadNotifications([
+        { readAt: null },
+        { readAt: "2026-05-25T09:20:00.000Z" },
+        { readAt: null },
+      ]),
+    ).toBe(2);
+    expect(normalizeNotificationHref("/lender?tab=offers")).toBe(
+      "/lender?tab=offers",
+    );
+    expect(normalizeNotificationHref("https://example.com")).toBeNull();
+  });
+
+  it("formats today's notifications as time and older notifications as dates", () => {
+    const now = new Date("2026-05-25T12:00:00");
+
+    expect(formatNotificationDate("2026-05-25T09:15:00", now)).toContain(
+      "9:15",
+    );
+    expect(formatNotificationDate("2026-05-20T09:15:00", now)).toContain(
+      "May",
+    );
   });
 });
 

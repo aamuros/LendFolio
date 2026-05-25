@@ -45,6 +45,14 @@ type InsertedRow = {
   id: string;
   status?: string;
 };
+type NotificationRow = {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  href: string | null;
+};
 type AcceptanceResult = {
   ok: boolean;
   message?: string;
@@ -111,6 +119,7 @@ async function signIn(email: string): Promise<TestClient> {
 }
 
 async function cleanWorkflowRows(admin: TestClient) {
+  await admin.from("notifications").delete().neq("id", crypto.randomUUID());
   await admin
     .from("repayment_proofs")
     .delete()
@@ -366,6 +375,20 @@ async function submitProofForSchedule(
   expect(result.error).toBeNull();
 
   return result.data as Json as RepaymentProofResult;
+}
+
+async function readNotifications(
+  client: TestClient,
+  type: string,
+): Promise<NotificationRow[]> {
+  const { data, error } = await client
+    .from("notifications")
+    .select("id, user_id, type, title, message, href")
+    .eq("type", type)
+    .order("created_at", { ascending: true });
+
+  expect(error).toBeNull();
+  return (data ?? []) as NotificationRow[];
 }
 
 describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () => {
@@ -634,6 +657,501 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
           target_table: "loan_offers",
         }),
       ]),
+    );
+  });
+
+  it("enforces notification RLS for owners, unrelated users, and managers", async () => {
+    const { data: notification, error: notificationError } = await admin
+      .from("notifications")
+      .insert({
+        user_id: ids.borrower,
+        type: "offer_created",
+        title: "New offer received",
+        message: "A lender sent an offer for your application.",
+        href: "/borrower/offers",
+      })
+      .select("id")
+      .single<{ id: string }>();
+
+    expect(notificationError).toBeNull();
+    expect(notification?.id).toBeTruthy();
+
+    const notificationId = notification?.id ?? "";
+
+    const { data: borrowerNotifications, error: borrowerReadError } =
+      await borrower
+        .from("notifications")
+        .select("id, user_id, read_at")
+        .eq("id", notificationId);
+
+    expect(borrowerReadError).toBeNull();
+    expect(borrowerNotifications).toEqual([
+      expect.objectContaining({
+        id: notificationId,
+        user_id: ids.borrower,
+        read_at: null,
+      }),
+    ]);
+
+    const { data: otherBorrowerNotifications, error: otherBorrowerReadError } =
+      await otherBorrower
+        .from("notifications")
+        .select("id")
+        .eq("id", notificationId);
+
+    expect(otherBorrowerReadError).toBeNull();
+    expect(otherBorrowerNotifications).toEqual([]);
+
+    const { data: lenderNotifications, error: lenderReadError } =
+      await approvedLender
+        .from("notifications")
+        .select("id")
+        .eq("id", notificationId);
+
+    expect(lenderReadError).toBeNull();
+    expect(lenderNotifications).toEqual([]);
+
+    const readAt = new Date().toISOString();
+    const { data: updatedNotification, error: updateReadError } = await borrower
+      .from("notifications")
+      .update({ read_at: readAt })
+      .eq("id", notificationId)
+      .select("id, read_at")
+      .single();
+
+    expect(updateReadError).toBeNull();
+    expect(updatedNotification?.id).toBe(notificationId);
+    expect(updatedNotification?.read_at).toBeTruthy();
+
+    const { data: unreadNotification, error: updateUnreadError } =
+      await borrower
+        .from("notifications")
+        .update({ read_at: null })
+        .eq("id", notificationId)
+        .select("id, read_at")
+        .single();
+
+    expect(updateUnreadError).toBeNull();
+    expect(unreadNotification).toMatchObject({
+      id: notificationId,
+      read_at: null,
+    });
+
+    const { error: changeOwnerError } = await borrower
+      .from("notifications")
+      .update({ user_id: ids.otherBorrower })
+      .eq("id", notificationId);
+
+    expect(changeOwnerError).not.toBeNull();
+
+    const { data: ownerCheck, error: ownerCheckError } = await admin
+      .from("notifications")
+      .select("user_id")
+      .eq("id", notificationId)
+      .single();
+
+    expect(ownerCheckError).toBeNull();
+    expect(ownerCheck).toMatchObject({ user_id: ids.borrower });
+
+    const { error: directInsertError } = await borrower
+      .from("notifications")
+      .insert({
+        user_id: ids.borrower,
+        type: "borrower_direct_insert",
+        title: "Direct insert",
+        message: "Borrowers should not create notification rows directly.",
+      });
+
+    expect(directInsertError).not.toBeNull();
+
+    const { data: managerNotifications, error: managerReadError } =
+      await manager
+        .from("notifications")
+        .select("id, user_id")
+        .eq("id", notificationId);
+
+    expect(managerReadError).toBeNull();
+    expect(managerNotifications).toEqual([
+      expect.objectContaining({
+        id: notificationId,
+        user_id: ids.borrower,
+      }),
+    ]);
+  });
+
+  it("lets users load and mark only their own notifications", async () => {
+    const { data: insertedNotifications, error: insertError } = await admin
+      .from("notifications")
+      .insert([
+        {
+          user_id: ids.borrower,
+          type: "offer_received",
+          title: "New offer received",
+          message: "A lender sent an offer for your application.",
+          href: "/borrower",
+        },
+        {
+          user_id: ids.borrower,
+          type: "repayment_verified",
+          title: "Repayment verified",
+          message: "Your repayment proof was approved.",
+          href: "/borrower",
+        },
+        {
+          user_id: ids.otherBorrower,
+          type: "offer_received",
+          title: "Other borrower notification",
+          message: "This belongs to another borrower.",
+          href: "/borrower",
+        },
+      ])
+      .select("id, user_id")
+      .order("created_at", { ascending: true });
+
+    expect(insertError).toBeNull();
+    expect(insertedNotifications).toHaveLength(3);
+
+    const borrowerNotificationId = insertedNotifications?.[0]?.id ?? "";
+    const otherBorrowerNotificationId = insertedNotifications?.[2]?.id ?? "";
+
+    const { data: borrowerNotifications, error: borrowerReadError } =
+      await borrower
+        .from("notifications")
+        .select("id, user_id, read_at", { count: "exact" })
+        .order("created_at", { ascending: true });
+
+    expect(borrowerReadError).toBeNull();
+    expect(borrowerNotifications).toHaveLength(2);
+    expect(
+      borrowerNotifications?.every(
+        (notification) => notification.user_id === ids.borrower,
+      ),
+    ).toBe(true);
+
+    const { count: initialUnreadCount, error: initialCountError } = await borrower
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null);
+
+    expect(initialCountError).toBeNull();
+    expect(initialUnreadCount).toBe(2);
+
+    const readAt = new Date().toISOString();
+    const { data: markedNotification, error: markReadError } = await borrower
+      .from("notifications")
+      .update({ read_at: readAt })
+      .eq("id", borrowerNotificationId)
+      .select("id, read_at")
+      .single();
+
+    expect(markReadError).toBeNull();
+    expect(markedNotification).toMatchObject({
+      id: borrowerNotificationId,
+      read_at: readAt,
+    });
+
+    const { count: unreadAfterOne, error: unreadAfterOneError } = await borrower
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null);
+
+    expect(unreadAfterOneError).toBeNull();
+    expect(unreadAfterOne).toBe(1);
+
+    const otherAttemptReadAt = new Date().toISOString();
+    const { data: otherAttemptRows, error: otherAttemptError } =
+      await otherBorrower
+        .from("notifications")
+        .update({ read_at: otherAttemptReadAt })
+        .eq("id", borrowerNotificationId)
+        .select("id, read_at");
+
+    expect(otherAttemptError).toBeNull();
+    expect(otherAttemptRows).toEqual([]);
+
+    const { data: protectedNotification, error: protectedCheckError } = await admin
+      .from("notifications")
+      .select("id, read_at")
+      .eq("id", borrowerNotificationId)
+      .single();
+
+    expect(protectedCheckError).toBeNull();
+    expect(protectedNotification).toMatchObject({
+      id: borrowerNotificationId,
+      read_at: readAt,
+    });
+
+    const markAllReadAt = new Date().toISOString();
+    const { error: markAllError } = await borrower
+      .from("notifications")
+      .update({ read_at: markAllReadAt })
+      .eq("user_id", ids.borrower)
+      .is("read_at", null);
+
+    expect(markAllError).toBeNull();
+
+    const { count: finalUnreadCount, error: finalCountError } = await borrower
+      .from("notifications")
+      .select("id", { count: "exact", head: true })
+      .is("read_at", null);
+
+    expect(finalCountError).toBeNull();
+    expect(finalUnreadCount).toBe(0);
+
+    const { data: untouchedOtherNotification, error: untouchedOtherError } =
+      await admin
+        .from("notifications")
+        .select("id, read_at")
+        .eq("id", otherBorrowerNotificationId)
+        .single();
+
+    expect(untouchedOtherError).toBeNull();
+    expect(untouchedOtherNotification).toMatchObject({
+      id: otherBorrowerNotificationId,
+      read_at: null,
+    });
+  });
+
+  it("creates notifications for offer creation, acceptance, and competing declines", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const firstOffer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+      22000,
+    );
+    const secondOffer = await createOffer(
+      partnerLender,
+      ids.partnerLender,
+      applicationId,
+      "Partner Capital",
+      23000,
+    );
+
+    expect(firstOffer.error).toBeNull();
+    expect(secondOffer.error).toBeNull();
+    if (!firstOffer.data || !secondOffer.data) {
+      throw new Error("Expected competing offer inserts to return rows.");
+    }
+
+    expect(await readNotifications(borrower, "offer_received")).toEqual([
+      expect.objectContaining({
+        user_id: ids.borrower,
+        title: "New loan offer received",
+        message: "A lender sent an offer for your loan application.",
+        href: "/borrower",
+      }),
+      expect.objectContaining({
+        user_id: ids.borrower,
+        title: "New loan offer received",
+      }),
+    ]);
+    expect(await readNotifications(otherBorrower, "offer_received")).toEqual([]);
+
+    await acceptOfferAndLoadActiveLoan(
+      borrower,
+      firstOffer.data.id,
+      applicationId,
+    );
+
+    expect(await readNotifications(approvedLender, "offer_accepted")).toEqual([
+      expect.objectContaining({
+        user_id: ids.approvedLender,
+        title: "Offer accepted",
+        message: "A borrower accepted your loan offer.",
+        href: "/lender",
+      }),
+    ]);
+    expect(await readNotifications(partnerLender, "offer_declined")).toEqual([
+      expect.objectContaining({
+        user_id: ids.partnerLender,
+        title: "Offer declined",
+        message: "A borrower accepted another offer for this application.",
+        href: "/lender",
+      }),
+    ]);
+
+    const managerOfferNotifications = await manager
+      .from("notifications")
+      .select("id, type")
+      .in("type", ["offer_received", "offer_accepted", "offer_declined"]);
+
+    expect(managerOfferNotifications.error).toBeNull();
+    expect(managerOfferNotifications.data).toHaveLength(4);
+  });
+
+  it("creates a notification when a borrower declines an offer", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+    const offer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+    );
+
+    expect(offer.error).toBeNull();
+    if (!offer.data) {
+      throw new Error("Expected offer insert to return a row.");
+    }
+
+    const decline = await borrower.rpc("decline_loan_offer", {
+      p_offer_id: offer.data.id,
+    });
+
+    expect(decline.error).toBeNull();
+    expect(decline.data as Json as OfferRpcResult).toMatchObject({
+      ok: true,
+    });
+    expect(await readNotifications(approvedLender, "offer_declined")).toEqual([
+      expect.objectContaining({
+        user_id: ids.approvedLender,
+        title: "Offer declined",
+        message: "A borrower declined your loan offer.",
+        href: "/lender",
+      }),
+    ]);
+  });
+
+  it("creates notifications for repayment proof submission and review", async () => {
+    const acceptedLoan = await createAcceptedLoanWithTerm(
+      borrower,
+      approvedLender,
+      "3_months",
+    );
+    const firstScheduleId = acceptedLoan.schedules[0]?.id as string | undefined;
+    const secondScheduleId = acceptedLoan.schedules[1]?.id as string | undefined;
+
+    expect(firstScheduleId).toBeTruthy();
+    expect(secondScheduleId).toBeTruthy();
+    if (!firstScheduleId || !secondScheduleId) {
+      throw new Error("Expected repayment schedules for proof notification test.");
+    }
+
+    const rejectedProof = await submitProofForSchedule(
+      borrower,
+      firstScheduleId,
+      acceptedLoan.activeLoanId,
+    );
+    expect(rejectedProof).toMatchObject({ ok: true });
+
+    expect(
+      await readNotifications(approvedLender, "repayment_proof_submitted"),
+    ).toEqual([
+      expect.objectContaining({
+        user_id: ids.approvedLender,
+        title: "Repayment proof submitted",
+        message: "A borrower submitted repayment proof for review.",
+        href: "/lender",
+      }),
+    ]);
+
+    const rejection = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: rejectedProof.proof_id ?? "",
+      p_decision: "rejected",
+      p_review_notes: "Needs a clearer receipt.",
+    });
+
+    expect(rejection.error).toBeNull();
+    expect(rejection.data as Json as RepaymentProofResult).toMatchObject({
+      ok: true,
+    });
+
+    expect(await readNotifications(borrower, "repayment_rejected")).toEqual([
+      expect.objectContaining({
+        user_id: ids.borrower,
+        title: "Repayment proof rejected",
+        message:
+          "Your repayment proof was rejected. Upload a clearer proof to continue.",
+        href: "/borrower",
+      }),
+    ]);
+
+    const verifiedProof = await submitProofForSchedule(
+      borrower,
+      secondScheduleId,
+      acceptedLoan.activeLoanId,
+    );
+    expect(verifiedProof).toMatchObject({ ok: true });
+
+    const verification = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: verifiedProof.proof_id ?? "",
+      p_decision: "verified",
+      p_review_notes: "",
+    });
+
+    expect(verification.error).toBeNull();
+    expect(verification.data as Json as RepaymentProofResult).toMatchObject({
+      ok: true,
+    });
+
+    expect(await readNotifications(borrower, "repayment_verified")).toEqual([
+      expect.objectContaining({
+        user_id: ids.borrower,
+        title: "Repayment verified",
+        message: "Your repayment proof was verified.",
+        href: "/borrower",
+      }),
+    ]);
+  });
+
+  it("creates non-duplicated overdue refresh notifications on state transitions", async () => {
+    const acceptedLoan = await createAcceptedLoanWithTerm(
+      borrower,
+      approvedLender,
+      "3_months",
+    );
+    const firstScheduleId = acceptedLoan.schedules[0]?.id as string | undefined;
+
+    expect(firstScheduleId).toBeTruthy();
+    if (!firstScheduleId) {
+      throw new Error("Expected repayment schedule for overdue notification test.");
+    }
+
+    const { error: dueDateError } = await admin
+      .from("loan_repayment_schedules")
+      .update({ due_date: "2026-05-01" })
+      .eq("id", firstScheduleId);
+
+    expect(dueDateError).toBeNull();
+
+    const refresh = await manager.rpc("refresh_overdue_repayment_statuses");
+    expect(refresh.error).toBeNull();
+    expect(refresh.data as Json as RefreshOverdueResult).toMatchObject({
+      ok: true,
+      late_repayment_count: 1,
+      overdue_loan_count: 1,
+    });
+
+    expect(await readNotifications(borrower, "repayment_late")).toEqual([
+      expect.objectContaining({
+        user_id: ids.borrower,
+        title: "Repayment is late",
+        message: "A repayment is past due. Upload payment proof when ready.",
+        href: "/borrower",
+      }),
+    ]);
+    expect(await readNotifications(approvedLender, "loan_overdue")).toEqual([
+      expect.objectContaining({
+        user_id: ids.approvedLender,
+        title: "Loan is overdue",
+        message: "A borrower loan has an overdue repayment.",
+        href: "/lender",
+      }),
+    ]);
+
+    const secondRefresh = await manager.rpc("refresh_overdue_repayment_statuses");
+    expect(secondRefresh.error).toBeNull();
+    expect(secondRefresh.data as Json as RefreshOverdueResult).toMatchObject({
+      ok: true,
+      late_repayment_count: 0,
+      overdue_loan_count: 0,
+    });
+
+    expect(await readNotifications(borrower, "repayment_late")).toHaveLength(1);
+    expect(await readNotifications(approvedLender, "loan_overdue")).toHaveLength(
+      1,
     );
   });
 
