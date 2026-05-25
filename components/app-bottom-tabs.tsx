@@ -12,7 +12,8 @@ export type AppTabIcon =
   | "applications"
   | "account"
   | "proofs"
-  | "lookup";
+  | "lookup"
+  | "others";
 
 export type AppBottomTab<T extends string> = {
   id: T;
@@ -26,6 +27,9 @@ type AppBottomTabsProps<T extends string> = {
   activeTab: T | null;
   ariaLabel: string;
   onTabChange?: (tab: T) => void;
+  floatingMenu?: React.ReactNode;
+  isFloatingMenuOpen?: boolean;
+  onFloatingMenuClose?: () => void;
 };
 
 export function AppBottomTabs<T extends string>({
@@ -33,6 +37,9 @@ export function AppBottomTabs<T extends string>({
   activeTab,
   ariaLabel,
   onTabChange,
+  floatingMenu,
+  isFloatingMenuOpen = false,
+  onFloatingMenuClose,
 }: AppBottomTabsProps<T>) {
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollYRef = useRef(0);
@@ -106,6 +113,24 @@ export function AppBottomTabs<T extends string>({
     };
   }, []);
 
+  useEffect(() => {
+    if (!isFloatingMenuOpen || !onFloatingMenuClose) {
+      return;
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        onFloatingMenuClose?.();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", onKeyDown);
+    };
+  }, [isFloatingMenuOpen, onFloatingMenuClose]);
+
   return (
     <nav
       aria-label={ariaLabel}
@@ -121,6 +146,9 @@ export function AppBottomTabs<T extends string>({
           "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease",
       }}
     >
+      {isFloatingMenuOpen && floatingMenu ? (
+        <div className="mx-auto mb-3 max-w-lg px-2">{floatingMenu}</div>
+      ) : null}
       <div
         className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-[var(--border)] bg-white/95 p-2 shadow-[0_18px_45px_rgba(22,22,22,0.16)] backdrop-blur"
       >
@@ -156,6 +184,7 @@ export function AppBottomTabs<T extends string>({
               key={tab.id}
               type="button"
               aria-current={isActive ? "page" : undefined}
+              aria-expanded={isFloatingMenuOpen ? true : undefined}
               onClick={() => onTabChange?.(tab.id)}
               className={className}
             >
@@ -260,6 +289,25 @@ function TabIcon({ name }: { name: AppTabIcon }) {
       >
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-4.5-4.5" />
+      </svg>
+    );
+  }
+
+  if (name === "others") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <circle cx="5" cy="12" r="1.5" />
+        <circle cx="12" cy="12" r="1.5" />
+        <circle cx="19" cy="12" r="1.5" />
       </svg>
     );
   }

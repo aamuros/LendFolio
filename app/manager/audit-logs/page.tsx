@@ -34,7 +34,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       <ManagerShell
         title="Audit logs"
         description="Read-only workflow event history for manager review."
-        activeTab={null}
+        activeTab="audit"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -47,7 +47,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
     <ManagerShell
       title="Audit logs"
       description="Review workflow events by actor, action, target, and date."
-      activeTab={null}
+      activeTab="audit"
     >
       <FilterGrid>
         <TextFilter label="Action" name="action" defaultValue={filters.action} />

@@ -248,6 +248,41 @@ describe("manager operations helpers", () => {
     expect(lookupPage).not.toContain("/manager/users/${getShortId");
   });
 
+  it("keeps manager bottom navigation focused with an Others menu", () => {
+    const appBottomTabs = readFileSync(
+      "components/app-bottom-tabs.tsx",
+      "utf8",
+    );
+    const managerBottomTabs = readFileSync(
+      "components/manager-bottom-tabs.tsx",
+      "utf8",
+    );
+    const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/manager/applications/page.tsx",
+      "utf8",
+    );
+
+    expect(appBottomTabs).toContain('| "others"');
+    expect(appBottomTabs).toContain("isFloatingMenuOpen && floatingMenu");
+    expect(appBottomTabs).toContain("aria-expanded=");
+
+    expect(managerBottomTabs).toContain('label: "Home"');
+    expect(managerBottomTabs).toContain('label: "Users"');
+    expect(managerBottomTabs).toContain('label: "Loans"');
+    expect(managerBottomTabs).toContain('label: "Others"');
+    expect(managerBottomTabs).not.toContain('label: "Proofs",\n    icon: "proofs",\n    href: "/manager/repayments"');
+    expect(managerBottomTabs).toContain("/manager/audit-logs");
+    expect(managerBottomTabs).toContain("/manager/repayments");
+    expect(managerBottomTabs).toContain("/manager/applications");
+    expect(managerBottomTabs).toContain("More manager sections");
+    expect(managerBottomTabs).toContain('activeTab === "proofs"');
+    expect(managerBottomTabs).toContain('activeTab === "audit"');
+    expect(managerBottomTabs).toContain('activeTab === "applications"');
+    expect(auditLogsPage).toContain('activeTab="audit"');
+    expect(applicationsPage).toContain('activeTab="applications"');
+  });
+
   it("accepts UUID-shaped seeded IDs but rejects short user IDs", () => {
     expect(isUuid("33333333-3333-3333-3333-333333333333")).toBe(true);
     expect(isUuid("11111111-1111-1111-1111-111111111111")).toBe(true);

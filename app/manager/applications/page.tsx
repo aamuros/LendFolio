@@ -42,7 +42,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
       <ManagerShell
         title="Applications & offers"
         description="Read-only application and offer lifecycle visibility."
-        activeTab={null}
+        activeTab="applications"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -55,7 +55,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
     <ManagerShell
       title="Applications & offers"
       description="Track borrower requests, preferred terms, offer counts, and accepted terms."
-      activeTab={null}
+      activeTab="applications"
     >
       <FilterGrid>
         <SelectFilter
