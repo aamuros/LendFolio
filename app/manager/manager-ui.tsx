@@ -85,18 +85,18 @@ export function StatusMessage({
 
 export function FilterGrid({ children }: { children: React.ReactNode }) {
   return (
-    <form className="flex items-end gap-3 overflow-x-auto rounded-3xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
+    <form className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
       {children}
-      <div className="flex shrink-0 items-end gap-2">
+      <div className="flex items-end gap-2">
         <button
           type="submit"
-          className="h-10 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="h-10 flex-1 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:flex-none"
         >
           Apply
         </button>
         <Link
           href="?"
-          className="inline-flex h-10 items-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="inline-flex h-10 flex-1 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:flex-none"
         >
           Clear
         </Link>
@@ -123,7 +123,7 @@ export function TextFilter({
         name={name}
         type={type}
         defaultValue={defaultValue ?? ""}
-        className="h-10 w-44 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       />
     </label>
   );
@@ -148,7 +148,7 @@ export function SelectFilter({
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
-        className="h-10 w-40 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
         <option value="">{emptyLabel}</option>
         {options.map((option) => (
