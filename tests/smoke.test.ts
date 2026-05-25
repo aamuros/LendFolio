@@ -5,8 +5,15 @@ import {
   calculateBorrowerAvailableCredit,
   calculateBorrowerCreditLimit,
 } from "../lib/credit-limit";
-import { loanApplicationSchema } from "../lib/loan-application";
-import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
+import {
+  loanApplicationSchema,
+  mapLoanApplicationRow,
+} from "../lib/loan-application";
+import {
+  createLoanOfferSchema,
+  loanOfferSchema,
+  mapLoanOfferRow,
+} from "../lib/loan-offer";
 import {
   createMetadataPreview,
   createScheduleSummary,
@@ -97,6 +104,31 @@ describe("loan application schema", () => {
         "Enter the requested loan amount.",
       );
     }
+  });
+
+  it("maps credit snapshot fields from application rows", () => {
+    expect(
+      mapLoanApplicationRow({
+        id: "application-1",
+        borrower_id: "borrower-1",
+        borrower_portfolio_id: "portfolio-1",
+        requested_amount: 25000,
+        credit_limit_at_submission: 54300,
+        used_credit_at_submission: 23800,
+        available_credit_at_submission: 30500,
+        purpose: "Inventory restock",
+        preferred_term: "3_months",
+        remarks: null,
+        status: "submitted",
+        submitted_at: "2026-05-25T00:00:00.000Z",
+        created_at: "2026-05-25T00:00:00.000Z",
+        updated_at: "2026-05-25T00:00:00.000Z",
+      }),
+    ).toMatchObject({
+      creditLimitAtSubmission: 54300,
+      usedCreditAtSubmission: 23800,
+      availableCreditAtSubmission: 30500,
+    });
   });
 });
 
@@ -287,6 +319,23 @@ describe("loan offer schema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("rejects approved amount above requested amount", () => {
+    const result = createLoanOfferSchema(25_000).safeParse({
+      approvedAmount: 25_001,
+      repaymentAmount: 26_000,
+      fees: 0,
+      dueDate: "2026-07-24",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.approvedAmount).toContain(
+        "Approved amount cannot exceed the requested amount.",
+      );
+    }
   });
 });
 
@@ -507,6 +556,20 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("for update");
     expect(migration).toContain("revoke insert on public.loan_offers");
     expect(migration).toContain("app_private.is_approved_lender");
+  });
+
+  it("stores credit snapshots and validates offers against requested amount", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260525080000_add_application_credit_snapshot_offer_validation.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("credit_limit_at_submission numeric(12, 2)");
+    expect(migration).toContain("used_credit_at_submission numeric(12, 2)");
+    expect(migration).toContain("available_credit_at_submission numeric(12, 2)");
+    expect(migration).toContain(
+      "Approved amount cannot exceed the requested amount.",
+    );
   });
 
   it("defines accepted-lender closed-context visibility and term schedules", () => {

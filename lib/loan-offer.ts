@@ -49,6 +49,9 @@ export const loanOfferSchema = z
       .min(1, "Select a due date.")
       .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00`)), {
         message: "Select a valid due date.",
+      })
+      .refine((value) => value > new Date().toISOString().slice(0, 10), {
+        message: "Choose a future due date.",
       }),
     remarks: z
       .string()
@@ -67,6 +70,16 @@ export const loanOfferSchema = z
   });
 
 export type LoanOfferInput = z.infer<typeof loanOfferSchema>;
+
+export function createLoanOfferSchema(requestedAmount: number) {
+  return loanOfferSchema.refine(
+    (values) => values.approvedAmount <= requestedAmount,
+    {
+      path: ["approvedAmount"],
+      message: "Approved amount cannot exceed the requested amount.",
+    },
+  );
+}
 
 type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
 export type LoanOfferStatus = Database["public"]["Enums"]["offer_status"];

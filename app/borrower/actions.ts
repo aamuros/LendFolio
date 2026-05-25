@@ -314,7 +314,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
     const { data, error } = await supabase
       .from("loan_applications")
       .select(
-        "id, borrower_id, borrower_portfolio_id, requested_amount, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
+        "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
       )
       .eq("borrower_id", access.profile.id)
       .order("submitted_at", { ascending: false });

@@ -417,6 +417,32 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       used_credit: 0,
       available_credit: 54300,
     });
+    const acceptedApplicationResult =
+      acceptedApplication.data as Json as SubmitApplicationResult;
+    const acceptedApplicationId =
+      acceptedApplicationResult.application &&
+      typeof acceptedApplicationResult.application === "object" &&
+      !Array.isArray(acceptedApplicationResult.application) &&
+      typeof acceptedApplicationResult.application.id === "string"
+        ? acceptedApplicationResult.application.id
+        : null;
+    expect(acceptedApplicationId).toBeTruthy();
+
+    const { data: storedApplication, error: storedApplicationError } =
+      await borrower
+        .from("loan_applications")
+        .select(
+          "credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission",
+        )
+        .eq("id", acceptedApplicationId ?? "")
+        .single();
+
+    expect(storedApplicationError).toBeNull();
+    expect(storedApplication).toMatchObject({
+      credit_limit_at_submission: 54300,
+      used_credit_at_submission: 0,
+      available_credit_at_submission: 54300,
+    });
 
     const blockedApplication = await borrower.rpc("submit_loan_application", {
       p_requested_amount: 60000,
@@ -448,11 +474,18 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         preferred_term: "3_months",
         remarks: "Review against current cash flow.",
       })
-      .select("id")
+      .select(
+        "id, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission",
+      )
       .single<InsertedRow>();
 
     expect(applicationError).toBeNull();
     expect(application?.id).toBeTruthy();
+    expect(application).toMatchObject({
+      credit_limit_at_submission: 54300,
+      used_credit_at_submission: 0,
+      available_credit_at_submission: 54300,
+    });
 
     const { error: blockedError } = await borrower
       .from("loan_applications")
@@ -700,6 +733,33 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       ok: false,
       message: "Repayment amount must be at least the approved amount.",
     });
+
+    const approvedAboveRequested = await approvedLender.rpc(
+      "create_loan_offer",
+      {
+        p_loan_application_id: applicationId,
+        p_approved_amount: 25001,
+        p_repayment_amount: 26000,
+        p_fees: 500,
+        p_due_date: "2026-08-24",
+        p_remarks: "",
+      },
+    );
+    expect(approvedAboveRequested.error).toBeNull();
+    expect(approvedAboveRequested.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Approved amount cannot exceed the requested amount.",
+    });
+
+    const validOffer = await createOffer(
+      approvedLender,
+      ids.approvedLender,
+      applicationId,
+      "Approved Capital",
+      22000,
+    );
+    expect(validOffer.error).toBeNull();
+    expect(validOffer.result).toMatchObject({ ok: true });
   });
 
   it("accepts only one competing offer atomically and records workflow audit logs", async () => {

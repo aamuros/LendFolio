@@ -59,6 +59,9 @@ export type LoanApplicationFormInput = z.input<typeof loanApplicationSchema>;
 export type LoanApplicationSummary = {
   id: string;
   requestedAmount: number;
+  creditLimitAtSubmission: number | null;
+  usedCreditAtSubmission: number | null;
+  availableCreditAtSubmission: number | null;
   purpose: string;
   preferredTerm: (typeof preferredTermOptions)[number];
   remarks: string | null;
@@ -67,7 +70,20 @@ export type LoanApplicationSummary = {
 };
 
 type LoanApplicationRow =
-  Database["public"]["Tables"]["loan_applications"]["Row"];
+  Omit<
+    Database["public"]["Tables"]["loan_applications"]["Row"],
+    | "credit_limit_at_submission"
+    | "used_credit_at_submission"
+    | "available_credit_at_submission"
+  > &
+    Partial<
+      Pick<
+        Database["public"]["Tables"]["loan_applications"]["Row"],
+        | "credit_limit_at_submission"
+        | "used_credit_at_submission"
+        | "available_credit_at_submission"
+      >
+    >;
 
 export function mapLoanApplicationRow(
   row: LoanApplicationRow,
@@ -75,6 +91,9 @@ export function mapLoanApplicationRow(
   return {
     id: row.id,
     requestedAmount: row.requested_amount,
+    creditLimitAtSubmission: row.credit_limit_at_submission ?? null,
+    usedCreditAtSubmission: row.used_credit_at_submission ?? null,
+    availableCreditAtSubmission: row.available_credit_at_submission ?? null,
     purpose: row.purpose,
     preferredTerm: row.preferred_term,
     remarks: row.remarks,

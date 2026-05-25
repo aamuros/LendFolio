@@ -3,7 +3,12 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormEventHandler, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { useForm, type FieldErrors, type UseFormRegister } from "react-hook-form";
+import {
+  useForm,
+  useWatch,
+  type FieldErrors,
+  type UseFormRegister,
+} from "react-hook-form";
 import {
   acceptLoanOffer,
   type BorrowerLoanApplicationSummary,
@@ -15,6 +20,10 @@ import {
   withdrawLoanApplication,
 } from "@/app/borrower/actions";
 import { CurrencyInput } from "@/components/currency-input";
+import {
+  CompactCreditStatusCard,
+  CreditEligibilityBanner,
+} from "@/components/borrower-credit-summary";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import {
@@ -88,6 +97,7 @@ export function BorrowerLoanApplicationPanel({
     register,
     handleSubmit,
     reset,
+    control,
     formState: { errors },
   } = useForm<LoanApplicationFormInput, unknown, LoanApplicationInput>({
     resolver: zodResolver(loanApplicationSchema),
@@ -162,11 +172,25 @@ export function BorrowerLoanApplicationPanel({
 
     return `${applications.length} applications`;
   }, [applications.length]);
+  const watchedRequestedAmount = parseMoneyInput(
+    useWatch({ control, name: "requestedAmount" }),
+  );
+  const requestedAmount =
+    typeof watchedRequestedAmount === "number" ? watchedRequestedAmount : 0;
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
       setMessage("Save your business profile before applying.");
+      return;
+    }
+
+    if (
+      creditSummary &&
+      values.requestedAmount > creditSummary.availableCredit
+    ) {
+      setLoadState("ready");
+      setMessage("");
       return;
     }
 
@@ -504,6 +528,7 @@ export function BorrowerLoanApplicationPanel({
               creditSummary={creditSummary}
               errors={errors}
               isPending={isPending}
+              requestedAmount={requestedAmount}
               register={register}
               onSubmit={handleSubmit(onSubmit)}
             />
@@ -627,19 +652,11 @@ function HomeSummary({
         </button>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-4">
-        <SummaryCard
-          label="Profile"
-          value={hasPortfolio ? "Ready" : "Needs info"}
-        />
-        <SummaryCard
-          label="Available"
-          value={
-            creditSummary
-              ? formatCreditAmount(creditSummary.availableCredit)
-              : "Not set"
-          }
-        />
+      {creditSummary ? (
+        <CompactCreditStatusCard summary={creditSummary} />
+      ) : null}
+
+      <div className="grid gap-3 sm:grid-cols-2">
         <SummaryCard
           label="Application"
           value={
@@ -666,30 +683,50 @@ function ApplicationForm({
   errors,
   isPending,
   onSubmit,
+  requestedAmount,
   register,
 }: {
   creditSummary: BorrowerCreditSummary | null;
   errors: FieldErrors<LoanApplicationFormInput>;
   isPending: boolean;
   onSubmit: FormEventHandler<HTMLFormElement>;
+  requestedAmount: number;
   register: UseFormRegister<LoanApplicationFormInput>;
 }) {
+  const isOverAvailableCredit =
+    creditSummary !== null && requestedAmount > creditSummary.availableCredit;
+  const requestedAmountError = isOverAvailableCredit
+    ? "Requested amount exceeds your available credit."
+    : errors.requestedAmount?.message;
+
   return (
     <form
       onSubmit={onSubmit}
       className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
       aria-describedby="loan-application-state"
     >
-      {creditSummary ? <CreditSummaryPanel summary={creditSummary} /> : null}
+      {creditSummary ? <CreditEligibilityBanner summary={creditSummary} /> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Requested amount" error={errors.requestedAmount?.message}>
+        <Field label="Requested amount" error={requestedAmountError}>
           <CurrencyInput
             className="h-11 rounded-xl"
+            aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
+            aria-describedby={
+              isOverAvailableCredit ? "requested-amount-credit-limit" : undefined
+            }
             registration={register("requestedAmount", {
               setValueAs: parseMoneyInput,
             })}
           />
+          {creditSummary && isOverAvailableCredit ? (
+            <span
+              id="requested-amount-credit-limit"
+              className="text-sm font-semibold text-[#8f1d1d]"
+            >
+              Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
+            </span>
+          ) : null}
         </Field>
 
         <Field label="Preferred term" error={errors.preferredTerm?.message}>
@@ -732,45 +769,13 @@ function ApplicationForm({
         </p>
         <button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || isOverAvailableCredit}
           className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isPending ? "Submitting..." : "Submit application"}
         </button>
       </div>
     </form>
-  );
-}
-
-function CreditSummaryPanel({ summary }: { summary: BorrowerCreditSummary }) {
-  return (
-    <dl className="grid gap-3 rounded-2xl bg-[var(--muted)] px-3 py-3 sm:grid-cols-3 sm:px-4">
-      <CreditMetric
-        label="Credit limit"
-        value={formatCreditAmount(summary.calculatedCreditLimit)}
-      />
-      <CreditMetric
-        label="Used credit"
-        value={formatCreditAmount(summary.usedCredit)}
-      />
-      <CreditMetric
-        label="Available credit"
-        value={formatCreditAmount(summary.availableCredit)}
-      />
-    </dl>
-  );
-}
-
-function CreditMetric({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </dt>
-      <dd className="mt-1 text-base font-semibold text-[var(--foreground)] tabular-nums">
-        {value}
-      </dd>
-    </div>
   );
 }
 

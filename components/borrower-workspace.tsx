@@ -1,13 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
 import { signOutAction } from "@/app/login/actions";
 import {
   BorrowerBottomTabs,
   type BorrowerTab,
 } from "@/components/borrower-bottom-tabs";
+import { CreditProfileSection } from "@/components/borrower-credit-summary";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
+import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import type { BorrowerCreditSummary } from "@/lib/credit-limit";
 
 type BorrowerWorkspaceProps = {
   accountEmail?: string;
@@ -15,10 +19,65 @@ type BorrowerWorkspaceProps = {
 
 export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
+  const [isPending, startTransition] = useTransition();
+  const [creditSummary, setCreditSummary] =
+    useState<BorrowerCreditSummary | null>(null);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
+
+  useEffect(() => {
+    let isActive = true;
+
+    function loadCreditSummary() {
+      startTransition(() => {
+        void loadBorrowerLoanApplications().then((result) => {
+          if (!isActive) {
+            return;
+          }
+
+          setCreditSummary(result.creditSummary);
+        });
+      });
+    }
+
+    loadCreditSummary();
+    window.addEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+
+    return () => {
+      isActive = false;
+      window.removeEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+    };
+  }, [startTransition]);
+
+  useEffect(() => {
+    if (activeTab !== "profile") {
+      return;
+    }
+
+    let isActive = true;
+
+    startTransition(() => {
+      void loadBorrowerLoanApplications().then((result) => {
+        if (!isActive) {
+          return;
+        }
+
+        setCreditSummary(result.creditSummary);
+      });
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [activeTab, startTransition]);
 
   function changeTab(tab: BorrowerTab) {
     setActiveTab(tab);
+  }
+
+  function scrollToBusinessProfile() {
+    document
+      .getElementById("business-profile")
+      ?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -76,7 +135,17 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
               description="Keep your business details current before requesting financing."
             />
           </div>
-          <BorrowerPortfolioForm />
+          <div id="business-profile">
+            <BorrowerPortfolioForm />
+          </div>
+          {creditSummary ? (
+            <CreditProfileSection
+              summary={creditSummary}
+              onUpdateProfile={scrollToBusinessProfile}
+            />
+          ) : (
+            <CreditProfilePlaceholder isPending={isPending} />
+          )}
           <AccountSection email={accountEmail} />
         </section>
       ) : (
@@ -85,6 +154,21 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
 
       <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
     </div>
+  );
+}
+
+function CreditProfilePlaceholder({ isPending }: { isPending: boolean }) {
+  return (
+    <section className="grid gap-2 rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-5 text-sm leading-6 text-[var(--muted-foreground)]">
+      <h3 className="text-lg font-semibold text-[var(--foreground)]">
+        Credit profile
+      </h3>
+      <p>
+        {isPending
+          ? "Loading your credit profile."
+          : "Save your business profile to see your available request amount."}
+      </p>
+    </section>
   );
 }
 

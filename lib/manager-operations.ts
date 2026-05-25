@@ -110,7 +110,7 @@ export type ManagerLookupResult = {
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
 const applicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =

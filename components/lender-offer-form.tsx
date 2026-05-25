@@ -48,6 +48,7 @@ export function LenderOfferForm({
   return (
     <form ref={formRef} action={onSubmit} className="grid gap-3">
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
+      <input type="hidden" name="requestedAmount" value={requestedAmount} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Approved amount"

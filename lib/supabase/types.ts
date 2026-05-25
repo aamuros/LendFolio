@@ -170,6 +170,9 @@ export type Database = {
           borrower_id: string;
           borrower_portfolio_id: string;
           requested_amount: number;
+          credit_limit_at_submission: number | null;
+          used_credit_at_submission: number | null;
+          available_credit_at_submission: number | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks: string | null;
@@ -183,6 +186,9 @@ export type Database = {
           borrower_id: string;
           borrower_portfolio_id: string;
           requested_amount: number;
+          credit_limit_at_submission?: number | null;
+          used_credit_at_submission?: number | null;
+          available_credit_at_submission?: number | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks?: string | null;
@@ -196,6 +202,9 @@ export type Database = {
           borrower_id?: string;
           borrower_portfolio_id?: string;
           requested_amount?: number;
+          credit_limit_at_submission?: number | null;
+          used_credit_at_submission?: number | null;
+          available_credit_at_submission?: number | null;
           purpose?: string;
           preferred_term?: PreferredTerm;
           remarks?: string | null;

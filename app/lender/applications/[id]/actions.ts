@@ -1,7 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { loanOfferSchema, type LoanOfferInput } from "@/lib/loan-offer";
+import {
+  createLoanOfferSchema,
+  loanOfferSchema,
+  type LoanOfferInput,
+} from "@/lib/loan-offer";
 import type { Json } from "@/lib/supabase/types";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -29,7 +33,11 @@ export async function createLoanOffer(
   _previousState: CreateLoanOfferState,
   formData: FormData,
 ): Promise<CreateLoanOfferState> {
-  const parsed = loanOfferSchema.safeParse({
+  const requestedAmount = Number(formData.get("requestedAmount"));
+  const schema = Number.isFinite(requestedAmount)
+    ? createLoanOfferSchema(requestedAmount)
+    : loanOfferSchema;
+  const parsed = schema.safeParse({
     approvedAmount: formData.get("approvedAmount"),
     repaymentAmount: formData.get("repaymentAmount"),
     fees: formData.get("fees"),

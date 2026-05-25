@@ -138,6 +138,36 @@ export default async function LenderApplicationDetailPage({
         </section>
 
         <section className="grid gap-3">
+          <h2 className="text-lg font-semibold">Credit at submission</h2>
+          <div className="rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
+            {hasCreditSnapshot(application) ? (
+              <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                <ReviewItem
+                  label="Requested"
+                  value={`PHP ${formatCurrency(application.requestedAmount)}`}
+                />
+                <ReviewItem
+                  label="Available"
+                  value={`PHP ${formatCurrency(application.availableCreditAtSubmission)}`}
+                />
+                <ReviewItem
+                  label="Credit limit"
+                  value={`PHP ${formatCurrency(application.creditLimitAtSubmission)}`}
+                />
+                <ReviewItem
+                  label="Used credit"
+                  value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
+                />
+              </dl>
+            ) : (
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                Not recorded for this application.
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-3">
           <h2 className="text-lg font-semibold">
             {getActionTitle({
               hasAcceptedApplication,
@@ -329,6 +359,22 @@ function Metric({ label, value }: { label: string; value: string }) {
       </dt>
       <dd className="mt-2 break-words text-base font-semibold">{value}</dd>
     </div>
+  );
+}
+
+function hasCreditSnapshot(application: {
+  creditLimitAtSubmission: number | null;
+  usedCreditAtSubmission: number | null;
+  availableCreditAtSubmission: number | null;
+}): application is {
+  creditLimitAtSubmission: number;
+  usedCreditAtSubmission: number;
+  availableCreditAtSubmission: number;
+} {
+  return (
+    application.creditLimitAtSubmission !== null &&
+    application.usedCreditAtSubmission !== null &&
+    application.availableCreditAtSubmission !== null
   );
 }
 
