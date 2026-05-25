@@ -2,7 +2,7 @@
 
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 
-type BorrowerTab = "home" | "profile" | "apply" | "offers";
+type BorrowerTab = "home" | "apply" | "offers" | "loans" | "profile";
 
 type BorrowerBottomTabsProps = {
   activeTab: BorrowerTab;
@@ -11,9 +11,9 @@ type BorrowerBottomTabsProps = {
 
 const tabs: AppBottomTab<BorrowerTab>[] = [
   { id: "home", label: "Home", icon: "home" },
-  { id: "profile", label: "Profile", icon: "profile" },
   { id: "apply", label: "Apply", icon: "apply" },
   { id: "offers", label: "Offers", icon: "offers" },
+  { id: "loans", label: "Loans", icon: "loans" },
 ];
 
 export function BorrowerBottomTabs({

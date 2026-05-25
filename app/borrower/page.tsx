@@ -21,7 +21,7 @@ export default async function BorrowerPage({
   } = access.ok ? await access.supabase.auth.getUser() : { data: { user: null } };
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-4xl gap-5">
         {access.ok ? (
           <BorrowerWorkspace accountEmail={user?.email ?? ""} />

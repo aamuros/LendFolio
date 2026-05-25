@@ -30,7 +30,7 @@ export default async function LenderApplicationDetailPage({
 
   if (!result.ok) {
     return (
-      <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+      <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
         <div className="mx-auto grid max-w-4xl gap-5">
           <DetailHeader />
           <section className="grid gap-4">
@@ -59,7 +59,7 @@ export default async function LenderApplicationDetailPage({
     application.status === "accepted" || hasAcceptedOffer;
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-4xl gap-5">
         <DetailHeader />
 

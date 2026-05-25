@@ -12,12 +12,6 @@ const tabs: AppBottomTab<LenderTab>[] = [
     href: "/lender/applications",
   },
   { id: "offers", label: "Offers", icon: "offers", href: "/lender?tab=offers" },
-  {
-    id: "account",
-    label: "Account",
-    icon: "account",
-    href: "/lender?tab=account",
-  },
 ];
 
 export function LenderBottomTabs({ activeTab }: { activeTab: LenderTab }) {

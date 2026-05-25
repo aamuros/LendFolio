@@ -38,7 +38,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   if (!access.ok) {
     return (
-      <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+      <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
         <div className="mx-auto grid max-w-4xl gap-5">
           <LenderHeader showAccountLink={false} />
           <LenderApplicationsStatus message={access.message} tone="error" />
@@ -55,7 +55,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   const offers = offersResult.ok ? offersResult.offers : [];
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-4xl gap-5">
         <LenderHeader showAccountLink={activeTab !== "account"} />
 

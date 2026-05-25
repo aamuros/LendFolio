@@ -1,6 +1,6 @@
 export default function LenderApplicationsLoading() {
   return (
-    <main className="min-h-svh px-5 pt-4 pb-28 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-4xl gap-5">
         <div className="h-5 w-24 rounded-full bg-[var(--muted)]" />
         <div className="grid gap-3">

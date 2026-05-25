@@ -34,6 +34,10 @@ const defaultValues: LoanApplicationInput = {
   remarks: "",
 };
 
+const collapsedApplicationsStorageKey =
+  "lendfolio.borrower.collapsedApplications";
+const collapsedOffersStorageKey = "lendfolio.borrower.collapsedOffers";
+
 type LoadState = "loading" | "ready" | "blocked" | "error";
 type ProofFeedback = {
   tone: "success" | "error";
@@ -41,7 +45,7 @@ type ProofFeedback = {
 };
 
 type BorrowerLoanApplicationPanelProps = {
-  view?: "home" | "apply" | "offers";
+  view?: "home" | "apply" | "offers" | "loans";
   onNavigate?: (tab: BorrowerTab) => void;
 };
 
@@ -97,9 +101,17 @@ export function BorrowerLoanApplicationPanel({
           setHasPortfolio(nextHasPortfolio);
           setApplications(nextApplications);
           setExpandedApplicationIds(
-            getDefaultExpandedApplicationIds(nextApplications),
+            getDefaultExpandedApplicationIds(
+              nextApplications,
+              readStoredIdSet(collapsedApplicationsStorageKey),
+            ),
           );
-          setExpandedOfferIds(getDefaultExpandedOfferIds(nextApplications));
+          setExpandedOfferIds(
+            getDefaultExpandedOfferIds(
+              nextApplications,
+              readStoredIdSet(collapsedOffersStorageKey),
+            ),
+          );
           setLoadState(nextHasPortfolio ? "ready" : "blocked");
           setMessage(result.ok ? "" : result.message);
           setSuccessMessage("");
@@ -285,6 +297,8 @@ export function BorrowerLoanApplicationPanel({
       }
       setExpandedApplicationIds((current) => new Set([...current, applicationId]));
       setExpandedOfferIds((current) => new Set([...current, offerId]));
+      setStoredIdCollapsed(collapsedApplicationsStorageKey, applicationId, false);
+      setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
       setLoadState("ready");
       setMessage("");
       setSuccessMessage(result.message);
@@ -370,8 +384,10 @@ export function BorrowerLoanApplicationPanel({
 
       if (next.has(applicationId)) {
         next.delete(applicationId);
+        setStoredIdCollapsed(collapsedApplicationsStorageKey, applicationId, true);
       } else {
         next.add(applicationId);
+        setStoredIdCollapsed(collapsedApplicationsStorageKey, applicationId, false);
       }
 
       return next;
@@ -385,8 +401,10 @@ export function BorrowerLoanApplicationPanel({
 
       if (next.has(offerId)) {
         next.delete(offerId);
+        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, true);
       } else {
         next.add(offerId);
+        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
       }
 
       return next;
@@ -418,8 +436,6 @@ export function BorrowerLoanApplicationPanel({
           hasPortfolio={hasPortfolio}
           loadState={loadState}
           onNavigate={onNavigate}
-          onSubmitProof={onSubmitProof}
-          proofFeedback={proofFeedback}
         />
       ) : null}
 
@@ -479,9 +495,22 @@ export function BorrowerLoanApplicationPanel({
             onAcceptOffer={onAcceptOffer}
             onDeclineOffer={onDeclineOffer}
             onNavigate={onNavigate}
-            onSubmitProof={onSubmitProof}
             onToggleOffer={toggleOffer}
             pendingOffers={pendingOffers}
+          />
+        </>
+      ) : null}
+
+      {view === "loans" ? (
+        <>
+          <SectionHeader
+            title="Loans"
+            description="Track active loans, repayment schedules, and payment proof."
+          />
+          <BorrowerLoansPanel
+            applications={applications}
+            onNavigate={onNavigate}
+            onSubmitProof={onSubmitProof}
             proofFeedback={proofFeedback}
           />
         </>
@@ -495,15 +524,11 @@ function HomeSummary({
   hasPortfolio,
   loadState,
   onNavigate,
-  onSubmitProof,
-  proofFeedback,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
-  proofFeedback: Record<string, ProofFeedback>;
 }) {
   const summary = getHomeSummary(hasPortfolio, applications);
   const latestApplication = applications[0];
@@ -564,14 +589,6 @@ function HomeSummary({
           value={latestActiveLoan ? formatLoanStatus(latestActiveLoan.status) : getOfferSummary(applications, pendingOfferCount)}
         />
       </div>
-
-      {latestActiveLoan ? (
-        <ActiveLoanCard
-          loan={latestActiveLoan}
-          onSubmitProof={onSubmitProof}
-          proofFeedback={proofFeedback}
-        />
-      ) : null}
     </div>
   );
 }
@@ -692,41 +709,23 @@ function ApplicationList({
           const applicationDetailsId = `application-${application.id}-details`;
 
           return (
-            <article
+            <BorrowerListCard
               key={application.id}
-              className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm"
+              detailsId={applicationDetailsId}
+              isExpanded={isExpanded}
+              label={application.purpose}
+              amount={application.requestedAmount}
+              metadata={[
+                preferredTermLabels[application.preferredTerm],
+                `Submitted ${formatDate(application.submittedAt)}`,
+              ]}
+              status={<StatusBadge value={application.status} />}
+              onToggle={() => onToggleApplication(application.id)}
             >
-              <button
-                type="button"
-                aria-expanded={isExpanded}
-                aria-controls={applicationDetailsId}
-                onClick={() => onToggleApplication(application.id)}
-                className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.3fr_1fr_auto] sm:items-center"
-              >
-                <span className="grid gap-1">
-                  <span className="text-sm font-semibold text-[var(--muted-foreground)]">
-                    {application.purpose}
-                  </span>
-                  <span className="text-2xl font-semibold">
-                    PHP {formatCurrency(application.requestedAmount)}
-                  </span>
-                </span>
-                <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
-                  <span>{preferredTermLabels[application.preferredTerm]}</span>
-                  <span>Submitted {formatDate(application.submittedAt)}</span>
-                </span>
-                <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-                  <StatusBadge value={application.status} />
-                  <span className="text-sm font-semibold text-[var(--primary)]">
-                    {isExpanded ? "Hide" : "View details"}
-                  </span>
-                </span>
-              </button>
-
               {isExpanded ? (
                 <div
                   id={applicationDetailsId}
-                  className="border-t border-[var(--border)] px-4 py-4"
+                  className="border-t border-[var(--border)] px-4 py-4 sm:px-5"
                 >
                   {isEditing ? (
                     <ApplicationEditForm
@@ -779,7 +778,7 @@ function ApplicationList({
                   )}
                 </div>
               ) : null}
-            </article>
+            </BorrowerListCard>
           );
         })}
       </div>
@@ -794,10 +793,8 @@ function OfferList({
   onAcceptOffer,
   onDeclineOffer,
   onNavigate,
-  onSubmitProof,
   onToggleOffer,
   pendingOffers,
-  proofFeedback,
 }: {
   closedOffers: OfferListItem[];
   expandedOfferIds: Set<string>;
@@ -805,10 +802,8 @@ function OfferList({
   onAcceptOffer: (applicationId: string, offerId: string) => void;
   onDeclineOffer: (applicationId: string, offerId: string) => void;
   onNavigate?: (tab: BorrowerTab) => void;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleOffer: (offerId: string) => void;
   pendingOffers: OfferListItem[];
-  proofFeedback: Record<string, ProofFeedback>;
 }) {
   if (pendingOffers.length === 0 && closedOffers.length === 0) {
     return (
@@ -834,9 +829,8 @@ function OfferList({
                 isPending={isPending}
                 onAcceptOffer={onAcceptOffer}
                 onDeclineOffer={onDeclineOffer}
-                onSubmitProof={onSubmitProof}
+                onNavigate={onNavigate}
                 onToggleOffer={onToggleOffer}
-                proofFeedback={proofFeedback}
               />
             ))}
           </div>
@@ -857,9 +851,8 @@ function OfferList({
                 isPending={isPending}
                 onAcceptOffer={onAcceptOffer}
                 onDeclineOffer={onDeclineOffer}
-                onSubmitProof={onSubmitProof}
+                onNavigate={onNavigate}
                 onToggleOffer={onToggleOffer}
-                proofFeedback={proofFeedback}
               />
             ))}
           </div>
@@ -874,24 +867,103 @@ type OfferListItem = {
   offer: BorrowerLoanApplicationSummary["offers"][number];
 };
 
+function BorrowerListCard({
+  amount,
+  children,
+  detailsId,
+  isExpanded,
+  label,
+  metadata,
+  onToggle,
+  status,
+}: {
+  amount: number;
+  children: ReactNode;
+  detailsId: string;
+  isExpanded: boolean;
+  label: string;
+  metadata: string[];
+  onToggle: () => void;
+  status: ReactNode;
+}) {
+  return (
+    <article className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm">
+      <BorrowerListCardHeader
+        amount={amount}
+        detailsId={detailsId}
+        isExpanded={isExpanded}
+        label={label}
+        metadata={metadata}
+        onToggle={onToggle}
+        status={status}
+      />
+      {children}
+    </article>
+  );
+}
+
+function BorrowerListCardHeader({
+  amount,
+  detailsId,
+  isExpanded,
+  label,
+  metadata,
+  onToggle,
+  status,
+}: {
+  amount: number;
+  detailsId: string;
+  isExpanded: boolean;
+  label: string;
+  metadata: string[];
+  onToggle: () => void;
+  status: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-expanded={isExpanded}
+      aria-controls={detailsId}
+      onClick={onToggle}
+      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.25fr_1fr_auto] sm:items-center sm:px-5"
+    >
+      <span className="grid gap-1">
+        <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+          {label}
+        </span>
+        <MoneyText value={amount} className="text-2xl font-semibold" />
+      </span>
+      <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+        {metadata.slice(0, 2).map((item) => (
+          <span key={item}>{item}</span>
+        ))}
+      </span>
+      <span className="flex flex-wrap items-center gap-2 sm:justify-end">
+        {status}
+        <span className="text-sm font-semibold text-[var(--primary)]">
+          {isExpanded ? "Hide" : "View details"}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 function OfferCard({
   isExpanded,
   isPending,
   item,
   onAcceptOffer,
   onDeclineOffer,
-  onSubmitProof,
+  onNavigate,
   onToggleOffer,
-  proofFeedback,
 }: {
   isExpanded: boolean;
   isPending: boolean;
   item: OfferListItem;
   onAcceptOffer: (applicationId: string, offerId: string) => void;
   onDeclineOffer: (applicationId: string, offerId: string) => void;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  onNavigate?: (tab: BorrowerTab) => void;
   onToggleOffer: (offerId: string) => void;
-  proofFeedback: Record<string, ProofFeedback>;
 }) {
   const { application, offer } = item;
   const offerDetailsId = `offer-${offer.id}-details`;
@@ -899,67 +971,49 @@ function OfferCard({
 
   return (
     <article
-      className={`overflow-hidden rounded-3xl border bg-white shadow-sm ${
-        offer.status === "pending"
-          ? "border-[#d7c37f]"
-          : "border-[var(--border)] opacity-75"
-      }`}
+      className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm"
     >
-      <button
-        type="button"
-        aria-expanded={isExpanded}
-        aria-controls={offerDetailsId}
-        onClick={() => onToggleOffer(offer.id)}
-        className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.2fr_1fr_auto] sm:items-center"
-      >
-        <span className="grid gap-1">
-          <span className="text-sm font-semibold text-[var(--muted-foreground)]">
-            {offer.lenderName}
-          </span>
-          <span className="text-2xl font-semibold">
-            PHP {formatCurrency(offer.approvedAmount)}
-          </span>
-        </span>
-        <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
-          <span>Repay PHP {formatCurrency(offer.repaymentAmount)}</span>
-          <span>Due {formatDateOnly(offer.dueDate)}</span>
-        </span>
-        <span className="flex flex-wrap items-center gap-2 sm:justify-end">
-          <span
-            className={`rounded-full px-3 py-1 text-sm font-semibold capitalize ${getOfferStatusClassName(offer.status)}`}
-          >
-            {offer.status}
-          </span>
-          <span className="text-sm font-semibold text-[var(--primary)]">
-            {isExpanded ? "Hide" : "View details"}
-          </span>
-        </span>
-      </button>
+      <BorrowerListCardHeader
+        detailsId={offerDetailsId}
+        isExpanded={isExpanded}
+        label={offer.lenderName}
+        amount={offer.approvedAmount}
+        metadata={[
+          `Repay ${formatMoney(offer.repaymentAmount)}`,
+          `Due ${formatDateOnly(offer.dueDate)}`,
+        ]}
+        status={<StatusBadge value={offer.status} />}
+        onToggle={() => onToggleOffer(offer.id)}
+      />
 
       {isExpanded ? (
-        <div id={offerDetailsId} className="border-t border-[var(--border)] px-4 py-4">
+        <div id={offerDetailsId} className="border-t border-[var(--border)] px-4 py-4 sm:px-5">
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <SummaryItem label="Application" value={application.purpose} />
-            <SummaryItem label="Fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+            <SummaryItem label="Fees" value={formatMoney(offer.fees)} />
             <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
             <SummaryItem label="Remarks" value={offer.remarks || "None"} />
           </dl>
 
           {offer.status === "accepted" && application.activeLoan ? (
-            <div className="mt-4 border-t border-[var(--border)] pt-4">
-              <ActiveLoanCard
-                loan={application.activeLoan}
-                compact
-                onSubmitProof={onSubmitProof}
-                proofFeedback={proofFeedback}
-              />
+            <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                Linked to loan.
+              </p>
+              <button
+                type="button"
+                onClick={() => onNavigate?.("loans")}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+              >
+                View loan
+              </button>
             </div>
           ) : null}
 
           <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
             <p className="text-sm leading-6 text-[var(--muted-foreground)]">
               {offer.status === "accepted" && application.activeLoan
-                ? "This offer is linked to your active loan."
+                ? "Use Loans to track repayments."
                 : "Accepting an offer closes other pending offers for this application."}
             </p>
             <div className="grid gap-2 sm:flex">
@@ -1080,153 +1134,314 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
+function BorrowerLoansPanel({
+  applications,
+  onNavigate,
+  onSubmitProof,
+  proofFeedback,
+}: {
+  applications: BorrowerLoanApplicationSummary[];
+  onNavigate?: (tab: BorrowerTab) => void;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  proofFeedback: Record<string, ProofFeedback>;
+}) {
+  const activeLoans = applications.flatMap((application) =>
+    application.activeLoan ? [application.activeLoan] : [],
+  );
+
+  if (activeLoans.length === 0) {
+    return (
+      <BlockedCard
+        message="Accepted offers will become active loans here."
+        action="Review offers"
+        onClick={() => onNavigate?.("offers")}
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-4">
+      {activeLoans.map((loan) => (
+        <ActiveLoanCard
+          key={loan.id}
+          loan={loan}
+          onSubmitProof={onSubmitProof}
+          proofFeedback={proofFeedback}
+        />
+      ))}
+    </div>
+  );
+}
+
 function ActiveLoanCard({
-  compact = false,
   loan,
   onSubmitProof,
   proofFeedback,
 }: {
-  compact?: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   proofFeedback: Record<string, ProofFeedback>;
 }) {
-  const repayment = loan.schedule[0];
-  const latestProof = repayment?.latestProof ?? null;
-  const canUploadProof =
-    repayment?.status === "due" || repayment?.status === "rejected";
-  const currentFeedback = repayment ? proofFeedback[repayment.id] : null;
+  const paidAmount = Math.max(loan.repaymentAmount - loan.outstandingBalance, 0);
+  const progressPercent =
+    loan.repaymentAmount > 0
+      ? Math.min(Math.round((paidAmount / loan.repaymentAmount) * 100), 100)
+      : 0;
+  const nextRepayment = getNextRepayment(loan.schedule);
+  const isCompletedLoan = loan.status === "paid" || loan.status === "closed";
+  const primaryAmount = isCompletedLoan ? paidAmount : loan.outstandingBalance;
+  const remainingAmount = isCompletedLoan ? 0 : loan.outstandingBalance;
 
   return (
-    <article className="grid gap-4 rounded-3xl border border-[#cdd8d2] bg-white px-4 py-4 shadow-sm sm:px-5">
+    <article className="grid gap-4">
+      <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="grid gap-1">
-          <p className="text-sm font-semibold text-[var(--accent)]">
-            Active loan
+          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+            {isCompletedLoan ? "Completed loan" : "Current loan"}
           </p>
-          <h3 className={compact ? "text-lg font-semibold" : "text-2xl font-semibold"}>
-            PHP {formatCurrency(loan.principalAmount)}
-          </h3>
+          <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
+          </p>
         </div>
-        <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold capitalize text-[#0f5f45]">
-          {loan.status}
-        </span>
+        <LoanStatusPill status={loan.status} />
       </div>
 
-      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-        <SummaryItem
-          label="Principal"
-          value={`PHP ${formatCurrency(loan.principalAmount)}`}
-        />
-        <SummaryItem
-          label="Repayment"
-          value={`PHP ${formatCurrency(loan.repaymentAmount)}`}
-        />
-        <SummaryItem
-          label="Outstanding"
-          value={`PHP ${formatCurrency(loan.outstandingBalance)}`}
-        />
-        <SummaryItem label="Due date" value={formatDateOnly(loan.dueDate)} />
-        <SummaryItem
-          label="Repayment status"
-          value={repayment?.status === "due" ? "Payment due" : repayment?.status ?? "Payment due"}
-        />
-        <SummaryItem
-          label="Proof status"
-          value={latestProof ? formatProofStatus(latestProof.status) : "Not uploaded"}
-        />
-      </dl>
+        <div className="grid grid-cols-3 gap-3 border-y border-[var(--border)] py-4 text-sm">
+          <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
+          <SummaryItem label="Total repayment" value={formatMoney(loan.repaymentAmount)} />
+          <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
+        </div>
 
-      {repayment ? (
-        <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h4 className="text-sm font-semibold">Repayment details</h4>
-            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold capitalize text-[var(--foreground)]">
-              {repayment.status === "due" ? "Payment due" : repayment.status}
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span className="font-semibold text-[var(--muted-foreground)]">
+              Progress
             </span>
+            <span className="font-semibold">{progressPercent}%</span>
           </div>
-          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <SummaryItem
-              label="Installment"
-              value={`#${repayment.installmentNumber}`}
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--muted)]">
+            <div
+              className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
+              style={{ width: `${progressPercent}%` }}
             />
-            <SummaryItem
-              label="Amount due"
-              value={`PHP ${formatCurrency(repayment.amountDue)}`}
-            />
-            <SummaryItem
-              label="Due date"
-              value={formatDateOnly(repayment.dueDate)}
-            />
-            <SummaryItem
-              label="Status"
-              value={repayment.status === "due" ? "Payment due" : repayment.status}
-            />
-            <SummaryItem
-              label="Proof"
-              value={latestProof ? latestProof.fileName : "Not uploaded"}
-            />
-          </dl>
-          {latestProof?.status === "submitted" ? (
-            <ProofStatusMessage message="Proof submitted - waiting for lender review." />
-          ) : null}
-          {latestProof?.status === "verified" ? (
-            <ProofStatusMessage message="Payment verified." />
-          ) : null}
-          {latestProof?.status === "rejected" ? (
-            <ProofStatusMessage
-              message={
-                latestProof.reviewNotes
-                  ? `Proof rejected: ${latestProof.reviewNotes}`
-                  : "Proof rejected. Upload a new proof for lender review."
-              }
-              tone="error"
-            />
-          ) : null}
-          {canUploadProof ? (
-            <form
-              action={(formData) => onSubmitProof(repayment.id, formData)}
-              className="grid gap-3 border-t border-[var(--border)] pt-3"
-            >
-              <div className="grid gap-1">
-                <label
-                  htmlFor={`proof-${repayment.id}`}
-                  className="text-sm font-semibold"
-                >
-                  Upload payment proof
-                </label>
-                <input
-                  id={`proof-${repayment.id}`}
-                  name="proofFile"
-                  type="file"
-                  accept="image/jpeg,image/png,image/webp,application/pdf"
-                  className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--foreground)]"
-                />
-                <p className="text-xs leading-5 text-[var(--muted-foreground)]">
-                  JPG, PNG, WebP, or PDF up to 5 MB. This does not process a real payment.
-                </p>
+          </div>
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            {formatMoney(paidAmount)} paid · {formatMoney(remainingAmount)} remaining
+          </p>
+        </div>
+
+        {nextRepayment ? (
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] px-4 py-3">
+            <div className="grid gap-1">
+              <p className="text-sm font-semibold">Next repayment</p>
+              <p className="text-sm text-[var(--muted-foreground)]">
+                Due {formatDateOnly(nextRepayment.dueDate)}
+              </p>
+            </div>
+            <div className="text-left sm:text-right">
+              <MoneyText value={nextRepayment.amountDue} className="text-lg font-semibold" />
+              <div className="mt-1">
+                <RepaymentStatusPill status={nextRepayment.status} />
               </div>
-              <button
-                type="submit"
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-              >
-                Submit proof
-              </button>
-              {currentFeedback ? (
-                <ProofStatusMessage
-                  message={currentFeedback.message}
-                  tone={currentFeedback.tone}
-                />
-              ) : null}
-            </form>
-          ) : null}
-        </section>
-      ) : (
-        <p className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
-          Your repayment schedule will appear here when it is ready.
-        </p>
-      )}
+            </div>
+          </div>
+        ) : null}
+
+        {isCompletedLoan ? (
+          <p className="rounded-2xl border border-[#c8e6d8] bg-[#f1fbf6] px-4 py-3 text-sm font-semibold text-[#0f5f45]">
+            All repayments verified.
+          </p>
+        ) : null}
+      </section>
+
+      <section className="grid gap-2 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
+        <div className="flex items-center justify-between gap-3">
+          <h4 className="text-base font-semibold">Repayment schedule</h4>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            {loan.schedule.length} {loan.schedule.length === 1 ? "installment" : "installments"}
+          </p>
+        </div>
+        {loan.schedule.length > 0 ? (
+          <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)]">
+            {loan.schedule.map((repayment) => (
+              <RepaymentScheduleItem
+                key={repayment.id}
+                repayment={repayment}
+                onSubmitProof={onSubmitProof}
+                proofFeedback={proofFeedback[repayment.id] ?? null}
+              />
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
+            Your repayment schedule will appear here when it is ready.
+          </p>
+        )}
+      </section>
     </article>
+  );
+}
+
+function RepaymentScheduleItem({
+  repayment,
+  onSubmitProof,
+  proofFeedback,
+}: {
+  repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  proofFeedback: ProofFeedback | null;
+}) {
+  const latestProof = repayment.latestProof;
+  const canUploadProof =
+    repayment.status === "due" ||
+    repayment.status === "late" ||
+    repayment.status === "rejected" ||
+    latestProof?.status === "rejected";
+  const isRejected =
+    repayment.status === "rejected" || latestProof?.status === "rejected";
+  const isVerified =
+    repayment.status === "verified" || latestProof?.status === "verified";
+  const isSubmitted =
+    repayment.status === "submitted" || latestProof?.status === "submitted";
+
+  return (
+    <div className="grid gap-3 bg-white px-4 py-4">
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-center">
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h5 className="text-sm font-semibold">
+              Installment {repayment.installmentNumber}
+            </h5>
+            <RepaymentStatusPill status={repayment.status} />
+          </div>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Due {formatDateOnly(repayment.dueDate)}
+          </p>
+        </div>
+        <MoneyText value={repayment.amountDue} className="text-xl font-semibold" />
+      </div>
+
+      {isVerified ? (
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          Payment verified.
+          {latestProof?.fileName ? (
+            <>
+              {" "}
+              <span className="break-words font-semibold text-[var(--foreground)]">
+                {latestProof.fileName}
+              </span>
+            </>
+          ) : null}
+        </p>
+      ) : latestProof ? (
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          Latest proof:{" "}
+          <span className="break-words font-semibold text-[var(--foreground)]">
+            {latestProof.fileName}
+          </span>
+        </p>
+      ) : null}
+
+      {isRejected ? (
+        <ActionBanner
+          tone="error"
+          title="Proof rejected"
+          message={
+            latestProof?.reviewNotes ||
+            "Upload a clearer proof so the lender can review it again."
+          }
+        />
+      ) : null}
+      {isSubmitted && !isRejected ? (
+        <ActionBanner
+          tone="info"
+          title="Proof submitted. Waiting for lender review."
+          message=""
+        />
+      ) : null}
+
+      {canUploadProof ? (
+        <RepaymentProofForm
+          isRejected={isRejected}
+          repaymentId={repayment.id}
+          proofFeedback={proofFeedback}
+          onSubmitProof={onSubmitProof}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function RepaymentProofForm({
+  isRejected,
+  onSubmitProof,
+  proofFeedback,
+  repaymentId,
+}: {
+  isRejected: boolean;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  proofFeedback: ProofFeedback | null;
+  repaymentId: string;
+}) {
+  return (
+    <form
+      action={(formData) => onSubmitProof(repaymentId, formData)}
+      className="grid gap-3 border-t border-[var(--border)] pt-3"
+    >
+      <div className="grid gap-1.5">
+        <label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
+          {isRejected ? "Upload corrected proof" : "Upload payment proof"}
+        </label>
+        <input
+          id={`proof-${repaymentId}`}
+          name="proofFile"
+          type="file"
+          accept="image/jpeg,image/png,image/webp,application/pdf"
+          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--foreground)]"
+        />
+        <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+          JPG, PNG, WebP, or PDF up to 5 MB.
+        </p>
+      </div>
+      <button
+        type="submit"
+        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+      >
+        {isRejected ? "Submit corrected proof" : "Submit proof"}
+      </button>
+      {proofFeedback ? (
+        <ProofStatusMessage
+          message={proofFeedback.message}
+          tone={proofFeedback.tone}
+        />
+      ) : null}
+    </form>
+  );
+}
+
+function ActionBanner({
+  message,
+  title,
+  tone,
+}: {
+  message: string;
+  title: string;
+  tone: "error" | "info" | "success";
+}) {
+  const className =
+    tone === "error"
+      ? "border-[#f3c7c7] bg-[#fff4f4] text-[#8f1d1d]"
+      : tone === "success"
+        ? "border-[#c8e6d8] bg-[#f1fbf6] text-[#0f5f45]"
+        : "border-[#d8dde8] bg-[#f7f9fc] text-[var(--foreground)]";
+
+  return (
+    <div className={`rounded-2xl border px-3 py-3 text-sm leading-6 ${className}`}>
+      <p className="font-semibold">{title}</p>
+      {message ? <p>{message}</p> : null}
+    </div>
   );
 }
 
@@ -1351,7 +1566,10 @@ function getHomeSummary(
   const hasAcceptedOffer = applications.some((application) =>
     application.offers.some((offer) => offer.status === "accepted"),
   );
-  const hasActiveLoan = applications.some((application) => application.activeLoan);
+  const activeLoans = applications.flatMap((application) =>
+    application.activeLoan ? [application.activeLoan] : [],
+  );
+  const activeLoanAction = getActiveLoanHomeAction(activeLoans);
 
   if (!hasPortfolio) {
     return {
@@ -1373,14 +1591,8 @@ function getHomeSummary(
     } satisfies HomeSummaryContent;
   }
 
-  if (hasActiveLoan) {
-    return {
-      action: "View loan",
-      description: "Your accepted offer is now an active loan.",
-      label: "Status",
-      tab: "offers",
-      title: "Active loan",
-    } satisfies HomeSummaryContent;
+  if (activeLoanAction) {
+    return activeLoanAction;
   }
 
   if (hasAcceptedOffer) {
@@ -1414,26 +1626,209 @@ function getHomeSummary(
 
 function formatLoanStatus(status: string) {
   if (status === "active") {
-    return "Active";
+    return "Active loan";
+  }
+
+  if (status === "paid") {
+    return "Loan paid";
+  }
+
+  if (status === "overdue") {
+    return "Overdue";
+  }
+
+  if (status === "defaulted") {
+    return "Defaulted";
+  }
+
+  if (status === "closed") {
+    return "Closed";
   }
 
   return status;
 }
 
-function formatProofStatus(status: string) {
+function getActiveLoanHomeAction(
+  loans: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>[],
+) {
+  const rejected = loans
+    .flatMap((loan) => loan.schedule)
+    .find((repayment) => repayment.latestProof?.status === "rejected");
+
+  if (rejected) {
+    return {
+      action: "Go to loan",
+      description:
+        rejected.latestProof?.reviewNotes ||
+        "Upload a corrected proof for lender review.",
+      label: "",
+      tab: "loans",
+      title: "Proof rejected",
+    } satisfies HomeSummaryContent;
+  }
+
+  const due = loans
+    .flatMap((loan) => loan.schedule)
+    .find((repayment) => repayment.status === "due" || repayment.status === "late");
+
+  if (due) {
+    return {
+      action: "Go to loan",
+      description: "Upload proof for your repayment.",
+      label: "",
+      tab: "loans",
+      title: due.status === "late" ? "Repayment late" : "Repayment due",
+    } satisfies HomeSummaryContent;
+  }
+
+  const submitted = loans
+    .flatMap((loan) => loan.schedule)
+    .find(
+      (repayment) =>
+        repayment.status === "submitted" ||
+        repayment.latestProof?.status === "submitted",
+    );
+
+  if (submitted) {
+    return {
+      action: "View loan",
+      description: "Your lender is reviewing the submitted proof.",
+      label: "",
+      tab: "loans",
+      title: "Proof under review",
+    } satisfies HomeSummaryContent;
+  }
+
+  const paidLoan = loans.find((loan) => loan.status === "paid");
+
+  if (paidLoan) {
+    return {
+      action: "View loan",
+      description: "Your repayment has been verified.",
+      label: "",
+      tab: "loans",
+      title: "Loan paid",
+    } satisfies HomeSummaryContent;
+  }
+
+  const verified = loans
+    .flatMap((loan) => loan.schedule)
+    .find(
+      (repayment) =>
+        repayment.status === "verified" ||
+        repayment.latestProof?.status === "verified",
+    );
+
+  if (verified) {
+    return {
+      action: "View loan",
+      description: "Your repayment proof has been verified.",
+      label: "",
+      tab: "loans",
+      title: "Payment verified",
+    } satisfies HomeSummaryContent;
+  }
+
+  if (loans.length > 0) {
+    return {
+      action: "View loan",
+      description: "Your accepted offer is now an active loan.",
+      label: "",
+      tab: "loans",
+      title: "Active loan",
+    } satisfies HomeSummaryContent;
+  }
+
+  return null;
+}
+
+function formatRepaymentStatus(status: string) {
+  if (status === "due") {
+    return "Payment due";
+  }
+
   if (status === "submitted") {
-    return "Submitted";
+    return "Proof under review";
   }
 
   if (status === "verified") {
-    return "Verified";
+    return "Payment verified";
   }
 
   if (status === "rejected") {
-    return "Rejected";
+    return "Needs corrected proof";
+  }
+
+  if (status === "late") {
+    return "Late";
   }
 
   return status;
+}
+
+function LoanStatusPill({ status }: { status: string }) {
+  return (
+    <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold text-[#0f5f45]">
+      {formatLoanPillStatus(status)}
+    </span>
+  );
+}
+
+function formatLoanPillStatus(status: string) {
+  if (status === "active") {
+    return "Active";
+  }
+
+  if (status === "paid") {
+    return "Paid";
+  }
+
+  return formatLoanStatus(status);
+}
+
+function RepaymentStatusPill({ status }: { status: string }) {
+  const className =
+    status === "rejected"
+      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      : status === "verified"
+        ? "bg-[#e1f5ee] text-[#0f5f45]"
+        : status === "submitted"
+          ? "bg-[#f7f9fc] text-[var(--foreground)]"
+          : "bg-[#fff4cf] text-[#6f4e00]";
+
+  return (
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+      {formatRepaymentStatus(status)}
+    </span>
+  );
+}
+
+function MoneyText({
+  className = "",
+  value,
+}: {
+  className?: string;
+  value: number;
+}) {
+  return (
+    <span className={`whitespace-nowrap tabular-nums ${className}`}>
+      {formatMoney(value)}
+    </span>
+  );
+}
+
+function formatMoney(value: number) {
+  return `PHP ${formatCurrency(value)}`;
+}
+
+function getNextRepayment(
+  schedule: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"],
+) {
+  return (
+    schedule.find((repayment) =>
+      ["due", "late", "rejected", "submitted"].includes(repayment.status),
+    ) ?? null
+  );
 }
 
 type HomeSummaryContent = {
@@ -1481,6 +1876,7 @@ function getOfferSummary(
 
 function getDefaultExpandedApplicationIds(
   applications: BorrowerLoanApplicationSummary[],
+  collapsedApplicationIds = new Set<string>(),
 ) {
   const pendingApplicationIds = applications
     .filter((application) =>
@@ -1489,24 +1885,81 @@ function getDefaultExpandedApplicationIds(
     .map((application) => application.id);
 
   if (pendingApplicationIds.length > 0) {
-    return new Set(pendingApplicationIds);
+    return new Set(
+      pendingApplicationIds.filter((id) => !collapsedApplicationIds.has(id)),
+    );
   }
 
   if (applications.length === 1) {
-    return new Set([applications[0].id]);
+    const applicationId = applications[0].id;
+
+    return collapsedApplicationIds.has(applicationId)
+      ? new Set<string>()
+      : new Set([applicationId]);
   }
 
   return new Set<string>();
 }
 
-function getDefaultExpandedOfferIds(applications: BorrowerLoanApplicationSummary[]) {
+function getDefaultExpandedOfferIds(
+  applications: BorrowerLoanApplicationSummary[],
+  collapsedOfferIds = new Set<string>(),
+) {
   return new Set(
     applications.flatMap((application) =>
       application.offers
-        .filter((offer) => offer.status === "pending")
+        .filter(
+          (offer) =>
+            offer.status === "pending" && !collapsedOfferIds.has(offer.id),
+        )
         .map((offer) => offer.id),
     ),
   );
+}
+
+function readStoredIdSet(key: string) {
+  if (typeof window === "undefined") {
+    return new Set<string>();
+  }
+
+  try {
+    const storedValue = window.localStorage.getItem(key);
+    const parsedValue: unknown = storedValue ? JSON.parse(storedValue) : [];
+
+    if (!Array.isArray(parsedValue)) {
+      return new Set<string>();
+    }
+
+    return new Set(
+      parsedValue.filter((value): value is string => typeof value === "string"),
+    );
+  } catch {
+    return new Set<string>();
+  }
+}
+
+function writeStoredIdSet(key: string, ids: Set<string>) {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  try {
+    window.localStorage.setItem(key, JSON.stringify([...ids]));
+  } catch {
+    // Persistence should never block the borrower workflow.
+  }
+}
+
+function setStoredIdCollapsed(key: string, id: string, isCollapsed: boolean) {
+  const ids = readStoredIdSet(key);
+
+  if (isCollapsed) {
+    ids.add(id);
+  } else {
+    ids.delete(id);
+  }
+
+  writeStoredIdSet(key, ids);
 }
 
 function getOfferStatusClassName(status: string) {
@@ -1527,8 +1980,10 @@ function getOfferStatusClassName(status: string) {
 
 function StatusBadge({ value }: { value: string }) {
   return (
-    <span className="rounded-md bg-[var(--muted)] px-3 py-1 text-sm font-semibold capitalize text-[var(--foreground)]">
-      {value}
+    <span
+      className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getOfferStatusClassName(value)}`}
+    >
+      {formatApplicationStatus(value)}
     </span>
   );
 }
@@ -1569,7 +2024,7 @@ function SummaryItem({ label, value }: SummaryItemProps) {
   return (
     <div>
       <dt className="font-semibold text-[var(--muted-foreground)]">{label}</dt>
-      <dd className="mt-1 break-words text-[var(--foreground)]">{value}</dd>
+      <dd className="mt-1 text-[var(--foreground)] tabular-nums">{value}</dd>
     </div>
   );
 }

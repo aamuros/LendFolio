@@ -1,12 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 
 export type AppTabIcon =
   | "home"
   | "profile"
   | "apply"
   | "offers"
+  | "loans"
   | "applications"
   | "account";
 
@@ -30,15 +32,99 @@ export function AppBottomTabs<T extends string>({
   ariaLabel,
   onTabChange,
 }: AppBottomTabsProps<T>) {
+  const [isVisible, setIsVisible] = useState(true);
+  const lastScrollYRef = useRef(0);
+  const downDistanceRef = useRef(0);
+  const upDistanceRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    const hideDelta = 24;
+    const showDelta = 8;
+    const hideAfterScrollY = 80;
+
+    function showTabs() {
+      downDistanceRef.current = 0;
+      upDistanceRef.current = 0;
+      setIsVisible(true);
+    }
+
+    function updateForScroll() {
+      animationFrameRef.current = null;
+      const nextScrollY = window.scrollY;
+      const scrollDelta = nextScrollY - lastScrollYRef.current;
+
+      if (scrollDelta === 0) {
+        return;
+      }
+
+      if (scrollDelta > 0) {
+        downDistanceRef.current += scrollDelta;
+        upDistanceRef.current = 0;
+
+        if (
+          nextScrollY > hideAfterScrollY &&
+          downDistanceRef.current >= hideDelta
+        ) {
+          setIsVisible(false);
+        }
+      } else {
+        upDistanceRef.current += Math.abs(scrollDelta);
+        downDistanceRef.current = 0;
+
+        if (upDistanceRef.current >= showDelta) {
+          setIsVisible(true);
+        }
+      }
+
+      lastScrollYRef.current = nextScrollY;
+    }
+
+    function onScroll() {
+      if (animationFrameRef.current === null) {
+        animationFrameRef.current = window.requestAnimationFrame(updateForScroll);
+      }
+    }
+
+    lastScrollYRef.current = window.scrollY;
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("pointerdown", showTabs, { passive: true });
+    window.addEventListener("click", showTabs, { passive: true });
+    window.addEventListener("touchstart", showTabs, { passive: true });
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+      }
+
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("pointerdown", showTabs);
+      window.removeEventListener("click", showTabs);
+      window.removeEventListener("touchstart", showTabs);
+    };
+  }, []);
+
   return (
     <nav
       aria-label={ariaLabel}
-      className="fixed inset-x-0 bottom-4 z-40 px-4 sm:bottom-6"
+      onFocusCapture={() => setIsVisible(true)}
+      className={`fixed inset-x-0 bottom-0 z-40 px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] will-change-transform sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${
+        isVisible ? "pointer-events-auto opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      style={{
+        transform: isVisible
+          ? "translateY(0)"
+          : "translateY(calc(100% + 20px + env(safe-area-inset-bottom)))",
+        transition:
+          "transform 220ms cubic-bezier(0.22, 1, 0.36, 1), opacity 140ms ease",
+      }}
     >
-      <div className="mx-auto flex max-w-md items-center justify-between rounded-full border border-[var(--border)] bg-white/95 p-1.5 shadow-[0_18px_45px_rgba(22,22,22,0.16)] backdrop-blur">
+      <div
+        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-[var(--border)] bg-white/95 p-2 shadow-[0_18px_45px_rgba(22,22,22,0.16)] backdrop-blur"
+      >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const className = `flex h-12 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-xs font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${
+          const className = `flex h-[3.25rem] min-w-0 flex-1 items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${
             isActive
               ? "bg-[var(--primary)] !text-white shadow-sm"
               : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]/70 hover:text-[var(--foreground)]"
@@ -86,7 +172,7 @@ function TabIcon({ name }: { name: AppTabIcon }) {
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="size-4"
+        className="size-5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -105,7 +191,7 @@ function TabIcon({ name }: { name: AppTabIcon }) {
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="size-4"
+        className="size-5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -119,12 +205,31 @@ function TabIcon({ name }: { name: AppTabIcon }) {
     );
   }
 
+  if (name === "loans") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M4 6h16" />
+        <path d="M4 12h16" />
+        <path d="M4 18h10" />
+      </svg>
+    );
+  }
+
   if (name === "apply") {
     return (
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="size-4"
+        className="size-5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -144,7 +249,7 @@ function TabIcon({ name }: { name: AppTabIcon }) {
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
-        className="size-4"
+        className="size-5"
         fill="none"
         stroke="currentColor"
         strokeLinecap="round"
@@ -161,7 +266,7 @@ function TabIcon({ name }: { name: AppTabIcon }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-4"
+      className="size-5"
       fill="none"
       stroke="currentColor"
       strokeLinecap="round"

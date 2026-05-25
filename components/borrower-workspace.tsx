@@ -15,6 +15,7 @@ type BorrowerWorkspaceProps = {
 
 export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
+  const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
   function changeTab(tab: BorrowerTab) {
     setActiveTab(tab);
@@ -48,28 +49,39 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
         </button>
       </header>
 
-      {activeTab === "home" ? (
-        <BorrowerLoanApplicationPanel view="home" onNavigate={changeTab} />
-      ) : null}
-
       {activeTab === "profile" ? (
         <section className="grid gap-4">
-          <SectionHeader
-            title="Business profile"
-            description="Keep your business details current before requesting financing."
-          />
+          <div className="grid gap-3">
+            <button
+              type="button"
+              onClick={() => changeTab("home")}
+              className="inline-flex h-10 w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="size-4"
+                fill="none"
+                stroke="currentColor"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth="2"
+              >
+                <path d="m15 18-6-6 6-6" />
+              </svg>
+              Back
+            </button>
+            <SectionHeader
+              title="Business profile"
+              description="Keep your business details current before requesting financing."
+            />
+          </div>
           <BorrowerPortfolioForm />
           <AccountSection email={accountEmail} />
         </section>
-      ) : null}
-
-      {activeTab === "apply" ? (
-        <BorrowerLoanApplicationPanel view="apply" onNavigate={changeTab} />
-      ) : null}
-
-      {activeTab === "offers" ? (
-        <BorrowerLoanApplicationPanel view="offers" onNavigate={changeTab} />
-      ) : null}
+      ) : (
+        <BorrowerLoanApplicationPanel view={workspaceTab} onNavigate={changeTab} />
+      )}
 
       <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
     </div>
