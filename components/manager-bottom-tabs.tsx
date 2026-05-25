@@ -50,11 +50,19 @@ export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null 
   return (
     <AppBottomTabs
       tabs={tabs}
-      activeTab={visibleActiveTab}
+      activeTab={isOthersOpen ? "others" : visibleActiveTab}
       ariaLabel="Manager sections"
       onTabChange={(tab) => {
         if (tab === "others") {
           setIsOthersOpen((isOpen) => !isOpen);
+          return;
+        }
+
+        setIsOthersOpen(false);
+      }}
+      onAnyTabPress={(tab) => {
+        if (tab !== "others") {
+          setIsOthersOpen(false);
         }
       }}
       floatingMenu={<ManagerFloatingMenu onClose={() => setIsOthersOpen(false)} />}
@@ -66,7 +74,7 @@ export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null 
 
 function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
   const baseBubbleClass =
-    "grid size-18 transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.68rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition duration-200 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
+    "grid size-16 transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.65rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition duration-200 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
 
   return (
     <div
@@ -77,7 +85,7 @@ function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
       {floatingLinks.map((link, index) => {
         const positionClass =
           index === 1
-            ? "-translate-y-7 scale-105 hover:-translate-y-8"
+            ? "-translate-y-6 scale-105 hover:-translate-y-7"
             : "translate-y-0 hover:-translate-y-1";
 
         return (

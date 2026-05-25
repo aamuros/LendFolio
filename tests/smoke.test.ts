@@ -266,6 +266,9 @@ describe("manager operations helpers", () => {
     expect(appBottomTabs).toContain('| "others"');
     expect(appBottomTabs).toContain("isFloatingMenuOpen && floatingMenu");
     expect(appBottomTabs).toContain("aria-expanded=");
+    expect(appBottomTabs).toContain("onAnyTabPress?:");
+    expect(appBottomTabs).toContain("navRef.current?.contains(target)");
+    expect(appBottomTabs).toContain("!isVisible && isFloatingMenuOpen");
 
     expect(managerBottomTabs).toContain('label: "Home"');
     expect(managerBottomTabs).toContain('label: "Users"');
@@ -279,7 +282,9 @@ describe("manager operations helpers", () => {
     expect(managerBottomTabs).toContain('label: "Apps"');
     expect(managerBottomTabs).toContain('ariaLabel: "Applications and offers"');
     expect(managerBottomTabs).toContain("rounded-full");
-    expect(managerBottomTabs).toContain("-translate-y-7 scale-105");
+    expect(managerBottomTabs).toContain("-translate-y-6 scale-105");
+    expect(managerBottomTabs).toContain('activeTab={isOthersOpen ? "others" : visibleActiveTab}');
+    expect(managerBottomTabs).toContain("onAnyTabPress=");
     expect(managerBottomTabs).not.toContain("grid grid-cols-3 gap-2 rounded-3xl");
     expect(managerBottomTabs).toContain('activeTab === "proofs"');
     expect(managerBottomTabs).toContain('activeTab === "audit"');

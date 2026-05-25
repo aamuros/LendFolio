@@ -27,6 +27,7 @@ type AppBottomTabsProps<T extends string> = {
   activeTab: T | null;
   ariaLabel: string;
   onTabChange?: (tab: T) => void;
+  onAnyTabPress?: (tab: T) => void;
   floatingMenu?: React.ReactNode;
   isFloatingMenuOpen?: boolean;
   onFloatingMenuClose?: () => void;
@@ -37,11 +38,13 @@ export function AppBottomTabs<T extends string>({
   activeTab,
   ariaLabel,
   onTabChange,
+  onAnyTabPress,
   floatingMenu,
   isFloatingMenuOpen = false,
   onFloatingMenuClose,
 }: AppBottomTabsProps<T>) {
   const [isVisible, setIsVisible] = useState(true);
+  const navRef = useRef<HTMLElement | null>(null);
   const lastScrollYRef = useRef(0);
   const downDistanceRef = useRef(0);
   const upDistanceRef = useRef(0);
@@ -114,6 +117,12 @@ export function AppBottomTabs<T extends string>({
   }, []);
 
   useEffect(() => {
+    if (!isVisible && isFloatingMenuOpen) {
+      onFloatingMenuClose?.();
+    }
+  }, [isVisible, isFloatingMenuOpen, onFloatingMenuClose]);
+
+  useEffect(() => {
     if (!isFloatingMenuOpen || !onFloatingMenuClose) {
       return;
     }
@@ -131,8 +140,33 @@ export function AppBottomTabs<T extends string>({
     };
   }, [isFloatingMenuOpen, onFloatingMenuClose]);
 
+  useEffect(() => {
+    if (!isFloatingMenuOpen || !onFloatingMenuClose) {
+      return;
+    }
+
+    function onPointerDown(event: PointerEvent) {
+      const target = event.target;
+
+      if (!(target instanceof Node)) {
+        return;
+      }
+
+      if (!navRef.current?.contains(target)) {
+        onFloatingMenuClose?.();
+      }
+    }
+
+    window.addEventListener("pointerdown", onPointerDown);
+
+    return () => {
+      window.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [isFloatingMenuOpen, onFloatingMenuClose]);
+
   return (
     <nav
+      ref={navRef}
       aria-label={ariaLabel}
       onFocusCapture={() => setIsVisible(true)}
       className={`fixed inset-x-0 bottom-0 z-40 px-4 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] will-change-transform sm:pb-[calc(1.25rem+env(safe-area-inset-bottom))] ${
@@ -172,6 +206,7 @@ export function AppBottomTabs<T extends string>({
                 key={tab.id}
                 href={tab.href}
                 aria-current={isActive ? "page" : undefined}
+                onClick={() => onAnyTabPress?.(tab.id)}
                 className={className}
               >
                 {content}
@@ -185,7 +220,10 @@ export function AppBottomTabs<T extends string>({
               type="button"
               aria-current={isActive ? "page" : undefined}
               aria-expanded={isFloatingMenuOpen ? true : undefined}
-              onClick={() => onTabChange?.(tab.id)}
+              onClick={() => {
+                onAnyTabPress?.(tab.id);
+                onTabChange?.(tab.id);
+              }}
               className={className}
             >
               {content}
