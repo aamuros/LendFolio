@@ -237,6 +237,7 @@ describe("manager operations helpers", () => {
       verifiedCount: 1,
       submittedCount: 1,
       rejectedCount: 1,
+      lateCount: 0,
       nextDueDate: "2026-07-25",
     });
   });
@@ -247,6 +248,27 @@ describe("manager operations helpers", () => {
       "repayment_verified",
     );
     expect(createMetadataPreview("x".repeat(220))).toHaveLength(180);
+  });
+});
+
+describe("overdue repayment migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260525083512_add_overdue_repayment_refresh.sql",
+    "utf8",
+  );
+
+  it("defines the manager refresh RPC and guard", () => {
+    expect(migration).toContain("refresh_overdue_repayment_statuses");
+    expect(migration).toContain("app_private.is_manager(v_actor_id)");
+    expect(migration).toContain("security invoker");
+  });
+
+  it("contains the required overdue lifecycle transitions", () => {
+    expect(migration).toContain("status = 'late'");
+    expect(migration).toContain("status in ('due', 'rejected')");
+    expect(migration).toContain("status = 'overdue'");
+    expect(migration).toContain("status = 'active'");
+    expect(migration).toContain("outstanding_balance > 0");
   });
 });
 

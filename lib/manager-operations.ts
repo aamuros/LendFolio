@@ -37,6 +37,7 @@ export type ManagerRepaymentScheduleSummary = {
   verifiedCount: number;
   submittedCount: number;
   rejectedCount: number;
+  lateCount: number;
   nextDueDate: string | null;
 };
 
@@ -175,6 +176,7 @@ export function createScheduleSummary(
       .length,
     rejectedCount: schedules.filter((schedule) => schedule.status === "rejected")
       .length,
+    lateCount: schedules.filter((schedule) => schedule.status === "late").length,
     nextDueDate: dueSchedules[0]?.due_date ?? null,
   };
 }
@@ -191,6 +193,8 @@ export async function loadManagerOverview(
 ): Promise<{ ok: boolean; message: string; metrics: ManagerOverviewMetric[] }> {
   const [
     activeLoans,
+    overdueLoans,
+    lateRepayments,
     paidLoans,
     submittedProofs,
     rejectedProofs,
@@ -200,6 +204,8 @@ export async function loadManagerOverview(
     pendingOffers,
   ] = await Promise.all([
     countRows(supabase, "active_loans", { status: "active" }),
+    countRows(supabase, "active_loans", { status: "overdue" }),
+    countRows(supabase, "loan_repayment_schedules", { status: "late" }),
     countRows(supabase, "active_loans", { status: "paid" }),
     countRows(supabase, "repayment_proofs", { status: "submitted" }),
     countRows(supabase, "repayment_proofs", { status: "rejected" }),
@@ -211,6 +217,8 @@ export async function loadManagerOverview(
 
   const counts = [
     activeLoans,
+    overdueLoans,
+    lateRepayments,
     paidLoans,
     submittedProofs,
     rejectedProofs,
@@ -227,6 +235,16 @@ export async function loadManagerOverview(
       : "Some operations metrics could not be loaded.",
     metrics: [
       { label: "Active loans", value: activeLoans.count, href: "/manager/loans?status=active" },
+      {
+        label: "Overdue loans",
+        value: overdueLoans.count,
+        href: "/manager/loans?status=overdue",
+      },
+      {
+        label: "Late repayments",
+        value: lateRepayments.count,
+        href: "/manager/repayments?repaymentStatus=late",
+      },
       { label: "Paid loans", value: paidLoans.count, href: "/manager/loans?status=paid" },
       {
         label: "Submitted proofs",

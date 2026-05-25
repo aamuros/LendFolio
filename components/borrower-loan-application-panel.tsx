@@ -1503,6 +1503,13 @@ function RepaymentScheduleItem({
               message="Your lender is checking the latest proof. You cannot upload another proof while this one is under review."
             />
           ) : null}
+          {repayment.status === "late" && !isSubmitted && !isVerified ? (
+            <ActionBanner
+              tone="error"
+              title="Payment overdue"
+              message="Upload proof when payment is made."
+            />
+          ) : null}
 
           {repayment.proofs.length > 0 ? (
             <ProofHistory proofs={repayment.proofs} />
@@ -1577,7 +1584,7 @@ function RepaymentProofForm({
     >
       <div className="grid gap-1.5">
         <label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
-          {isRejected ? "Upload corrected proof" : "Upload payment proof"}
+          {isRejected ? "Upload corrected proof" : "Upload proof"}
         </label>
         <input
           id={`proof-${repaymentId}`}
@@ -1600,7 +1607,7 @@ function RepaymentProofForm({
           ? "Submitting..."
           : isRejected
             ? "Submit corrected proof"
-            : "Submit proof"}
+            : "Upload proof"}
       </button>
       {proofFeedback ? (
         <ProofStatusMessage
@@ -1990,7 +1997,7 @@ function getRepaymentStatusText(
   }
 
   if (repaymentStatus === "late") {
-    return "Upload proof when paid";
+    return "Payment overdue";
   }
 
   return "Upload proof when paid";
@@ -2008,8 +2015,13 @@ function getRejectedProofNextStep(reviewNotes?: string | null) {
 }
 
 function LoanStatusPill({ status }: { status: string }) {
+  const className =
+    status === "overdue"
+      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      : "bg-[#e1f5ee] text-[#0f5f45]";
+
   return (
-    <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold text-[#0f5f45]">
+    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
       {formatLoanPillStatus(status)}
     </span>
   );
@@ -2029,7 +2041,7 @@ function formatLoanPillStatus(status: string) {
 
 function RepaymentStatusPill({ status }: { status: string }) {
   const className =
-    status === "rejected"
+    status === "rejected" || status === "late"
       ? "bg-[#fff4f4] text-[#8f1d1d]"
       : status === "verified"
         ? "bg-[#e1f5ee] text-[#0f5f45]"

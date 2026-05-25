@@ -453,6 +453,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      refresh_overdue_repayment_statuses: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       submit_repayment_proof: {
         Args: {
           p_repayment_schedule_id: string;

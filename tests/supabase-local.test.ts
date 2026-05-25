@@ -67,6 +67,14 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
+type RefreshOverdueResult = {
+  ok: boolean;
+  message?: string;
+  late_repayment_count?: number;
+  overdue_loan_count?: number;
+  restored_loan_count?: number;
+  paid_loan_count?: number;
+};
 type SubmitApplicationResult = {
   ok: boolean;
   code?: string;
@@ -1520,6 +1528,187 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(paidLoanError).toBeNull();
     expect(toCents(paidLoan?.outstanding_balance ?? 0)).toBe(0);
     expect(paidLoan).toMatchObject({ status: "paid" });
+  });
+
+  it("refreshes late repayments and overdue loans only for past due unresolved schedules", async () => {
+    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
+      borrower,
+      approvedLender,
+      "3_months",
+      23801,
+    );
+    const [pastDue, futureDue, submittedSchedule] = schedules;
+
+    const submittedProof = await submitProofForSchedule(
+      borrower,
+      submittedSchedule.id,
+      activeLoanId,
+      ids.borrower,
+      "submitted-before-refresh",
+    );
+    expect(submittedProof.ok).toBe(true);
+
+    const { error: updateSchedulesError } = await admin
+      .from("loan_repayment_schedules")
+      .update({ due_date: "2020-01-01" })
+      .in("id", [pastDue.id, submittedSchedule.id]);
+    expect(updateSchedulesError).toBeNull();
+
+    const { error: updateFutureError } = await admin
+      .from("loan_repayment_schedules")
+      .update({ due_date: "2027-01-01" })
+      .eq("id", futureDue.id);
+    expect(updateFutureError).toBeNull();
+
+    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
+    expect(refreshResult.error).toBeNull();
+    expect(refreshResult.data as Json as RefreshOverdueResult).toMatchObject({
+      ok: true,
+      late_repayment_count: 1,
+      overdue_loan_count: 1,
+    });
+
+    const { data: refreshedSchedules, error: schedulesError } = await manager
+      .from("loan_repayment_schedules")
+      .select("id, status")
+      .eq("active_loan_id", activeLoanId);
+    expect(schedulesError).toBeNull();
+    expect(refreshedSchedules).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: pastDue.id, status: "late" }),
+        expect.objectContaining({ id: futureDue.id, status: "due" }),
+        expect.objectContaining({ id: submittedSchedule.id, status: "submitted" }),
+      ]),
+    );
+
+    const { data: loan, error: loanError } = await manager
+      .from("active_loans")
+      .select("status")
+      .eq("id", activeLoanId)
+      .single();
+    expect(loanError).toBeNull();
+    expect(loan).toMatchObject({ status: "overdue" });
+
+    const overview = await loadManagerOverview(
+      manager as Parameters<typeof loadManagerOverview>[0],
+    );
+    const metrics = new Map(
+      overview.metrics.map((metric) => [metric.label, metric.value]),
+    );
+    expect(metrics.get("Late repayments")).toBe(1);
+    expect(metrics.get("Overdue loans")).toBe(1);
+
+    const blockedRefresh = await borrower.rpc("refresh_overdue_repayment_statuses");
+    expect(blockedRefresh.error).toBeNull();
+    expect(blockedRefresh.data as Json as RefreshOverdueResult).toMatchObject({
+      ok: false,
+      message: "Only managers can refresh overdue statuses.",
+    });
+
+    const { data: auditLogs, error: auditError } = await manager
+      .from("audit_logs")
+      .select("action")
+      .in("action", ["repayment_marked_late", "loan_marked_overdue"]);
+    expect(auditError).toBeNull();
+    expect(auditLogs).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ action: "repayment_marked_late" }),
+        expect.objectContaining({ action: "loan_marked_overdue" }),
+      ]),
+    );
+  });
+
+  it("leaves verified repayments out of late refreshes", async () => {
+    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
+      borrower,
+      approvedLender,
+      "3_months",
+      23801,
+    );
+    const verifiedSchedule = schedules[0];
+    const verifiedProof = await submitProofForSchedule(
+      borrower,
+      verifiedSchedule.id,
+      activeLoanId,
+      ids.borrower,
+      "verified-before-refresh",
+    );
+    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: verifiedProof.proof_id ?? "",
+      p_decision: "verified",
+      p_review_notes: "",
+    });
+    expect(verifyResult.error).toBeNull();
+
+    const { error: updateScheduleError } = await admin
+      .from("loan_repayment_schedules")
+      .update({ due_date: "2020-01-01" })
+      .eq("id", verifiedSchedule.id);
+    expect(updateScheduleError).toBeNull();
+
+    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
+    expect(refreshResult.error).toBeNull();
+    expect(refreshResult.data as Json as RefreshOverdueResult).toMatchObject({
+      ok: true,
+      late_repayment_count: 0,
+      overdue_loan_count: 0,
+    });
+
+    const { data: schedule, error: scheduleError } = await manager
+      .from("loan_repayment_schedules")
+      .select("status")
+      .eq("id", verifiedSchedule.id)
+      .single();
+    expect(scheduleError).toBeNull();
+    expect(schedule).toMatchObject({ status: "verified" });
+  });
+
+  it("restores an overdue loan to active after the last late repayment is verified", async () => {
+    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
+      borrower,
+      approvedLender,
+      "3_months",
+      23801,
+    );
+    const lateSchedule = schedules[0];
+
+    const { error: updateScheduleError } = await admin
+      .from("loan_repayment_schedules")
+      .update({ due_date: "2020-01-01" })
+      .eq("id", lateSchedule.id);
+    expect(updateScheduleError).toBeNull();
+
+    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
+    expect(refreshResult.error).toBeNull();
+
+    const lateProof = await submitProofForSchedule(
+      borrower,
+      lateSchedule.id,
+      activeLoanId,
+      ids.borrower,
+      "late-resolved",
+    );
+    expect(lateProof.ok).toBe(true);
+
+    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
+      p_proof_id: lateProof.proof_id ?? "",
+      p_decision: "verified",
+      p_review_notes: "",
+    });
+    expect(verifyResult.error).toBeNull();
+    expect(verifyResult.data as Json as RepaymentProofResult).toMatchObject({
+      ok: true,
+      loan_status: "active",
+    });
+
+    const { data: loan, error: loanError } = await manager
+      .from("active_loans")
+      .select("outstanding_balance, status")
+      .eq("id", activeLoanId)
+      .single();
+    expect(loanError).toBeNull();
+    expect(Number(loan?.outstanding_balance)).toBeGreaterThan(0);
+    expect(loan).toMatchObject({ status: "active" });
   });
 
   it("lets a borrower submit repayment proof for their own active loan repayment", async () => {

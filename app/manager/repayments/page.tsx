@@ -108,7 +108,14 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
         ) : null}
 
         {result.proofs.map((proof) => (
-          <DataCard key={proof.id}>
+          <DataCard
+            key={proof.id}
+            className={
+              proof.repaymentStatus === "late"
+                ? "border-[#f3c7c7] bg-[#fffafa]"
+                : ""
+            }
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold break-all">{proof.fileName}</h2>
@@ -131,6 +138,11 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
               <Field label="Reviewed" value={formatDateTime(proof.reviewedAt)} />
               <Field label="Review notes" value={proof.reviewNotes ?? "No notes"} />
             </dl>
+            {proof.repaymentStatus === "late" ? (
+              <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm font-semibold text-[#8f1d1d]">
+                Payment overdue
+              </p>
+            ) : null}
           </DataCard>
         ))}
       </section>

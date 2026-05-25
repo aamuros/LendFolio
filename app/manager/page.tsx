@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { refreshOverdueStatusesAction } from "@/app/manager/actions";
 import { requireManager } from "@/lib/access-control";
 import {
   loadManagerOverview,
@@ -14,7 +15,12 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function ManagerPage() {
+export default async function ManagerPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ overdueRefresh?: string }>;
+}) {
+  const params = await searchParams;
   const access = await requireManager();
 
   if (!access.ok) {
@@ -38,6 +44,12 @@ export default async function ManagerPage() {
     >
       {!overview.ok ? (
         <StatusMessage message={overview.message} tone="error" />
+      ) : null}
+      {params.overdueRefresh === "success" ? (
+        <StatusMessage message="Overdue statuses refreshed." />
+      ) : null}
+      {params.overdueRefresh === "error" ? (
+        <StatusMessage message="Could not refresh overdue statuses." tone="error" />
       ) : null}
 
       <HomeOverview metrics={overview.metrics} />
@@ -85,6 +97,8 @@ function HomeOverview({ metrics }: { metrics: ManagerOverviewMetric[] }) {
   const rejectedProofs = metric("Rejected proofs");
   const openApplications = metric("Open/submitted applications");
   const activeLoans = metric("Active loans");
+  const overdueLoans = metric("Overdue loans");
+  const lateRepayments = metric("Late repayments");
   const pendingOffers = metric("Pending offers");
   const nextAction =
     submittedProofs.value > 0
@@ -158,12 +172,20 @@ function HomeOverview({ metrics }: { metrics: ManagerOverviewMetric[] }) {
           >
             {nextAction.label}
           </Link>
+          <form action={refreshOverdueStatusesAction}>
+            <button
+              type="submit"
+              className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+            >
+              Refresh overdue statuses
+            </button>
+          </form>
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
-        <SummaryCard metric={submittedProofs} label="Proofs" />
-        <SummaryCard metric={openApplications} label="Applications" />
+        <SummaryCard metric={lateRepayments} label="Late" />
+        <SummaryCard metric={overdueLoans} label="Overdue" />
         <SummaryCard metric={activeLoans} label="Active" />
       </div>
 

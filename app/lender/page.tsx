@@ -349,7 +349,13 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
             <p className="text-sm font-semibold text-[var(--accent)]">
               Active loan
             </p>
-            <span className="rounded-full bg-[#e1f5ee] px-3 py-1 text-xs font-semibold capitalize text-[#0f5f45]">
+            <span
+              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
+                activeLoan.status === "overdue"
+                  ? "bg-[#fff4f4] text-[#8f1d1d]"
+                  : "bg-[#e1f5ee] text-[#0f5f45]"
+              }`}
+            >
               {activeLoan.status}
             </span>
           </div>
@@ -600,7 +606,7 @@ function formatRepaymentStatus(status: string) {
   }
 
   if (status === "late") {
-    return "Late";
+    return "Payment overdue";
   }
 
   return status;

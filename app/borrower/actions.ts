@@ -829,7 +829,11 @@ export async function submitRepaymentProof(
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
-    if (activeLoanError || !activeLoan || activeLoan.status !== "active") {
+    if (
+      activeLoanError ||
+      !activeLoan ||
+      !["active", "overdue"].includes(activeLoan.status)
+    ) {
       return {
         ok: false,
         message: "This loan is not active.",

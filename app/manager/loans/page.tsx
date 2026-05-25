@@ -96,7 +96,12 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
         ) : null}
 
         {result.loans.map((loan) => (
-          <DataCard key={loan.id}>
+          <DataCard
+            key={loan.id}
+            className={
+              loan.status === "overdue" ? "border-[#f3c7c7] bg-[#fffafa]" : ""
+            }
+          >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
                 <h2 className="text-lg font-semibold">Loan {getShortId(loan.id)}</h2>
@@ -121,6 +126,7 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
                 label="Repayment schedule"
                 value={`${loan.schedule.verifiedCount}/${loan.schedule.installmentCount} verified`}
               />
+              <Field label="Late repayments" value={loan.schedule.lateCount} />
               <Field
                 label="Next due"
                 value={formatDateOnly(loan.schedule.nextDueDate)}

@@ -159,9 +159,17 @@ export function SelectFilter({
   );
 }
 
-export function DataCard({ children }: { children: React.ReactNode }) {
+export function DataCard({
+  children,
+  className = "",
+}: {
+  children: React.ReactNode;
+  className?: string;
+}) {
   return (
-    <article className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
+    <article
+      className={`grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5 ${className}`}
+    >
       {children}
     </article>
   );
