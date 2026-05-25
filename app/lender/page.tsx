@@ -8,6 +8,7 @@ import {
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
 import { requireApprovedLender } from "@/lib/access-control";
+import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import {
   loadLenderOffers,
   loadOpenLenderApplications,
@@ -98,8 +99,25 @@ function HomeTab({
   const pendingOffers = offers.filter((offer) => offer.status === "pending").length;
   const acceptedOffers = offers.filter((offer) => offer.status === "accepted").length;
   const activeLoans = offers.filter((offer) => offer.activeLoan).length;
+  const repaymentProofsNeedingReview = offers.reduce(
+    (count, offer) =>
+      count +
+      (offer.activeLoan?.schedule.filter(
+        (repayment) => repayment.latestProof?.status === "submitted",
+      ).length ?? 0),
+    0,
+  );
   const nextAction =
-    needsReviewCount > 0
+    repaymentProofsNeedingReview > 0
+      ? {
+          title: `${repaymentProofsNeedingReview} repayment proof ${
+            repaymentProofsNeedingReview === 1 ? "needs" : "need"
+          } review`,
+          description: "Review submitted proof before updating repayment status.",
+          href: "/lender?tab=offers",
+          label: "Review proof",
+        }
+      : needsReviewCount > 0
       ? {
           title: `${needsReviewCount} ${needsReviewCount === 1 ? "application needs" : "applications need"} review`,
           description: "Open the queue and review borrower context before sending terms.",
@@ -154,7 +172,7 @@ function HomeTab({
 
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="New" value={needsReviewCount.toString()} />
-        <SummaryCard label="Pending" value={pendingOffers.toString()} />
+        <SummaryCard label="Proofs" value={repaymentProofsNeedingReview.toString()} />
         <SummaryCard label="Active" value={activeLoans.toString()} />
       </div>
 
@@ -350,6 +368,50 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
             />
             <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
           </dl>
+          {activeLoan.schedule.length > 0 ? (
+            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
+              <h4 className="text-sm font-semibold">Repayment schedule</h4>
+              {activeLoan.schedule.map((repayment) => {
+                const latestProof = repayment.latestProof;
+
+                return (
+                  <div
+                    key={repayment.id}
+                    className="grid gap-3 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
+                  >
+                    <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                      <MiniMetric
+                        label="Installment"
+                        value={`#${repayment.installmentNumber}`}
+                      />
+                      <MiniMetric
+                        label="Amount due"
+                        value={`PHP ${formatCurrency(repayment.amountDue)}`}
+                      />
+                      <MiniMetric
+                        label="Due"
+                        value={formatDateOnly(repayment.dueDate)}
+                      />
+                      <MiniMetric
+                        label="Proof"
+                        value={
+                          latestProof
+                            ? `${latestProof.fileName} (${latestProof.status})`
+                            : "Not submitted"
+                        }
+                      />
+                    </dl>
+                    {latestProof?.status === "submitted" ? (
+                      <LenderRepaymentProofActions
+                        proofId={latestProof.id}
+                        proofUrl={latestProof.viewUrl}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </article>

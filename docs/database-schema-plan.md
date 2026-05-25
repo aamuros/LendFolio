@@ -1,6 +1,9 @@
 # Database Schema Plan
 
-This is the Sprint 0 schema direction for the MVP workflow. It documents entity boundaries without implementing workflow behavior.
+This document tracks the MVP schema direction and the implemented vertical
+slice. Active loans and a basic repayment schedule are now part of the MVP
+workflow; repayment proof upload and lender review are now implemented for the
+one-installment MVP flow.
 
 ## Core Entities
 
@@ -12,7 +15,7 @@ This is the Sprint 0 schema direction for the MVP workflow. It documents entity 
 | `loan_applications` | Borrower request for financing | borrower profile and optional portfolio |
 | `loan_offers` | Official lender offer on an application | loan application, borrower, and lender |
 | `active_loans` | Accepted offer converted to loan | accepted offer |
-| `repayment_schedules` | Expected repayment plan | active loan |
+| `loan_repayment_schedules` | Expected repayment plan | active loan |
 | `repayment_proofs` | Uploaded evidence for a repayment | repayment schedule and uploaded file path |
 | `audit_logs` | Immutable operational history | actor profile and target record |
 
@@ -25,8 +28,9 @@ Expected enums:
 - `application_status`: ADI-10 starts with `submitted`, `open`; later workflow enforcement can expand to `draft`, `under_review`, `offered`, `accepted`, `declined`, `withdrawn`
 - `preferred_term`: `1_month`, `3_months`, `6_months`, `12_months`
 - `offer_status`: ADI-12 starts with `pending`; ADI-13 adds `accepted` and `declined` for borrower acceptance; later workflow enforcement can add expiry-specific states
-- `loan_status`: `active`, `completed`, `defaulted`, `cancelled`
-- `repayment_status`: `pending`, `submitted`, `verified`, `rejected`
+- `active_loan_status`: `active`, `paid`, `overdue`, `defaulted`, `closed`
+- `repayment_status`: `due`, `submitted`, `verified`, `rejected`, `late`
+- `repayment_proof_status`: `submitted`, `verified`, `rejected`
 
 ## Constraints To Confirm Later
 
@@ -76,9 +80,10 @@ borrower dashboard can show submitted applications after refresh.
 
 The runnable ADI-10 migration is in
 `supabase/migrations/20260524041000_add_loan_applications.sql`. It is scoped to
-borrower submission and basic lender-demo queryability only. Official offers,
-credit-limit calculation, active loans, repayments, manager reporting, and audit
-logs remain deferred.
+borrower submission and lender review queryability. Official offers,
+active-loan creation, a basic repayment schedule, and audit logs are implemented
+by later migrations. Credit-limit calculation, repayment proof upload, repayment
+verification, and manager reporting remain deferred.
 
 ## ADI-12 Loan Offer MVP
 
@@ -92,10 +97,10 @@ The Sprint 1 lender offer form captures:
 
 The server action inserts a pending offer into `public.loan_offers` and links it
 to the source application, borrower, and signed-in lender. Borrowers can view
-pending offers under the related application. Offer acceptance, expiry
-enforcement, status transitions, active loan creation, repayment schedules,
-repayment proofs, credit-risk scoring, manager controls, and audit logs remain
-deferred.
+pending offers under the related application. Offer acceptance, active loan
+creation, one-installment repayment schedule creation, and audit logs are
+implemented by later migrations. Expiry enforcement, repayment proofs,
+credit-risk scoring, and manager controls remain deferred.
 
 The runnable ADI-12 migration is in
 `supabase/migrations/20260524043000_add_loan_offers.sql`.
@@ -107,12 +112,56 @@ surface shows approved amount, fees, repayment amount, due date, lender name,
 and lender remarks. Accepting a pending offer updates that offer to `accepted`
 and updates the remaining pending offers for the same application to `declined`.
 
-This intentionally ends the Sprint 1 visible happy path. Accepted offers do not
-create active loans yet, and full transition enforcement remains deferred to
+Accepted offers now create active loans and a one-installment repayment schedule
+through the hardened acceptance RPC. Full repayment handling remains deferred to
 later sprints.
 
 The runnable ADI-13 migration is in
 `supabase/migrations/20260524044000_add_offer_acceptance.sql`.
+
+## Active Loan And Repayment Schedule MVP
+
+The active-loan migration creates `active_loan_status`, `repayment_status`,
+`active_loans`, and `loan_repayment_schedules`. The acceptance RPC now converts
+one accepted offer into one active loan and one deterministic installment using
+the accepted offer repayment amount and due date.
+
+Important constraints include one active loan per application, one active loan
+per accepted offer, unique installment numbers per active loan, positive
+principal and repayment amounts, positive amount due, non-negative fees, and
+non-negative outstanding balance. RLS allows borrowers to read their own
+loans/schedules, approved lenders to read funded loans/schedules, and managers
+to read all records. Direct authenticated insert, update, and delete access is
+not granted for active loans or schedules.
+
+The runnable migration is in
+`supabase/migrations/20260524142104_add_active_loans.sql`.
+
+## Repayment Proof MVP
+
+The repayment-proof migration creates `repayment_proof_status`,
+`repayment_proofs`, a private `repayment-proofs` Storage bucket, metadata RLS,
+Storage access policies, and RPCs for borrower submission and lender review.
+
+Borrower submission stores the private file path and proof metadata, changes the
+installment from `due` or `rejected` to `submitted`, and writes
+`repayment_proof_submitted`. Lender verification marks the proof and repayment
+as `verified`, reduces `active_loans.outstanding_balance` by the scheduled
+amount due without going below zero, marks the active loan `paid` when the
+balance reaches zero, and writes repayment and balance audit logs. Lender
+rejection marks proof and repayment as `rejected`, stores optional review notes,
+and leaves the outstanding balance unchanged.
+
+Important constraints include positive file size, a 5 MB prototype file limit,
+allowed proof MIME types, unique Storage paths, one active submitted proof per
+repayment schedule, and one verified proof per repayment schedule. Direct
+authenticated insert, update, and delete access is not granted for proof
+metadata; workflow changes go through controlled RPCs.
+
+The runnable migration is in
+`supabase/migrations/20260524145301_add_repayment_proofs.sql`. Real payment
+processing, e-wallet integration, automated reconciliation, credit-limit
+restoration, dispute workflows, and email notifications remain deferred.
 
 ## Draft SQL
 

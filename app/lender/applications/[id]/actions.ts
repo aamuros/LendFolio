@@ -128,6 +128,13 @@ export async function createLoanOffer(
     });
 
     if (error) {
+      if (error.code === "23505") {
+        return {
+          ok: false,
+          message: "You already have a pending offer for this application.",
+        };
+      }
+
       return {
         ok: false,
         message: "Could not send offer.",

@@ -7,9 +7,13 @@ The current implementation supports the first requirements-first vertical slice:
 borrowers maintain a business profile, submit a loan application, approved
 lenders review open applications and send offers, and borrowers accept one
 offer. Borrowers can edit or withdraw submitted/open applications before
-acceptance, and can decline pending offers without withdrawing the application.
+acceptance, decline pending offers without withdrawing the application, and see
+the active loan and first repayment installment created from the accepted offer.
+Borrowers can upload repayment proof for a due installment, and approved lenders
+can verify or reject submitted proof.
 
-Manager monitoring is represented by a minimal dashboard shell only.
+Manager monitoring is represented by minimal active-loan and repayment-proof
+counts only.
 
 ## Stack
 
@@ -22,9 +26,8 @@ Manager monitoring is represented by a minimal dashboard shell only.
 - Zod
 - Vitest
 
-Vercel, Supabase Storage, Resend, Playwright, and GitHub Actions remain part of
-the approved MVP stack and should be introduced only when needed by a scoped
-task.
+Vercel, Resend, Playwright, and GitHub Actions remain part of the approved MVP
+stack and should be introduced only when needed by a scoped task.
 
 ## Local Setup
 
@@ -68,23 +71,34 @@ Implemented:
 - Lender application list and detail review
 - Lender offer creation
 - Borrower offer review, decline, and acceptance
+- Atomic offer acceptance
+- Active loan creation from accepted offer
+- Basic one-installment repayment schedule creation
+- Borrower and lender active loan visibility
+- Repayment proof upload to a private Supabase Storage bucket
+- Submitted proof state
+- Lender repayment proof verification and rejection
+- Outstanding balance reduction after proof verification
 - Profile-based roles and approved-lender access checks
-- Atomic offer acceptance with audit logging
-- Minimal manager page
+- Minimal manager active-loan visibility
+- Audit logging for major workflow events
 
 Not implemented:
 
-- Active loan records
-- Repayment schedules or repayment proof uploads
+- Real payment processing
+- E-wallet integration
+- Automated reconciliation
+- Credit-limit restoration
+- Dispute workflows
 - Identity verification
 - Credit scoring
-- Manager reports
-- Audit log views
-- Real payment integrations
+- Manager reports and full audit-log UI
+- Email notifications
 
 Application deletion is intentionally not part of the borrower workflow. Closed
-or withdrawn applications remain available for audit history. Active loans,
-repayments, repayment proof uploads, and payment flows remain deferred.
+or withdrawn applications remain available for audit history. Repayment proof
+upload and lender review are implemented as a prototype-safe evidence workflow;
+the app still does not process real payments.
 
 The product UI uses production-style copy. Setup, test, and database details
 belong in docs, not product surfaces.
@@ -102,7 +116,8 @@ Supabase setup and schema notes live in:
 - `docs/schema-draft.sql`
 
 Apply migrations before testing database-backed profile saves, application
-submissions, lender offers, and borrower offer acceptance:
+submissions, lender offers, borrower offer acceptance, and repayment proof
+review:
 
 ```bash
 supabase migration up
@@ -132,6 +147,19 @@ variables are set; see `docs/foundation-verification.md` for the exact command.
 9. Sign out.
 10. Sign in again as the borrower.
 11. Open `/borrower`, confirm the offer appears, then decline or accept it.
+12. After acceptance, confirm the borrower sees an active loan with principal,
+    repayment amount, outstanding balance, due date, and installment details.
+13. Upload a repayment proof file for the due installment.
+14. Sign in as the lender and confirm the accepted offer still has application
+    context plus active-loan context.
+15. Review the submitted proof and verify or reject it.
+16. If verified, confirm the installment is verified and outstanding balance is
+    reduced.
+17. Sign in as the manager and confirm the dashboard reflects active-loan and
+    repayment-proof counts.
+18. Confirm there is no real payment processing, e-wallet integration, automated
+    reconciliation, credit-limit restoration, dispute workflow, or email
+    notification workflow.
 
 For additional manual QA checks, see `docs/sprint-1-validation.md`.
 

@@ -11,6 +11,21 @@ export default async function ManagerPage() {
     loadManagerActiveLoans(),
   ]);
   const activeLoans = activeLoansResult.ok ? activeLoansResult.loans : [];
+  const submittedProofCount = activeLoans.reduce(
+    (count, loan) =>
+      count +
+      loan.schedule.filter(
+        (repayment) => repayment.latestProof?.status === "submitted",
+      ).length,
+    0,
+  );
+  const verifiedRepaymentCount = activeLoans.reduce(
+    (count, loan) =>
+      count +
+      loan.schedule.filter((repayment) => repayment.status === "verified")
+        .length,
+    0,
+  );
 
   return (
     <main className="min-h-svh px-5 py-6 sm:px-8">
@@ -47,6 +62,24 @@ export default async function ManagerPage() {
                       {activeLoans.length}
                     </span>
                   </div>
+                  <dl className="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                        Proofs submitted
+                      </dt>
+                      <dd className="mt-1 text-lg font-semibold">
+                        {submittedProofCount}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+                        Repayments verified
+                      </dt>
+                      <dd className="mt-1 text-lg font-semibold">
+                        {verifiedRepaymentCount}
+                      </dd>
+                    </div>
+                  </dl>
                   {activeLoans.length > 0 ? (
                     <div className="grid gap-3">
                       {activeLoans.slice(0, 3).map((loan) => (

@@ -1,6 +1,8 @@
 # Storage Buckets Plan
 
-Sprint 0 defines required buckets and access expectations. Bucket creation and policy hardening should happen with the finalized Supabase migration or dashboard setup.
+This document tracks required private buckets and access expectations. The
+repayment proof bucket is now created by migration for the MVP repayment
+workflow.
 
 ## Buckets
 
@@ -8,7 +10,7 @@ Sprint 0 defines required buckets and access expectations. Bucket creation and p
 | --- | --- | --- | --- |
 | `borrower-documents` | Borrower business documents, permits, and future portfolio evidence | No | `{borrower_profile_id}/{document_id}/{filename}` |
 | `lender-documents` | Lender verification and accreditation documents | No | `{lender_profile_id}/{document_id}/{filename}` |
-| `repayment-proofs` | Borrower-uploaded repayment proof files | No | `{loan_id}/{repayment_schedule_id}/{proof_id}/{filename}` |
+| `repayment-proofs` | Borrower-uploaded repayment proof files | No | `borrowers/{borrower_id}/loans/{active_loan_id}/repayments/{repayment_schedule_id}/{safe_file_name}` |
 
 ## Policy Direction
 
@@ -18,10 +20,15 @@ Sprint 0 defines required buckets and access expectations. Bucket creation and p
 - Managers should read operational records needed for support and audit workflows.
 - File replacement should be deliberate. If upsert is allowed later, Storage policies need `INSERT`, `SELECT`, and `UPDATE`.
 - Do not expose signed URLs without checking row-level ownership and role authorization first.
+- Repayment proof files are limited to JPG, PNG, WebP, or PDF files up to 5 MB.
+- Repayment proof signed URLs are generated server-side for authorized borrower,
+  lender, or manager reads. The UI should not expose raw private Storage paths.
 
-## Manual Dashboard Setup
+## Current Setup
 
-1. Open **Storage** in the Supabase dashboard.
-2. Create the three private buckets listed above.
-3. Do not enable public access.
-4. Add Storage policies only after the database ownership model and RLS policies are finalized.
+The `repayment-proofs` bucket and Storage policies are created in
+`supabase/migrations/20260524145301_add_repayment_proofs.sql`.
+
+The borrower and lender document buckets remain planned. If they are needed
+later, create them as private buckets and add policies only after the database
+ownership model is finalized.

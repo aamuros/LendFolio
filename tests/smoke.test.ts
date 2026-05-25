@@ -346,6 +346,24 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("loan_repayment_schedules_select_access");
   });
 
+  it("defines repayment proof storage, RLS, and review safeguards", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260524145301_add_repayment_proofs.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("create type public.repayment_proof_status");
+    expect(migration).toContain("create table if not exists public.repayment_proofs");
+    expect(migration).toContain("repayment_proofs_one_submitted_per_schedule_idx");
+    expect(migration).toContain("repayment_proofs_one_verified_per_schedule_idx");
+    expect(migration).toContain("repayment-proofs");
+    expect(migration).toContain("repayment_proofs_select_access");
+    expect(migration).toContain("storage_repayment_proofs_borrower_insert");
+    expect(migration).toContain("function app_private.submit_repayment_proof");
+    expect(migration).toContain("function app_private.review_repayment_proof");
+    expect(migration).toContain("loan_balance_updated");
+  });
+
   it("limits offer creation to approved lenders in RLS", () => {
     const migration = readFileSync(
       "supabase/migrations/20260524073652_harden_foundation_profiles_rls_workflow.sql",

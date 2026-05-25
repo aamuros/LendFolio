@@ -36,6 +36,7 @@ export type RepaymentStatus =
   | "verified"
   | "rejected"
   | "late";
+export type RepaymentProofStatus = "submitted" | "verified" | "rejected";
 
 export type Database = {
   public: {
@@ -295,6 +296,66 @@ export type Database = {
         };
         Relationships: [];
       };
+      repayment_proofs: {
+        Row: {
+          id: string;
+          repayment_schedule_id: string;
+          active_loan_id: string;
+          borrower_id: string;
+          lender_id: string;
+          storage_bucket: string;
+          storage_path: string;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status: RepaymentProofStatus;
+          submitted_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          review_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          repayment_schedule_id: string;
+          active_loan_id: string;
+          borrower_id: string;
+          lender_id: string;
+          storage_bucket?: string;
+          storage_path: string;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status?: RepaymentProofStatus;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          repayment_schedule_id?: string;
+          active_loan_id?: string;
+          borrower_id?: string;
+          lender_id?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          file_name?: string;
+          file_type?: string;
+          file_size?: number;
+          status?: RepaymentProofStatus;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       lender_profiles: {
         Row: {
           id: string;
@@ -364,6 +425,24 @@ export type Database = {
         };
         Returns: Json;
       };
+      review_repayment_proof: {
+        Args: {
+          p_proof_id: string;
+          p_decision: string;
+          p_review_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_repayment_proof: {
+        Args: {
+          p_repayment_schedule_id: string;
+          p_storage_path: string;
+          p_file_name: string;
+          p_file_type: string;
+          p_file_size: number;
+        };
+        Returns: Json;
+      };
       decline_loan_offer: {
         Args: {
           p_offer_id: string;
@@ -396,6 +475,7 @@ export type Database = {
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;
       profile_status: ProfileStatus;
+      repayment_proof_status: RepaymentProofStatus;
       repayment_status: RepaymentStatus;
     };
     CompositeTypes: Record<string, never>;

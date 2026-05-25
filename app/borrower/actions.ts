@@ -128,6 +128,26 @@ export type LoanOfferDeclineResult =
       message: string;
     };
 
+export type RepaymentProofSubmitResult =
+  | {
+      ok: true;
+      message: string;
+      proofId: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+const repaymentProofBucket = "repayment-proofs";
+const repaymentProofMaxFileSize = 5 * 1024 * 1024;
+const repaymentProofAllowedTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "application/pdf",
+]);
+
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
     const supabase = await createSupabaseServerClient();
@@ -688,6 +708,146 @@ export async function declineLoanOffer(
   }
 }
 
+export async function submitRepaymentProof(
+  repaymentScheduleId: string,
+  formData: FormData,
+): Promise<RepaymentProofSubmitResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const proofFile = formData.get("proofFile");
+
+    if (!(proofFile instanceof File) || proofFile.size === 0) {
+      return {
+        ok: false,
+        message: "Choose a proof file to upload.",
+      };
+    }
+
+    if (!repaymentProofAllowedTypes.has(proofFile.type)) {
+      return {
+        ok: false,
+        message: "Upload a JPG, PNG, WebP, or PDF file.",
+      };
+    }
+
+    if (proofFile.size > repaymentProofMaxFileSize) {
+      return {
+        ok: false,
+        message: "Upload a file up to 5 MB.",
+      };
+    }
+
+    const { data: repayment, error: repaymentError } = await supabase
+      .from("loan_repayment_schedules")
+      .select("id, active_loan_id, borrower_id, lender_id, status")
+      .eq("id", repaymentScheduleId)
+      .eq("borrower_id", access.profile.id)
+      .maybeSingle();
+
+    if (repaymentError || !repayment) {
+      return {
+        ok: false,
+        message: "Could not find this repayment.",
+      };
+    }
+
+    if (repayment.status === "verified") {
+      return {
+        ok: false,
+        message: "This repayment is already verified.",
+      };
+    }
+
+    const { data: activeLoan, error: activeLoanError } = await supabase
+      .from("active_loans")
+      .select("id, status")
+      .eq("id", repayment.active_loan_id)
+      .eq("borrower_id", access.profile.id)
+      .maybeSingle();
+
+    if (activeLoanError || !activeLoan || activeLoan.status !== "active") {
+      return {
+        ok: false,
+        message: "This loan is not active.",
+      };
+    }
+
+    const safeFileName = createSafeProofFileName(proofFile.name);
+    const storagePath = [
+      "borrowers",
+      access.profile.id,
+      "loans",
+      repayment.active_loan_id,
+      "repayments",
+      repayment.id,
+      `${Date.now()}-${safeFileName}`,
+    ].join("/");
+
+    const { error: uploadError } = await supabase.storage
+      .from(repaymentProofBucket)
+      .upload(storagePath, proofFile, {
+        contentType: proofFile.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return {
+        ok: false,
+        message: "Could not upload proof.",
+      };
+    }
+
+    const { data, error } = await supabase.rpc("submit_repayment_proof", {
+      p_repayment_schedule_id: repayment.id,
+      p_storage_path: storagePath,
+      p_file_name: proofFile.name,
+      p_file_type: proofFile.type,
+      p_file_size: proofFile.size,
+    });
+
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+          proof_id?: string;
+        }
+      | null;
+
+    if (error || !result?.ok || !result.proof_id) {
+      await supabase.storage.from(repaymentProofBucket).remove([storagePath]);
+
+      return {
+        ok: false,
+        message: result?.message ?? "Could not submit proof.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath("/lender/applications");
+
+    return {
+      ok: true,
+      message: result.message ?? "Proof submitted for lender review.",
+      proofId: result.proof_id,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not submit proof.",
+    };
+  }
+}
+
 function isLoanApplicationRow(value: Json | undefined): value is Parameters<
   typeof mapLoanApplicationRow
 >[0] {
@@ -704,4 +864,16 @@ function isLoanApplicationRow(value: Json | undefined): value is Parameters<
       "status" in value &&
       "submitted_at" in value,
   );
+}
+
+function createSafeProofFileName(fileName: string) {
+  const fallbackName = "repayment-proof";
+  const normalized = fileName
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 120);
+
+  return normalized || fallbackName;
 }

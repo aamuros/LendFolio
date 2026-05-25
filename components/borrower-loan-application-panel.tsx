@@ -9,6 +9,7 @@ import {
   type BorrowerLoanApplicationSummary,
   declineLoanOffer,
   loadBorrowerLoanApplications,
+  submitRepaymentProof,
   submitLoanApplication,
   updateLoanApplication,
   withdrawLoanApplication,
@@ -34,6 +35,10 @@ const defaultValues: LoanApplicationInput = {
 };
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
+type ProofFeedback = {
+  tone: "success" | "error";
+  message: string;
+};
 
 type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers";
@@ -61,6 +66,9 @@ export function BorrowerLoanApplicationPanel({
   const [editingApplicationId, setEditingApplicationId] = useState<
     string | null
   >(null);
+  const [proofFeedback, setProofFeedback] = useState<
+    Record<string, ProofFeedback>
+  >({});
 
   const {
     register,
@@ -314,6 +322,47 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
+  function onSubmitProof(repaymentScheduleId: string, formData: FormData) {
+    setMessage("");
+    setSuccessMessage("");
+    setProofFeedback((current) => ({
+      ...current,
+      [repaymentScheduleId]: {
+        tone: "success",
+        message: "Uploading proof...",
+      },
+    }));
+
+    startTransition(async () => {
+      const result = await submitRepaymentProof(repaymentScheduleId, formData);
+
+      if (!result.ok) {
+        setProofFeedback((current) => ({
+          ...current,
+          [repaymentScheduleId]: {
+            tone: "error",
+            message: result.message,
+          },
+        }));
+        return;
+      }
+
+      const refreshed = await loadBorrowerLoanApplications();
+
+      if (refreshed.ok) {
+        setApplications(refreshed.applications);
+      }
+
+      setProofFeedback((current) => ({
+        ...current,
+        [repaymentScheduleId]: {
+          tone: "success",
+          message: result.message,
+        },
+      }));
+    });
+  }
+
   function toggleApplication(applicationId: string) {
     setSuccessMessage("");
     setExpandedApplicationIds((current) => {
@@ -369,6 +418,8 @@ export function BorrowerLoanApplicationPanel({
           hasPortfolio={hasPortfolio}
           loadState={loadState}
           onNavigate={onNavigate}
+          onSubmitProof={onSubmitProof}
+          proofFeedback={proofFeedback}
         />
       ) : null}
 
@@ -428,8 +479,10 @@ export function BorrowerLoanApplicationPanel({
             onAcceptOffer={onAcceptOffer}
             onDeclineOffer={onDeclineOffer}
             onNavigate={onNavigate}
+            onSubmitProof={onSubmitProof}
             onToggleOffer={toggleOffer}
             pendingOffers={pendingOffers}
+            proofFeedback={proofFeedback}
           />
         </>
       ) : null}
@@ -442,11 +495,15 @@ function HomeSummary({
   hasPortfolio,
   loadState,
   onNavigate,
+  onSubmitProof,
+  proofFeedback,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  proofFeedback: Record<string, ProofFeedback>;
 }) {
   const summary = getHomeSummary(hasPortfolio, applications);
   const latestApplication = applications[0];
@@ -509,7 +566,11 @@ function HomeSummary({
       </div>
 
       {latestActiveLoan ? (
-        <ActiveLoanCard loan={latestActiveLoan} onView={() => onNavigate?.("offers")} />
+        <ActiveLoanCard
+          loan={latestActiveLoan}
+          onSubmitProof={onSubmitProof}
+          proofFeedback={proofFeedback}
+        />
       ) : null}
     </div>
   );
@@ -733,8 +794,10 @@ function OfferList({
   onAcceptOffer,
   onDeclineOffer,
   onNavigate,
+  onSubmitProof,
   onToggleOffer,
   pendingOffers,
+  proofFeedback,
 }: {
   closedOffers: OfferListItem[];
   expandedOfferIds: Set<string>;
@@ -742,8 +805,10 @@ function OfferList({
   onAcceptOffer: (applicationId: string, offerId: string) => void;
   onDeclineOffer: (applicationId: string, offerId: string) => void;
   onNavigate?: (tab: BorrowerTab) => void;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleOffer: (offerId: string) => void;
   pendingOffers: OfferListItem[];
+  proofFeedback: Record<string, ProofFeedback>;
 }) {
   if (pendingOffers.length === 0 && closedOffers.length === 0) {
     return (
@@ -769,7 +834,9 @@ function OfferList({
                 isPending={isPending}
                 onAcceptOffer={onAcceptOffer}
                 onDeclineOffer={onDeclineOffer}
+                onSubmitProof={onSubmitProof}
                 onToggleOffer={onToggleOffer}
+                proofFeedback={proofFeedback}
               />
             ))}
           </div>
@@ -790,7 +857,9 @@ function OfferList({
                 isPending={isPending}
                 onAcceptOffer={onAcceptOffer}
                 onDeclineOffer={onDeclineOffer}
+                onSubmitProof={onSubmitProof}
                 onToggleOffer={onToggleOffer}
+                proofFeedback={proofFeedback}
               />
             ))}
           </div>
@@ -811,14 +880,18 @@ function OfferCard({
   item,
   onAcceptOffer,
   onDeclineOffer,
+  onSubmitProof,
   onToggleOffer,
+  proofFeedback,
 }: {
   isExpanded: boolean;
   isPending: boolean;
   item: OfferListItem;
   onAcceptOffer: (applicationId: string, offerId: string) => void;
   onDeclineOffer: (applicationId: string, offerId: string) => void;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleOffer: (offerId: string) => void;
+  proofFeedback: Record<string, ProofFeedback>;
 }) {
   const { application, offer } = item;
   const offerDetailsId = `offer-${offer.id}-details`;
@@ -873,8 +946,13 @@ function OfferCard({
           </dl>
 
           {offer.status === "accepted" && application.activeLoan ? (
-            <div className="mt-4">
-              <ActiveLoanCard loan={application.activeLoan} compact />
+            <div className="mt-4 border-t border-[var(--border)] pt-4">
+              <ActiveLoanCard
+                loan={application.activeLoan}
+                compact
+                onSubmitProof={onSubmitProof}
+                proofFeedback={proofFeedback}
+              />
             </div>
           ) : null}
 
@@ -1005,13 +1083,19 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 function ActiveLoanCard({
   compact = false,
   loan,
-  onView,
+  onSubmitProof,
+  proofFeedback,
 }: {
   compact?: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
-  onView?: () => void;
+  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  proofFeedback: Record<string, ProofFeedback>;
 }) {
   const repayment = loan.schedule[0];
+  const latestProof = repayment?.latestProof ?? null;
+  const canUploadProof =
+    repayment?.status === "due" || repayment?.status === "rejected";
+  const currentFeedback = repayment ? proofFeedback[repayment.id] : null;
 
   return (
     <article className="grid gap-4 rounded-3xl border border-[#cdd8d2] bg-white px-4 py-4 shadow-sm sm:px-5">
@@ -1031,6 +1115,10 @@ function ActiveLoanCard({
 
       <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
         <SummaryItem
+          label="Principal"
+          value={`PHP ${formatCurrency(loan.principalAmount)}`}
+        />
+        <SummaryItem
           label="Repayment"
           value={`PHP ${formatCurrency(loan.repaymentAmount)}`}
         />
@@ -1043,18 +1131,124 @@ function ActiveLoanCard({
           label="Repayment status"
           value={repayment?.status === "due" ? "Payment due" : repayment?.status ?? "Payment due"}
         />
+        <SummaryItem
+          label="Proof status"
+          value={latestProof ? formatProofStatus(latestProof.status) : "Not uploaded"}
+        />
       </dl>
 
-      {onView ? (
-        <button
-          type="button"
-          onClick={onView}
-          className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-        >
-          View repayment details
-        </button>
-      ) : null}
+      {repayment ? (
+        <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h4 className="text-sm font-semibold">Repayment details</h4>
+            <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold capitalize text-[var(--foreground)]">
+              {repayment.status === "due" ? "Payment due" : repayment.status}
+            </span>
+          </div>
+          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+            <SummaryItem
+              label="Installment"
+              value={`#${repayment.installmentNumber}`}
+            />
+            <SummaryItem
+              label="Amount due"
+              value={`PHP ${formatCurrency(repayment.amountDue)}`}
+            />
+            <SummaryItem
+              label="Due date"
+              value={formatDateOnly(repayment.dueDate)}
+            />
+            <SummaryItem
+              label="Status"
+              value={repayment.status === "due" ? "Payment due" : repayment.status}
+            />
+            <SummaryItem
+              label="Proof"
+              value={latestProof ? latestProof.fileName : "Not uploaded"}
+            />
+          </dl>
+          {latestProof?.status === "submitted" ? (
+            <ProofStatusMessage message="Proof submitted - waiting for lender review." />
+          ) : null}
+          {latestProof?.status === "verified" ? (
+            <ProofStatusMessage message="Payment verified." />
+          ) : null}
+          {latestProof?.status === "rejected" ? (
+            <ProofStatusMessage
+              message={
+                latestProof.reviewNotes
+                  ? `Proof rejected: ${latestProof.reviewNotes}`
+                  : "Proof rejected. Upload a new proof for lender review."
+              }
+              tone="error"
+            />
+          ) : null}
+          {canUploadProof ? (
+            <form
+              action={(formData) => onSubmitProof(repayment.id, formData)}
+              className="grid gap-3 border-t border-[var(--border)] pt-3"
+            >
+              <div className="grid gap-1">
+                <label
+                  htmlFor={`proof-${repayment.id}`}
+                  className="text-sm font-semibold"
+                >
+                  Upload payment proof
+                </label>
+                <input
+                  id={`proof-${repayment.id}`}
+                  name="proofFile"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,application/pdf"
+                  className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--foreground)]"
+                />
+                <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+                  JPG, PNG, WebP, or PDF up to 5 MB. This does not process a real payment.
+                </p>
+              </div>
+              <button
+                type="submit"
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+              >
+                Submit proof
+              </button>
+              {currentFeedback ? (
+                <ProofStatusMessage
+                  message={currentFeedback.message}
+                  tone={currentFeedback.tone}
+                />
+              ) : null}
+            </form>
+          ) : null}
+        </section>
+      ) : (
+        <p className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
+          Your repayment schedule will appear here when it is ready.
+        </p>
+      )}
     </article>
+  );
+}
+
+function ProofStatusMessage({
+  message,
+  tone = "success",
+}: {
+  message: string;
+  tone?: "success" | "error";
+}) {
+  const className =
+    tone === "error"
+      ? "border-[#f3c7c7] bg-[#fff4f4] text-[#8f1d1d]"
+      : "border-[#c8e6d8] bg-[#f1fbf6] text-[#0f5f45]";
+
+  return (
+    <p
+      className={`rounded-2xl border px-3 py-2 text-sm leading-6 ${className}`}
+      role="status"
+    >
+      {message}
+    </p>
   );
 }
 
@@ -1221,6 +1415,22 @@ function getHomeSummary(
 function formatLoanStatus(status: string) {
   if (status === "active") {
     return "Active";
+  }
+
+  return status;
+}
+
+function formatProofStatus(status: string) {
+  if (status === "submitted") {
+    return "Submitted";
+  }
+
+  if (status === "verified") {
+    return "Verified";
+  }
+
+  if (status === "rejected") {
+    return "Rejected";
   }
 
   return status;
