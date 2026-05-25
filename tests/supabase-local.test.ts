@@ -4,6 +4,7 @@ import { resolveSubmittedDateRangeFilters } from "../lib/date-ranges";
 import {
   loadManagerApplications,
   loadManagerAuditLogs,
+  loadManagerLoanDetail,
   loadManagerLoans,
   loadManagerLookup,
   loadManagerOverview,
@@ -1794,6 +1795,55 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         },
       }),
     ]);
+
+    const loansByBorrower = await loadManagerLoans(managerClient, {
+      borrower: "Borrower One",
+    });
+    expect(loansByBorrower.loans).toEqual([
+      expect.objectContaining({ id: activeLoanId }),
+    ]);
+
+    const loanDetail = await loadManagerLoanDetail(managerClient, activeLoanId);
+    expect(loanDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      loan: expect.objectContaining({
+        id: activeLoanId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        lender: expect.objectContaining({ displayName: "Approved Lender" }),
+        repaymentSchedules: expect.arrayContaining([
+          expect.objectContaining({
+            installmentNumber: 1,
+            amountDue: expect.any(Number),
+          }),
+        ]),
+        repaymentProofs: expect.arrayContaining([
+          expect.objectContaining({ id: submittedProof.proof_id }),
+        ]),
+      }),
+    });
+
+    const invalidLoanDetail = await loadManagerLoanDetail(
+      managerClient,
+      "not-a-loan-id",
+    );
+    expect(invalidLoanDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      loan: null,
+      message: "Invalid loan ID.",
+    });
+
+    const missingLoanDetail = await loadManagerLoanDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingLoanDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      loan: null,
+      message: "Loan not found.",
+    });
 
     const repayments = await loadManagerRepayments(managerClient, {});
     expect(repayments).toMatchObject({ ok: true });

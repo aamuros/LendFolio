@@ -140,7 +140,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
               <span>Role</span>
               <span>Status</span>
               <span>Summary</span>
-              <span className="justify-self-end">Details</span>
+              <span className="justify-self-center">Details</span>
             </ManagerRecordHeader>
 
             {directoryResult.users.map((user) => (
@@ -184,7 +184,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                 <p className="hidden truncate text-xs leading-5 text-[var(--muted-foreground)] sm:block">
                   {getUserSummary(user)}
                 </p>
-                <div className="hidden sm:block sm:justify-self-end">
+                <div className="hidden sm:flex sm:justify-self-center">
                   <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
                 </div>
               </article>
@@ -216,7 +216,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                 <span>Location</span>
                 <span>Applications</span>
                 <span>Latest record</span>
-                <span className="justify-self-end">Details</span>
+                <span className="justify-self-center">Details</span>
               </ManagerRecordHeader>
 
               {borrowerLookupResult.results.map((resultItem) => (
@@ -275,7 +275,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                       "No applications"
                     )}
                   </div>
-                  <div className="hidden sm:block sm:justify-self-end">
+                  <div className="hidden sm:flex sm:justify-self-center">
                     <ManagerDetailsLink
                       href={getManagerUserHref(resultItem.borrower.id)}
                     />

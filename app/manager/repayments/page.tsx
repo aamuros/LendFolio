@@ -147,7 +147,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
               <span>Lender</span>
               <span>Amount</span>
               <span>Status</span>
-              <span className="justify-self-end">Details</span>
+              <span className="justify-self-center">Details</span>
             </ManagerRecordHeader>
 
             {result.proofs.map((proof) => (
@@ -212,7 +212,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
                     <StatusBadge status={proof.proofStatus} />
                   </div>
 
-                  <span className="hidden sm:inline-flex sm:justify-self-end">
+                  <span className="hidden sm:inline-flex sm:justify-self-center">
                     <ManagerDetailsLink href={`/manager/repayments/${proof.id}`} />
                   </span>
                 </article>

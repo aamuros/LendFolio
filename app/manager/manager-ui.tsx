@@ -210,7 +210,7 @@ export function ManagerDetailsLink({
   return (
     <Link
       href={href}
-      className="inline-flex h-7 w-20 items-center justify-center rounded-full border border-[var(--border)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+      className="inline-flex h-7 w-[4.5rem] items-center justify-center rounded-full border border-[var(--border)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
     >
       {label}
     </Link>

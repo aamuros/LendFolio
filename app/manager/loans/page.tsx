@@ -1,11 +1,14 @@
+import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import { getShortId, loadManagerLoans } from "@/lib/manager-operations";
 import {
   AccessDenied,
-  DataCard,
+  AutoFilterGrid,
   EmptyState,
-  Field,
-  FilterGrid,
+  ManagerDetailsLink,
+  ManagerRecordHeader,
+  ManagerRecordList,
+  ManagerRecordRow,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -45,6 +48,9 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
   }
 
   const result = await loadManagerLoans(access.supabase, filters);
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const loanGridClass =
+    "sm:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,1fr)_0.85fr_0.85fr_0.75fr_5rem] sm:items-center sm:gap-3";
 
   return (
     <ManagerShell
@@ -52,7 +58,7 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
       description="Review funded loans by status, borrower, lender, and due date."
       activeTab="loans"
     >
-      <FilterGrid>
+      <AutoFilterGrid>
         <SelectFilter
           label="Status"
           name="status"
@@ -83,11 +89,20 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
           type="date"
           defaultValue={filters.dueTo}
         />
-      </FilterGrid>
+      </AutoFilterGrid>
+
+      {hasActiveFilters ? (
+        <Link
+          href="/manager/loans"
+          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+        >
+          Reset filters
+        </Link>
+      ) : null}
 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
-      <section className="grid gap-3">
+      <section>
         {result.loans.length === 0 ? (
           <EmptyState
             title="No active loans found"
@@ -95,43 +110,87 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
           />
         ) : null}
 
-        {result.loans.map((loan) => (
-          <DataCard key={loan.id}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">Loan {getShortId(loan.id)}</h2>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Due {formatDateOnly(loan.dueDate)}
-                </p>
-              </div>
-              <StatusBadge status={loan.status} />
-            </div>
-            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Field label="Borrower" value={<PersonLabel person={loan.borrower} />} />
-              <Field label="Lender" value={<PersonLabel person={loan.lender} />} />
-              <Field label="Principal" value={formatCurrency(loan.principalAmount)} />
-              <Field label="Repayment amount" value={formatCurrency(loan.repaymentAmount)} />
-              <Field
-                label="Outstanding balance"
-                value={formatCurrency(loan.outstandingBalance)}
-              />
-              <Field label="Started" value={formatDateOnly(loan.startedAt)} />
-              <Field label="Due date" value={formatDateOnly(loan.dueDate)} />
-              <Field
-                label="Repayment schedule"
-                value={`${loan.schedule.verifiedCount}/${loan.schedule.installmentCount} verified`}
-              />
-              <Field
-                label="Next due"
-                value={formatDateOnly(loan.schedule.nextDueDate)}
-              />
-              <Field
-                label="Proof state"
-                value={`${loan.schedule.submittedCount} submitted, ${loan.schedule.rejectedCount} rejected`}
-              />
-            </dl>
-          </DataCard>
-        ))}
+        {result.loans.length > 0 ? (
+          <ManagerRecordList>
+            <ManagerRecordHeader className={loanGridClass}>
+              <span>Loan</span>
+              <span>Borrower</span>
+              <span>Lender</span>
+              <span>Outstanding</span>
+              <span>Due</span>
+              <span>Status</span>
+              <span className="justify-self-center">Details</span>
+            </ManagerRecordHeader>
+
+            {result.loans.map((loan) => (
+              <ManagerRecordRow key={loan.id}>
+                <article
+                  className={`grid gap-2 px-3 py-2.5 sm:grid ${loanGridClass}`}
+                >
+                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold">
+                        Loan {getShortId(loan.id)}
+                      </h2>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Due {formatDateOnly(loan.dueDate)}
+                      </p>
+                    </div>
+                    <ManagerDetailsLink href={`/manager/loans/${loan.id}`} />
+                  </div>
+
+                  <p className="truncate text-xs text-[var(--muted-foreground)] sm:hidden">
+                    {loan.borrower.displayName} &rarr; {loan.lender.displayName}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(loan.outstandingBalance)}
+                    </span>
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      Due {formatDateOnly(loan.dueDate)}
+                    </span>
+                    <StatusBadge status={loan.status} />
+                  </div>
+
+                  <div className="hidden min-w-0 sm:block">
+                    <h2 className="truncate text-sm font-semibold">
+                      Loan {getShortId(loan.id)}
+                    </h2>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      {loan.schedule.verifiedCount}/
+                      {loan.schedule.installmentCount} verified
+                    </p>
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={loan.borrower} />
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={loan.lender} />
+                  </div>
+
+                  <p className="hidden text-sm font-semibold sm:block">
+                    {formatCurrency(loan.outstandingBalance)}
+                  </p>
+
+                  <p className="hidden text-sm sm:block">
+                    {formatDateOnly(loan.dueDate)}
+                  </p>
+
+                  <div className="hidden items-center sm:flex">
+                    <StatusBadge status={loan.status} />
+                  </div>
+
+                  <span className="hidden sm:inline-flex sm:justify-self-center">
+                    <ManagerDetailsLink href={`/manager/loans/${loan.id}`} />
+                  </span>
+                </article>
+              </ManagerRecordRow>
+            ))}
+          </ManagerRecordList>
+        ) : null}
       </section>
     </ManagerShell>
   );

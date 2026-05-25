@@ -196,6 +196,45 @@ describe("manager operations helpers", () => {
     expect(repaymentsPage).not.toContain("<summary");
   });
 
+  it("keeps manager loan lists compact and link-based", () => {
+    const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
+    const loanDetailPage = readFileSync(
+      "app/manager/loans/[id]/page.tsx",
+      "utf8",
+    );
+
+    expect(loansPage).toContain("AutoFilterGrid");
+    expect(loansPage).toContain("ManagerRecordList");
+    expect(loansPage).toContain("ManagerDetailsLink");
+    expect(loansPage).toContain("href={`/manager/loans/${loan.id}`}");
+    expect(loansPage).not.toContain("<FilterGrid");
+    expect(loansPage).not.toContain("  FilterGrid,");
+    expect(loansPage).not.toContain("DataCard");
+    expect(loansPage).not.toContain("Apply");
+    expect(loansPage).not.toContain("Clear");
+    expect(loansPage).not.toContain("/manager/loans/${getShortId");
+    expect(loanDetailPage).toContain("loadManagerLoanDetail");
+    expect(loanDetailPage).toContain("Invalid loan link");
+    expect(loanDetailPage).toContain("Loan not found");
+  });
+
+  it("keeps manager auto-filtered pages free of apply and clear buttons", () => {
+    const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
+    const repaymentsPage = readFileSync(
+      "app/manager/repayments/page.tsx",
+      "utf8",
+    );
+    const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
+
+    for (const page of [lookupPage, repaymentsPage, loansPage]) {
+      expect(page).toContain("AutoFilterGrid");
+      expect(page).not.toContain("<FilterGrid");
+      expect(page).not.toContain("  FilterGrid,");
+      expect(page).not.toContain("Apply");
+      expect(page).not.toContain("Clear");
+    }
+  });
+
   it("keeps manager user detail links on full profile UUIDs", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
 

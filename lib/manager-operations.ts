@@ -55,6 +55,17 @@ export type ManagerLoanRow = {
   schedule: ManagerRepaymentScheduleSummary;
 };
 
+export type ManagerLoanDetail = ManagerLoanRow & {
+  repaymentSchedules: Array<{
+    id: string;
+    installmentNumber: number;
+    amountDue: number;
+    dueDate: string;
+    status: Database["public"]["Enums"]["repayment_status"];
+  }>;
+  repaymentProofs: ManagerRepaymentProofRow[];
+};
+
 export type ManagerRepaymentProofRow = {
   id: string;
   fileName: string;
@@ -395,6 +406,98 @@ export async function loadManagerLoans(
     ok: true,
     message: loans.length ? "Active loans loaded." : "No active loans matched these filters.",
     loans: await mapManagerLoans(supabase, loans),
+  };
+}
+
+export async function loadManagerLoanDetail(
+  supabase: SupabaseServerClient,
+  loanId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      loan: ManagerLoanDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      loan: null;
+    }
+> {
+  if (!isUuid(loanId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid loan ID.",
+      loan: null,
+    };
+  }
+
+  const { data: loan, error } = await supabase
+    .from("active_loans")
+    .select(activeLoanSelect)
+    .eq("id", loanId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load loan.",
+      loan: null,
+    };
+  }
+
+  if (!loan) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Loan not found.",
+      loan: null,
+    };
+  }
+
+  const [mappedLoans, schedulesByLoanId, proofsResult] = await Promise.all([
+    mapManagerLoans(supabase, [loan]),
+    loadSchedulesByLoanIds(supabase, [loan.id]),
+    supabase
+      .from("repayment_proofs")
+      .select(repaymentProofSelect)
+      .eq("active_loan_id", loan.id)
+      .order("submitted_at", { ascending: false }),
+  ]);
+
+  if (proofsResult.error || !mappedLoans[0]) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load full loan details.",
+      loan: null,
+    };
+  }
+
+  const repaymentSchedules = schedulesByLoanId.get(loan.id) ?? [];
+
+  return {
+    ok: true,
+    mode: "loaded",
+    message: "Loan loaded.",
+    loan: {
+      ...mappedLoans[0],
+      repaymentSchedules: repaymentSchedules.map((schedule) => ({
+        id: schedule.id,
+        installmentNumber: schedule.installment_number,
+        amountDue: schedule.amount_due,
+        dueDate: schedule.due_date,
+        status: schedule.status,
+      })),
+      repaymentProofs: await mapManagerRepaymentProofs(
+        supabase,
+        proofsResult.data,
+      ),
+    },
   };
 }
 
@@ -943,6 +1046,48 @@ export async function loadManagerRepaymentProofDetail(
       reviewNotes: proof.review_notes,
     },
   };
+}
+
+async function mapManagerRepaymentProofs(
+  supabase: SupabaseServerClient,
+  proofs: Database["public"]["Tables"]["repayment_proofs"]["Row"][],
+) {
+  const [schedules, profiles] = await Promise.all([
+    loadSchedulesByIds(
+      supabase,
+      proofs.map((proof) => proof.repayment_schedule_id),
+    ),
+    loadProfilesByIds(
+      supabase,
+      proofs.flatMap((proof) => [proof.borrower_id, proof.lender_id]),
+    ),
+  ]);
+
+  return proofs.flatMap((proof) => {
+    const schedule = schedules.get(proof.repayment_schedule_id);
+
+    if (!schedule) return [];
+
+    return {
+      id: proof.id,
+      fileName: proof.file_name,
+      fileType: proof.file_type,
+      fileSize: proof.file_size,
+      storageBucket: proof.storage_bucket,
+      storagePath: proof.storage_path,
+      proofStatus: proof.status,
+      repaymentStatus: schedule.status,
+      borrower: getProfileSummary(profiles, proof.borrower_id),
+      lender: getProfileSummary(profiles, proof.lender_id),
+      activeLoanId: proof.active_loan_id,
+      installmentNumber: schedule.installment_number,
+      amountDue: schedule.amount_due,
+      dueDate: schedule.due_date,
+      submittedAt: proof.submitted_at,
+      reviewedAt: proof.reviewed_at,
+      reviewNotes: proof.review_notes,
+    };
+  });
 }
 
 async function mapManagerLoans(
