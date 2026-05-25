@@ -395,6 +395,10 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
                         value={formatDateOnly(repayment.dueDate)}
                       />
                       <MiniMetric
+                        label="Repayment"
+                        value={formatRepaymentStatus(repayment.status)}
+                      />
+                      <MiniMetric
                         label="Proof"
                         value={
                           latestProof
@@ -403,11 +407,16 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
                         }
                       />
                     </dl>
-                    {latestProof?.reviewNotes ? (
-                      <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm leading-6 text-[#8f1d1d]">
-                        {latestProof.reviewNotes}
+                    {latestProof ? (
+                      <ProofReviewState
+                        proofStatus={latestProof.status}
+                        reviewNotes={latestProof.reviewNotes}
+                      />
+                    ) : (
+                      <p className="rounded-2xl border border-[var(--border)] bg-white px-3 py-2 text-sm leading-6 text-[var(--muted-foreground)]">
+                        Waiting for the borrower to upload proof for this installment.
                       </p>
-                    ) : null}
+                    )}
                     {repayment.proofs.length > 0 ? (
                       <LenderProofHistory
                         currentSubmittedProofId={currentSubmittedProof?.id ?? null}
@@ -458,6 +467,7 @@ function LenderProofHistory({
           {proof.id === currentSubmittedProofId ? (
             <LenderRepaymentProofActions
               proofId={proof.id}
+              proofStatus={proof.status}
               proofUrl={proof.viewUrl}
             />
           ) : proof.viewUrl ? (
@@ -474,6 +484,41 @@ function LenderProofHistory({
       ))}
     </div>
   );
+}
+
+function ProofReviewState({
+  proofStatus,
+  reviewNotes,
+}: {
+  proofStatus: string;
+  reviewNotes: string | null;
+}) {
+  if (proofStatus === "submitted") {
+    return (
+      <p className="rounded-2xl border border-[#d8dde8] bg-[#f7f9fc] px-3 py-2 text-sm leading-6 text-[var(--foreground)]">
+        Review the submitted proof, then verify the repayment or reject it with a note.
+      </p>
+    );
+  }
+
+  if (proofStatus === "verified") {
+    return (
+      <p className="rounded-2xl border border-[#c8e6d8] bg-[#f1fbf6] px-3 py-2 text-sm leading-6 text-[#0f5f45]">
+        Proof verified. This installment is marked paid.
+      </p>
+    );
+  }
+
+  if (proofStatus === "rejected") {
+    return (
+      <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm leading-6 text-[#8f1d1d]">
+        Proof rejected. The borrower can upload a corrected proof.
+        {reviewNotes ? ` Note: ${reviewNotes}` : ""}
+      </p>
+    );
+  }
+
+  return null;
 }
 
 function ProofStatusBadge({ status }: { status: string }) {
@@ -532,6 +577,30 @@ function formatProofStatus(status: string) {
 
   if (status === "rejected") {
     return "Rejected";
+  }
+
+  return status;
+}
+
+function formatRepaymentStatus(status: string) {
+  if (status === "due") {
+    return "Payment due";
+  }
+
+  if (status === "submitted") {
+    return "Proof under review";
+  }
+
+  if (status === "verified") {
+    return "Payment verified";
+  }
+
+  if (status === "rejected") {
+    return "Needs corrected proof";
+  }
+
+  if (status === "late") {
+    return "Late";
   }
 
   return status;

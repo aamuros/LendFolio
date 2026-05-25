@@ -13,6 +13,7 @@ import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
   applyAcceptedOfferInvariant,
   canAcceptOffer,
+  canReviewRepaymentProof,
   canDeclineOffer,
   canEditApplication,
   canWithdrawApplication,
@@ -174,6 +175,12 @@ describe("borrower workflow actions", () => {
         applicationStatus: "open",
       }),
     ).toBe(false);
+  });
+
+  it("allows lenders to review only submitted repayment proofs", () => {
+    expect(canReviewRepaymentProof("submitted")).toBe(true);
+    expect(canReviewRepaymentProof("verified")).toBe(false);
+    expect(canReviewRepaymentProof("rejected")).toBe(false);
   });
 });
 

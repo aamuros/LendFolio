@@ -1,4 +1,8 @@
-import type { ApplicationStatus, OfferStatus } from "@/lib/supabase/types";
+import type {
+  ApplicationStatus,
+  OfferStatus,
+  RepaymentProofStatus,
+} from "@/lib/supabase/types";
 
 export const openApplicationStatuses = ["submitted", "open"] as const;
 
@@ -38,6 +42,10 @@ export function canAcceptOffer(input: {
       input.applicationStatus as (typeof openApplicationStatuses)[number],
     )
   );
+}
+
+export function canReviewRepaymentProof(status: RepaymentProofStatus) {
+  return status === "submitted";
 }
 
 export function applyAcceptedOfferInvariant<

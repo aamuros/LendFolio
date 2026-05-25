@@ -543,6 +543,7 @@ export function BorrowerLoanApplicationPanel({
           <BorrowerLoansPanel
             applications={applications}
             expandedRepaymentIds={expandedRepaymentIds}
+            isPending={isPending}
             onNavigate={onNavigate}
             onSubmitProof={onSubmitProof}
             onToggleRepayment={toggleRepayment}
@@ -1172,6 +1173,7 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
 function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
+  isPending,
   onNavigate,
   onSubmitProof,
   onToggleRepayment,
@@ -1179,6 +1181,7 @@ function BorrowerLoansPanel({
 }: {
   applications: BorrowerLoanApplicationSummary[];
   expandedRepaymentIds: Set<string>;
+  isPending: boolean;
   onNavigate?: (tab: BorrowerTab) => void;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
@@ -1191,7 +1194,7 @@ function BorrowerLoansPanel({
   if (activeLoans.length === 0) {
     return (
       <BlockedCard
-        message="Accepted offers will become active loans here."
+        message="When you accept an offer, the active loan and repayment schedule will appear here."
         action="Review offers"
         onClick={() => onNavigate?.("offers")}
       />
@@ -1204,6 +1207,7 @@ function BorrowerLoansPanel({
         <ActiveLoanCard
           key={loan.id}
           expandedRepaymentIds={expandedRepaymentIds}
+          isPending={isPending}
           loan={loan}
           onSubmitProof={onSubmitProof}
           onToggleRepayment={onToggleRepayment}
@@ -1216,12 +1220,14 @@ function BorrowerLoansPanel({
 
 function ActiveLoanCard({
   expandedRepaymentIds,
+  isPending,
   loan,
   onSubmitProof,
   onToggleRepayment,
   proofFeedback,
 }: {
   expandedRepaymentIds: Set<string>;
+  isPending: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
@@ -1314,6 +1320,7 @@ function ActiveLoanCard({
               <RepaymentScheduleItem
                 key={repayment.id}
                 isExpanded={expandedRepaymentIds.has(repayment.id)}
+                isPending={isPending}
                 repayment={repayment}
                 onSubmitProof={onSubmitProof}
                 onToggle={() => onToggleRepayment(repayment.id)}
@@ -1333,12 +1340,14 @@ function ActiveLoanCard({
 
 function RepaymentScheduleItem({
   isExpanded,
+  isPending,
   onToggle,
   repayment,
   onSubmitProof,
   proofFeedback,
 }: {
   isExpanded: boolean;
+  isPending: boolean;
   onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
@@ -1411,17 +1420,14 @@ function RepaymentScheduleItem({
             <ActionBanner
               tone="error"
               title="Proof rejected"
-              message={
-                latestProof?.reviewNotes ||
-                "Upload a clearer proof so the lender can review it again."
-              }
+              message={getRejectedProofNextStep(latestProof?.reviewNotes)}
             />
           ) : null}
           {isSubmitted && !isRejected ? (
             <ActionBanner
               tone="info"
               title="Waiting for lender review"
-              message="The latest proof is submitted."
+              message="Your lender is checking the latest proof. You cannot upload another proof while this one is under review."
             />
           ) : null}
 
@@ -1431,6 +1437,7 @@ function RepaymentScheduleItem({
 
           {canUploadProof ? (
             <RepaymentProofForm
+              isPending={isPending}
               isRejected={isRejected}
               repaymentId={repayment.id}
               proofFeedback={proofFeedback}
@@ -1467,7 +1474,7 @@ function ProofHistory({
             </p>
             {proof.reviewNotes ? (
               <p className="rounded-xl bg-white px-3 py-2 text-[var(--muted-foreground)]">
-                {proof.reviewNotes}
+                Lender note: {proof.reviewNotes}
               </p>
             ) : null}
           </div>
@@ -1478,11 +1485,13 @@ function ProofHistory({
 }
 
 function RepaymentProofForm({
+  isPending,
   isRejected,
   onSubmitProof,
   proofFeedback,
   repaymentId,
 }: {
+  isPending: boolean;
   isRejected: boolean;
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   proofFeedback: ProofFeedback | null;
@@ -1502,17 +1511,23 @@ function RepaymentProofForm({
           name="proofFile"
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
+          disabled={isPending}
           className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--foreground)]"
         />
         <p className="text-xs leading-5 text-[var(--muted-foreground)]">
-          JPG, PNG, WebP, or PDF up to 5 MB.
+          JPG, PNG, WebP, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
         </p>
       </div>
       <button
         type="submit"
-        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+        disabled={isPending}
+        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
       >
-        {isRejected ? "Submit corrected proof" : "Submit proof"}
+        {isPending
+          ? "Submitting..."
+          : isRejected
+            ? "Submit corrected proof"
+            : "Submit proof"}
       </button>
       {proofFeedback ? (
         <ProofStatusMessage
@@ -1906,6 +1921,17 @@ function getRepaymentStatusText(
   }
 
   return "Upload proof when paid";
+}
+
+function getRejectedProofNextStep(reviewNotes?: string | null) {
+  const nextStep =
+    "Upload a corrected proof for the same repayment so your lender can review it again.";
+
+  if (!reviewNotes) {
+    return nextStep;
+  }
+
+  return `Lender note: ${reviewNotes} ${nextStep}`;
 }
 
 function LoanStatusPill({ status }: { status: string }) {
