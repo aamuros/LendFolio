@@ -62,7 +62,7 @@ export default async function ManagerPage({
           .filter((item) =>
             ["/manager/applications", "/manager/audit-logs", "/manager/lookup"].includes(
               item.href,
-            ),
+            ) || item.href === "/manager/lenders",
           )
           .map((item) => (
           <Link key={item.href} href={item.href}>

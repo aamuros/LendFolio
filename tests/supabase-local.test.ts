@@ -38,6 +38,7 @@ const ids = {
   approvedLender: "33333333-3333-3333-3333-333333333333",
   partnerLender: "44444444-4444-4444-4444-444444444444",
   pendingLender: "55555555-5555-5555-5555-555555555555",
+  manager: "66666666-6666-6666-6666-666666666666",
 } as const;
 
 type TestClient = SupabaseClient<Database>;
@@ -83,6 +84,12 @@ type RefreshOverdueResult = {
   restored_loan_count?: number;
   paid_loan_count?: number;
 };
+type ReviewLenderResult = {
+  ok: boolean;
+  message?: string;
+  lender_profile_id?: string;
+  verification_status?: string;
+};
 type SubmitApplicationResult = {
   ok: boolean;
   code?: string;
@@ -116,6 +123,45 @@ async function signIn(email: string): Promise<TestClient> {
   expect(error).toBeNull();
 
   return client;
+}
+
+async function signUpSelfServeAccount(input: {
+  role: "borrower" | "lender";
+  email: string;
+  displayName: string;
+  organizationName?: string;
+}) {
+  const client = createSupabaseClient(supabaseAnonKey);
+  const { data, error } = await client.auth.signUp({
+    email: input.email,
+    password,
+    options: {
+      data: {
+        lendfolio_role: input.role,
+        display_name: input.displayName,
+        organization_name: input.organizationName,
+      },
+    },
+  });
+
+  expect(error).toBeNull();
+  expect(data.user?.id).toBeTruthy();
+  expect(data.session).toBeTruthy();
+
+  if (!data.user?.id) {
+    throw new Error("Expected signup to return an auth user.");
+  }
+
+  return {
+    client,
+    userId: data.user.id,
+  };
+}
+
+async function deleteAuthUsers(admin: TestClient, userIds: string[]) {
+  for (const userId of userIds) {
+    await admin.auth.admin.deleteUser(userId);
+  }
 }
 
 async function cleanWorkflowRows(admin: TestClient) {
@@ -412,6 +458,234 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
   beforeEach(async () => {
     await cleanWorkflowRows(admin);
+  });
+
+  it("provisions borrower and lender signups and gates lender approval", async () => {
+    const createdUserIds: string[] = [];
+
+    try {
+      const borrowerEmail = `borrower.${crypto.randomUUID()}@lendfolio.local`;
+      const lenderEmail = `lender.${crypto.randomUUID()}@lendfolio.local`;
+      const rejectedEmail = `lender.${crypto.randomUUID()}@lendfolio.local`;
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: borrowerEmail,
+        displayName: "Signup Borrower",
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      const { data: borrowerProfile, error: borrowerProfileError } =
+        await signupBorrower.client
+          .from("profiles")
+          .select("id, role, status")
+          .eq("id", signupBorrower.userId)
+          .single();
+
+      expect(borrowerProfileError).toBeNull();
+      expect(borrowerProfile).toMatchObject({
+        role: "borrower",
+        status: "active",
+      });
+
+      const { error: roleMutationError } = await signupBorrower.client
+        .from("profiles")
+        .update({ role: "manager" })
+        .eq("id", signupBorrower.userId);
+
+      expect(roleMutationError).not.toBeNull();
+
+      const signupLender = await signUpSelfServeAccount({
+        role: "lender",
+        email: lenderEmail,
+        displayName: "Signup Lender",
+        organizationName: "Signup Capital",
+      });
+      createdUserIds.push(signupLender.userId);
+
+      const { data: lenderProfile, error: lenderProfileError } =
+        await signupLender.client
+          .from("profiles")
+          .select("id, role, status")
+          .eq("id", signupLender.userId)
+          .single();
+
+      expect(lenderProfileError).toBeNull();
+      expect(lenderProfile).toMatchObject({
+        role: "lender",
+        status: "active",
+      });
+
+      const { data: pendingLenderProfile, error: pendingLenderProfileError } =
+        await signupLender.client
+          .from("lender_profiles")
+          .select("id, organization_name, verification_status")
+          .eq("user_id", signupLender.userId)
+          .single();
+
+      expect(pendingLenderProfileError).toBeNull();
+      expect(pendingLenderProfile).toMatchObject({
+        organization_name: "Signup Capital",
+        verification_status: "pending",
+      });
+
+      const { error: verificationMutationError } = await signupLender.client
+        .from("lender_profiles")
+        .update({ verification_status: "approved" })
+        .eq("user_id", signupLender.userId);
+
+      expect(verificationMutationError).not.toBeNull();
+
+      const { applicationId } = await createPortfolioAndApplication(
+        signupBorrower.client,
+        signupBorrower.userId,
+      );
+
+      const { data: pendingApplication, error: pendingApplicationError } =
+        await signupLender.client
+          .from("loan_applications")
+          .select("id")
+          .eq("id", applicationId);
+
+      expect(pendingApplicationError).toBeNull();
+      expect(pendingApplication).toEqual([]);
+
+      const pendingOffer = await createOffer(
+        signupLender.client,
+        signupLender.userId,
+        applicationId,
+        "Signup Capital",
+      );
+
+      expect(pendingOffer.error).toBeNull();
+      expect(pendingOffer.result).toMatchObject({ ok: false });
+
+      const selfReview = await signupLender.client.rpc(
+        "review_lender_verification",
+        {
+          p_lender_profile_id: pendingLenderProfile?.id ?? "",
+          p_decision: "approve",
+        },
+      );
+
+      expect(selfReview.error).toBeNull();
+      expect(selfReview.data as Json as ReviewLenderResult).toMatchObject({
+        ok: false,
+      });
+
+      const approval = await manager.rpc("review_lender_verification", {
+        p_lender_profile_id: pendingLenderProfile?.id ?? "",
+        p_decision: "approve",
+      });
+
+      expect(approval.error).toBeNull();
+      expect(approval.data as Json as ReviewLenderResult).toMatchObject({
+        ok: true,
+        verification_status: "approved",
+      });
+
+      const { data: approvedApplication, error: approvedApplicationError } =
+        await signupLender.client
+          .from("loan_applications")
+          .select("id")
+          .eq("id", applicationId);
+
+      expect(approvedApplicationError).toBeNull();
+      expect(approvedApplication).toHaveLength(1);
+
+      const approvedOffer = await createOffer(
+        signupLender.client,
+        signupLender.userId,
+        applicationId,
+        "Signup Capital",
+      );
+
+      expect(approvedOffer.error).toBeNull();
+      expect(approvedOffer.data).toMatchObject({ status: "pending" });
+
+      const signupRejectedLender = await signUpSelfServeAccount({
+        role: "lender",
+        email: rejectedEmail,
+        displayName: "Rejected Lender",
+        organizationName: "Rejected Capital",
+      });
+      createdUserIds.push(signupRejectedLender.userId);
+
+      const { data: rejectedLenderProfile, error: rejectedProfileError } =
+        await signupRejectedLender.client
+          .from("lender_profiles")
+          .select("id")
+          .eq("user_id", signupRejectedLender.userId)
+          .single();
+
+      expect(rejectedProfileError).toBeNull();
+
+      const rejection = await manager.rpc("review_lender_verification", {
+        p_lender_profile_id: rejectedLenderProfile?.id ?? "",
+        p_decision: "reject",
+      });
+
+      expect(rejection.error).toBeNull();
+      expect(rejection.data as Json as ReviewLenderResult).toMatchObject({
+        ok: true,
+        verification_status: "rejected",
+      });
+
+      const { data: rejectedApplication, error: rejectedApplicationError } =
+        await signupRejectedLender.client
+          .from("loan_applications")
+          .select("id")
+          .eq("id", applicationId);
+
+      expect(rejectedApplicationError).toBeNull();
+      expect(rejectedApplication).toEqual([]);
+
+      const rejectedOffer = await createOffer(
+        signupRejectedLender.client,
+        signupRejectedLender.userId,
+        applicationId,
+        "Rejected Capital",
+      );
+
+      expect(rejectedOffer.error).toBeNull();
+      expect(rejectedOffer.result).toMatchObject({ ok: false });
+
+      const managerSignupAttempt = await createSupabaseClient(
+        supabaseAnonKey,
+      ).auth.signUp({
+        email: `manager.${crypto.randomUUID()}@lendfolio.local`,
+        password,
+        options: {
+          data: {
+            lendfolio_role: "manager",
+            display_name: "Self Serve Manager",
+          },
+        },
+      });
+
+      expect(managerSignupAttempt.error).not.toBeNull();
+
+      const { data: approvalAudit, error: approvalAuditError } = await manager
+        .from("audit_logs")
+        .select("action, target_table")
+        .in("action", ["lender_approved", "lender_rejected"]);
+
+      expect(approvalAuditError).toBeNull();
+      expect(approvalAudit).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            action: "lender_approved",
+            target_table: "lender_profiles",
+          }),
+          expect.objectContaining({
+            action: "lender_rejected",
+            target_table: "lender_profiles",
+          }),
+        ]),
+      );
+    } finally {
+      await cleanWorkflowRows(admin);
+      await deleteAuthUsers(admin, createdUserIds);
+    }
   });
 
   it("submits borrower applications through the credit-limit RPC", async () => {
@@ -805,7 +1079,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
           href: "/borrower",
         },
       ])
-      .select("id, user_id")
+      .select("id, user_id, created_at")
       .order("created_at", { ascending: true });
 
     expect(insertError).toBeNull();
@@ -847,8 +1121,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(markReadError).toBeNull();
     expect(markedNotification).toMatchObject({
       id: borrowerNotificationId,
-      read_at: readAt,
     });
+    expect(new Date(markedNotification?.read_at ?? "").toISOString()).toBe(readAt);
 
     const { count: unreadAfterOne, error: unreadAfterOneError } = await borrower
       .from("notifications")
@@ -878,8 +1152,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(protectedCheckError).toBeNull();
     expect(protectedNotification).toMatchObject({
       id: borrowerNotificationId,
-      read_at: readAt,
     });
+    expect(new Date(protectedNotification?.read_at ?? "").toISOString()).toBe(readAt);
 
     const markAllReadAt = new Date().toISOString();
     const { error: markAllError } = await borrower
@@ -2707,13 +2981,13 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         borrower: expect.objectContaining({ displayName: "Borrower One" }),
         lender: expect.objectContaining({ displayName: "Approved Lender" }),
         status: "active",
-        schedule: {
+        schedule: expect.objectContaining({
           installmentCount: 3,
           verifiedCount: 1,
           submittedCount: 1,
           rejectedCount: 1,
           nextDueDate: schedules[1].due_date,
-        },
+        }),
       }),
     ]);
 

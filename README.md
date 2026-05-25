@@ -79,9 +79,11 @@ Implemented:
 - Submitted proof state
 - Lender repayment proof verification and rejection
 - Outstanding balance reduction after proof verification
+- Self-serve borrower and lender signup
 - Profile-based roles and approved-lender access checks
+- Manager-controlled lender approval and rejection
 - Manager operations dashboard for loans, repayment proofs, audit logs,
-  applications, offers, and lookup
+  applications, offers, lender review, and lookup
 - Audit logging for major workflow events
 
 Not implemented:
@@ -137,30 +139,37 @@ variables are set; see `docs/foundation-verification.md` for the exact command.
 
 ## Manual Test Flow
 
-1. Create Supabase Auth users and matching `profiles` rows.
-2. Create an approved `lender_profiles` row for the lender user.
-3. Sign in as a borrower.
-4. Open `/borrower`, save the business profile, and submit a loan application.
-5. Optionally edit or withdraw the application while it is still submitted/open.
-6. Sign out.
-7. Sign in as the approved lender.
-8. Open `/lender/applications`, open the submitted application, and send an offer.
-9. Sign out.
-10. Sign in again as the borrower.
-11. Open `/borrower`, confirm the offer appears, then decline or accept it.
-12. After acceptance, confirm the borrower sees an active loan with principal,
+1. Open `/signup`, create a borrower account, then continue to `/borrower`
+   when local Supabase returns an active session.
+2. Save the borrower business profile and submit a loan application.
+3. Optionally edit or withdraw the application while it is still submitted/open.
+4. Sign out.
+5. Open `/signup` and create a lender account with an organization name.
+6. Confirm the lender sees pending-review messaging and cannot access lender
+   application review yet.
+7. Sign in as a seeded manager account.
+8. Open `/manager/lenders` and approve the pending lender.
+9. Sign out, then sign in as the approved lender.
+10. Open `/lender/applications`, open the submitted application, and send an offer.
+11. Sign out.
+12. Sign in again as the borrower.
+13. Open `/borrower`, confirm the offer appears, then decline or accept it.
+14. After acceptance, confirm the borrower sees an active loan with principal,
     repayment amount, outstanding balance, due date, and installment details.
-13. Upload a repayment proof file for the due installment.
-14. Sign in as the lender and confirm the accepted offer still has application
+15. Upload a repayment proof file for the due installment.
+16. Sign in as the lender and confirm the accepted offer still has application
     context plus active-loan context.
-15. Review the submitted proof and verify or reject it.
-16. If verified, confirm the installment is verified and outstanding balance is
+17. Review the submitted proof and verify or reject it.
+18. If verified, confirm the installment is verified and outstanding balance is
     reduced.
-17. Sign in as the manager and confirm the dashboard links to active loans,
-    repayment proofs, audit logs, applications and offers, and lookup.
-18. Confirm there is no real payment processing, e-wallet integration, automated
+19. Sign in as the manager and confirm the dashboard links to active loans,
+    repayment proofs, audit logs, applications and offers, lender review, and lookup.
+20. Confirm there is no real payment processing, e-wallet integration, automated
     reconciliation, credit-limit restoration, dispute workflow, or email
     notification workflow.
+
+Manager accounts remain manually seeded or provisioned. Borrower and lender
+accounts should use self-serve signup.
 
 For additional manual QA checks, see `docs/sprint-1-validation.md`.
 

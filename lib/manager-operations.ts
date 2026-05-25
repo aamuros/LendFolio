@@ -11,6 +11,8 @@ type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
+type LenderProfileRow =
+  Database["public"]["Tables"]["lender_profiles"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
@@ -108,6 +110,18 @@ export type ManagerLookupResult = {
   >;
 };
 
+export type ManagerLenderRow = {
+  id: string;
+  userId: string;
+  organizationName: string;
+  verificationStatus: Database["public"]["Enums"]["lender_verification_status"];
+  approvedAt: string | null;
+  approvedBy: ManagerProfileSummary | null;
+  createdAt: string;
+  updatedAt: string;
+  profile: ManagerProfileSummary;
+};
+
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
 const applicationSelect =
@@ -119,6 +133,8 @@ const offerSelect =
 const portfolioSelect =
   "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at";
 const profileSelect = "id, role, display_name, status, created_at, updated_at";
+const lenderProfileSelect =
+  "id, user_id, organization_name, verification_status, approved_at, approved_by, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentScheduleSelect =
@@ -143,6 +159,7 @@ export const managerStatusLabels = {
   declined: "Declined",
   withdrawn: "Withdrawn",
   pending: "Pending",
+  approved: "Approved",
   expired: "Expired",
   due: "Due",
   verified: "Verified",
@@ -525,6 +542,33 @@ export async function loadManagerApplications(
   };
 }
 
+export async function loadManagerLenders(
+  supabase: SupabaseServerClient,
+): Promise<{ ok: boolean; message: string; lenders: ManagerLenderRow[] }> {
+  const { data, error } = await supabase
+    .from("lender_profiles")
+    .select(lenderProfileSelect)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (error) {
+    return { ok: false, message: "Could not load lenders.", lenders: [] };
+  }
+
+  const profiles = await loadProfilesByIds(
+    supabase,
+    data.flatMap((lender) =>
+      lender.approved_by ? [lender.user_id, lender.approved_by] : [lender.user_id],
+    ),
+  );
+
+  return {
+    ok: true,
+    message: data.length ? "Lenders loaded." : "No lenders found.",
+    lenders: data.map((lender) => mapManagerLender(lender, profiles)),
+  };
+}
+
 export async function loadManagerLookup(
   supabase: SupabaseServerClient,
   search: string | undefined,
@@ -850,6 +894,25 @@ function mapAuditLog(
     targetTable: log.target_table,
     targetId: log.target_id,
     metadataPreview: createMetadataPreview(log.metadata),
+  };
+}
+
+function mapManagerLender(
+  lender: LenderProfileRow,
+  profiles: Map<string, ProfileRow>,
+): ManagerLenderRow {
+  return {
+    id: lender.id,
+    userId: lender.user_id,
+    organizationName: lender.organization_name,
+    verificationStatus: lender.verification_status,
+    approvedAt: lender.approved_at,
+    approvedBy: lender.approved_by
+      ? getProfileSummary(profiles, lender.approved_by)
+      : null,
+    createdAt: lender.created_at,
+    updatedAt: lender.updated_at,
+    profile: getProfileSummary(profiles, lender.user_id),
   };
 }
 

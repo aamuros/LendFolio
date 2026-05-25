@@ -17,12 +17,20 @@ export default async function Home({ searchParams }: HomeProps) {
           <p className="text-xs font-semibold tracking-[0.18em] text-[#1F1F1F] uppercase">
             LENDFOLIO
           </p>
-          <Link
-            href="/login"
-            className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-          >
-            Sign in
-          </Link>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/signup"
+              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+            >
+              Create account
+            </Link>
+            <Link
+              href="/login"
+              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+            >
+              Sign in
+            </Link>
+          </div>
         </header>
 
         <div className="flex flex-1 flex-col justify-center gap-10 py-10 sm:py-12 lg:gap-12 lg:py-14">
@@ -48,12 +56,20 @@ export default async function Home({ searchParams }: HomeProps) {
               </p>
             </div>
             <div>
-              <Link
-                href="/login"
-                className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#1F1F1F] px-6 text-sm font-semibold !text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#0F0F0F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-              >
-                Sign in
-              </Link>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/signup"
+                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#1F1F1F] px-6 text-sm font-semibold !text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#0F0F0F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+                >
+                  Create account
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#D9D7D1] bg-white/70 px-6 text-sm font-semibold text-[#1F1F1F] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+                >
+                  Sign in
+                </Link>
+              </div>
             </div>
           </div>
 

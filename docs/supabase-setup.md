@@ -1,12 +1,13 @@
-# Supabase Setup Plan
+# Supabase Setup
 
-Sprint 0 prepares the app to connect to Supabase but does not implement full auth flows, role redirects, loan workflows, or production RLS policies.
+LendFolio uses Supabase Auth for email/password accounts and Postgres/RLS for
+trusted role and workflow authorization.
 
 ## Dashboard Setup
 
 1. Create a Supabase project from the Supabase dashboard.
 2. Open **Authentication > Providers** and enable Email.
-3. Keep email/password sign-in enabled for Sprint 0 demo account planning.
+3. Keep email/password sign-in enabled.
 4. Add local development URLs in **Authentication > URL Configuration**:
    - Site URL: `http://localhost:3000`
    - Redirect URL allow list: `http://localhost:3000/**`
@@ -25,14 +26,30 @@ Vercel should define the same variables under the project environment settings f
 
 Only public browser-safe values belong in `NEXT_PUBLIC_*`. Do not add a service role key to browser code or commit it to the repository.
 
+## Account Provisioning
+
+- Borrower and lender accounts are created from `/signup`.
+- Signup calls Supabase Auth `signUp` with initial provisioning metadata.
+- The database trigger on `auth.users` creates trusted `public.profiles` rows.
+- Borrower profiles are created with `role = 'borrower'` and `status = 'active'`.
+- Lender profiles are created with `role = 'lender'`, `status = 'active'`, and
+  `public.lender_profiles.verification_status = 'pending'`.
+- Manager accounts are not self-serve. Seed or provision them manually.
+- Manager lender review happens at `/manager/lenders`.
+
+Authorization must continue to read from database rows, not from mutable Auth
+user metadata.
+
+## Email Confirmation
+
+Local Supabase currently has email confirmations disabled, so signup can return
+an active session immediately. Hosted projects often require email confirmation.
+If confirmations are enabled, keep Supabase redirect URLs aligned with the app
+origin and direct users back to sign in after confirmation.
+
 ## App Client Structure
 
-- `lib/supabase/client.ts` creates a browser client for future client components.
-- `lib/supabase/server.ts` creates a per-request server client for Server Components, Route Handlers, and Server Actions.
-- `lib/supabase/types.ts` is a placeholder until generated database types are available.
-
-When auth routes are implemented later, add middleware for session refresh before relying on server-rendered authenticated state.
-
-## Sprint Boundaries
-
-ADI-6 does not create users, sign-in pages, sign-out actions, role redirects, or protected dashboards. Those belong to later Sprint 0 or Sprint 1 tasks.
+- `lib/supabase/client.ts` creates a browser client for client components.
+- `lib/supabase/server.ts` creates a per-request server client for Server
+  Components, Route Handlers, and Server Actions.
+- `lib/supabase/types.ts` contains checked-in database types for the MVP schema.

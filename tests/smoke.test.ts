@@ -20,6 +20,7 @@ import {
   getShortId,
 } from "../lib/manager-operations";
 import { parseMoneyInput } from "../lib/money-input";
+import { signupSchema } from "../lib/signup";
 import {
   countUnreadNotifications,
   formatNotificationDate,
@@ -598,6 +599,56 @@ describe("role helper logic", () => {
   });
 });
 
+describe("signup validation", () => {
+  it("accepts borrower and lender signup input", () => {
+    expect(
+      signupSchema.safeParse({
+        role: "borrower",
+        displayName: "Maria Santos",
+        organizationName: "",
+        email: "MARIA@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(true);
+
+    expect(
+      signupSchema.safeParse({
+        role: "lender",
+        displayName: "Juan Reyes",
+        organizationName: "Community Capital",
+        email: "lender@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects manager signup and lender signup without an organization", () => {
+    expect(
+      signupSchema.safeParse({
+        role: "manager",
+        displayName: "Platform Manager",
+        organizationName: "",
+        email: "manager@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(false);
+
+    expect(
+      signupSchema.safeParse({
+        role: "lender",
+        displayName: "Juan Reyes",
+        organizationName: "",
+        email: "lender@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(false);
+  });
+});
+
 describe("database workflow safeguards", () => {
   it("defines the accepted-offer uniqueness invariant", () => {
     const migration = readFileSync(
@@ -717,5 +768,23 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("borrower_portfolios_select_access");
     expect(migration).toContain("v_installment_count := case");
     expect(migration).toContain("repayment_schedule_created");
+  });
+
+  it("defines account signup provisioning and manager lender review safeguards", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260525110149_add_account_onboarding.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain("provision_new_auth_user");
+    expect(migration).toContain("v_role not in ('borrower', 'lender')");
+    expect(migration).toContain("verification_status = 'approved'");
+    expect(migration).toContain("verification_status = 'rejected'");
+    expect(migration).toContain("lender_approved");
+    expect(migration).toContain("lender_rejected");
+    expect(migration).toContain("revoke insert, update, delete on public.profiles");
+    expect(migration).toContain(
+      "revoke insert, update, delete on public.lender_profiles",
+    );
   });
 });

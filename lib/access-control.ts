@@ -133,11 +133,19 @@ export async function requireApprovedLender(
   }
 
   if (!isApprovedLender(result.profile)) {
+    const verificationStatus = result.profile.lenderProfile?.verification_status;
+    const message =
+      result.profile.role === "lender" && verificationStatus === "pending"
+        ? "Your lender access is pending review. You will be able to continue when your account is approved."
+        : result.profile.role === "lender" && verificationStatus === "rejected"
+          ? "Your lender access was not approved."
+          : "Your account does not have access to this workspace.";
+
     return {
       ok: false,
       supabase: result.supabase,
       reason: "forbidden",
-      message: "Your account does not have access to this workspace.",
+      message,
     };
   }
 

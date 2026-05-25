@@ -490,6 +490,13 @@ export type Database = {
         Args: Record<PropertyKey, never>;
         Returns: Json;
       };
+      review_lender_verification: {
+        Args: {
+          p_lender_profile_id: string;
+          p_decision: string;
+        };
+        Returns: Json;
+      };
       submit_repayment_proof: {
         Args: {
           p_repayment_schedule_id: string;
