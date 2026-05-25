@@ -1,5 +1,6 @@
 import type { Database, Json } from "@/lib/supabase/types";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
+import { isUuid } from "./validation/uuid";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -1402,12 +1403,6 @@ function endOfDateFilter(value: string) {
 
 function escapeFilterTerm(value: string) {
   return value.replace(/[%(),]/g, "");
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
 }
 
 function isActiveLoanStatus(

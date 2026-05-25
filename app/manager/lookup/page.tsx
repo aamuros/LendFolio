@@ -47,6 +47,10 @@ function getUserSummary(user: {
   return `Manager · ${getShortId(user.profile.id)}`;
 }
 
+function getManagerUserHref(id: string) {
+  return `/manager/users/${id}`;
+}
+
 export default async function ManagerLookupPage({ searchParams }: PageProps) {
   const filters = await searchParams;
   const { q } = filters;
@@ -142,7 +146,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                       {getShortId(user.profile.id)}
                     </p>
                   </div>
-                  <ManagerDetailsLink href={`/manager/users/${user.profile.id}`} />
+                  <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
                 </div>
                 <div className="flex flex-wrap items-center gap-1.5 sm:hidden">
                   <RoleBadge role={user.role} />
@@ -170,7 +174,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                   {getUserSummary(user)}
                 </p>
                 <div className="hidden sm:block sm:justify-self-end">
-                  <ManagerDetailsLink href={`/manager/users/${user.profile.id}`} />
+                  <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
                 </div>
               </article>
             ))}
@@ -219,7 +223,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                       </p>
                     </div>
                     <ManagerDetailsLink
-                      href={`/manager/users/${resultItem.borrower.id}`}
+                      href={getManagerUserHref(resultItem.borrower.id)}
                     />
                   </div>
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
@@ -262,7 +266,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                   </div>
                   <div className="hidden sm:block sm:justify-self-end">
                     <ManagerDetailsLink
-                      href={`/manager/users/${resultItem.borrower.id}`}
+                      href={getManagerUserHref(resultItem.borrower.id)}
                     />
                   </div>
                 </article>

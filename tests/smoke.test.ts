@@ -14,6 +14,7 @@ import {
 } from "../lib/manager-operations";
 import { parseMoneyInput } from "../lib/money-input";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
+import { isUuid } from "../lib/validation/uuid";
 import {
   applyAcceptedOfferInvariant,
   canAcceptOffer,
@@ -153,6 +154,7 @@ describe("manager operations helpers", () => {
 
     expect(userDetailPage).toContain("requireManager");
     expect(userDetailPage).toContain("Invalid user link");
+    expect(userDetailPage).toContain("Received ID:");
     expect(userDetailPage).toContain("User not found");
     expect(userDetailPage).not.toContain("notFound()");
     expect(proofDetailPage).toContain("requireManager");
@@ -177,13 +179,20 @@ describe("manager operations helpers", () => {
   it("keeps manager user detail links on full profile UUIDs", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
 
+    expect(lookupPage).toContain("function getManagerUserHref(id: string)");
     expect(lookupPage).toContain(
-      "href={`/manager/users/${user.profile.id}`}",
+      "href={getManagerUserHref(user.profile.id)}",
     );
     expect(lookupPage).toContain(
-      "href={`/manager/users/${resultItem.borrower.id}`}",
+      "href={getManagerUserHref(resultItem.borrower.id)}",
     );
     expect(lookupPage).not.toContain("/manager/users/${getShortId");
+  });
+
+  it("accepts UUID-shaped seeded IDs but rejects short user IDs", () => {
+    expect(isUuid("33333333-3333-3333-3333-333333333333")).toBe(true);
+    expect(isUuid("11111111-1111-1111-1111-111111111111")).toBe(true);
+    expect(isUuid("33333333")).toBe(false);
   });
 
   it("maps proof date presets to submitted_at bounds using Manila dates", () => {

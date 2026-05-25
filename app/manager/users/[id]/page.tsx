@@ -58,7 +58,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       >
         <ManagerUserErrorState
           title="Invalid user link"
-          message="This user link is not valid. Return to users and try again."
+          message={`This user link is not valid. Received ID: ${id}. Return to users and try again.`}
         />
       </ManagerShell>
     );
