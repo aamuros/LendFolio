@@ -1,130 +1,71 @@
-import { AuthStatus } from "@/components/auth-status";
-import { requireManager } from "@/lib/access-control";
-import { loadManagerActiveLoans } from "@/lib/active-loans";
 import Link from "next/link";
+import { requireManager } from "@/lib/access-control";
+import { loadManagerOverview } from "@/lib/manager-operations";
+import {
+  AccessDenied,
+  DataCard,
+  ManagerShell,
+  StatusMessage,
+  managerNavItems,
+} from "./manager-ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function ManagerPage() {
-  const [access, activeLoansResult] = await Promise.all([
-    requireManager(),
-    loadManagerActiveLoans(),
-  ]);
-  const activeLoans = activeLoansResult.ok ? activeLoansResult.loans : [];
-  const submittedProofCount = activeLoans.reduce(
-    (count, loan) =>
-      count +
-      loan.schedule.filter(
-        (repayment) => repayment.latestProof?.status === "submitted",
-      ).length,
-    0,
-  );
-  const verifiedRepaymentCount = activeLoans.reduce(
-    (count, loan) =>
-      count +
-      loan.schedule.filter((repayment) => repayment.status === "verified")
-        .length,
-    0,
-  );
+  const access = await requireManager();
+
+  if (!access.ok) {
+    return (
+      <ManagerShell
+        title="Manager dashboard"
+        description="Operational visibility for active loans, repayment proof, applications, offers, and audit events."
+      >
+        <AccessDenied message={access.message} />
+      </ManagerShell>
+    );
+  }
+
+  const overview = await loadManagerOverview(access.supabase);
 
   return (
-    <main className="min-h-svh px-5 py-6 sm:px-8">
-      <div className="mx-auto grid min-h-[calc(100svh-3rem)] max-w-4xl content-center gap-8">
-        <header className="flex items-center justify-between gap-4">
-          <Link
-            href="/"
-            className="text-sm font-medium text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            &lt;- LendFolio
-          </Link>
-          <p className="text-xs font-semibold tracking-[0.16em] text-[var(--muted-foreground)] uppercase">
-            Manager
-          </p>
-        </header>
+    <ManagerShell
+      title="Manager dashboard"
+      description="Monitor portfolio activity, repayment evidence, application movement, and workflow events from one place."
+    >
+      {!overview.ok ? (
+        <StatusMessage message={overview.message} tone="error" />
+      ) : null}
 
-        <section className="grid gap-5">
-          <p className="text-sm font-semibold text-[var(--accent)]">
-            Manager workspace
-          </p>
-          <div className="grid gap-4">
-            <h1 className="text-4xl leading-tight font-semibold text-balance sm:text-5xl">
-              Manager dashboard
-            </h1>
-            {access.ok ? (
-              <div className="grid gap-4">
-                <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-                  Platform oversight tools will appear here as they are released.
-                </p>
-                <section className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
-                  <div className="flex items-center justify-between gap-4">
-                    <h2 className="text-lg font-semibold">Active loans</h2>
-                    <span className="text-2xl font-semibold">
-                      {activeLoans.length}
-                    </span>
-                  </div>
-                  <dl className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-                        Proofs submitted
-                      </dt>
-                      <dd className="mt-1 text-lg font-semibold">
-                        {submittedProofCount}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-                        Repayments verified
-                      </dt>
-                      <dd className="mt-1 text-lg font-semibold">
-                        {verifiedRepaymentCount}
-                      </dd>
-                    </div>
-                  </dl>
-                  {activeLoans.length > 0 ? (
-                    <div className="grid gap-3">
-                      {activeLoans.slice(0, 3).map((loan) => (
-                        <div
-                          key={loan.id}
-                          className="grid gap-1 border-t border-[var(--border)] pt-3 text-sm"
-                        >
-                          <p className="font-semibold">
-                            PHP {formatCurrency(loan.principalAmount)}
-                          </p>
-                          <p className="text-[var(--muted-foreground)]">
-                            Due {formatDateOnly(loan.dueDate)}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-[var(--muted-foreground)]">
-                      No active loans yet.
-                    </p>
-                  )}
-                </section>
-              </div>
-            ) : (
-              <p className="max-w-2xl text-base leading-7 text-[var(--muted-foreground)]">
-                {access.message}
+      <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {overview.metrics.map((metric) => (
+          <Link key={metric.label} href={metric.href}>
+            <DataCard>
+              <p className="text-xs font-semibold text-[var(--muted-foreground)]">
+                {metric.label}
               </p>
-            )}
-          </div>
-        </section>
+              <p className="text-3xl font-semibold">{metric.value}</p>
+            </DataCard>
+          </Link>
+        ))}
+      </section>
 
-        <AuthStatus role="manager" />
-      </div>
-    </main>
+      <section className="grid gap-3 md:grid-cols-2">
+        {managerNavItems.map((item) => (
+          <Link key={item.href} href={item.href}>
+            <DataCard>
+              <div className="flex items-start justify-between gap-4">
+                <div className="grid gap-1">
+                  <h2 className="text-lg font-semibold">{item.title}</h2>
+                  <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                    {item.description}
+                  </p>
+                </div>
+                <span className="text-lg font-semibold">-&gt;</span>
+              </div>
+            </DataCard>
+          </Link>
+        ))}
+      </section>
+    </ManagerShell>
   );
-}
-
-function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-PH", {
-    maximumFractionDigits: 0,
-  }).format(value);
-}
-
-function formatDateOnly(value: string) {
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-  }).format(new Date(`${value}T00:00:00`));
 }

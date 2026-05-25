@@ -50,7 +50,7 @@ Use this checklist after Supabase Auth and the Sprint 1 tables/RLS policies are 
 
 ## Deferred Scope Confirmation
 
-- [ ] Active loans and one-installment repayment schedules are present in the MVP vertical slice.
+- [ ] Active loans and preferred-term repayment schedules are present in the MVP vertical slice.
 - [ ] Repayment proof upload is present.
 - [ ] Submitted proof state, lender verification/rejection, and outstanding balance reduction after verification are present.
-- [ ] Real payment processing, e-wallet integration, automated reconciliation, credit-limit restoration, dispute workflows, email notifications, manager reports, full audit-log UI, e-KYC, and AI scoring are not present in the Sprint 1 flow.
+- [ ] Real payment processing, e-wallet integration, automated reconciliation, credit-limit restoration, dispute workflows, email notifications, manager reports, e-KYC, and AI scoring are not present in the Sprint 1 flow.

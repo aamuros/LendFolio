@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { borrowerPortfolioSchema } from "../lib/borrower-portfolio";
 import { loanApplicationSchema } from "../lib/loan-application";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
+import {
+  createMetadataPreview,
+  createScheduleSummary,
+  getShortId,
+} from "../lib/manager-operations";
 import { parseMoneyInput } from "../lib/money-input";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
@@ -103,6 +108,32 @@ describe("money input parsing", () => {
 
   it("keeps required empty money fields available for schema validation", () => {
     expect(parseMoneyInput("")).toBe("");
+  });
+});
+
+describe("manager operations helpers", () => {
+  it("summarizes preferred-term repayment schedules", () => {
+    const summary = createScheduleSummary([
+      { due_date: "2026-06-25", status: "verified" },
+      { due_date: "2026-07-25", status: "submitted" },
+      { due_date: "2026-08-25", status: "rejected" },
+    ]);
+
+    expect(summary).toEqual({
+      installmentCount: 3,
+      verifiedCount: 1,
+      submittedCount: 1,
+      rejectedCount: 1,
+      nextDueDate: "2026-07-25",
+    });
+  });
+
+  it("keeps audit metadata previews compact", () => {
+    expect(getShortId("12345678-90ab-cdef-1234-567890abcdef")).toBe("12345678");
+    expect(createMetadataPreview({ action: "repayment_verified" })).toContain(
+      "repayment_verified",
+    );
+    expect(createMetadataPreview("x".repeat(220))).toHaveLength(180);
   });
 });
 

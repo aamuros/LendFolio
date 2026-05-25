@@ -1,9 +1,9 @@
 # Database Schema Plan
 
 This document tracks the MVP schema direction and the implemented vertical
-slice. Active loans and a basic repayment schedule are now part of the MVP
-workflow; repayment proof upload and lender review are now implemented for the
-one-installment MVP flow.
+slice. Active loans and preferred-term repayment schedules are now part of the
+MVP workflow; repayment proof upload and lender review are implemented for due
+installments.
 
 ## Core Entities
 
@@ -81,9 +81,9 @@ borrower dashboard can show submitted applications after refresh.
 The runnable ADI-10 migration is in
 `supabase/migrations/20260524041000_add_loan_applications.sql`. It is scoped to
 borrower submission and lender review queryability. Official offers,
-active-loan creation, a basic repayment schedule, and audit logs are implemented
-by later migrations. Credit-limit calculation, repayment proof upload, repayment
-verification, and manager reporting remain deferred.
+active-loan creation, repayment schedule creation, and audit logs are
+implemented by later migrations. Credit-limit calculation, repayment proof
+upload, repayment verification, and manager reporting remain deferred.
 
 ## ADI-12 Loan Offer MVP
 
@@ -98,7 +98,7 @@ The Sprint 1 lender offer form captures:
 The server action inserts a pending offer into `public.loan_offers` and links it
 to the source application, borrower, and signed-in lender. Borrowers can view
 pending offers under the related application. Offer acceptance, active loan
-creation, one-installment repayment schedule creation, and audit logs are
+creation, preferred-term repayment schedule creation, and audit logs are
 implemented by later migrations. Expiry enforcement, repayment proofs,
 credit-risk scoring, and manager controls remain deferred.
 
@@ -112,9 +112,9 @@ surface shows approved amount, fees, repayment amount, due date, lender name,
 and lender remarks. Accepting a pending offer updates that offer to `accepted`
 and updates the remaining pending offers for the same application to `declined`.
 
-Accepted offers now create active loans and a one-installment repayment schedule
-through the hardened acceptance RPC. Full repayment handling remains deferred to
-later sprints.
+Accepted offers now create active loans and a repayment schedule through the
+hardened acceptance RPC. Full repayment handling remains deferred to later
+sprints.
 
 The runnable ADI-13 migration is in
 `supabase/migrations/20260524044000_add_offer_acceptance.sql`.
@@ -123,8 +123,8 @@ The runnable ADI-13 migration is in
 
 The active-loan migration creates `active_loan_status`, `repayment_status`,
 `active_loans`, and `loan_repayment_schedules`. The acceptance RPC now converts
-one accepted offer into one active loan and one deterministic installment using
-the accepted offer repayment amount and due date.
+one accepted offer into one active loan and deterministic installments using the
+application preferred term. Supported terms create 1, 3, 6, or 12 installments.
 
 Important constraints include one active loan per application, one active loan
 per accepted offer, unique installment numbers per active loan, positive

@@ -8,12 +8,12 @@ borrowers maintain a business profile, submit a loan application, approved
 lenders review open applications and send offers, and borrowers accept one
 offer. Borrowers can edit or withdraw submitted/open applications before
 acceptance, decline pending offers without withdrawing the application, and see
-the active loan and first repayment installment created from the accepted offer.
+the active loan and repayment schedule created from the accepted offer.
 Borrowers can upload repayment proof for a due installment, and approved lenders
 can verify or reject submitted proof.
 
-Manager monitoring is represented by minimal active-loan and repayment-proof
-counts only.
+Managers can monitor operational activity across loans, repayment proofs,
+applications, offers, audit events, and borrower lookup.
 
 ## Stack
 
@@ -73,14 +73,15 @@ Implemented:
 - Borrower offer review, decline, and acceptance
 - Atomic offer acceptance
 - Active loan creation from accepted offer
-- Basic one-installment repayment schedule creation
+- Repayment schedule creation based on preferred term: 1, 3, 6, or 12 installments
 - Borrower and lender active loan visibility
 - Repayment proof upload to a private Supabase Storage bucket
 - Submitted proof state
 - Lender repayment proof verification and rejection
 - Outstanding balance reduction after proof verification
 - Profile-based roles and approved-lender access checks
-- Minimal manager active-loan visibility
+- Manager operations dashboard for loans, repayment proofs, audit logs,
+  applications, offers, and lookup
 - Audit logging for major workflow events
 
 Not implemented:
@@ -92,7 +93,7 @@ Not implemented:
 - Dispute workflows
 - Identity verification
 - Credit scoring
-- Manager reports and full audit-log UI
+- Manager reports
 - Email notifications
 
 Application deletion is intentionally not part of the borrower workflow. Closed
@@ -155,8 +156,8 @@ variables are set; see `docs/foundation-verification.md` for the exact command.
 15. Review the submitted proof and verify or reject it.
 16. If verified, confirm the installment is verified and outstanding balance is
     reduced.
-17. Sign in as the manager and confirm the dashboard reflects active-loan and
-    repayment-proof counts.
+17. Sign in as the manager and confirm the dashboard links to active loans,
+    repayment proofs, audit logs, applications and offers, and lookup.
 18. Confirm there is no real payment processing, e-wallet integration, automated
     reconciliation, credit-limit restoration, dispute workflow, or email
     notification workflow.

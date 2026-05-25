@@ -43,11 +43,12 @@ connected to them. Managers can read offers for oversight.
 | `defaulted` | Loan is in default. | Reserved for later manager workflow. |
 | `closed` | Loan is closed outside the normal paid path. | Reserved for later manager workflow. |
 
-The current repayment schedule is deterministic: one installment is created for
-the accepted offer repayment amount and due date. Its initial status is `due`.
-Borrower proof upload changes the installment to `submitted`. Lender
-verification changes it to `verified`; lender rejection changes it to
-`rejected` so the borrower can upload a corrected proof.
+The current repayment schedule is deterministic: the application preferred term
+creates 1, 3, 6, or 12 installments that total the accepted offer repayment
+amount and end on the offer due date. Each installment starts as `due`.
+Borrower proof upload changes an installment to `submitted`. Lender verification
+changes it to `verified`; lender rejection changes it to `rejected` so the
+borrower can upload corrected proof.
 
 ## Repayment Proof States
 
@@ -66,7 +67,7 @@ verification changes it to `verified`; lender rejection changes it to
 - A partial unique index allows one pending offer per lender per application.
 - Competing pending offers are declined when one offer is accepted.
 - One active loan is created per accepted offer and per loan application.
-- One repayment installment is created for the active loan.
+- Preferred-term repayment installments are created for the active loan.
 - One active submitted proof and one verified proof are allowed per repayment
   schedule.
 - Verification is atomic and never reduces the active-loan outstanding balance

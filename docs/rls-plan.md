@@ -47,7 +47,7 @@ Use `public.profiles.role` or trusted server-side app metadata for role decision
 
 The repository now includes applied migrations for profiles, borrower
 portfolios, loan applications, loan offers, atomic acceptance, lender
-closed-context reads, active loans, and one-installment repayment schedules.
+closed-context reads, active loans, and preferred-term repayment schedules.
 The repayment proof migration adds private proof metadata, Storage policies, and
 atomic RPCs for proof submission, verification, rejection, and balance updates.
 `docs/schema-draft.sql` remains a review draft, not an applied migration.
