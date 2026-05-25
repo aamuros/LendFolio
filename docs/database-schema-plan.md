@@ -11,7 +11,7 @@ installments.
 | --- | --- | --- |
 | `profiles` | One application profile per `auth.users` account, including role | `id` references `auth.users.id` |
 | `borrower_portfolios` | Borrower business profile foundation with business type, location, cash-flow inputs, years in operation, and loan purpose context | ADI-9 migration references `auth.users.id` directly until the broader `profiles` foundation is applied; one active MVP portfolio per borrower |
-| `lender_profiles` | Verified lender profile foundation | `lender_id` references `profiles.id` |
+| `lender_profiles` | Manual lender verification profile with organization, contact, operating area, loan range, repayment terms, description, manager notes, and approval/rejection fields | `user_id` references `profiles.id`; review actors reference `profiles.id` |
 | `loan_applications` | Borrower request for financing | borrower profile and optional portfolio |
 | `loan_offers` | Official lender offer on an application | loan application, borrower, and lender |
 | `active_loans` | Accepted offer converted to loan | accepted offer |
@@ -36,7 +36,6 @@ Expected enums:
 
 - Whether a user can hold more than one role.
 - Whether lenders can see all submitted applications or only assigned applications.
-- Whether manager accounts are created manually only.
 - Whether audit logs are written by database triggers, server actions, or both.
 - Required file metadata for uploaded documents.
 
@@ -162,6 +161,29 @@ The runnable migration is in
 `supabase/migrations/20260524145301_add_repayment_proofs.sql`. Real payment
 processing, e-wallet integration, automated reconciliation, credit-limit
 restoration, dispute workflows, and email notifications remain deferred.
+
+## Account Signup And Lender Verification MVP
+
+Borrower and lender accounts are self-serve through `/signup`. Borrower signup
+creates an active borrower profile. Lender signup creates an active lender
+profile and a pending `public.lender_profiles` row with enough manual-review
+information for managers: organization, contact person, phone number, business
+address, operating area, optional registration number, loan amount range,
+typical repayment terms, and lender description.
+
+Manager accounts remain manually seeded or provisioned and cannot be created
+through self-serve signup. Managers review lenders from `/manager/lenders` and
+the manager-only lender detail page. Approval stores `approved_at`,
+`approved_by`, and optional review notes. Rejection stores `rejected_at`,
+`rejected_by`, a required rejection reason, and optional review notes.
+
+This is manual platform review only. It is not automated identity verification,
+KYB, credit scoring, real payment setup, e-wallet integration, automated
+reconciliation, reporting, or email notification delivery.
+
+The runnable migrations are
+`supabase/migrations/20260525110149_add_account_onboarding.sql` and
+`supabase/migrations/20260525115311_lender_verification_profile_depth.sql`.
 
 ## Draft SQL
 

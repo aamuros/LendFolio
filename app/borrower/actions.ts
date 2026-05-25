@@ -308,7 +308,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
     }
 
     const creditSummary = portfolio
-      ? await loadBorrowerCreditSummary(access.profile.id, portfolio)
+      ? await loadBorrowerCreditSummary(access.profile.id, portfolio, supabase)
       : null;
 
     const { data, error } = await supabase
@@ -352,7 +352,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         )
         .in("loan_application_id", applicationIds)
         .order("sent_at", { ascending: false }),
-      loadBorrowerActiveLoans(),
+      loadBorrowerActiveLoans(access),
     ]);
     const { data: offers, error: offersError } = offersResult;
 
@@ -432,8 +432,9 @@ async function loadBorrowerCreditSummary(
     existing_loan_payments: number;
     years_in_operation: number;
   },
+  verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ) {
-  const supabase = await createSupabaseServerClient();
+  const supabase = verifiedClient ?? (await createSupabaseServerClient());
   const { data: activeLoans, error } = await supabase
     .from("active_loans")
     .select("outstanding_balance, status")

@@ -29,6 +29,11 @@ All seeded users use the password `LendFolio123!`.
 | Pending lender | `lender.pending@lendfolio.local` | Confirms unapproved lenders cannot create offers. |
 | Manager | `manager@lendfolio.local` | Confirms manager read access to audit logs and workflow data. |
 
+Borrower and lender accounts can also be created from `/signup`. Borrower
+signup creates an active borrower profile. Lender signup creates an active
+lender profile plus a pending `lender_profiles` row with the submitted manual
+review information. Manager accounts remain manually seeded or provisioned.
+
 ## Running Database Integration Tests
 
 Export the local Supabase values, then run the tests:
@@ -50,6 +55,14 @@ sets these variables, and runs the full suite.
 - Borrower rows are isolated by RLS.
 - Approved lenders can review open applications.
 - Pending lenders cannot create offers.
+- Rejected lenders cannot create offers.
 - Manager users can read audit logs.
+- Managers can list lender profiles, open lender details, approve pending
+  lenders with optional notes, and reject pending lenders with a required
+  reason.
+- Lender approval is manual manager review of submitted profile information. It
+  is not automated identity verification, KYB, credit scoring, payment setup, or
+  e-wallet integration.
 - Offer acceptance uses the database RPC and leaves exactly one accepted offer.
 - Competing pending offers are declined and workflow audit logs are written.
+- Email notifications are still not implemented.

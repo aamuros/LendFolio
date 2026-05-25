@@ -14,6 +14,7 @@ import {
   type BorrowerLoanApplicationSummary,
   declineLoanOffer,
   loadBorrowerLoanApplications,
+  type LoanApplicationsLoadResult,
   submitRepaymentProof,
   submitLoanApplication,
   updateLoanApplication,
@@ -61,30 +62,57 @@ type ProofFeedback = {
 type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers" | "loans";
   onNavigate?: (tab: BorrowerTab) => void;
+  initialLoadResult?: LoanApplicationsLoadResult | null;
 };
 
 export function BorrowerLoanApplicationPanel({
   view = "apply",
   onNavigate,
+  initialLoadResult = null,
 }: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
-  const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [hasPortfolio, setHasPortfolio] = useState(false);
-  const [message, setMessage] = useState("Loading applications...");
+  const [loadState, setLoadState] = useState<LoadState>(
+    initialLoadResult
+      ? initialLoadResult.hasPortfolio
+        ? "ready"
+        : "blocked"
+      : "loading",
+  );
+  const [hasPortfolio, setHasPortfolio] = useState(
+    initialLoadResult?.hasPortfolio ?? false,
+  );
+  const [message, setMessage] = useState(
+    initialLoadResult ? (initialLoadResult.ok ? "" : initialLoadResult.message) : "",
+  );
   const [successMessage, setSuccessMessage] = useState("");
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
-  >([]);
+  >(initialLoadResult?.ok ? initialLoadResult.applications : []);
   const [creditSummary, setCreditSummary] =
-    useState<BorrowerCreditSummary | null>(null);
+    useState<BorrowerCreditSummary | null>(
+      initialLoadResult?.creditSummary ?? null,
+    );
   const [expandedApplicationIds, setExpandedApplicationIds] = useState<
     Set<string>
-  >(new Set());
+  >(() =>
+    getDefaultExpandedApplicationIds(
+      initialLoadResult?.ok ? initialLoadResult.applications : [],
+      readStoredIdSet(collapsedApplicationsStorageKey),
+    ),
+  );
   const [expandedOfferIds, setExpandedOfferIds] = useState<Set<string>>(
-    new Set(),
+    () =>
+      getDefaultExpandedOfferIds(
+        initialLoadResult?.ok ? initialLoadResult.applications : [],
+        readStoredIdSet(collapsedOffersStorageKey),
+      ),
   );
   const [expandedRepaymentIds, setExpandedRepaymentIds] = useState<Set<string>>(
-    new Set(),
+    () =>
+      getDefaultExpandedRepaymentIds(
+        initialLoadResult?.ok ? initialLoadResult.applications : [],
+        readStoredIdSet(collapsedRepaymentsStorageKey),
+      ),
   );
   const [editingApplicationId, setEditingApplicationId] = useState<
     string | null
@@ -146,14 +174,16 @@ export function BorrowerLoanApplicationPanel({
       });
     }
 
-    load();
+    if (!initialLoadResult) {
+      load();
+    }
     window.addEventListener(borrowerPortfolioSavedEvent, load);
 
     return () => {
       isActive = false;
       window.removeEventListener(borrowerPortfolioSavedEvent, load);
     };
-  }, [startTransition]);
+  }, [initialLoadResult, startTransition]);
 
   useEffect(() => {
     if (!successMessage) {

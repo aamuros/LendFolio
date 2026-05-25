@@ -4,7 +4,7 @@ import { SignupForm } from "@/app/signup/signup-form";
 export default function SignupPage() {
   return (
     <main className="grid min-h-svh bg-[var(--background)] px-5 py-6 sm:px-8">
-      <div className="mx-auto grid w-full max-w-[28rem] content-center gap-7">
+      <div className="mx-auto grid w-full max-w-[36rem] content-center gap-7">
         <header className="grid text-center">
           <Link
             href="/"

@@ -38,10 +38,18 @@ export async function refreshOverdueStatusesAction() {
 export async function reviewLenderAction(formData: FormData) {
   const lenderProfileId = String(formData.get("lenderProfileId") ?? "");
   const decision = String(formData.get("decision") ?? "");
+  const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
+  const rejectionReason = String(formData.get("rejectionReason") ?? "");
+  const requestedReturnPath = String(
+    formData.get("returnPath") ?? "/manager/lenders",
+  );
+  const returnPath = requestedReturnPath.startsWith("/manager/lenders")
+    ? requestedReturnPath
+    : "/manager/lenders";
   const access = await requireManager();
 
   if (!access.ok || !lenderProfileId) {
-    redirect("/manager/lenders?review=error");
+    redirect(`${returnPath}?review=error`);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -49,19 +57,27 @@ export async function reviewLenderAction(formData: FormData) {
     {
       p_lender_profile_id: lenderProfileId,
       p_decision: decision,
+      p_manager_review_notes: managerReviewNotes,
+      p_rejection_reason: rejectionReason,
     },
   );
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    redirect("/manager/lenders?review=error");
+    redirect(`${returnPath}?review=error`);
   }
 
   revalidatePath("/manager");
   revalidatePath("/manager/lenders");
+  revalidatePath(`/manager/lenders/${lenderProfileId}`);
   revalidatePath("/lender");
 
-  redirect(
-    `/manager/lenders?review=${decision === "approve" ? "approved" : "rejected"}`,
-  );
+  const review =
+    decision === "approve"
+      ? "approved"
+      : decision === "return_to_pending"
+        ? "pending"
+        : "rejected";
+
+  redirect(`${returnPath}?review=${review}`);
 }

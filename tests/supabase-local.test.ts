@@ -7,6 +7,8 @@ import {
   loadManagerLookup,
   loadManagerOverview,
   loadManagerRepayments,
+  loadManagerLenderDetail,
+  loadManagerLenders,
 } from "../lib/manager-operations";
 import type { Database, Json } from "../lib/supabase/types";
 
@@ -130,8 +132,36 @@ async function signUpSelfServeAccount(input: {
   email: string;
   displayName: string;
   organizationName?: string;
+  contactPerson?: string;
+  phoneNumber?: string;
+  businessAddress?: string;
+  operatingArea?: string;
+  businessRegistrationNumber?: string;
+  minLoanAmount?: number;
+  maxLoanAmount?: number;
+  typicalRepaymentTerms?: string;
+  lenderDescription?: string;
 }) {
   const client = createSupabaseClient(supabaseAnonKey);
+  const lenderMetadata =
+    input.role === "lender"
+      ? {
+          organization_name: input.organizationName,
+          contact_person: input.contactPerson ?? "Signup Contact",
+          phone_number: input.phoneNumber ?? "+63 917 555 0199",
+          business_address:
+            input.businessAddress ?? "99 Signup Street, Quezon City",
+          operating_area: input.operatingArea ?? "Metro Manila",
+          business_registration_number: input.businessRegistrationNumber,
+          min_loan_amount: input.minLoanAmount ?? 5000,
+          max_loan_amount: input.maxLoanAmount ?? 50000,
+          typical_repayment_terms:
+            input.typicalRepaymentTerms ?? "1 to 6 months",
+          lender_description:
+            input.lenderDescription ??
+            "Signup lender profile for manual manager verification testing.",
+        }
+      : {};
   const { data, error } = await client.auth.signUp({
     email: input.email,
     password,
@@ -139,7 +169,7 @@ async function signUpSelfServeAccount(input: {
       data: {
         lendfolio_role: input.role,
         display_name: input.displayName,
-        organization_name: input.organizationName,
+        ...lenderMetadata,
       },
     },
   });
@@ -518,14 +548,43 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       const { data: pendingLenderProfile, error: pendingLenderProfileError } =
         await signupLender.client
           .from("lender_profiles")
-          .select("id, organization_name, verification_status")
+          .select(
+            "id, organization_name, contact_person, phone_number, business_address, operating_area, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status",
+          )
           .eq("user_id", signupLender.userId)
           .single();
 
       expect(pendingLenderProfileError).toBeNull();
       expect(pendingLenderProfile).toMatchObject({
         organization_name: "Signup Capital",
+        contact_person: "Signup Contact",
+        phone_number: "+63 917 555 0199",
+        business_address: "99 Signup Street, Quezon City",
+        operating_area: "Metro Manila",
+        min_loan_amount: 5000,
+        max_loan_amount: 50000,
+        typical_repayment_terms: "1 to 6 months",
+        lender_description:
+          "Signup lender profile for manual manager verification testing.",
         verification_status: "pending",
+      });
+
+      const managerLenders = await loadManagerLenders(manager, {
+        verificationStatus: "pending",
+      });
+      expect(managerLenders.ok).toBe(true);
+      expect(managerLenders.lenders.map((lender) => lender.id)).toContain(
+        pendingLenderProfile?.id,
+      );
+
+      const managerLenderDetail = await loadManagerLenderDetail(
+        manager,
+        pendingLenderProfile?.id ?? "",
+      );
+      expect(managerLenderDetail.ok).toBe(true);
+      expect(managerLenderDetail.lender).toMatchObject({
+        organizationName: "Signup Capital",
+        verificationStatus: "pending",
       });
 
       const { error: verificationMutationError } = await signupLender.client
@@ -534,6 +593,13 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         .eq("user_id", signupLender.userId);
 
       expect(verificationMutationError).not.toBeNull();
+
+      const { error: reviewFieldMutationError } = await signupLender.client
+        .from("lender_profiles")
+        .update({ manager_review_notes: "Self-approved." })
+        .eq("user_id", signupLender.userId);
+
+      expect(reviewFieldMutationError).not.toBeNull();
 
       const { applicationId } = await createPortfolioAndApplication(
         signupBorrower.client,
@@ -575,6 +641,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       const approval = await manager.rpc("review_lender_verification", {
         p_lender_profile_id: pendingLenderProfile?.id ?? "",
         p_decision: "approve",
+        p_manager_review_notes: "Approved after manual profile review.",
       });
 
       expect(approval.error).toBeNull();
@@ -582,6 +649,26 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         ok: true,
         verification_status: "approved",
       });
+
+      const { data: approvedLenderProfile, error: approvedLenderProfileError } =
+        await manager
+          .from("lender_profiles")
+          .select(
+            "verification_status, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, manager_review_notes",
+          )
+          .eq("id", pendingLenderProfile?.id ?? "")
+          .single();
+
+      expect(approvedLenderProfileError).toBeNull();
+      expect(approvedLenderProfile).toMatchObject({
+        verification_status: "approved",
+        approved_by: ids.manager,
+        rejected_at: null,
+        rejected_by: null,
+        rejection_reason: null,
+        manager_review_notes: "Approved after manual profile review.",
+      });
+      expect(approvedLenderProfile?.approved_at).toBeTruthy();
 
       const { data: approvedApplication, error: approvedApplicationError } =
         await signupLender.client
@@ -619,9 +706,26 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
       expect(rejectedProfileError).toBeNull();
 
+      const rejectionWithoutReason = await manager.rpc(
+        "review_lender_verification",
+        {
+          p_lender_profile_id: rejectedLenderProfile?.id ?? "",
+          p_decision: "reject",
+        },
+      );
+
+      expect(rejectionWithoutReason.error).toBeNull();
+      expect(
+        rejectionWithoutReason.data as Json as ReviewLenderResult,
+      ).toMatchObject({
+        ok: false,
+      });
+
       const rejection = await manager.rpc("review_lender_verification", {
         p_lender_profile_id: rejectedLenderProfile?.id ?? "",
         p_decision: "reject",
+        p_rejection_reason: "Business registration details were incomplete.",
+        p_manager_review_notes: "Ask for updated documents before reconsidering.",
       });
 
       expect(rejection.error).toBeNull();
@@ -629,6 +733,26 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         ok: true,
         verification_status: "rejected",
       });
+
+      const { data: rejectedReviewRow, error: rejectedReviewRowError } =
+        await manager
+          .from("lender_profiles")
+          .select(
+            "verification_status, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, manager_review_notes",
+          )
+          .eq("id", rejectedLenderProfile?.id ?? "")
+          .single();
+
+      expect(rejectedReviewRowError).toBeNull();
+      expect(rejectedReviewRow).toMatchObject({
+        verification_status: "rejected",
+        approved_at: null,
+        approved_by: null,
+        rejected_by: ids.manager,
+        rejection_reason: "Business registration details were incomplete.",
+        manager_review_notes: "Ask for updated documents before reconsidering.",
+      });
+      expect(rejectedReviewRow?.rejected_at).toBeTruthy();
 
       const { data: rejectedApplication, error: rejectedApplicationError } =
         await signupRejectedLender.client
@@ -648,6 +772,38 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
       expect(rejectedOffer.error).toBeNull();
       expect(rejectedOffer.result).toMatchObject({ ok: false });
+
+      const borrowerReviewAttempt = await signupBorrower.client.rpc(
+        "review_lender_verification",
+        {
+          p_lender_profile_id: rejectedLenderProfile?.id ?? "",
+          p_decision: "approve",
+        },
+      );
+
+      expect(borrowerReviewAttempt.error).toBeNull();
+      expect(
+        borrowerReviewAttempt.data as Json as ReviewLenderResult,
+      ).toMatchObject({
+        ok: false,
+      });
+
+      const invalidLenderSignupAttempt = await createSupabaseClient(
+        supabaseAnonKey,
+      ).auth.signUp({
+        email: `invalid-lender.${crypto.randomUUID()}@lendfolio.local`,
+        password,
+        options: {
+          data: {
+            lendfolio_role: "lender",
+            display_name: "Invalid Lender",
+            organization_name: "Invalid Capital",
+          },
+        },
+      });
+
+      expect(invalidLenderSignupAttempt.error).not.toBeNull();
+      expect(invalidLenderSignupAttempt.data.user).toBeNull();
 
       const managerSignupAttempt = await createSupabaseClient(
         supabaseAnonKey,

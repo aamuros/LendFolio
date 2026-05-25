@@ -1,4 +1,5 @@
 import { BorrowerWorkspace } from "@/components/borrower-workspace";
+import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
 import { requireBorrower } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 
@@ -19,12 +20,18 @@ export default async function BorrowerPage({
   const {
     data: { user },
   } = access.ok ? await access.supabase.auth.getUser() : { data: { user: null } };
+  const initialLoanApplications = access.ok
+    ? await loadBorrowerLoanApplications()
+    : null;
 
   return (
     <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-4xl gap-5">
         {access.ok ? (
-          <BorrowerWorkspace accountEmail={user?.email ?? ""} />
+          <BorrowerWorkspace
+            accountEmail={user?.email ?? ""}
+            initialLoanApplications={initialLoanApplications}
+          />
         ) : (
           <section
             className="rounded-md border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]"

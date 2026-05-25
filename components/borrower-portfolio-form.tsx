@@ -34,7 +34,7 @@ type LoadState = "loading" | "empty" | "ready" | "error";
 export function BorrowerPortfolioForm() {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
-  const [statusMessage, setStatusMessage] = useState<string>("Loading profile...");
+  const [statusMessage, setStatusMessage] = useState<string>("");
   const [successMessage, setSuccessMessage] = useState("");
 
   const {
@@ -104,6 +104,10 @@ export function BorrowerPortfolioForm() {
     });
   }
 
+  if (loadState === "loading") {
+    return <BorrowerPortfolioFormSkeleton />;
+  }
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -115,12 +119,12 @@ export function BorrowerPortfolioForm() {
       className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
       aria-describedby="portfolio-save-state"
     >
-      {loadState === "loading" || loadState === "error" ? (
+      {loadState === "error" ? (
         <div
           className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-          role={loadState === "error" ? "alert" : "status"}
+          role="alert"
         >
-          {loadState === "loading" ? "Loading profile..." : statusMessage}
+          {statusMessage}
         </div>
       ) : null}
 
@@ -223,7 +227,7 @@ export function BorrowerPortfolioForm() {
             className="text-sm leading-6 text-[var(--muted-foreground)]"
             aria-live="polite"
           >
-            {loadState === "loading" ? "Loading profile..." : statusMessage}
+            {statusMessage}
             {isDirty ? " Save changes when ready." : ""}
           </p>
           {successMessage ? (
@@ -237,13 +241,58 @@ export function BorrowerPortfolioForm() {
         </div>
         <button
           type="submit"
-          disabled={isPending || loadState === "loading"}
+          disabled={isPending}
           className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isPending ? "Saving..." : "Save profile"}
         </button>
       </div>
     </form>
+  );
+}
+
+function BorrowerPortfolioFormSkeleton() {
+  return (
+    <section
+      className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
+      aria-busy="true"
+      aria-label="Loading business profile"
+    >
+      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3">
+        <SkeletonBlock className="h-4 w-28" />
+        <SkeletonBlock className="h-3 w-full max-w-sm" />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        {Array.from({ length: 6 }).map((_, index) => (
+          <div key={index} className="grid gap-1.5">
+            <SkeletonBlock className="h-4 w-32" />
+            <SkeletonBlock className="h-11 w-full rounded-xl" />
+          </div>
+        ))}
+      </div>
+
+      <div className="grid gap-1.5">
+        <SkeletonBlock className="h-4 w-36" />
+        <SkeletonBlock className="h-[5.75rem] w-full rounded-xl" />
+      </div>
+
+      <div className="grid gap-3 border-t border-[var(--border)] pt-4 sm:flex sm:items-center sm:justify-between">
+        <div className="grid gap-2">
+          <SkeletonBlock className="h-4 w-48" />
+          <SkeletonBlock className="h-4 w-32" />
+        </div>
+        <SkeletonBlock className="h-12 w-full rounded-full sm:w-36" />
+      </div>
+    </section>
+  );
+}
+
+function SkeletonBlock({ className }: { className: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded-full bg-[var(--muted)] ${className}`}
+    />
   );
 }
 

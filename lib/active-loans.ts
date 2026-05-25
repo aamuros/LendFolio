@@ -1,6 +1,19 @@
-import { requireApprovedLender, requireBorrower, requireManager } from "@/lib/access-control";
+import {
+  requireApprovedLender,
+  requireBorrower,
+  requireManager,
+} from "@/lib/access-control";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+
+type BorrowerAccess = Extract<
+  Awaited<ReturnType<typeof requireBorrower>>,
+  { ok: true }
+>;
+type LenderAccess = Extract<
+  Awaited<ReturnType<typeof requireApprovedLender>>,
+  { ok: true }
+>;
 
 type ActiveLoanRow = Database["public"]["Tables"]["active_loans"]["Row"];
 type RepaymentScheduleRow =
@@ -70,10 +83,13 @@ const repaymentScheduleSelect =
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 
-export async function loadBorrowerActiveLoans(): Promise<ActiveLoansLoadResult> {
+export async function loadBorrowerActiveLoans(
+  verifiedAccess?: BorrowerAccess,
+): Promise<ActiveLoansLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireBorrower(supabase);
+    const supabase =
+      verifiedAccess?.supabase ?? (await createSupabaseServerClient());
+    const access = verifiedAccess ?? (await requireBorrower(supabase));
 
     if (!access.ok) {
       return {
@@ -84,7 +100,7 @@ export async function loadBorrowerActiveLoans(): Promise<ActiveLoansLoadResult> 
       };
     }
 
-    return loadActiveLoansForColumn("borrower_id", access.profile.id);
+    return loadActiveLoansForColumn("borrower_id", access.profile.id, supabase);
   } catch {
     return {
       ok: false,
@@ -95,10 +111,13 @@ export async function loadBorrowerActiveLoans(): Promise<ActiveLoansLoadResult> 
   }
 }
 
-export async function loadLenderActiveLoans(): Promise<ActiveLoansLoadResult> {
+export async function loadLenderActiveLoans(
+  verifiedAccess?: LenderAccess,
+): Promise<ActiveLoansLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireApprovedLender(supabase);
+    const supabase =
+      verifiedAccess?.supabase ?? (await createSupabaseServerClient());
+    const access = verifiedAccess ?? (await requireApprovedLender(supabase));
 
     if (!access.ok) {
       return {
@@ -109,7 +128,7 @@ export async function loadLenderActiveLoans(): Promise<ActiveLoansLoadResult> {
       };
     }
 
-    return loadActiveLoansForColumn("lender_id", access.profile.id);
+    return loadActiveLoansForColumn("lender_id", access.profile.id, supabase);
   } catch {
     return {
       ok: false,
@@ -202,8 +221,9 @@ export function mapRepaymentScheduleRow(
 async function loadActiveLoansForColumn(
   column: "borrower_id" | "lender_id",
   userId: string,
+  verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ): Promise<ActiveLoansLoadResult> {
-  const supabase = await createSupabaseServerClient();
+  const supabase = verifiedClient ?? (await createSupabaseServerClient());
   const { data: loans, error } = await supabase
     .from("active_loans")
     .select(activeLoanSelect)

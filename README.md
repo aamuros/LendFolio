@@ -81,7 +81,8 @@ Implemented:
 - Outstanding balance reduction after proof verification
 - Self-serve borrower and lender signup
 - Profile-based roles and approved-lender access checks
-- Manager-controlled lender approval and rejection
+- Lender signup review profile capture for manual manager verification
+- Manager-controlled lender filtering, detail review, approval, and rejection
 - Manager operations dashboard for loans, repayment proofs, audit logs,
   applications, offers, lender review, and lookup
 - Audit logging for major workflow events
@@ -144,11 +145,13 @@ variables are set; see `docs/foundation-verification.md` for the exact command.
 2. Save the borrower business profile and submit a loan application.
 3. Optionally edit or withdraw the application while it is still submitted/open.
 4. Sign out.
-5. Open `/signup` and create a lender account with an organization name.
+5. Open `/signup` and create a lender account with the lender review profile
+   fields.
 6. Confirm the lender sees pending-review messaging and cannot access lender
    application review yet.
 7. Sign in as a seeded manager account.
-8. Open `/manager/lenders` and approve the pending lender.
+8. Open `/manager/lenders`, filter pending lenders if needed, open the lender
+   detail page, then approve the pending lender or reject with a reason.
 9. Sign out, then sign in as the approved lender.
 10. Open `/lender/applications`, open the submitted application, and send an offer.
 11. Sign out.
@@ -169,7 +172,9 @@ variables are set; see `docs/foundation-verification.md` for the exact command.
     notification workflow.
 
 Manager accounts remain manually seeded or provisioned. Borrower and lender
-accounts should use self-serve signup.
+accounts should use self-serve signup. Lender approval is a manual manager
+review of the submitted lender profile, not automated identity verification.
+Email notifications are still not implemented.
 
 For additional manual QA checks, see `docs/sprint-1-validation.md`.
 

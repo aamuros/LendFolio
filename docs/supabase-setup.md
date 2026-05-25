@@ -34,8 +34,14 @@ Only public browser-safe values belong in `NEXT_PUBLIC_*`. Do not add a service 
 - Borrower profiles are created with `role = 'borrower'` and `status = 'active'`.
 - Lender profiles are created with `role = 'lender'`, `status = 'active'`, and
   `public.lender_profiles.verification_status = 'pending'`.
+- Lender signup also stores the submitted manual-review profile details:
+  organization, contact, phone, business address, operating area, optional
+  registration number, loan range, repayment terms, and description.
 - Manager accounts are not self-serve. Seed or provision them manually.
-- Manager lender review happens at `/manager/lenders`.
+- Manager lender review happens at `/manager/lenders` and the manager-only
+  lender detail page. Approval and rejection are manual decisions; this is not
+  automated identity verification, KYB, or credit scoring.
+- Email notifications for lender review are not implemented.
 
 Authorization must continue to read from database rows, not from mutable Auth
 user metadata.

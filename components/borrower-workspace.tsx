@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
+import {
+  loadBorrowerLoanApplications,
+  type LoanApplicationsLoadResult,
+} from "@/app/borrower/actions";
 import { signOutAction } from "@/app/login/actions";
 import {
   BorrowerBottomTabs,
@@ -16,13 +19,19 @@ import type { BorrowerCreditSummary } from "@/lib/credit-limit";
 
 type BorrowerWorkspaceProps = {
   accountEmail?: string;
+  initialLoanApplications?: LoanApplicationsLoadResult | null;
 };
 
-export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps) {
+export function BorrowerWorkspace({
+  accountEmail = "",
+  initialLoanApplications = null,
+}: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
   const [isPending, startTransition] = useTransition();
   const [creditSummary, setCreditSummary] =
-    useState<BorrowerCreditSummary | null>(null);
+    useState<BorrowerCreditSummary | null>(
+      initialLoanApplications?.creditSummary ?? null,
+    );
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
   useEffect(() => {
@@ -40,7 +49,6 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
       });
     }
 
-    loadCreditSummary();
     window.addEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
 
     return () => {
@@ -153,7 +161,11 @@ export function BorrowerWorkspace({ accountEmail = "" }: BorrowerWorkspaceProps)
           <AccountSection email={accountEmail} />
         </section>
       ) : (
-        <BorrowerLoanApplicationPanel view={workspaceTab} onNavigate={changeTab} />
+        <BorrowerLoanApplicationPanel
+          view={workspaceTab}
+          onNavigate={changeTab}
+          initialLoadResult={initialLoanApplications}
+        />
       )}
 
       <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />

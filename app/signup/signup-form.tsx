@@ -46,12 +46,81 @@ export function SignupForm() {
       />
 
       {role === "lender" ? (
-        <TextField
-          label="Organization"
-          name="organizationName"
-          autoComplete="organization"
-          error={state.fieldErrors?.organizationName}
-        />
+        <section className="grid gap-4 rounded-md border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
+          <div className="grid gap-1">
+            <h2 className="text-base font-semibold text-[var(--foreground)]">
+              Lender review profile
+            </h2>
+            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+              Managers use this information to review lender access.
+            </p>
+          </div>
+
+          <TextField
+            label="Organization"
+            name="organizationName"
+            autoComplete="organization"
+            error={state.fieldErrors?.organizationName}
+          />
+          <TextField
+            label="Contact person"
+            name="contactPerson"
+            autoComplete="name"
+            error={state.fieldErrors?.contactPerson}
+          />
+          <TextField
+            label="Phone number"
+            name="phoneNumber"
+            type="tel"
+            autoComplete="tel"
+            error={state.fieldErrors?.phoneNumber}
+          />
+          <TextField
+            label="Business address"
+            name="businessAddress"
+            autoComplete="street-address"
+            error={state.fieldErrors?.businessAddress}
+          />
+          <TextField
+            label="Operating area"
+            name="operatingArea"
+            error={state.fieldErrors?.operatingArea}
+          />
+          <TextField
+            label="Business registration number"
+            name="businessRegistrationNumber"
+            required={false}
+            error={state.fieldErrors?.businessRegistrationNumber}
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <TextField
+              label="Minimum loan amount"
+              name="minLoanAmount"
+              type="number"
+              min="1"
+              step="1"
+              error={state.fieldErrors?.minLoanAmount}
+            />
+            <TextField
+              label="Maximum loan amount"
+              name="maxLoanAmount"
+              type="number"
+              min="1"
+              step="1"
+              error={state.fieldErrors?.maxLoanAmount}
+            />
+          </div>
+          <TextField
+            label="Typical repayment terms"
+            name="typicalRepaymentTerms"
+            error={state.fieldErrors?.typicalRepaymentTerms}
+          />
+          <TextAreaField
+            label="Lender description"
+            name="lenderDescription"
+            error={state.fieldErrors?.lenderDescription}
+          />
+        </section>
       ) : null}
 
       <TextField
@@ -133,12 +202,18 @@ function TextField({
   name,
   type = "text",
   autoComplete,
+  required = true,
+  min,
+  step,
   error,
 }: {
   label: string;
   name: string;
   type?: string;
   autoComplete?: string;
+  required?: boolean;
+  min?: string;
+  step?: string;
   error?: string[];
 }) {
   return (
@@ -150,9 +225,37 @@ function TextField({
         id={name}
         name={name}
         type={type}
+        min={min}
+        step={step}
         autoComplete={autoComplete}
         className="h-12 w-full rounded-md border border-[var(--border)] bg-white px-3.5 text-base outline-none transition-colors placeholder:text-[var(--subtle-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/15"
-        required={name !== "organizationName"}
+        required={required}
+      />
+      <FieldError messages={error} />
+    </div>
+  );
+}
+
+function TextAreaField({
+  label,
+  name,
+  error,
+}: {
+  label: string;
+  name: string;
+  error?: string[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <label className="text-sm font-medium text-[var(--foreground)]" htmlFor={name}>
+        {label}
+      </label>
+      <textarea
+        id={name}
+        name={name}
+        rows={5}
+        className="w-full resize-y rounded-md border border-[var(--border)] bg-white px-3.5 py-3 text-base outline-none transition-colors placeholder:text-[var(--subtle-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/15"
+        required
       />
       <FieldError messages={error} />
     </div>

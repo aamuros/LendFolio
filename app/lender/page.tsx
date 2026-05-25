@@ -30,11 +30,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   const activeTab = tab === "offers" || tab === "account" ? tab : "home";
-  const [applicationsResult, offersResult, access] = await Promise.all([
-    loadOpenLenderApplications(),
-    loadLenderOffers(),
-    requireApprovedLender(),
-  ]);
+  const access = await requireApprovedLender();
 
   if (!access.ok) {
     return (
@@ -48,9 +44,17 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     );
   }
 
-  const {
-    data: { user },
-  } = await access.supabase.auth.getUser();
+  const [
+    applicationsResult,
+    offersResult,
+    {
+      data: { user },
+    },
+  ] = await Promise.all([
+    loadOpenLenderApplications(access),
+    loadLenderOffers(access),
+    access.supabase.auth.getUser(),
+  ]);
   const applications = applicationsResult.ok ? applicationsResult.applications : [];
   const offers = offersResult.ok ? offersResult.offers : [];
 

@@ -114,9 +114,22 @@ export type ManagerLenderRow = {
   id: string;
   userId: string;
   organizationName: string;
+  contactPerson: string;
+  phoneNumber: string;
+  businessAddress: string;
+  operatingArea: string;
+  businessRegistrationNumber: string | null;
+  minLoanAmount: number;
+  maxLoanAmount: number;
+  typicalRepaymentTerms: string;
+  lenderDescription: string;
   verificationStatus: Database["public"]["Enums"]["lender_verification_status"];
   approvedAt: string | null;
   approvedBy: ManagerProfileSummary | null;
+  managerReviewNotes: string | null;
+  rejectionReason: string | null;
+  rejectedAt: string | null;
+  rejectedBy: ManagerProfileSummary | null;
   createdAt: string;
   updatedAt: string;
   profile: ManagerProfileSummary;
@@ -134,7 +147,7 @@ const portfolioSelect =
   "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at";
 const profileSelect = "id, role, display_name, status, created_at, updated_at";
 const lenderProfileSelect =
-  "id, user_id, organization_name, verification_status, approved_at, approved_by, created_at, updated_at";
+  "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentScheduleSelect =
@@ -544,12 +557,21 @@ export async function loadManagerApplications(
 
 export async function loadManagerLenders(
   supabase: SupabaseServerClient,
+  filters: {
+    verificationStatus?: string;
+  } = {},
 ): Promise<{ ok: boolean; message: string; lenders: ManagerLenderRow[] }> {
-  const { data, error } = await supabase
+  let query = supabase
     .from("lender_profiles")
     .select(lenderProfileSelect)
     .order("created_at", { ascending: false })
     .limit(100);
+
+  if (isLenderVerificationStatus(filters.verificationStatus)) {
+    query = query.eq("verification_status", filters.verificationStatus);
+  }
+
+  const { data, error } = await query;
 
   if (error) {
     return { ok: false, message: "Could not load lenders.", lenders: [] };
@@ -558,7 +580,9 @@ export async function loadManagerLenders(
   const profiles = await loadProfilesByIds(
     supabase,
     data.flatMap((lender) =>
-      lender.approved_by ? [lender.user_id, lender.approved_by] : [lender.user_id],
+      [lender.user_id, lender.approved_by, lender.rejected_by].filter(
+        (id): id is string => Boolean(id),
+      ),
     ),
   );
 
@@ -566,6 +590,42 @@ export async function loadManagerLenders(
     ok: true,
     message: data.length ? "Lenders loaded." : "No lenders found.",
     lenders: data.map((lender) => mapManagerLender(lender, profiles)),
+  };
+}
+
+export async function loadManagerLenderDetail(
+  supabase: SupabaseServerClient,
+  lenderProfileId: string,
+): Promise<{ ok: boolean; message: string; lender: ManagerLenderRow | null }> {
+  if (!isUuid(lenderProfileId)) {
+    return { ok: false, message: "Lender profile was not found.", lender: null };
+  }
+
+  const { data, error } = await supabase
+    .from("lender_profiles")
+    .select(lenderProfileSelect)
+    .eq("id", lenderProfileId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: "Could not load lender profile.", lender: null };
+  }
+
+  if (!data) {
+    return { ok: false, message: "Lender profile was not found.", lender: null };
+  }
+
+  const profiles = await loadProfilesByIds(
+    supabase,
+    [data.user_id, data.approved_by, data.rejected_by].filter(
+      (id): id is string => Boolean(id),
+    ),
+  );
+
+  return {
+    ok: true,
+    message: "Lender profile loaded.",
+    lender: mapManagerLender(data, profiles),
   };
 }
 
@@ -905,15 +965,36 @@ function mapManagerLender(
     id: lender.id,
     userId: lender.user_id,
     organizationName: lender.organization_name,
+    contactPerson: lender.contact_person,
+    phoneNumber: lender.phone_number,
+    businessAddress: lender.business_address,
+    operatingArea: lender.operating_area,
+    businessRegistrationNumber: lender.business_registration_number,
+    minLoanAmount: Number(lender.min_loan_amount),
+    maxLoanAmount: Number(lender.max_loan_amount),
+    typicalRepaymentTerms: lender.typical_repayment_terms,
+    lenderDescription: lender.lender_description,
     verificationStatus: lender.verification_status,
     approvedAt: lender.approved_at,
     approvedBy: lender.approved_by
       ? getProfileSummary(profiles, lender.approved_by)
       : null,
+    managerReviewNotes: lender.manager_review_notes,
+    rejectionReason: lender.rejection_reason,
+    rejectedAt: lender.rejected_at,
+    rejectedBy: lender.rejected_by
+      ? getProfileSummary(profiles, lender.rejected_by)
+      : null,
     createdAt: lender.created_at,
     updatedAt: lender.updated_at,
     profile: getProfileSummary(profiles, lender.user_id),
   };
+}
+
+function isLenderVerificationStatus(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["lender_verification_status"] {
+  return value === "pending" || value === "approved" || value === "rejected";
 }
 
 async function countRows(

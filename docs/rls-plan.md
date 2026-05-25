@@ -42,6 +42,15 @@ Use `public.profiles.role` or trusted server-side app metadata for role decision
 - Keep privileged functions out of the exposed `public` schema.
 - Views should use `security_invoker = true` on supported Postgres versions or be kept out of exposed schemas.
 - Business state transitions must be server-side and protected by RLS or database constraints in later sprint work.
+- Borrower and lender accounts are self-serve, but manager accounts remain
+  manually seeded or provisioned. Self-serve signup metadata is provisioning
+  input only; authorization must continue to use trusted database rows.
+- Lender approval is manual manager review, not automated identity verification
+  or credit scoring. Managers can read all lender profiles and use the lender
+  review RPC to approve, reject with a required reason, or return rejected
+  lenders to pending. Lenders can read their own lender profile but cannot
+  mutate manager-only review fields or self-approve.
+- Email notifications are still not implemented.
 
 ## Current Status
 
@@ -50,4 +59,6 @@ portfolios, loan applications, loan offers, atomic acceptance, lender
 closed-context reads, active loans, and preferred-term repayment schedules.
 The repayment proof migration adds private proof metadata, Storage policies, and
 atomic RPCs for proof submission, verification, rejection, and balance updates.
+The account onboarding and lender verification profile-depth migrations add
+self-serve borrower/lender provisioning and manager-only manual lender review.
 `docs/schema-draft.sql` remains a review draft, not an applied migration.

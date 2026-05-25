@@ -1,4 +1,4 @@
-import { reviewLenderAction } from "@/app/manager/actions";
+import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
@@ -10,10 +10,13 @@ import {
   DataCard,
   EmptyState,
   Field,
+  FilterGrid,
   ManagerShell,
   PersonLabel,
+  SelectFilter,
   StatusBadge,
   StatusMessage,
+  formatCurrency,
   formatDateTime,
 } from "../manager-ui";
 
@@ -22,6 +25,7 @@ export const dynamic = "force-dynamic";
 type PageProps = {
   searchParams: Promise<{
     review?: string;
+    status?: string;
   }>;
 };
 
@@ -41,7 +45,9 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     );
   }
 
-  const result = await loadManagerLenders(access.supabase);
+  const result = await loadManagerLenders(access.supabase, {
+    verificationStatus: params.status,
+  });
 
   return (
     <ManagerShell
@@ -51,6 +57,18 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     >
       <ReviewStatus review={params.review} />
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
+      <FilterGrid>
+        <SelectFilter
+          label="Status"
+          name="status"
+          defaultValue={params.status}
+          options={[
+            { value: "pending", label: "Pending" },
+            { value: "approved", label: "Approved" },
+            { value: "rejected", label: "Rejected" },
+          ]}
+        />
+      </FilterGrid>
 
       <section className="grid gap-3">
         {result.lenders.length === 0 ? (
@@ -77,6 +95,10 @@ function ReviewStatus({ review }: { review?: string }) {
     return <StatusMessage message="Lender rejected." />;
   }
 
+  if (review === "pending") {
+    return <StatusMessage message="Lender returned to pending." />;
+  }
+
   if (review === "error") {
     return <StatusMessage message="Could not update lender review." tone="error" />;
   }
@@ -98,6 +120,14 @@ function LenderCard({ lender }: { lender: ManagerLenderRow }) {
       </div>
 
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Field label="Contact" value={lender.contactPerson} />
+        <Field label="Operating area" value={lender.operatingArea} />
+        <Field
+          label="Loan range"
+          value={`${formatCurrency(lender.minLoanAmount)} - ${formatCurrency(
+            lender.maxLoanAmount,
+          )}`}
+        />
         <Field label="Lender ID" value={getShortId(lender.userId)} />
         <Field label="Request ID" value={getShortId(lender.id)} />
         <Field label="Requested" value={formatDateTime(lender.createdAt)} />
@@ -108,44 +138,21 @@ function LenderCard({ lender }: { lender: ManagerLenderRow }) {
               ? `${formatDateTime(lender.approvedAt)} by ${
                   lender.approvedBy?.displayName ?? "Manager"
                 }`
+              : lender.rejectedAt
+                ? `${formatDateTime(lender.rejectedAt)} by ${
+                    lender.rejectedBy?.displayName ?? "Manager"
+                  }`
               : "Not reviewed"
           }
         />
       </dl>
 
-      {lender.verificationStatus === "pending" ? (
-        <div className="flex flex-wrap gap-2">
-          <ReviewButton lenderProfileId={lender.id} decision="approve" />
-          <ReviewButton lenderProfileId={lender.id} decision="reject" />
-        </div>
-      ) : null}
-    </DataCard>
-  );
-}
-
-function ReviewButton({
-  lenderProfileId,
-  decision,
-}: {
-  lenderProfileId: string;
-  decision: "approve" | "reject";
-}) {
-  const isApprove = decision === "approve";
-
-  return (
-    <form action={reviewLenderAction}>
-      <input type="hidden" name="lenderProfileId" value={lenderProfileId} />
-      <input type="hidden" name="decision" value={decision} />
-      <button
-        type="submit"
-        className={
-          isApprove
-            ? "inline-flex h-10 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            : "inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--foreground)] transition hover:border-red-300 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        }
+      <Link
+        href={`/manager/lenders/${lender.id}`}
+        className="inline-flex h-10 w-fit items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
       >
-        {isApprove ? "Approve" : "Reject"}
-      </button>
-    </form>
+        View details
+      </Link>
+    </DataCard>
   );
 }

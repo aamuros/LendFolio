@@ -17,6 +17,11 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 import { openApplicationStatuses } from "@/lib/workflow-rules";
 
+type ApprovedLenderAccess = Extract<
+  Awaited<ReturnType<typeof requireApprovedLender>>,
+  { ok: true }
+>;
+
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 
@@ -104,10 +109,13 @@ const lenderReviewPortfolioSelect =
 const lenderReviewOfferSelect =
   "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at";
 
-export async function loadOpenLenderApplications(): Promise<LenderApplicationsLoadResult> {
+export async function loadOpenLenderApplications(
+  verifiedAccess?: ApprovedLenderAccess,
+): Promise<LenderApplicationsLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireApprovedLender(supabase);
+    const supabase =
+      verifiedAccess?.supabase ?? (await createSupabaseServerClient());
+    const access = verifiedAccess ?? (await requireApprovedLender(supabase));
 
     if (!access.ok) {
       return {
@@ -197,10 +205,12 @@ export async function loadOpenLenderApplications(): Promise<LenderApplicationsLo
 
 export async function loadLenderApplicationDetail(
   applicationId: string,
+  verifiedAccess?: ApprovedLenderAccess,
 ): Promise<LenderApplicationDetailResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireApprovedLender(supabase);
+    const supabase =
+      verifiedAccess?.supabase ?? (await createSupabaseServerClient());
+    const access = verifiedAccess ?? (await requireApprovedLender(supabase));
 
     if (!access.ok) {
       return {
@@ -281,10 +291,13 @@ export async function loadLenderApplicationDetail(
   }
 }
 
-export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
+export async function loadLenderOffers(
+  verifiedAccess?: ApprovedLenderAccess,
+): Promise<LenderOffersLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireApprovedLender(supabase);
+    const supabase =
+      verifiedAccess?.supabase ?? (await createSupabaseServerClient());
+    const access = verifiedAccess ?? (await requireApprovedLender(supabase));
 
     if (!access.ok) {
       return {
@@ -301,7 +314,7 @@ export async function loadLenderOffers(): Promise<LenderOffersLoadResult> {
         .select(lenderReviewOfferSelect)
         .eq("lender_id", access.profile.id)
         .order("sent_at", { ascending: false }),
-      loadLenderActiveLoans(),
+      loadLenderActiveLoans(access),
     ]);
     const { data: offers, error: offersError } = offersResult;
 

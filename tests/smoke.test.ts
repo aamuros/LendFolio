@@ -600,18 +600,74 @@ describe("role helper logic", () => {
 });
 
 describe("signup validation", () => {
-  it("accepts borrower and lender signup input", () => {
+  const completeLenderSignup = {
+    role: "lender",
+    displayName: "Juan Reyes",
+    organizationName: "Community Capital",
+    contactPerson: "Juan Reyes",
+    phoneNumber: "+63 917 555 0100",
+    businessAddress: "12 Market Street, Quezon City",
+    operatingArea: "Metro Manila",
+    businessRegistrationNumber: "BRN-12345",
+    minLoanAmount: "5000",
+    maxLoanAmount: "50000",
+    typicalRepaymentTerms: "1 to 6 months",
+    lenderDescription:
+      "Community lender supporting micro-retail businesses with working capital.",
+    email: "lender@example.com",
+    password: "LendFolio123!",
+    confirmPassword: "LendFolio123!",
+  };
+
+  it("accepts borrower signup input without an organization", () => {
     expect(
       signupSchema.safeParse({
         role: "borrower",
         displayName: "Maria Santos",
-        organizationName: "",
         email: "MARIA@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
       }).success,
     ).toBe(true);
 
+    expect(
+      signupSchema.safeParse({
+        role: "borrower",
+        displayName: "Maria Santos",
+        organizationName: null,
+        email: "maria@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(true);
+
+    expect(
+      signupSchema.safeParse({
+        role: "borrower",
+        displayName: "Maria Santos",
+        organizationName: "",
+        contactPerson: "",
+        phoneNumber: "",
+        businessAddress: "",
+        operatingArea: "",
+        minLoanAmount: "",
+        maxLoanAmount: "",
+        typicalRepaymentTerms: "",
+        lenderDescription: "",
+        email: "borrower@example.com",
+        password: "LendFolio123!",
+        confirmPassword: "LendFolio123!",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("accepts lender signup input with a valid organization", () => {
+    expect(
+      signupSchema.safeParse(completeLenderSignup).success,
+    ).toBe(true);
+  });
+
+  it("rejects lender signup without required review fields", () => {
     expect(
       signupSchema.safeParse({
         role: "lender",
@@ -621,10 +677,20 @@ describe("signup validation", () => {
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
       }).success,
-    ).toBe(true);
+    ).toBe(false);
   });
 
-  it("rejects manager signup and lender signup without an organization", () => {
+  it("rejects lender signup when the maximum loan amount is below the minimum", () => {
+    expect(
+      signupSchema.safeParse({
+        ...completeLenderSignup,
+        minLoanAmount: "50000",
+        maxLoanAmount: "5000",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("rejects manager signup", () => {
     expect(
       signupSchema.safeParse({
         role: "manager",
@@ -635,15 +701,27 @@ describe("signup validation", () => {
         confirmPassword: "LendFolio123!",
       }).success,
     ).toBe(false);
+  });
+
+  it("rejects lender signup without an organization", () => {
+    expect(
+      signupSchema.safeParse({
+        ...completeLenderSignup,
+        organizationName: undefined,
+      }).success,
+    ).toBe(false);
 
     expect(
       signupSchema.safeParse({
-        role: "lender",
-        displayName: "Juan Reyes",
+        ...completeLenderSignup,
+        organizationName: null,
+      }).success,
+    ).toBe(false);
+
+    expect(
+      signupSchema.safeParse({
+        ...completeLenderSignup,
         organizationName: "",
-        email: "lender@example.com",
-        password: "LendFolio123!",
-        confirmPassword: "LendFolio123!",
       }).success,
     ).toBe(false);
   });
@@ -775,9 +853,16 @@ describe("database workflow safeguards", () => {
       "supabase/migrations/20260525110149_add_account_onboarding.sql",
       "utf8",
     );
+    const profileDepthMigration = readFileSync(
+      "supabase/migrations/20260525115311_lender_verification_profile_depth.sql",
+      "utf8",
+    );
 
     expect(migration).toContain("provision_new_auth_user");
     expect(migration).toContain("v_role not in ('borrower', 'lender')");
+    expect(profileDepthMigration).toContain("contact_person");
+    expect(profileDepthMigration).toContain("Rejection reason is required.");
+    expect(profileDepthMigration).toContain("manager_review_notes");
     expect(migration).toContain("verification_status = 'approved'");
     expect(migration).toContain("verification_status = 'rejected'");
     expect(migration).toContain("lender_approved");
