@@ -454,6 +454,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      submit_loan_application: {
+        Args: {
+          p_requested_amount: number;
+          p_purpose: string;
+          p_preferred_term: PreferredTerm;
+          p_remarks?: string | null;
+        };
+        Returns: Json;
+      };
       decline_loan_offer: {
         Args: {
           p_offer_id: string;

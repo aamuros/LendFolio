@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { borrowerPortfolioSchema } from "../lib/borrower-portfolio";
+import {
+  calculateBorrowerAvailableCredit,
+  calculateBorrowerCreditLimit,
+} from "../lib/credit-limit";
 import { loanApplicationSchema } from "../lib/loan-application";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
 import {
@@ -93,6 +97,82 @@ describe("loan application schema", () => {
         "Enter the requested loan amount.",
       );
     }
+  });
+});
+
+describe("borrower credit limit", () => {
+  it("returns 0 for negative net cash flow", () => {
+    expect(
+      calculateBorrowerCreditLimit({
+        monthlyGrossRevenue: 20_000,
+        monthlyExpenses: 25_000,
+        existingLoanPayments: 2_000,
+        yearsInOperation: 3,
+      }),
+    ).toBe(0);
+  });
+
+  it("applies years-in-operation multiplier boundaries", () => {
+    const basePortfolio = {
+      monthlyGrossRevenue: 100_000,
+      monthlyExpenses: 80_000,
+      existingLoanPayments: 0,
+    };
+
+    expect(
+      calculateBorrowerCreditLimit({ ...basePortfolio, yearsInOperation: 0.9 }),
+    ).toBe(45_000);
+    expect(
+      calculateBorrowerCreditLimit({ ...basePortfolio, yearsInOperation: 1 }),
+    ).toBe(60_000);
+    expect(
+      calculateBorrowerCreditLimit({ ...basePortfolio, yearsInOperation: 2.9 }),
+    ).toBe(60_000);
+    expect(
+      calculateBorrowerCreditLimit({ ...basePortfolio, yearsInOperation: 3 }),
+    ).toBe(75_000);
+  });
+
+  it("caps the limit at twice monthly gross revenue", () => {
+    expect(
+      calculateBorrowerCreditLimit({
+        monthlyGrossRevenue: 50_000,
+        monthlyExpenses: 1_000,
+        existingLoanPayments: 0,
+        yearsInOperation: 3,
+      }),
+    ).toBe(100_000);
+  });
+
+  it("caps the limit at PHP 1,000,000", () => {
+    expect(
+      calculateBorrowerCreditLimit({
+        monthlyGrossRevenue: 900_000,
+        monthlyExpenses: 0,
+        existingLoanPayments: 0,
+        yearsInOperation: 3,
+      }),
+    ).toBe(1_000_000);
+  });
+
+  it("reduces available credit by outstanding unpaid loan balances", () => {
+    expect(
+      calculateBorrowerAvailableCredit({
+        portfolio: {
+          monthlyGrossRevenue: 100_000,
+          monthlyExpenses: 80_000,
+          existingLoanPayments: 0,
+          yearsInOperation: 3,
+        },
+        activeLoans: [
+          { status: "active", outstandingBalance: 10_000 },
+          { status: "overdue", outstandingBalance: 5_500 },
+          { status: "defaulted", outstandingBalance: 3_000 },
+          { status: "paid", outstandingBalance: 9_000 },
+          { status: "closed", outstandingBalance: 8_000 },
+        ],
+      }).availableCredit,
+    ).toBe(39_500);
   });
 });
 

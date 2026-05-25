@@ -18,6 +18,10 @@ import { CurrencyInput } from "@/components/currency-input";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import {
+  formatCreditAmount,
+  type BorrowerCreditSummary,
+} from "@/lib/credit-limit";
+import {
   loanApplicationSchema,
   preferredTermLabels,
   preferredTermOptions,
@@ -62,6 +66,8 @@ export function BorrowerLoanApplicationPanel({
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
   >([]);
+  const [creditSummary, setCreditSummary] =
+    useState<BorrowerCreditSummary | null>(null);
   const [expandedApplicationIds, setExpandedApplicationIds] = useState<
     Set<string>
   >(new Set());
@@ -104,6 +110,7 @@ export function BorrowerLoanApplicationPanel({
 
           setHasPortfolio(nextHasPortfolio);
           setApplications(nextApplications);
+          setCreditSummary(result.creditSummary);
           setExpandedApplicationIds(
             getDefaultExpandedApplicationIds(
               nextApplications,
@@ -280,6 +287,7 @@ export function BorrowerLoanApplicationPanel({
       const refreshed = await loadBorrowerLoanApplications();
       if (refreshed.ok) {
         setApplications(refreshed.applications);
+        setCreditSummary(refreshed.creditSummary);
       } else {
         setApplications((current) =>
           current.map((application) => {
@@ -375,6 +383,7 @@ export function BorrowerLoanApplicationPanel({
 
       if (refreshed.ok) {
         setApplications(refreshed.applications);
+        setCreditSummary(refreshed.creditSummary);
         setExpandedRepaymentIds(
           getDefaultExpandedRepaymentIds(
             refreshed.applications,
@@ -466,6 +475,7 @@ export function BorrowerLoanApplicationPanel({
       {view === "home" ? (
         <HomeSummary
           applications={applications}
+          creditSummary={creditSummary}
           hasPortfolio={hasPortfolio}
           loadState={loadState}
           onNavigate={onNavigate}
@@ -491,6 +501,7 @@ export function BorrowerLoanApplicationPanel({
             />
           ) : (
             <ApplicationForm
+              creditSummary={creditSummary}
               errors={errors}
               isPending={isPending}
               register={register}
@@ -557,11 +568,13 @@ export function BorrowerLoanApplicationPanel({
 
 function HomeSummary({
   applications,
+  creditSummary,
   hasPortfolio,
   loadState,
   onNavigate,
 }: {
   applications: BorrowerLoanApplicationSummary[];
+  creditSummary: BorrowerCreditSummary | null;
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
@@ -614,15 +627,34 @@ function HomeSummary({
         </button>
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Profile" value={hasPortfolio ? "Ready" : "Needs info"} />
+      <div className="grid gap-3 sm:grid-cols-4">
+        <SummaryCard
+          label="Profile"
+          value={hasPortfolio ? "Ready" : "Needs info"}
+        />
+        <SummaryCard
+          label="Available"
+          value={
+            creditSummary
+              ? formatCreditAmount(creditSummary.availableCredit)
+              : "Not set"
+          }
+        />
         <SummaryCard
           label="Application"
-          value={latestApplication ? formatApplicationStatus(latestApplication.status) : "Draft"}
+          value={
+            latestApplication
+              ? formatApplicationStatus(latestApplication.status)
+              : "Draft"
+          }
         />
         <SummaryCard
           label="Loan"
-          value={latestActiveLoan ? formatLoanStatus(latestActiveLoan.status) : getOfferSummary(applications, pendingOfferCount)}
+          value={
+            latestActiveLoan
+              ? formatLoanStatus(latestActiveLoan.status)
+              : getOfferSummary(applications, pendingOfferCount)
+          }
         />
       </div>
     </div>
@@ -630,11 +662,13 @@ function HomeSummary({
 }
 
 function ApplicationForm({
+  creditSummary,
   errors,
   isPending,
   onSubmit,
   register,
 }: {
+  creditSummary: BorrowerCreditSummary | null;
   errors: FieldErrors<LoanApplicationFormInput>;
   isPending: boolean;
   onSubmit: FormEventHandler<HTMLFormElement>;
@@ -646,6 +680,8 @@ function ApplicationForm({
       className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
       aria-describedby="loan-application-state"
     >
+      {creditSummary ? <CreditSummaryPanel summary={creditSummary} /> : null}
+
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Requested amount" error={errors.requestedAmount?.message}>
           <CurrencyInput
@@ -703,6 +739,38 @@ function ApplicationForm({
         </button>
       </div>
     </form>
+  );
+}
+
+function CreditSummaryPanel({ summary }: { summary: BorrowerCreditSummary }) {
+  return (
+    <dl className="grid gap-3 rounded-2xl bg-[var(--muted)] px-3 py-3 sm:grid-cols-3 sm:px-4">
+      <CreditMetric
+        label="Credit limit"
+        value={formatCreditAmount(summary.calculatedCreditLimit)}
+      />
+      <CreditMetric
+        label="Used credit"
+        value={formatCreditAmount(summary.usedCredit)}
+      />
+      <CreditMetric
+        label="Available credit"
+        value={formatCreditAmount(summary.availableCredit)}
+      />
+    </dl>
+  );
+}
+
+function CreditMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="mt-1 text-base font-semibold text-[var(--foreground)] tabular-nums">
+        {value}
+      </dd>
+    </div>
   );
 }
 

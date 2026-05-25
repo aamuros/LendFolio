@@ -67,6 +67,15 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
+type SubmitApplicationResult = {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  application?: Json;
+  credit_limit?: number;
+  used_credit?: number;
+  available_credit?: number;
+};
 
 function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
@@ -121,10 +130,9 @@ async function cleanWorkflowRows(admin: TestClient) {
   await admin.from("audit_logs").delete().neq("action", "__keep_none__");
 }
 
-async function createPortfolioAndApplication(
+async function createBorrowerPortfolio(
   client: TestClient,
   borrowerId: string = ids.borrower,
-  preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
 ) {
   const { data: portfolio, error: portfolioError } = await client
     .from("borrower_portfolios")
@@ -148,11 +156,21 @@ async function createPortfolioAndApplication(
     throw new Error("Expected borrower portfolio insert to return a row.");
   }
 
+  return portfolio.id as string;
+}
+
+async function createPortfolioAndApplication(
+  client: TestClient,
+  borrowerId: string = ids.borrower,
+  preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
+) {
+  const portfolioId = await createBorrowerPortfolio(client, borrowerId);
+
   const { data: application, error: applicationError } = await client
     .from("loan_applications")
     .insert({
       borrower_id: borrowerId,
-      borrower_portfolio_id: portfolio.id,
+      borrower_portfolio_id: portfolioId,
       requested_amount: 25000,
       purpose: "Inventory restock",
       preferred_term: preferredTerm,
@@ -168,7 +186,7 @@ async function createPortfolioAndApplication(
   }
 
   return {
-    portfolioId: portfolio.id as string,
+    portfolioId,
     applicationId: application.id as string,
   };
 }
@@ -363,6 +381,147 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
   beforeEach(async () => {
     await cleanWorkflowRows(admin);
+  });
+
+  it("submits borrower applications through the credit-limit RPC", async () => {
+    const missingProfileResult = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 25000,
+      p_purpose: "Inventory restock",
+      p_preferred_term: "3_months",
+      p_remarks: "",
+    });
+
+    expect(missingProfileResult.error).toBeNull();
+    expect(
+      missingProfileResult.data as Json as SubmitApplicationResult,
+    ).toMatchObject({
+      ok: false,
+      code: "missing_portfolio",
+    });
+
+    await createBorrowerPortfolio(borrower);
+
+    const acceptedApplication = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 30000,
+      p_purpose: "Inventory restock",
+      p_preferred_term: "3_months",
+      p_remarks: "Review against current cash flow.",
+    });
+
+    expect(acceptedApplication.error).toBeNull();
+    expect(
+      acceptedApplication.data as Json as SubmitApplicationResult,
+    ).toMatchObject({
+      ok: true,
+      credit_limit: 54300,
+      used_credit: 0,
+      available_credit: 54300,
+    });
+
+    const blockedApplication = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 60000,
+      p_purpose: "Inventory restock",
+      p_preferred_term: "3_months",
+      p_remarks: "",
+    });
+
+    expect(blockedApplication.error).toBeNull();
+    expect(
+      blockedApplication.data as Json as SubmitApplicationResult,
+    ).toMatchObject({
+      ok: false,
+      code: "credit_limit_exceeded",
+      message: "Requested amount exceeds your available credit.",
+    });
+  });
+
+  it("blocks direct loan application inserts that exceed available credit", async () => {
+    const portfolioId = await createBorrowerPortfolio(borrower);
+
+    const { data: application, error: applicationError } = await borrower
+      .from("loan_applications")
+      .insert({
+        borrower_id: ids.borrower,
+        borrower_portfolio_id: portfolioId,
+        requested_amount: 30000,
+        purpose: "Inventory restock",
+        preferred_term: "3_months",
+        remarks: "Review against current cash flow.",
+      })
+      .select("id")
+      .single<InsertedRow>();
+
+    expect(applicationError).toBeNull();
+    expect(application?.id).toBeTruthy();
+
+    const { error: blockedError } = await borrower
+      .from("loan_applications")
+      .insert({
+        borrower_id: ids.borrower,
+        borrower_portfolio_id: portfolioId,
+        requested_amount: 60000,
+        purpose: "Inventory restock",
+        preferred_term: "3_months",
+        remarks: "",
+      });
+
+    expect(blockedError?.message).toContain(
+      "Requested amount exceeds your available credit.",
+    );
+  });
+
+  it("reduces available credit when active unpaid loans have outstanding balance", async () => {
+    const { activeLoanId } = await createAcceptedLoanWithSchedule(
+      borrower,
+      approvedLender,
+    );
+    const { data: activeLoan, error: activeLoanError } = await borrower
+      .from("active_loans")
+      .select("outstanding_balance")
+      .eq("id", activeLoanId)
+      .single();
+
+    expect(activeLoanError).toBeNull();
+    expect(Number(activeLoan?.outstanding_balance)).toBe(23800);
+
+    const blockedApplication = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 40000,
+      p_purpose: "Inventory restock",
+      p_preferred_term: "3_months",
+      p_remarks: "",
+    });
+
+    expect(blockedApplication.error).toBeNull();
+    expect(
+      blockedApplication.data as Json as SubmitApplicationResult,
+    ).toMatchObject({
+      ok: false,
+      code: "credit_limit_exceeded",
+      available_credit: 30500,
+    });
+
+    const { error: closeLoanError } = await admin
+      .from("active_loans")
+      .update({ status: "paid", outstanding_balance: 0 })
+      .eq("id", activeLoanId);
+
+    expect(closeLoanError).toBeNull();
+
+    const acceptedApplication = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 40000,
+      p_purpose: "Inventory restock",
+      p_preferred_term: "3_months",
+      p_remarks: "",
+    });
+
+    expect(acceptedApplication.error).toBeNull();
+    expect(
+      acceptedApplication.data as Json as SubmitApplicationResult,
+    ).toMatchObject({
+      ok: true,
+      used_credit: 0,
+      available_credit: 54300,
+    });
   });
 
   it("enforces borrower isolation, lender approval, manager visibility, and audit creation", async () => {

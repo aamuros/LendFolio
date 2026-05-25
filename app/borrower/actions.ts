@@ -12,6 +12,10 @@ import {
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import {
+  calculateBorrowerAvailableCredit,
+  type BorrowerCreditSummary,
+} from "@/lib/credit-limit";
+import {
   loanApplicationSchema,
   mapLoanApplicationRow,
   type LoanApplicationInput,
@@ -62,7 +66,12 @@ export type LoanApplicationSubmitResult =
     }
   | {
       ok: false;
-      mode: "auth" | "validation" | "missing-portfolio" | "supabase";
+      mode:
+        | "auth"
+        | "validation"
+        | "missing-portfolio"
+        | "credit-limit"
+        | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
     };
@@ -97,6 +106,7 @@ export type LoanApplicationsLoadResult =
       mode: "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      creditSummary: BorrowerCreditSummary | null;
       message: string;
     }
   | {
@@ -104,6 +114,7 @@ export type LoanApplicationsLoadResult =
       mode: "auth" | "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      creditSummary: BorrowerCreditSummary | null;
       message: string;
     };
 
@@ -147,6 +158,9 @@ const repaymentProofAllowedTypes = new Set([
   "image/webp",
   "application/pdf",
 ]);
+
+const borrowerPortfolioCreditSelect =
+  "id, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation";
 
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
@@ -271,13 +285,14 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "auth",
         applications: [],
         hasPortfolio: false,
+        creditSummary: null,
         message: access.message,
       };
     }
 
     const { data: portfolio, error: portfolioError } = await supabase
       .from("borrower_portfolios")
-      .select("id")
+      .select(borrowerPortfolioCreditSelect)
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
@@ -287,9 +302,14 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: false,
+        creditSummary: null,
         message: "Could not confirm your profile.",
       };
     }
+
+    const creditSummary = portfolio
+      ? await loadBorrowerCreditSummary(access.profile.id, portfolio)
+      : null;
 
     const { data, error } = await supabase
       .from("loan_applications")
@@ -305,6 +325,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        creditSummary,
         message: "Could not load applications.",
       };
     }
@@ -315,6 +336,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        creditSummary,
         message: portfolio
           ? "Applications loaded."
           : "Save your business profile before submitting an application.",
@@ -340,6 +362,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        creditSummary,
         message: "Could not load offers.",
       };
     }
@@ -350,6 +373,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: activeLoansResult.mode,
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        creditSummary,
         message: activeLoansResult.message,
       };
     }
@@ -383,6 +407,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         };
       }),
       hasPortfolio: Boolean(portfolio),
+      creditSummary,
       message: portfolio
         ? "Applications loaded."
         : "Save your business profile before submitting an application.",
@@ -393,9 +418,44 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       mode: "auth",
       applications: [],
       hasPortfolio: false,
+      creditSummary: null,
       message: "Sign in to continue.",
     };
   }
+}
+
+async function loadBorrowerCreditSummary(
+  borrowerId: string,
+  portfolio: {
+    monthly_gross_revenue: number;
+    monthly_expenses: number;
+    existing_loan_payments: number;
+    years_in_operation: number;
+  },
+) {
+  const supabase = await createSupabaseServerClient();
+  const { data: activeLoans, error } = await supabase
+    .from("active_loans")
+    .select("outstanding_balance, status")
+    .eq("borrower_id", borrowerId)
+    .gt("outstanding_balance", 0);
+
+  if (error) {
+    return null;
+  }
+
+  return calculateBorrowerAvailableCredit({
+    portfolio: {
+      monthlyGrossRevenue: portfolio.monthly_gross_revenue,
+      monthlyExpenses: portfolio.monthly_expenses,
+      existingLoanPayments: portfolio.existing_loan_payments,
+      yearsInOperation: portfolio.years_in_operation,
+    },
+    activeLoans: activeLoans.map((loan) => ({
+      outstandingBalance: loan.outstanding_balance,
+      status: loan.status,
+    })),
+  });
 }
 
 export async function submitLoanApplication(
@@ -426,57 +486,45 @@ export async function submitLoanApplication(
       };
     }
 
-    const { data: portfolio, error: portfolioError } = await supabase
-      .from("borrower_portfolios")
-      .select("id")
-      .eq("borrower_id", access.profile.id)
-      .maybeSingle();
-
-    if (portfolioError) {
-      return {
-        ok: false,
-        mode: "supabase",
-        message: "Could not confirm your profile.",
-      };
-    }
-
-    if (!portfolio) {
-      return {
-        ok: false,
-        mode: "missing-portfolio",
-        message: "Save your business profile before submitting an application.",
-      };
-    }
-
     const { data, error } = await supabase
-      .from("loan_applications")
-      .insert({
-        borrower_id: access.profile.id,
-        borrower_portfolio_id: portfolio.id,
-        requested_amount: parsed.data.requestedAmount,
-        purpose: parsed.data.purpose,
-        preferred_term: parsed.data.preferredTerm,
-        remarks: parsed.data.remarks || null,
-        status: "submitted",
-      })
-      .select(
-        "id, borrower_id, borrower_portfolio_id, requested_amount, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
-      )
-      .single();
+      .rpc("submit_loan_application", {
+        p_requested_amount: parsed.data.requestedAmount,
+        p_purpose: parsed.data.purpose,
+        p_preferred_term: parsed.data.preferredTerm,
+        p_remarks: parsed.data.remarks || "",
+      });
 
-    if (error) {
+    const result = data as
+      | {
+          ok?: boolean;
+          code?: string;
+          message?: string;
+          application?: Json;
+        }
+      | null;
+
+    if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
       return {
         ok: false,
-        mode: "supabase",
-        message: "Could not submit application.",
+        mode:
+          result?.code === "missing_portfolio"
+            ? "missing-portfolio"
+            : result?.code === "credit_limit_exceeded"
+              ? "credit-limit"
+              : "supabase",
+        message: result?.message ?? "Could not submit application.",
       };
     }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath("/lender/applications");
 
     return {
       ok: true,
       mode: "supabase",
-      application: mapLoanApplicationRow(data),
-      message: "Application submitted.",
+      application: mapLoanApplicationRow(result.application),
+      message: result.message ?? "Application submitted.",
     };
   } catch {
     return {
