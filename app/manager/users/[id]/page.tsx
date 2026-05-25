@@ -1,14 +1,20 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type React from "react";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
   loadManagerUserDetail,
   managerPreferredTermLabels,
 } from "@/lib/manager-operations";
+import type {
+  ManagerBorrowerUserDetail,
+  ManagerLoanRow,
+  ManagerRepaymentProofRow,
+} from "@/lib/manager-operations";
 import {
   AccessDenied,
+  DetailItem,
+  DetailSection,
   EmptyState,
   ManagerShell,
   RoleBadge,
@@ -52,212 +58,317 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       title={user.profile.displayName}
       description="Read-only manager view of this user and related activity."
       activeTab="lookup"
+      showHeading={false}
     >
-      <Link
-        href="/manager/lookup"
-        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        Back to lookup
-      </Link>
+      <section className="grid gap-3">
+        <Link
+          href="/manager/lookup"
+          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          &larr; Back to users
+        </Link>
 
-      <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <h1 className="truncate text-2xl leading-tight font-semibold">
+              {user.profile.displayName}
+            </h1>
+            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+              User {getShortId(user.profile.id)} · {user.role}
+            </p>
+          </div>
 
-      <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-1.5">
-          <RoleBadge role={user.role} />
-          <StatusBadge status={user.status} />
+          <div className="flex flex-wrap items-center gap-1.5">
+            <RoleBadge role={user.role} />
+            <StatusBadge status={user.status} />
+          </div>
         </div>
-        <dl className="grid gap-2 text-sm sm:grid-cols-3">
-          <Detail label="Short ID">{getShortId(user.profile.id)}</Detail>
-          <Detail label="Profile ID">{user.profile.id}</Detail>
-          <Detail label="Role">{user.role}</Detail>
-        </dl>
+      </section>
+
+      {!result.ok ? <StatusMessage message={result.message} tone="error" /> : null}
+
+      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+        <div className="grid gap-4 lg:grid-cols-2">
+          <DetailSection title="Account">
+            <DetailItem
+              label="Display name"
+              value={user.profile.displayName}
+            />
+            <DetailItem
+              label="Short ID"
+              value={getShortId(user.profile.id)}
+            />
+            <DetailItem label="Profile ID" value={user.profile.id} />
+            <DetailItem label="Role" value={<RoleBadge role={user.role} />} />
+            <DetailItem
+              label="Status"
+              value={<StatusBadge status={user.status} />}
+            />
+          </DetailSection>
+
+          <DetailSection title="Activity summary">
+            {user.role === "borrower" ? (
+              <>
+                <DetailItem
+                  label="Applications"
+                  value={user.applications.length}
+                />
+                <DetailItem
+                  label="Active loans"
+                  value={user.activeLoans.length}
+                />
+                <DetailItem
+                  label="Latest application"
+                  value={
+                    user.latestApplicationStatus ? (
+                      <StatusBadge status={user.latestApplicationStatus} />
+                    ) : (
+                      "None"
+                    )
+                  }
+                />
+              </>
+            ) : null}
+            {user.role === "lender" ? (
+              <>
+                <DetailItem label="Offers" value={user.offers.length} />
+                <DetailItem
+                  label="Accepted offers"
+                  value={
+                    user.offers.filter((offer) => offer.status === "accepted")
+                      .length
+                  }
+                />
+                <DetailItem
+                  label="Pending offers"
+                  value={
+                    user.offers.filter((offer) => offer.status === "pending")
+                      .length
+                  }
+                />
+                <DetailItem
+                  label="Active loans"
+                  value={user.activeLoans.length}
+                />
+                <DetailItem
+                  label="Proofs awaiting review"
+                  value={user.submittedProofs.length}
+                />
+              </>
+            ) : null}
+            {user.role === "manager" ? (
+              <>
+                <DetailItem label="Role" value={<RoleBadge role={user.role} />} />
+                <DetailItem
+                  label="Status"
+                  value={<StatusBadge status={user.status} />}
+                />
+                <DetailItem
+                  label="Short ID"
+                  value={getShortId(user.profile.id)}
+                />
+              </>
+            ) : null}
+          </DetailSection>
+        </div>
       </section>
 
       {user.role === "borrower" ? (
         <>
-          <DetailSection title="Borrower Profile">
-            <dl className="grid gap-2 text-sm sm:grid-cols-2">
-              <Detail label="Location">
-                {user.portfolio?.location ?? "Not provided"}
-              </Detail>
-              <Detail label="Business type">
-                {user.portfolio?.business_type ?? "Not provided"}
-              </Detail>
-              <Detail label="Monthly revenue">
-                {user.portfolio
-                  ? formatCurrency(user.portfolio.monthly_gross_revenue)
-                  : "Not provided"}
-              </Detail>
-              <Detail label="Monthly expenses">
-                {user.portfolio
-                  ? formatCurrency(user.portfolio.monthly_expenses)
-                  : "Not provided"}
-              </Detail>
-              <Detail label="Existing loan payments">
-                {user.portfolio
-                  ? formatCurrency(user.portfolio.existing_loan_payments)
-                  : "Not provided"}
-              </Detail>
-              <Detail label="Years in operation">
-                {user.portfolio?.years_in_operation ?? "Not provided"}
-              </Detail>
-              <Detail label="Loan purpose context">
-                {user.portfolio?.loan_purpose_context ?? "Not provided"}
-              </Detail>
-            </dl>
-          </DetailSection>
+          <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DetailSection title="Borrower profile">
+                <DetailItem
+                  label="Location"
+                  value={user.portfolio?.location ?? "Not provided"}
+                />
+                <DetailItem
+                  label="Business type"
+                  value={user.portfolio?.business_type ?? "Not provided"}
+                />
+                <DetailItem
+                  label="Years in operation"
+                  value={
+                    user.portfolio?.years_in_operation ?? "Not provided"
+                  }
+                />
+                <DetailItem
+                  label="Loan purpose context"
+                  value={
+                    user.portfolio?.loan_purpose_context ?? "Not provided"
+                  }
+                />
+              </DetailSection>
 
-          <DetailSection title="Applications">
-            {user.applications.length === 0 ? (
-              <EmptyState
-                title="No applications"
-                description="Submitted applications for this borrower will appear here."
-              />
-            ) : (
-              <div className="grid gap-2">
-                {user.applications.map((application) => (
-                  <div
-                    key={application.id}
-                    className="grid gap-2 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
-                  >
-                    <div className="flex flex-wrap items-center gap-2">
-                      <h2 className="text-sm font-semibold">
-                        Application {getShortId(application.id)}
-                      </h2>
-                      <StatusBadge status={application.status} />
-                    </div>
-                    <dl className="grid gap-2 text-sm sm:grid-cols-3">
-                      <Detail label="Requested">
-                        {formatCurrency(application.requestedAmount)}
-                      </Detail>
-                      <Detail label="Term">
-                        {managerPreferredTermLabels[application.preferredTerm]}
-                      </Detail>
-                      <Detail label="Offers">
-                        {Object.values(application.offerCounts).reduce(
-                          (total, count) => total + count,
-                          0,
-                        )}
-                      </Detail>
-                      <Detail label="Purpose">{application.purpose}</Detail>
-                      <Detail label="Active loan">
-                        {application.activeLoan
-                          ? `${formatCurrency(
-                              application.activeLoan.outstandingBalance,
-                            )} outstanding`
-                          : "None"}
-                      </Detail>
-                    </dl>
-                  </div>
-                ))}
-              </div>
-            )}
-          </DetailSection>
+              <DetailSection title="Financial profile">
+                <DetailItem
+                  label="Monthly revenue"
+                  value={
+                    user.portfolio
+                      ? formatCurrency(user.portfolio.monthly_gross_revenue)
+                      : "Not provided"
+                  }
+                />
+                <DetailItem
+                  label="Monthly expenses"
+                  value={
+                    user.portfolio
+                      ? formatCurrency(user.portfolio.monthly_expenses)
+                      : "Not provided"
+                  }
+                />
+                <DetailItem
+                  label="Existing loan payments"
+                  value={
+                    user.portfolio
+                      ? formatCurrency(user.portfolio.existing_loan_payments)
+                      : "Not provided"
+                  }
+                />
+              </DetailSection>
+            </div>
+          </section>
 
-          <DetailSection title="Active Loans">
+          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold">Applications</h2>
+            <ApplicationList applications={user.applications} />
+          </section>
+
+          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold">Active loans</h2>
             <LoanList loans={user.activeLoans} />
-          </DetailSection>
+          </section>
         </>
       ) : null}
 
       {user.role === "lender" ? (
         <>
-          <DetailSection title="Lender Organization">
-            <dl className="grid gap-2 text-sm sm:grid-cols-3">
-              <Detail label="Organization">
-                {user.lenderProfile?.organization_name ?? "Not provided"}
-              </Detail>
-              <Detail label="Verification">
-                {user.lenderProfile?.verification_status ? (
-                  <StatusBadge status={user.lenderProfile.verification_status} />
-                ) : (
-                  "Not provided"
-                )}
-              </Detail>
-              <Detail label="Approved at">
-                {formatDateTime(user.lenderProfile?.approved_at ?? null)}
-              </Detail>
-            </dl>
-          </DetailSection>
+          <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <div className="grid gap-4 lg:grid-cols-2">
+              <DetailSection title="Lender organization">
+                <DetailItem
+                  label="Organization"
+                  value={
+                    user.lenderProfile?.organization_name ?? "Not provided"
+                  }
+                />
+                <DetailItem
+                  label="Verification"
+                  value={
+                    user.lenderProfile?.verification_status ? (
+                      <StatusBadge
+                        status={user.lenderProfile.verification_status}
+                      />
+                    ) : (
+                      "Not provided"
+                    )
+                  }
+                />
+                <DetailItem
+                  label="Approved at"
+                  value={formatDateTime(user.lenderProfile?.approved_at ?? null)}
+                />
+              </DetailSection>
 
-          <DetailSection title="Offer Activity">
-            <dl className="grid gap-2 text-sm sm:grid-cols-4">
-              <Detail label="Offers">{user.offers.length}</Detail>
-              <Detail label="Accepted">
-                {user.offers.filter((offer) => offer.status === "accepted").length}
-              </Detail>
-              <Detail label="Pending">
-                {user.offers.filter((offer) => offer.status === "pending").length}
-              </Detail>
-              <Detail label="Declined">
-                {user.offers.filter((offer) => offer.status === "declined").length}
-              </Detail>
-            </dl>
-          </DetailSection>
+              <DetailSection title="Offer activity">
+                <DetailItem label="Offers" value={user.offers.length} />
+                <DetailItem
+                  label="Accepted"
+                  value={
+                    user.offers.filter((offer) => offer.status === "accepted")
+                      .length
+                  }
+                />
+                <DetailItem
+                  label="Pending"
+                  value={
+                    user.offers.filter((offer) => offer.status === "pending")
+                      .length
+                  }
+                />
+                <DetailItem
+                  label="Declined"
+                  value={
+                    user.offers.filter((offer) => offer.status === "declined")
+                      .length
+                  }
+                />
+              </DetailSection>
+            </div>
+          </section>
 
-          <DetailSection title="Active Loans">
+          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold">Active loans</h2>
             <LoanList loans={user.activeLoans} />
-          </DetailSection>
+          </section>
 
-          <DetailSection title="Proof Review Workload">
-            {user.submittedProofs.length === 0 ? (
-              <EmptyState
-                title="No submitted proofs"
-                description="Submitted repayment proofs for this lender will appear here."
-              />
-            ) : (
-              <div className="grid gap-2">
-                {user.submittedProofs.map((proof) => (
-                  <Link
-                    key={proof.id}
-                    href={`/manager/repayments/${proof.id}`}
-                    className="grid gap-1 rounded-lg border border-[var(--border)] px-3 py-2 text-sm transition hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
-                  >
-                    <span className="font-semibold">{proof.fileName}</span>
-                    <span className="text-xs text-[var(--muted-foreground)]">
-                      Loan {getShortId(proof.activeLoanId)} · installment{" "}
-                      {proof.installmentNumber} · {formatCurrency(proof.amountDue)}
-                    </span>
-                  </Link>
-                ))}
-              </div>
-            )}
-          </DetailSection>
+          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+            <h2 className="text-sm font-semibold">Proof review workload</h2>
+            <ProofList proofs={user.submittedProofs} />
+          </section>
         </>
       ) : null}
     </ManagerShell>
   );
 }
 
-function DetailSection({
-  title,
-  children,
+function ApplicationList({
+  applications,
 }: {
-  title: string;
-  children: React.ReactNode;
+  applications: ManagerBorrowerUserDetail["applications"];
 }) {
-  return (
-    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
-      <h2 className="text-base font-semibold">{title}</h2>
-      {children}
-    </section>
-  );
-}
+  if (applications.length === 0) {
+    return (
+      <EmptyState
+        title="No applications"
+        description="Submitted applications for this borrower will appear here."
+      />
+    );
+  }
 
-function Detail({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
   return (
-    <div className="min-w-0">
-      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </dt>
-      <dd className="mt-1 break-words font-medium">{children}</dd>
+    <div className="grid gap-3">
+      {applications.map((application) => (
+        <article
+          key={application.id}
+          className="grid gap-3 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-sm font-semibold">
+              Application {getShortId(application.id)}
+            </h3>
+            <StatusBadge status={application.status} />
+          </div>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <DetailItem
+              label="Requested"
+              value={formatCurrency(application.requestedAmount)}
+            />
+            <DetailItem
+              label="Term"
+              value={managerPreferredTermLabels[application.preferredTerm]}
+            />
+            <DetailItem
+              label="Offers"
+              value={Object.values(application.offerCounts).reduce(
+                (total, count) => total + count,
+                0,
+              )}
+            />
+            <DetailItem label="Purpose" value={application.purpose} />
+            <DetailItem
+              label="Active loan"
+              value={
+                application.activeLoan
+                  ? `${formatCurrency(
+                      application.activeLoan.outstandingBalance,
+                    )} outstanding`
+                  : "None"
+              }
+            />
+          </dl>
+        </article>
+      ))}
     </div>
   );
 }
@@ -265,13 +376,7 @@ function Detail({
 function LoanList({
   loans,
 }: {
-  loans: Array<{
-    id: string;
-    principalAmount: number;
-    outstandingBalance: number;
-    status: string;
-    dueDate: string;
-  }>;
+  loans: ManagerLoanRow[];
 }) {
   if (loans.length === 0) {
     return (
@@ -283,26 +388,61 @@ function LoanList({
   }
 
   return (
-    <div className="grid gap-2">
+    <div className="grid gap-3">
       {loans.map((loan) => (
-        <div
+        <article
           key={loan.id}
-          className="grid gap-2 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-3 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
         >
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Loan {getShortId(loan.id)}</h3>
             <StatusBadge status={loan.status} />
           </div>
-          <dl className="grid gap-2 text-sm sm:grid-cols-3">
-            <Detail label="Principal">
-              {formatCurrency(loan.principalAmount)}
-            </Detail>
-            <Detail label="Outstanding">
-              {formatCurrency(loan.outstandingBalance)}
-            </Detail>
-            <Detail label="Due date">{formatDateOnly(loan.dueDate)}</Detail>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2">
+            <DetailItem
+              label="Principal"
+              value={formatCurrency(loan.principalAmount)}
+            />
+            <DetailItem
+              label="Outstanding"
+              value={formatCurrency(loan.outstandingBalance)}
+            />
+            <DetailItem label="Due date" value={formatDateOnly(loan.dueDate)} />
           </dl>
-        </div>
+        </article>
+      ))}
+    </div>
+  );
+}
+
+function ProofList({
+  proofs,
+}: {
+  proofs: ManagerRepaymentProofRow[];
+}) {
+  if (proofs.length === 0) {
+    return (
+      <EmptyState
+        title="No submitted proofs"
+        description="Submitted repayment proofs for this lender will appear here."
+      />
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      {proofs.map((proof) => (
+        <Link
+          key={proof.id}
+          href={`/manager/repayments/${proof.id}`}
+          className="grid gap-2 border-b border-[var(--border)] pb-3 text-sm transition last:border-b-0 last:pb-0 hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          <span className="font-semibold">{proof.fileName}</span>
+          <span className="text-xs text-[var(--muted-foreground)]">
+            Loan {getShortId(proof.activeLoanId)} · Installment{" "}
+            {proof.installmentNumber} · {formatCurrency(proof.amountDue)}
+          </span>
+        </Link>
       ))}
     </div>
   );
