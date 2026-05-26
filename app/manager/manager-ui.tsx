@@ -7,26 +7,29 @@ import {
 } from "@/components/manager-bottom-tabs";
 import { getShortId, managerStatusLabels } from "@/lib/manager-operations";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { AutoFilterForm } from "./auto-filter-form";
+
+export { formatDateOnly, formatDateTime } from "@/lib/manager-date-format";
 
 export const managerNavItems = [
   { href: "/manager/loans", title: "Active loans", description: "Track funded loans and repayment progress." },
   { href: "/manager/repayments", title: "Repayment proofs", description: "Monitor submitted, verified, and rejected proof." },
-  { href: "/manager/borrower-verifications", title: "Borrower review", description: "Review borrower verification evidence." },
-  { href: "/manager/lenders", title: "Lender review", description: "Approve or reject lender workspace access." },
   { href: "/manager/audit-logs", title: "Audit logs", description: "Review workflow events across the platform." },
   { href: "/manager/applications", title: "Applications & offers", description: "Follow application and offer lifecycles." },
-  { href: "/manager/lookup", title: "Lookup", description: "Search borrower, application, and loan records." },
+  { href: "/manager/lookup", title: "Users", description: "Search users, borrower records, applications, and loans." },
 ];
 
 export function ManagerShell({
   title,
   description,
   activeTab = "home",
+  showHeading = true,
   children,
 }: {
   title: string;
   description: string;
   activeTab?: ManagerTab | null;
+  showHeading?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -41,12 +44,14 @@ export function ManagerShell({
           </Link>
           <ManagerAccountState />
         </header>
-        <section className="grid gap-1">
-          <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {description}
-          </p>
-        </section>
+        {showHeading ? (
+          <section className="grid gap-1">
+            <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+              {description}
+            </p>
+          </section>
+        ) : null}
         {children}
         <ManagerBottomTabs activeTab={activeTab} />
       </div>
@@ -87,23 +92,31 @@ export function StatusMessage({
 
 export function FilterGrid({ children }: { children: React.ReactNode }) {
   return (
-    <form className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+    <form className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
       {children}
       <div className="flex items-end gap-2">
         <button
           type="submit"
-          className="h-10 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="h-10 flex-1 rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:flex-none"
         >
           Apply
         </button>
         <Link
           href="?"
-          className="inline-flex h-10 items-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="inline-flex h-10 flex-1 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:flex-none"
         >
           Clear
         </Link>
       </div>
     </form>
+  );
+}
+
+export function AutoFilterGrid({ children }: { children: React.ReactNode }) {
+  return (
+    <AutoFilterForm className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm sm:grid-cols-2 lg:grid-cols-4">
+      {children}
+    </AutoFilterForm>
   );
 }
 
@@ -125,7 +138,7 @@ export function TextFilter({
         name={name}
         type={type}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       />
     </label>
   );
@@ -136,11 +149,13 @@ export function SelectFilter({
   name,
   defaultValue,
   options,
+  emptyLabel = "Any",
 }: {
   label: string;
   name: string;
   defaultValue?: string;
   options: Array<{ value: string; label: string }>;
+  emptyLabel?: string;
 }) {
   return (
     <label className="grid gap-1 text-sm font-semibold">
@@ -148,9 +163,9 @@ export function SelectFilter({
       <select
         name={name}
         defaultValue={defaultValue ?? ""}
-        className="h-10 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
       >
-        <option value="">Any</option>
+        <option value="">{emptyLabel}</option>
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -161,7 +176,15 @@ export function SelectFilter({
   );
 }
 
-export function DataCard({
+export function ManagerRecordList({ children }: { children: React.ReactNode }) {
+  return (
+    <section className="overflow-hidden rounded-2xl border border-[var(--border)] bg-white shadow-sm">
+      {children}
+    </section>
+  );
+}
+
+export function ManagerRecordHeader({
   children,
   className = "",
 }: {
@@ -169,9 +192,59 @@ export function DataCard({
   className?: string;
 }) {
   return (
-    <article
-      className={`grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5 ${className}`}
+    <div
+      className={`hidden border-b border-[var(--border)] bg-[var(--muted)]/40 px-3 py-2 text-xs font-semibold text-[var(--muted-foreground)] sm:grid ${className}`}
     >
+      {children}
+    </div>
+  );
+}
+
+export function ManagerDetailsLink({
+  href,
+  label = "Details",
+}: {
+  href: string;
+  label?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="inline-flex h-7 w-[4.5rem] items-center justify-center rounded-full border border-[var(--border)] px-2 text-[11px] font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+    >
+      {label}
+    </Link>
+  );
+}
+
+export function RoleBadge({ role }: { role: string }) {
+  const className =
+    role === "manager"
+      ? "bg-[#ffe8ef] text-[#9f1744]"
+      : role === "lender"
+        ? "bg-[#e6f4ff] text-[#075985]"
+        : "bg-[var(--muted)] text-[var(--muted-foreground)]";
+
+  return (
+    <span
+      className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize ${className}`}
+    >
+      {role}
+    </span>
+  );
+}
+
+export function ManagerRecordRow({ children }: { children: React.ReactNode }) {
+  return (
+    <article className="border-b border-[var(--border)] last:border-b-0">
+      {children}
+    </article>
+  );
+}
+
+export function DataCard({ children }: { children: React.ReactNode }) {
+  return (
+    <article className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
       {children}
     </article>
   );
@@ -188,25 +261,45 @@ export function Field({ label, value }: { label: string; value: React.ReactNode 
   );
 }
 
+export function DetailSection({
+  title,
+  children,
+}: {
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="grid gap-3 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 p-3">
+      <h2 className="text-sm font-semibold">{title}</h2>
+      <dl className="grid gap-2 text-sm">{children}</dl>
+    </section>
+  );
+}
+
+export function DetailItem({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4 border-b border-[var(--border)]/70 pb-2 last:border-b-0 last:pb-0">
+      <dt className="shrink-0 text-xs font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="min-w-0 text-right text-sm font-medium break-words">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const positive = ["verified", "paid", "accepted", "active", "approved"];
-  const warning = [
-    "submitted",
-    "pending",
-    "pending_documents",
-    "under_review",
-    "due",
-    "open",
-  ];
-  const danger = [
-    "rejected",
-    "needs_resubmission",
-    "overdue",
-    "defaulted",
-    "declined",
-    "late",
-  ];
-  const muted = ["closed", "withdrawn", "expired", "not_started"];
+  const warning = ["submitted", "pending", "due", "open"];
+  const danger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
+  const muted = ["closed", "withdrawn", "expired"];
   const className = positive.includes(status)
     ? "bg-[#e1f5ee] text-[#0f5f45]"
     : warning.includes(status)
@@ -218,7 +311,7 @@ export function StatusBadge({ status }: { status: string }) {
           : "bg-[#f7f9fc] text-[var(--foreground)]";
 
   return (
-    <span className={`inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+    <span className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[11px] font-semibold ${className}`}>
       {managerStatusLabels[status as keyof typeof managerStatusLabels] ?? status}
     </span>
   );
@@ -247,25 +340,6 @@ export function formatCurrency(value: number) {
     currency: "PHP",
     maximumFractionDigits: 0,
   }).format(value);
-}
-
-export function formatDateOnly(value: string | null) {
-  if (!value) return "Not set";
-
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeZone: "Asia/Manila",
-  }).format(new Date(`${value}T00:00:00`));
-}
-
-export function formatDateTime(value: string | null) {
-  if (!value) return "Not reviewed";
-
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Asia/Manila",
-  }).format(new Date(value));
 }
 
 export function PersonLabel({

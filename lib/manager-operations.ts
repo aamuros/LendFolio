@@ -1,14 +1,6 @@
 import type { Database, Json } from "@/lib/supabase/types";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
-import {
-  calculateBorrowerVerificationDocumentPolicy,
-  type BorrowerVerificationDocumentPolicy,
-} from "@/lib/borrower-verification";
-import {
-  buildConsentStatus,
-  type ConsentStatus,
-  type UserConsentRecord,
-} from "@/lib/consents";
+import { isUuid } from "./validation/uuid";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -19,22 +11,15 @@ type ApplicationRow = Database["public"]["Tables"]["loan_applications"]["Row"];
 type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
-type BorrowerVerificationRow =
-  Database["public"]["Tables"]["borrower_verifications"]["Row"];
-type BorrowerVerificationDocumentRow =
-  Database["public"]["Tables"]["borrower_verification_documents"]["Row"];
-type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
-type LenderProfileRow =
-  Database["public"]["Tables"]["lender_profiles"]["Row"];
+type LenderProfileRow = Database["public"]["Tables"]["lender_profiles"]["Row"];
+export type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
-type UserConsentRow = Database["public"]["Tables"]["user_consents"]["Row"];
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
 type ManagerCountStatus =
   | Database["public"]["Enums"]["active_loan_status"]
   | Database["public"]["Enums"]["application_status"]
   | Database["public"]["Enums"]["offer_status"]
-  | Database["public"]["Enums"]["borrower_verification_document_status"]
   | Database["public"]["Enums"]["repayment_proof_status"]
   | Database["public"]["Enums"]["repayment_status"];
 
@@ -54,7 +39,6 @@ export type ManagerRepaymentScheduleSummary = {
   verifiedCount: number;
   submittedCount: number;
   rejectedCount: number;
-  lateCount: number;
   nextDueDate: string | null;
 };
 
@@ -66,14 +50,29 @@ export type ManagerLoanRow = {
   repaymentAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
-  startedAt: string;
-  dueDate: string;
+  startedAt: string | null;
+  dueDate: string | null;
   schedule: ManagerRepaymentScheduleSummary;
+};
+
+export type ManagerLoanDetail = ManagerLoanRow & {
+  repaymentSchedules: Array<{
+    id: string;
+    installmentNumber: number;
+    amountDue: number;
+    dueDate: string;
+    status: Database["public"]["Enums"]["repayment_status"];
+  }>;
+  repaymentProofs: ManagerRepaymentProofRow[];
 };
 
 export type ManagerRepaymentProofRow = {
   id: string;
   fileName: string;
+  fileType: string | null;
+  fileSize: number | null;
+  storageBucket: string;
+  storagePath: string;
   proofStatus: Database["public"]["Enums"]["repayment_proof_status"];
   repaymentStatus: Database["public"]["Enums"]["repayment_status"];
   borrower: ManagerProfileSummary;
@@ -87,6 +86,59 @@ export type ManagerRepaymentProofRow = {
   reviewNotes: string | null;
 };
 
+export type ManagerBorrowerUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "borrower" }
+> & {
+  portfolio: BorrowerPortfolioRow | null;
+  applications: Array<
+    ManagerApplicationRow & {
+      activeLoan: ManagerLoanRow | null;
+    }
+  >;
+  activeLoans: ManagerLoanRow[];
+};
+
+export type ManagerLenderUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "lender" }
+> & {
+  lenderProfile: LenderProfileRow | null;
+  offers: LoanOfferRow[];
+  activeLoans: ManagerLoanRow[];
+  submittedProofs: ManagerRepaymentProofRow[];
+};
+
+export type ManagerProfileUserDetail = Extract<
+  ManagerUserDirectoryRow,
+  { role: "manager" }
+>;
+
+export type ManagerUserDetail =
+  | ManagerBorrowerUserDetail
+  | ManagerLenderUserDetail
+  | ManagerProfileUserDetail;
+
+export type ManagerUserDetailLoadResult =
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      user: ManagerUserDetail;
+    }
+  | {
+      ok: false;
+      mode: "partial";
+      message: string;
+      user: ManagerUserDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      user: null;
+    };
+
 export type ManagerAuditLogRow = {
   id: string;
   timestamp: string;
@@ -97,6 +149,10 @@ export type ManagerAuditLogRow = {
   metadataPreview: string;
 };
 
+export type ManagerAuditLogDetail = ManagerAuditLogRow & {
+  metadata: Json;
+};
+
 export type ManagerApplicationRow = {
   id: string;
   borrower: ManagerProfileSummary;
@@ -104,8 +160,6 @@ export type ManagerApplicationRow = {
   purpose: string;
   preferredTerm: Database["public"]["Enums"]["preferred_term"];
   status: Database["public"]["Enums"]["application_status"];
-  creditReadinessStatus: Database["public"]["Enums"]["borrower_credit_readiness_status"] | null;
-  riskFlags: string[];
   submittedAt: string;
   offerCounts: Record<Database["public"]["Enums"]["offer_status"], number>;
   acceptedOffer: {
@@ -114,6 +168,11 @@ export type ManagerApplicationRow = {
     repaymentAmount: number;
     dueDate: string;
   } | null;
+};
+
+export type ManagerApplicationDetail = ManagerApplicationRow & {
+  offers: LoanOfferRow[];
+  activeLoan: ManagerLoanRow | null;
 };
 
 export type ManagerLookupResult = {
@@ -127,79 +186,48 @@ export type ManagerLookupResult = {
   >;
 };
 
-export type ManagerLenderRow = {
-  id: string;
-  userId: string;
-  organizationName: string;
-  contactPerson: string;
-  phoneNumber: string;
-  businessAddress: string;
-  operatingArea: string;
-  businessRegistrationNumber: string | null;
-  minLoanAmount: number;
-  maxLoanAmount: number;
-  typicalRepaymentTerms: string;
-  lenderDescription: string;
-  verificationStatus: Database["public"]["Enums"]["lender_verification_status"];
-  approvedAt: string | null;
-  approvedBy: ManagerProfileSummary | null;
-  managerReviewNotes: string | null;
-  rejectionReason: string | null;
-  rejectedAt: string | null;
-  rejectedBy: ManagerProfileSummary | null;
-  createdAt: string;
-  updatedAt: string;
-  profile: ManagerProfileSummary;
-  consentStatus: ConsentStatus;
-};
-
-export type ManagerBorrowerVerificationDocumentRow = {
-  id: string;
-  documentType: Database["public"]["Enums"]["borrower_verification_document_type"];
-  status: Database["public"]["Enums"]["borrower_verification_document_status"];
-  fileName: string;
-  fileType: string;
-  fileSize: number;
-  uploadedAt: string;
-  reviewedAt: string | null;
-  reviewNotes: string | null;
-  viewUrl: string | null;
-};
-
-export type ManagerBorrowerVerificationRow = {
-  id: string;
-  borrower: ManagerProfileSummary;
-  verificationStatus: Database["public"]["Enums"]["borrower_verification_status"];
-  submittedAt: string | null;
-  reviewedAt: string | null;
-  reviewedBy: ManagerProfileSummary | null;
-  managerReviewNotes: string | null;
-  rejectionReason: string | null;
-  createdAt: string;
-  updatedAt: string;
-  documents: ManagerBorrowerVerificationDocumentRow[];
-  documentPolicy: BorrowerVerificationDocumentPolicy;
-  documentUploadConsentStatus: ConsentStatus;
-  loanApplicationConsentStatus: ConsentStatus;
-};
+export type ManagerUserDirectoryRow =
+  | {
+      role: "borrower";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+      portfolioLocation: string | null;
+      applicationCount: number;
+      activeLoanCount: number;
+      latestApplicationStatus:
+        | Database["public"]["Enums"]["application_status"]
+        | null;
+    }
+  | {
+      role: "lender";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+      organizationName: string | null;
+      verificationStatus:
+        | Database["public"]["Enums"]["lender_verification_status"]
+        | null;
+      offerCount: number;
+      acceptedOfferCount: number;
+      activeLoanCount: number;
+      submittedProofCount: number;
+    }
+  | {
+      role: "manager";
+      profile: ManagerProfileSummary;
+      status: Database["public"]["Enums"]["profile_status"];
+    };
 
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
 const applicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =
   "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at";
 const portfolioSelect =
-  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
+  "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at";
 const profileSelect = "id, role, display_name, status, created_at, updated_at";
-const lenderProfileSelect =
-  "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at";
-const borrowerVerificationSelect =
-  "id, borrower_id, verification_status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
-const borrowerVerificationDocumentSelect =
-  "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentScheduleSelect =
@@ -224,12 +252,6 @@ export const managerStatusLabels = {
   declined: "Declined",
   withdrawn: "Withdrawn",
   pending: "Pending",
-  not_started: "Not started",
-  pending_documents: "Pending documents",
-  under_review: "Under review",
-  needs_resubmission: "Needs resubmission",
-  approved: "Approved",
-  superseded: "Superseded",
   expired: "Expired",
   due: "Due",
   verified: "Verified",
@@ -263,7 +285,6 @@ export function createScheduleSummary(
       .length,
     rejectedCount: schedules.filter((schedule) => schedule.status === "rejected")
       .length,
-    lateCount: schedules.filter((schedule) => schedule.status === "late").length,
     nextDueDate: dueSchedules[0]?.due_date ?? null,
   };
 }
@@ -280,8 +301,6 @@ export async function loadManagerOverview(
 ): Promise<{ ok: boolean; message: string; metrics: ManagerOverviewMetric[] }> {
   const [
     activeLoans,
-    overdueLoans,
-    lateRepayments,
     paidLoans,
     submittedProofs,
     rejectedProofs,
@@ -289,12 +308,8 @@ export async function loadManagerOverview(
     openApplications,
     acceptedApplications,
     pendingOffers,
-    pendingBorrowerVerifications,
-    submittedBorrowerDocuments,
   ] = await Promise.all([
     countRows(supabase, "active_loans", { status: "active" }),
-    countRows(supabase, "active_loans", { status: "overdue" }),
-    countRows(supabase, "loan_repayment_schedules", { status: "late" }),
     countRows(supabase, "active_loans", { status: "paid" }),
     countRows(supabase, "repayment_proofs", { status: "submitted" }),
     countRows(supabase, "repayment_proofs", { status: "rejected" }),
@@ -302,14 +317,10 @@ export async function loadManagerOverview(
     countApplicationsByStatuses(supabase, ["submitted", "open"]),
     countRows(supabase, "loan_applications", { status: "accepted" }),
     countRows(supabase, "loan_offers", { status: "pending" }),
-    countBorrowerVerificationsByStatus(supabase, "pending_documents"),
-    countRows(supabase, "borrower_verification_documents", { status: "submitted" }),
   ]);
 
   const counts = [
     activeLoans,
-    overdueLoans,
-    lateRepayments,
     paidLoans,
     submittedProofs,
     rejectedProofs,
@@ -317,8 +328,6 @@ export async function loadManagerOverview(
     openApplications,
     acceptedApplications,
     pendingOffers,
-    pendingBorrowerVerifications,
-    submittedBorrowerDocuments,
   ];
 
   return {
@@ -328,16 +337,6 @@ export async function loadManagerOverview(
       : "Some operations metrics could not be loaded.",
     metrics: [
       { label: "Active loans", value: activeLoans.count, href: "/manager/loans?status=active" },
-      {
-        label: "Overdue loans",
-        value: overdueLoans.count,
-        href: "/manager/loans?status=overdue",
-      },
-      {
-        label: "Late repayments",
-        value: lateRepayments.count,
-        href: "/manager/repayments?repaymentStatus=late",
-      },
       { label: "Paid loans", value: paidLoans.count, href: "/manager/loans?status=paid" },
       {
         label: "Submitted proofs",
@@ -369,116 +368,7 @@ export async function loadManagerOverview(
         value: pendingOffers.count,
         href: "/manager/applications",
       },
-      {
-        label: "Borrower reviews",
-        value: pendingBorrowerVerifications.count,
-        href: "/manager/borrower-verifications?status=pending",
-      },
-      {
-        label: "Borrower documents",
-        value: submittedBorrowerDocuments.count,
-        href: "/manager/borrower-verifications?documentStatus=submitted",
-      },
     ],
-  };
-}
-
-export async function loadManagerBorrowerVerifications(
-  supabase: SupabaseServerClient,
-  filters: {
-    status?: string;
-    documentStatus?: string;
-    borrower?: string;
-  } = {},
-): Promise<{
-  ok: boolean;
-  message: string;
-  verifications: ManagerBorrowerVerificationRow[];
-}> {
-  const borrowerIds = await resolveProfileFilterIds(
-    supabase,
-    filters.borrower,
-    "borrower",
-  );
-
-  if (borrowerIds?.length === 0) {
-    return {
-      ok: true,
-      message: "No borrower verifications matched these filters.",
-      verifications: [],
-    };
-  }
-
-  let query = supabase
-    .from("borrower_verifications")
-    .select(borrowerVerificationSelect)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (isBorrowerVerificationStatus(filters.status)) {
-    query = query.eq("verification_status", filters.status);
-  }
-  if (borrowerIds) query = query.in("borrower_id", borrowerIds);
-
-  const { data, error } = await query;
-
-  if (error) {
-    return {
-      ok: false,
-      message: "Could not load borrower verifications.",
-      verifications: [],
-    };
-  }
-
-  if (data.length === 0) {
-    return {
-      ok: true,
-      message: "No borrower verifications matched these filters.",
-      verifications: [],
-    };
-  }
-
-  const documents = await loadBorrowerVerificationDocuments(
-    supabase,
-    data.map((verification) => verification.id),
-    filters.documentStatus,
-  );
-  const visibleVerificationIds = new Set(
-    [...documents.keys(), ...data.map((verification) => verification.id)].filter(
-      (id) =>
-        !isBorrowerVerificationDocumentStatus(filters.documentStatus) ||
-        (documents.get(id)?.length ?? 0) > 0,
-    ),
-  );
-  const filteredRows = data.filter((verification) =>
-    visibleVerificationIds.has(verification.id),
-  );
-  const profiles = await loadProfilesByIds(
-    supabase,
-    filteredRows.flatMap((verification) =>
-      [verification.borrower_id, verification.reviewed_by].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ),
-  );
-  const consents = await loadUserConsentsByUserIds(
-    supabase,
-    filteredRows.map((verification) => verification.borrower_id),
-  );
-
-  return {
-    ok: true,
-    message: filteredRows.length
-      ? "Borrower verifications loaded."
-      : "No borrower verifications matched these filters.",
-    verifications: filteredRows.map((verification) =>
-      mapManagerBorrowerVerification(
-        verification,
-        profiles,
-        documents.get(verification.id) ?? [],
-        consents.get(verification.borrower_id) ?? [],
-      ),
-    ),
   };
 }
 
@@ -528,6 +418,98 @@ export async function loadManagerLoans(
   };
 }
 
+export async function loadManagerLoanDetail(
+  supabase: SupabaseServerClient,
+  loanId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      loan: ManagerLoanDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      loan: null;
+    }
+> {
+  if (!isUuid(loanId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid loan ID.",
+      loan: null,
+    };
+  }
+
+  const { data: loan, error } = await supabase
+    .from("active_loans")
+    .select(activeLoanSelect)
+    .eq("id", loanId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load loan.",
+      loan: null,
+    };
+  }
+
+  if (!loan) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Loan not found.",
+      loan: null,
+    };
+  }
+
+  const [mappedLoans, schedulesByLoanId, proofsResult] = await Promise.all([
+    mapManagerLoans(supabase, [loan]),
+    loadSchedulesByLoanIds(supabase, [loan.id]),
+    supabase
+      .from("repayment_proofs")
+      .select(repaymentProofSelect)
+      .eq("active_loan_id", loan.id)
+      .order("submitted_at", { ascending: false }),
+  ]);
+
+  if (proofsResult.error || !mappedLoans[0]) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load full loan details.",
+      loan: null,
+    };
+  }
+
+  const repaymentSchedules = schedulesByLoanId.get(loan.id) ?? [];
+
+  return {
+    ok: true,
+    mode: "loaded",
+    message: "Loan loaded.",
+    loan: {
+      ...mappedLoans[0],
+      repaymentSchedules: repaymentSchedules.map((schedule) => ({
+        id: schedule.id,
+        installmentNumber: schedule.installment_number,
+        amountDue: schedule.amount_due,
+        dueDate: schedule.due_date,
+        status: schedule.status,
+      })),
+      repaymentProofs: await mapManagerRepaymentProofs(
+        supabase,
+        proofsResult.data,
+      ),
+    },
+  };
+}
+
 export async function loadManagerRepayments(
   supabase: SupabaseServerClient,
   filters: {
@@ -562,7 +544,9 @@ export async function loadManagerRepayments(
 
   if (isProofStatus(filters.proofStatus)) query = query.eq("status", filters.proofStatus);
   if (filters.submittedFrom) query = query.gte("submitted_at", filters.submittedFrom);
-  if (filters.submittedTo) query = query.lte("submitted_at", endOfDay(filters.submittedTo));
+  if (filters.submittedTo) {
+    query = query.lte("submitted_at", endOfDateFilter(filters.submittedTo));
+  }
   if (lenderIds) query = query.in("lender_id", lenderIds);
   if (borrowerIds) query = query.in("borrower_id", borrowerIds);
 
@@ -609,6 +593,10 @@ export async function loadManagerRepayments(
         {
           id: proof.id,
           fileName: proof.file_name,
+          fileType: proof.file_type,
+          fileSize: proof.file_size,
+          storageBucket: proof.storage_bucket,
+          storagePath: proof.storage_path,
           proofStatus: proof.status,
           repaymentStatus: schedule.status,
           borrower: getProfileSummary(profiles, proof.borrower_id),
@@ -674,6 +662,72 @@ export async function loadManagerAuditLogs(
   };
 }
 
+export async function loadManagerAuditLogDetail(
+  supabase: SupabaseServerClient,
+  logId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      log: ManagerAuditLogDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      log: null;
+    }
+> {
+  if (!isUuid(logId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid audit log ID.",
+      log: null,
+    };
+  }
+
+  const { data: log, error } = await supabase
+    .from("audit_logs")
+    .select(auditLogSelect)
+    .eq("id", logId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load audit log.",
+      log: null,
+    };
+  }
+
+  if (!log) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Audit log not found.",
+      log: null,
+    };
+  }
+
+  const profiles = await loadProfilesByIds(
+    supabase,
+    log.actor_id ? [log.actor_id] : [],
+  );
+
+  return {
+    ok: true,
+    mode: "loaded",
+    message: "Audit log loaded.",
+    log: {
+      ...mapAuditLog(log, profiles),
+      metadata: log.metadata,
+    },
+  };
+}
+
 export async function loadManagerApplications(
   supabase: SupabaseServerClient,
   filters: {
@@ -727,84 +781,82 @@ export async function loadManagerApplications(
   };
 }
 
-export async function loadManagerLenders(
+export async function loadManagerApplicationDetail(
   supabase: SupabaseServerClient,
-  filters: {
-    verificationStatus?: string;
-  } = {},
-): Promise<{ ok: boolean; message: string; lenders: ManagerLenderRow[] }> {
-  let query = supabase
-    .from("lender_profiles")
-    .select(lenderProfileSelect)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (isLenderVerificationStatus(filters.verificationStatus)) {
-    query = query.eq("verification_status", filters.verificationStatus);
+  applicationId: string,
+): Promise<
+  | {
+      ok: true;
+      mode: "loaded";
+      message: string;
+      application: ManagerApplicationDetail;
+    }
+  | {
+      ok: false;
+      mode: "invalid-id" | "not-found" | "supabase";
+      message: string;
+      application: null;
+    }
+> {
+  if (!isUuid(applicationId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid application ID.",
+      application: null,
+    };
   }
 
-  const { data, error } = await query;
-
-  if (error) {
-    return { ok: false, message: "Could not load lenders.", lenders: [] };
-  }
-
-  const profiles = await loadProfilesByIds(
-    supabase,
-    data.flatMap((lender) =>
-      [lender.user_id, lender.approved_by, lender.rejected_by].filter(
-        (id): id is string => Boolean(id),
-      ),
-    ),
-  );
-  const consents = await loadUserConsentsByUserIds(
-    supabase,
-    data.map((lender) => lender.user_id),
-  );
-
-  return {
-    ok: true,
-    message: data.length ? "Lenders loaded." : "No lenders found.",
-    lenders: data.map((lender) =>
-      mapManagerLender(lender, profiles, consents.get(lender.user_id) ?? []),
-    ),
-  };
-}
-
-export async function loadManagerLenderDetail(
-  supabase: SupabaseServerClient,
-  lenderProfileId: string,
-): Promise<{ ok: boolean; message: string; lender: ManagerLenderRow | null }> {
-  if (!isUuid(lenderProfileId)) {
-    return { ok: false, message: "Lender profile was not found.", lender: null };
-  }
-
-  const { data, error } = await supabase
-    .from("lender_profiles")
-    .select(lenderProfileSelect)
-    .eq("id", lenderProfileId)
+  const { data: application, error } = await supabase
+    .from("loan_applications")
+    .select(applicationSelect)
+    .eq("id", applicationId)
     .maybeSingle();
 
   if (error) {
-    return { ok: false, message: "Could not load lender profile.", lender: null };
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load application.",
+      application: null,
+    };
   }
 
-  if (!data) {
-    return { ok: false, message: "Lender profile was not found.", lender: null };
+  if (!application) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "Application not found.",
+      application: null,
+    };
   }
 
-  const profiles = await loadProfilesByIds(
-    supabase,
-    [data.user_id, data.approved_by, data.rejected_by].filter(
-      (id): id is string => Boolean(id),
-    ),
-  );
-  const consents = await loadUserConsentsByUserIds(supabase, [data.user_id]);
+  const [mappedApplications, offersByApplicationId, loansByApplicationId] =
+    await Promise.all([
+      mapManagerApplications(supabase, [application]),
+      loadOffersByApplicationIds(supabase, [application.id]),
+      loadLoansByApplicationIds(supabase, [application.id]),
+    ]);
+  const mappedApplication = mappedApplications[0];
+
+  if (!mappedApplication) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load application.",
+      application: null,
+    };
+  }
 
   return {
     ok: true,
-    message: "Lender profile loaded.",
-    lender: mapManagerLender(data, profiles, consents.get(data.user_id) ?? []),
+    mode: "loaded",
+    message: "Application loaded.",
+    application: {
+      ...mappedApplication,
+      offers: offersByApplicationId.get(application.id) ?? [],
+      activeLoan: loansByApplicationId.get(application.id) ?? null,
+    },
   };
 }
 
@@ -909,6 +961,289 @@ export async function loadManagerLookup(
   };
 }
 
+export async function loadManagerUserDirectory(
+  supabase: SupabaseServerClient,
+  filters: {
+    q?: string;
+    role?: string;
+    status?: string;
+  },
+): Promise<{ ok: boolean; message: string; users: ManagerUserDirectoryRow[] }> {
+  const term = filters.q?.trim();
+
+  let query = supabase
+    .from("profiles")
+    .select(profileSelect)
+    .order("display_name", { ascending: true })
+    .limit(100);
+
+  if (isAppRole(filters.role)) query = query.eq("role", filters.role);
+  if (isProfileStatus(filters.status)) query = query.eq("status", filters.status);
+  if (term) {
+    const safeTerm = escapeFilterTerm(term);
+    query = isUuid(term)
+      ? query.or(`id.eq.${safeTerm},display_name.ilike.%${safeTerm}%`)
+      : query.ilike("display_name", `%${term}%`);
+  }
+
+  const { data: profiles, error } = await query;
+
+  if (error) {
+    return { ok: false, message: "Could not load users.", users: [] };
+  }
+
+  const users = await mapManagerUsers(supabase, profiles);
+
+  return {
+    ok: true,
+    message: users.length ? "Users loaded." : "No users matched these filters.",
+    users,
+  };
+}
+
+export async function loadManagerUserDetail(
+  supabase: SupabaseServerClient,
+  userId: string,
+): Promise<ManagerUserDetailLoadResult> {
+  if (!isUuid(userId)) {
+    return {
+      ok: false,
+      mode: "invalid-id",
+      message: "Invalid user ID.",
+      user: null,
+    };
+  }
+
+  const { data: profile, error } = await supabase
+    .from("profiles")
+    .select(profileSelect)
+    .eq("id", userId)
+    .maybeSingle();
+
+  if (error) {
+    return {
+      ok: false,
+      mode: "supabase",
+      message: "Could not load user.",
+      user: null,
+    };
+  }
+
+  if (!profile) {
+    return {
+      ok: false,
+      mode: "not-found",
+      message: "User not found.",
+      user: null,
+    };
+  }
+
+  const [directoryUser] = await mapManagerUsers(supabase, [profile]);
+
+  if (directoryUser.role === "borrower") {
+    const [portfolioMap, applicationsMap, activeLoansResult] = await Promise.all([
+      loadPortfoliosByBorrowerIds(supabase, [profile.id]),
+      loadApplicationsByBorrowerIds(supabase, [profile.id]),
+      supabase
+        .from("active_loans")
+        .select(activeLoanSelect)
+        .eq("borrower_id", profile.id)
+        .order("due_date", { ascending: true }),
+    ]);
+    const applicationRows = applicationsMap.get(profile.id) ?? [];
+    const [mappedApplications, loansByApplicationId, activeLoans] =
+      await Promise.all([
+        mapManagerApplications(supabase, applicationRows),
+        loadLoansByApplicationIds(
+          supabase,
+          applicationRows.map((application) => application.id),
+        ),
+        activeLoansResult.error
+          ? Promise.resolve([])
+          : mapManagerLoans(supabase, activeLoansResult.data),
+      ]);
+
+    const user = {
+      ...directoryUser,
+      portfolio: portfolioMap.get(profile.id) ?? null,
+      applications: mappedApplications.map((application) => ({
+        ...application,
+        activeLoan: loansByApplicationId.get(application.id) ?? null,
+      })),
+      activeLoans,
+    };
+
+    if (activeLoansResult.error) {
+      return {
+        ok: false,
+        mode: "partial",
+        message: "Could not load full user details.",
+        user,
+      };
+    }
+
+    return {
+      ok: true,
+      mode: "loaded",
+      message: "User loaded.",
+      user,
+    };
+  }
+
+  if (directoryUser.role === "lender") {
+    const [lenderProfiles, offersByLenderId, activeLoansResult, submittedProofs] =
+      await Promise.all([
+        loadLenderProfilesByUserIds(supabase, [profile.id]),
+        loadOffersByLenderIds(supabase, [profile.id]),
+        supabase
+          .from("active_loans")
+          .select(activeLoanSelect)
+          .eq("lender_id", profile.id)
+          .order("due_date", { ascending: true }),
+        loadManagerRepayments(supabase, {
+          proofStatus: "submitted",
+          lender: profile.id,
+        }),
+      ]);
+    const activeLoans = activeLoansResult.error
+      ? []
+      : await mapManagerLoans(supabase, activeLoansResult.data);
+
+    const user = {
+      ...directoryUser,
+      lenderProfile: lenderProfiles.get(profile.id) ?? null,
+      offers: offersByLenderId.get(profile.id) ?? [],
+      activeLoans,
+      submittedProofs: submittedProofs.proofs,
+    };
+
+    if (activeLoansResult.error || !submittedProofs.ok) {
+      return {
+        ok: false,
+        mode: "partial",
+        message: "Could not load full user details.",
+        user,
+      };
+    }
+
+    return {
+      ok: true,
+      mode: "loaded",
+      message: "User loaded.",
+      user,
+    };
+  }
+
+  return { ok: true, mode: "loaded", message: "User loaded.", user: directoryUser };
+}
+
+export async function loadManagerRepaymentProofDetail(
+  supabase: SupabaseServerClient,
+  proofId: string,
+): Promise<{
+  ok: boolean;
+  message: string;
+  proof: ManagerRepaymentProofRow | null;
+}> {
+  if (!isUuid(proofId)) {
+    return { ok: false, message: "Invalid repayment proof ID.", proof: null };
+  }
+
+  const { data: proof, error } = await supabase
+    .from("repayment_proofs")
+    .select(repaymentProofSelect)
+    .eq("id", proofId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: "Could not load repayment proof.", proof: null };
+  }
+
+  if (!proof) {
+    return { ok: true, message: "Repayment proof not found.", proof: null };
+  }
+
+  const [schedules, profiles] = await Promise.all([
+    loadSchedulesByIds(supabase, [proof.repayment_schedule_id]),
+    loadProfilesByIds(supabase, [proof.borrower_id, proof.lender_id]),
+  ]);
+  const schedule = schedules.get(proof.repayment_schedule_id);
+
+  if (!schedule) {
+    return {
+      ok: false,
+      message: "Could not load repayment schedule for this proof.",
+      proof: null,
+    };
+  }
+
+  return {
+    ok: true,
+    message: "Repayment proof loaded.",
+    proof: {
+      id: proof.id,
+      fileName: proof.file_name,
+      fileType: proof.file_type,
+      fileSize: proof.file_size,
+      storageBucket: proof.storage_bucket,
+      storagePath: proof.storage_path,
+      proofStatus: proof.status,
+      repaymentStatus: schedule.status,
+      borrower: getProfileSummary(profiles, proof.borrower_id),
+      lender: getProfileSummary(profiles, proof.lender_id),
+      activeLoanId: proof.active_loan_id,
+      installmentNumber: schedule.installment_number,
+      amountDue: schedule.amount_due,
+      dueDate: schedule.due_date,
+      submittedAt: proof.submitted_at,
+      reviewedAt: proof.reviewed_at,
+      reviewNotes: proof.review_notes,
+    },
+  };
+}
+
+async function mapManagerRepaymentProofs(
+  supabase: SupabaseServerClient,
+  proofs: Database["public"]["Tables"]["repayment_proofs"]["Row"][],
+) {
+  const [schedules, profiles] = await Promise.all([
+    loadSchedulesByIds(
+      supabase,
+      proofs.map((proof) => proof.repayment_schedule_id),
+    ),
+    loadProfilesByIds(
+      supabase,
+      proofs.flatMap((proof) => [proof.borrower_id, proof.lender_id]),
+    ),
+  ]);
+
+  return proofs.flatMap((proof) => {
+    const schedule = schedules.get(proof.repayment_schedule_id);
+
+    if (!schedule) return [];
+
+    return {
+      id: proof.id,
+      fileName: proof.file_name,
+      fileType: proof.file_type,
+      fileSize: proof.file_size,
+      storageBucket: proof.storage_bucket,
+      storagePath: proof.storage_path,
+      proofStatus: proof.status,
+      repaymentStatus: schedule.status,
+      borrower: getProfileSummary(profiles, proof.borrower_id),
+      lender: getProfileSummary(profiles, proof.lender_id),
+      activeLoanId: proof.active_loan_id,
+      installmentNumber: schedule.installment_number,
+      amountDue: schedule.amount_due,
+      dueDate: schedule.due_date,
+      submittedAt: proof.submitted_at,
+      reviewedAt: proof.reviewed_at,
+      reviewNotes: proof.review_notes,
+    };
+  });
+}
+
 async function mapManagerLoans(
   supabase: SupabaseServerClient,
   loans: ActiveLoanRow[],
@@ -930,10 +1265,82 @@ async function mapManagerLoans(
     repaymentAmount: loan.repayment_amount,
     outstandingBalance: loan.outstanding_balance,
     status: loan.status,
-    startedAt: loan.started_at,
-    dueDate: loan.due_date,
+    startedAt: loan.started_at ?? null,
+    dueDate: loan.due_date ?? null,
     schedule: createScheduleSummary(schedules.get(loan.id) ?? []),
   }));
+}
+
+async function mapManagerUsers(
+  supabase: SupabaseServerClient,
+  profiles: ProfileRow[],
+): Promise<ManagerUserDirectoryRow[]> {
+  const borrowerIds = profiles
+    .filter((profile) => profile.role === "borrower")
+    .map((profile) => profile.id);
+  const lenderIds = profiles
+    .filter((profile) => profile.role === "lender")
+    .map((profile) => profile.id);
+
+  const [
+    portfolios,
+    applicationsByBorrowerId,
+    borrowerActiveLoanCounts,
+    lenderProfiles,
+    offersByLenderId,
+    lenderActiveLoanCounts,
+    submittedProofCounts,
+  ] = await Promise.all([
+    loadPortfoliosByBorrowerIds(supabase, borrowerIds),
+    loadApplicationsByBorrowerIds(supabase, borrowerIds),
+    countActiveLoansByColumn(supabase, "borrower_id", borrowerIds),
+    loadLenderProfilesByUserIds(supabase, lenderIds),
+    loadOffersByLenderIds(supabase, lenderIds),
+    countActiveLoansByColumn(supabase, "lender_id", lenderIds),
+    countSubmittedProofsByLenderIds(supabase, lenderIds),
+  ]);
+
+  return profiles.map((profile) => {
+    const summary = toProfileSummary(profile);
+
+    if (profile.role === "borrower") {
+      const applications = applicationsByBorrowerId.get(profile.id) ?? [];
+
+      return {
+        role: "borrower",
+        profile: summary,
+        status: profile.status,
+        portfolioLocation: portfolios.get(profile.id)?.location ?? null,
+        applicationCount: applications.length,
+        activeLoanCount: borrowerActiveLoanCounts.get(profile.id) ?? 0,
+        latestApplicationStatus: applications[0]?.status ?? null,
+      };
+    }
+
+    if (profile.role === "lender") {
+      const offers = offersByLenderId.get(profile.id) ?? [];
+      const lenderProfile = lenderProfiles.get(profile.id);
+
+      return {
+        role: "lender",
+        profile: summary,
+        status: profile.status,
+        organizationName: lenderProfile?.organization_name ?? null,
+        verificationStatus: lenderProfile?.verification_status ?? null,
+        offerCount: offers.length,
+        acceptedOfferCount: offers.filter((offer) => offer.status === "accepted")
+          .length,
+        activeLoanCount: lenderActiveLoanCounts.get(profile.id) ?? 0,
+        submittedProofCount: submittedProofCounts.get(profile.id) ?? 0,
+      };
+    }
+
+    return {
+      role: "manager",
+      profile: summary,
+      status: profile.status,
+    };
+  });
 }
 
 async function mapManagerApplications(
@@ -962,8 +1369,6 @@ async function mapManagerApplications(
       purpose: application.purpose,
       preferredTerm: application.preferred_term,
       status: application.status,
-      creditReadinessStatus: application.credit_readiness_status,
-      riskFlags: getReadinessRiskFlags(application.borrower_readiness_snapshot),
       submittedAt: application.submitted_at,
       offerCounts: offers.reduce(
         (counts, offer) => ({
@@ -982,26 +1387,6 @@ async function mapManagerApplications(
         : null,
     };
   });
-}
-
-function getReadinessRiskFlags(readiness: Json | null) {
-  if (!readiness || typeof readiness !== "object" || Array.isArray(readiness)) {
-    return [];
-  }
-
-  const profileReadiness = readiness.profile_readiness;
-  if (
-    !profileReadiness ||
-    typeof profileReadiness !== "object" ||
-    Array.isArray(profileReadiness) ||
-    !Array.isArray(profileReadiness.risk_flags)
-  ) {
-    return [];
-  }
-
-  return profileReadiness.risk_flags.filter(
-    (flag): flag is string => typeof flag === "string",
-  );
 }
 
 async function loadLoansByApplicationIds(
@@ -1047,130 +1432,123 @@ async function loadOffersByApplicationIds(
   }, new Map<string, LoanOfferRow[]>());
 }
 
-async function loadBorrowerVerificationDocuments(
+async function loadPortfoliosByBorrowerIds(
   supabase: SupabaseServerClient,
-  verificationIds: string[],
-  status?: string,
+  borrowerIds: string[],
 ) {
-  const uniqueIds = [...new Set(verificationIds)];
-  if (uniqueIds.length === 0) {
-    return new Map<string, ManagerBorrowerVerificationDocumentRow[]>();
-  }
+  if (borrowerIds.length === 0) return new Map<string, BorrowerPortfolioRow>();
 
-  let query = supabase
-    .from("borrower_verification_documents")
-    .select(borrowerVerificationDocumentSelect)
-    .in("borrower_verification_id", uniqueIds)
-    .order("uploaded_at", { ascending: false });
+  const { data, error } = await supabase
+    .from("borrower_portfolios")
+    .select(portfolioSelect)
+    .in("borrower_id", borrowerIds);
 
-  if (isBorrowerVerificationDocumentStatus(status)) {
-    query = query.eq("status", status);
-  }
+  if (error) return new Map<string, BorrowerPortfolioRow>();
 
-  const { data, error } = await query;
-
-  if (error || data.length === 0) {
-    return new Map<string, ManagerBorrowerVerificationDocumentRow[]>();
-  }
-
-  const mappedDocuments = await Promise.all(
-    data.map(async (document) => ({
-      borrowerVerificationId: document.borrower_verification_id,
-      document: await mapManagerBorrowerVerificationDocument(supabase, document),
-    })),
-  );
-
-  return mappedDocuments.reduce((groups, item) => {
-    groups.set(item.borrowerVerificationId, [
-      ...(groups.get(item.borrowerVerificationId) ?? []),
-      item.document,
-    ]);
-
-    return groups;
-  }, new Map<string, ManagerBorrowerVerificationDocumentRow[]>());
+  return new Map(data.map((portfolio) => [portfolio.borrower_id, portfolio]));
 }
 
-async function mapManagerBorrowerVerificationDocument(
+async function loadApplicationsByBorrowerIds(
   supabase: SupabaseServerClient,
-  document: BorrowerVerificationDocumentRow,
-): Promise<ManagerBorrowerVerificationDocumentRow> {
-  const { data } = await supabase.storage
-    .from(document.storage_bucket)
-    .createSignedUrl(document.storage_path, 300);
+  borrowerIds: string[],
+) {
+  if (borrowerIds.length === 0) return new Map<string, ApplicationRow[]>();
 
-  return {
-    id: document.id,
-    documentType: document.document_type,
-    status: document.status,
-    fileName: document.file_name,
-    fileType: document.file_type,
-    fileSize: document.file_size,
-    uploadedAt: document.uploaded_at,
-    reviewedAt: document.reviewed_at,
-    reviewNotes: document.review_notes,
-    viewUrl: data?.signedUrl ?? null,
-  };
+  const { data, error } = await supabase
+    .from("loan_applications")
+    .select(applicationSelect)
+    .in("borrower_id", borrowerIds)
+    .order("submitted_at", { ascending: false });
+
+  if (error) return new Map<string, ApplicationRow[]>();
+
+  return data.reduce((groups, application) => {
+    groups.set(application.borrower_id, [
+      ...(groups.get(application.borrower_id) ?? []),
+      application,
+    ]);
+    return groups;
+  }, new Map<string, ApplicationRow[]>());
 }
 
-function mapManagerBorrowerVerification(
-  verification: BorrowerVerificationRow,
-  profiles: Map<string, ProfileRow>,
-  documents: ManagerBorrowerVerificationDocumentRow[],
-  consents: UserConsentRecord[],
-): ManagerBorrowerVerificationRow {
-  return {
-    id: verification.id,
-    borrower: getProfileSummary(profiles, verification.borrower_id),
-    verificationStatus: verification.verification_status,
-    submittedAt: verification.submitted_at,
-    reviewedAt: verification.reviewed_at,
-    reviewedBy: verification.reviewed_by
-      ? getProfileSummary(profiles, verification.reviewed_by)
-      : null,
-    managerReviewNotes: verification.manager_review_notes,
-    rejectionReason: verification.rejection_reason,
-    createdAt: verification.created_at,
-    updatedAt: verification.updated_at,
-    documents,
-    documentPolicy: calculateBorrowerVerificationDocumentPolicy(documents),
-    documentUploadConsentStatus: buildConsentStatus(
-      "borrower_document_upload",
-      consents,
-    ),
-    loanApplicationConsentStatus: buildConsentStatus(
-      "borrower_loan_application",
-      consents,
-    ),
-  };
-}
-
-async function loadUserConsentsByUserIds(
+async function loadLenderProfilesByUserIds(
   supabase: SupabaseServerClient,
   userIds: string[],
 ) {
-  const uniqueIds = [...new Set(userIds.filter(Boolean))];
-  if (uniqueIds.length === 0) return new Map<string, UserConsentRecord[]>();
+  if (userIds.length === 0) return new Map<string, LenderProfileRow>();
 
   const { data, error } = await supabase
-    .from("user_consents")
-    .select("user_id, consent_type, version, accepted_at")
-    .in("user_id", uniqueIds)
-    .order("accepted_at", { ascending: false });
+    .from("lender_profiles")
+    .select("id, user_id, organization_name, verification_status, approved_at, approved_by, created_at, updated_at")
+    .in("user_id", userIds);
 
-  if (error) return new Map<string, UserConsentRecord[]>();
+  if (error) return new Map<string, LenderProfileRow>();
 
-  return data.reduce((groups, consent: Pick<UserConsentRow, "user_id" | "consent_type" | "version" | "accepted_at">) => {
-    const current = groups.get(consent.user_id) ?? [];
-    groups.set(consent.user_id, [
-      ...current,
-      {
-        consentType: consent.consent_type,
-        version: consent.version,
-        acceptedAt: consent.accepted_at,
-      },
-    ]);
+  return new Map(data.map((profile) => [profile.user_id, profile]));
+}
+
+async function loadOffersByLenderIds(
+  supabase: SupabaseServerClient,
+  lenderIds: string[],
+) {
+  if (lenderIds.length === 0) return new Map<string, LoanOfferRow[]>();
+
+  const { data, error } = await supabase
+    .from("loan_offers")
+    .select(offerSelect)
+    .in("lender_id", lenderIds);
+
+  if (error) return new Map<string, LoanOfferRow[]>();
+
+  return data.reduce((groups, offer) => {
+    groups.set(offer.lender_id, [...(groups.get(offer.lender_id) ?? []), offer]);
     return groups;
-  }, new Map<string, UserConsentRecord[]>());
+  }, new Map<string, LoanOfferRow[]>());
+}
+
+async function countActiveLoansByColumn(
+  supabase: SupabaseServerClient,
+  column: "borrower_id" | "lender_id",
+  ids: string[],
+) {
+  if (ids.length === 0) return new Map<string, number>();
+
+  const { data, error } = await supabase
+    .from("active_loans")
+    .select(`id, ${column}`)
+    .eq("status", "active")
+    .in(column, ids);
+
+  if (error) return new Map<string, number>();
+
+  const rows = data as Array<{ borrower_id?: string; lender_id?: string }>;
+
+  return rows.reduce((counts, row) => {
+    const id = row[column];
+    if (!id) return counts;
+    counts.set(id, (counts.get(id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
+}
+
+async function countSubmittedProofsByLenderIds(
+  supabase: SupabaseServerClient,
+  lenderIds: string[],
+) {
+  if (lenderIds.length === 0) return new Map<string, number>();
+
+  const { data, error } = await supabase
+    .from("repayment_proofs")
+    .select("id, lender_id")
+    .eq("status", "submitted")
+    .in("lender_id", lenderIds);
+
+  if (error) return new Map<string, number>();
+
+  return data.reduce((counts, proof) => {
+    counts.set(proof.lender_id, (counts.get(proof.lender_id) ?? 0) + 1);
+    return counts;
+  }, new Map<string, number>());
 }
 
 async function loadProfilesByIds(
@@ -1284,53 +1662,10 @@ function mapAuditLog(
   };
 }
 
-function mapManagerLender(
-  lender: LenderProfileRow,
-  profiles: Map<string, ProfileRow>,
-  consents: UserConsentRecord[],
-): ManagerLenderRow {
-  return {
-    id: lender.id,
-    userId: lender.user_id,
-    organizationName: lender.organization_name,
-    contactPerson: lender.contact_person,
-    phoneNumber: lender.phone_number,
-    businessAddress: lender.business_address,
-    operatingArea: lender.operating_area,
-    businessRegistrationNumber: lender.business_registration_number,
-    minLoanAmount: Number(lender.min_loan_amount),
-    maxLoanAmount: Number(lender.max_loan_amount),
-    typicalRepaymentTerms: lender.typical_repayment_terms,
-    lenderDescription: lender.lender_description,
-    verificationStatus: lender.verification_status,
-    approvedAt: lender.approved_at,
-    approvedBy: lender.approved_by
-      ? getProfileSummary(profiles, lender.approved_by)
-      : null,
-    managerReviewNotes: lender.manager_review_notes,
-    rejectionReason: lender.rejection_reason,
-    rejectedAt: lender.rejected_at,
-    rejectedBy: lender.rejected_by
-      ? getProfileSummary(profiles, lender.rejected_by)
-      : null,
-    createdAt: lender.created_at,
-    updatedAt: lender.updated_at,
-    profile: getProfileSummary(profiles, lender.user_id),
-    consentStatus: buildConsentStatus("lender_review", consents),
-  };
-}
-
-function isLenderVerificationStatus(
-  value: string | undefined,
-): value is Database["public"]["Enums"]["lender_verification_status"] {
-  return value === "pending" || value === "approved" || value === "rejected";
-}
-
 async function countRows(
   supabase: SupabaseServerClient,
   table:
     | "active_loans"
-    | "borrower_verification_documents"
     | "loan_applications"
     | "loan_offers"
     | "loan_repayment_schedules"
@@ -1341,18 +1676,6 @@ async function countRows(
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("status", filter.status);
-
-  return { ok: !error, count: count ?? 0 };
-}
-
-async function countBorrowerVerificationsByStatus(
-  supabase: SupabaseServerClient,
-  status: Database["public"]["Enums"]["borrower_verification_status"],
-) {
-  const { count, error } = await supabase
-    .from("borrower_verifications")
-    .select("id", { count: "exact", head: true })
-    .eq("verification_status", status);
 
   return { ok: !error, count: count ?? 0 };
 }
@@ -1373,14 +1696,12 @@ function endOfDay(date: string) {
   return `${date}T23:59:59.999Z`;
 }
 
-function escapeFilterTerm(value: string) {
-  return value.replace(/[%(),]/g, "");
+function endOfDateFilter(value: string) {
+  return value.includes("T") ? value : endOfDay(value);
 }
 
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    value,
-  );
+function escapeFilterTerm(value: string) {
+  return value.replace(/[%(),]/g, "");
 }
 
 function isActiveLoanStatus(
@@ -1403,31 +1724,22 @@ function isPreferredTerm(
   return ["1_month", "3_months", "6_months", "12_months"].includes(value ?? "");
 }
 
+function isAppRole(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["app_role"] {
+  return ["borrower", "lender", "manager"].includes(value ?? "");
+}
+
+function isProfileStatus(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["profile_status"] {
+  return ["active", "pending", "suspended"].includes(value ?? "");
+}
+
 function isProofStatus(
   value: string | undefined,
 ): value is Database["public"]["Enums"]["repayment_proof_status"] {
   return ["submitted", "verified", "rejected"].includes(value ?? "");
-}
-
-function isBorrowerVerificationStatus(
-  value: string | undefined,
-): value is Database["public"]["Enums"]["borrower_verification_status"] {
-  return [
-    "not_started",
-    "pending",
-    "pending_documents",
-    "submitted",
-    "under_review",
-    "approved",
-    "rejected",
-    "needs_resubmission",
-  ].includes(value ?? "");
-}
-
-function isBorrowerVerificationDocumentStatus(
-  value: string | undefined,
-): value is Database["public"]["Enums"]["borrower_verification_document_status"] {
-  return ["submitted", "accepted", "rejected", "superseded"].includes(value ?? "");
 }
 
 function isRepaymentStatus(

@@ -1,14 +1,19 @@
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { resolveSubmittedDateRangeFilters } from "../lib/date-ranges";
 import {
   loadManagerApplications,
+  loadManagerApplicationDetail,
+  loadManagerAuditLogDetail,
   loadManagerAuditLogs,
+  loadManagerLoanDetail,
   loadManagerLoans,
   loadManagerLookup,
   loadManagerOverview,
   loadManagerRepayments,
-  loadManagerLenderDetail,
-  loadManagerLenders,
+  loadManagerRepaymentProofDetail,
+  loadManagerUserDetail,
+  loadManagerUserDirectory,
 } from "../lib/manager-operations";
 import type { Database, Json } from "../lib/supabase/types";
 
@@ -40,21 +45,12 @@ const ids = {
   approvedLender: "33333333-3333-3333-3333-333333333333",
   partnerLender: "44444444-4444-4444-4444-444444444444",
   pendingLender: "55555555-5555-5555-5555-555555555555",
-  manager: "66666666-6666-6666-6666-666666666666",
 } as const;
 
 type TestClient = SupabaseClient<Database>;
 type InsertedRow = {
   id: string;
   status?: string;
-};
-type NotificationRow = {
-  id: string;
-  user_id: string;
-  type: string;
-  title: string;
-  message: string;
-  href: string | null;
 };
 type AcceptanceResult = {
   ok: boolean;
@@ -78,71 +74,6 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
-type RefreshOverdueResult = {
-  ok: boolean;
-  message?: string;
-  late_repayment_count?: number;
-  overdue_loan_count?: number;
-  restored_loan_count?: number;
-  paid_loan_count?: number;
-};
-type ReviewLenderResult = {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  lender_profile_id?: string;
-  verification_status?: string;
-};
-type ReviewBorrowerResult = {
-  ok: boolean;
-  message?: string;
-  borrower_id?: string;
-  borrower_verification_id?: string;
-  verification_status?: string;
-};
-type RepairProvisioningResult = {
-  ok: boolean;
-  message?: string;
-  user_id?: string;
-  role?: string;
-};
-type SubmitApplicationResult = {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  application?: Json;
-  credit_limit?: number;
-  used_credit?: number;
-  available_credit?: number;
-};
-type SubmitBorrowerVerificationDocumentResult = {
-  ok: boolean;
-  code?: string;
-  message?: string;
-  document_id?: string;
-};
-type UserConsentType = Database["public"]["Enums"]["user_consent_type"];
-
-const consentVersions = {
-  terms_of_service: "2026-05-terms-v1",
-  privacy_notice: "2026-05-privacy-v1",
-  credit_review_authorization: "2026-05-credit-review-v1",
-  document_processing_consent: "2026-05-document-processing-v1",
-  lender_review_consent: "2026-05-lender-review-v1",
-} as const satisfies Record<UserConsentType, string>;
-
-const borrowerWorkflowConsentTypes = [
-  "terms_of_service",
-  "privacy_notice",
-  "credit_review_authorization",
-  "document_processing_consent",
-] as const satisfies UserConsentType[];
-
-const lenderWorkflowConsentTypes = [
-  "terms_of_service",
-  "privacy_notice",
-  "lender_review_consent",
-] as const satisfies UserConsentType[];
 
 function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
@@ -169,102 +100,7 @@ async function signIn(email: string): Promise<TestClient> {
   return client;
 }
 
-async function signUpSelfServeAccount(input: {
-  role: "borrower" | "lender";
-  email: string;
-  displayName: string;
-  acceptedConsentTypes?: readonly UserConsentType[];
-  organizationName?: string;
-  contactPerson?: string;
-  phoneNumber?: string;
-  businessAddress?: string;
-  operatingArea?: string;
-  businessRegistrationNumber?: string;
-  minLoanAmount?: number;
-  maxLoanAmount?: number;
-  typicalRepaymentTerms?: string;
-  lenderDescription?: string;
-}) {
-  const client = createSupabaseClient(supabaseAnonKey);
-  const lenderMetadata =
-    input.role === "lender"
-      ? {
-          organization_name: input.organizationName,
-          contact_person: input.contactPerson ?? "Signup Contact",
-          phone_number: input.phoneNumber ?? "+63 917 555 0199",
-          business_address:
-            input.businessAddress ?? "99 Signup Street, Quezon City",
-          operating_area: input.operatingArea ?? "Metro Manila",
-          business_registration_number: input.businessRegistrationNumber,
-          min_loan_amount: input.minLoanAmount ?? 5000,
-          max_loan_amount: input.maxLoanAmount ?? 50000,
-          typical_repayment_terms:
-            input.typicalRepaymentTerms ?? "1 to 6 months",
-          lender_description:
-            input.lenderDescription ??
-            "Signup lender profile for manual manager verification testing.",
-        }
-      : {};
-  const { data, error } = await client.auth.signUp({
-    email: input.email,
-    password,
-    options: {
-      data: {
-        lendfolio_role: input.role,
-        display_name: input.displayName,
-        ...lenderMetadata,
-      },
-    },
-  });
-
-  expect(error).toBeNull();
-  expect(data.user?.id).toBeTruthy();
-  expect(data.session).toBeTruthy();
-
-  if (!data.user?.id) {
-    throw new Error("Expected signup to return an auth user.");
-  }
-
-  await acceptCurrentConsents(
-    client,
-    input.acceptedConsentTypes ??
-      (input.role === "borrower"
-        ? borrowerWorkflowConsentTypes
-        : lenderWorkflowConsentTypes),
-  );
-
-  return {
-    client,
-    userId: data.user.id,
-  };
-}
-
-async function acceptCurrentConsents(
-  client: TestClient,
-  consentTypes: readonly UserConsentType[],
-) {
-  if (consentTypes.length === 0) {
-    return;
-  }
-
-  const { error: consentError } = await client.rpc("accept_user_consents", {
-    p_consents: consentTypes.map((consentType) => ({
-      consent_type: consentType,
-      version: consentVersions[consentType],
-    })),
-  });
-
-  expect(consentError).toBeNull();
-}
-
-async function deleteAuthUsers(admin: TestClient, userIds: string[]) {
-  for (const userId of userIds) {
-    await admin.auth.admin.deleteUser(userId);
-  }
-}
-
 async function cleanWorkflowRows(admin: TestClient) {
-  await admin.from("notifications").delete().neq("id", crypto.randomUUID());
   await admin
     .from("repayment_proofs")
     .delete()
@@ -292,98 +128,23 @@ async function cleanWorkflowRows(admin: TestClient) {
   await admin.from("audit_logs").delete().neq("action", "__keep_none__");
 }
 
-async function rotateCurrentLegalDocument(
-  admin: TestClient,
-  consentType: UserConsentType,
-) {
-  const currentVersion = consentVersions[consentType];
-  const rotatedVersion = `${currentVersion}-rotated-${crypto.randomUUID()}`;
-
-  const { error: retireError } = await admin
-    .from("legal_documents")
-    .update({ retired_at: new Date().toISOString() })
-    .eq("consent_type", consentType)
-    .eq("version", currentVersion)
-    .is("retired_at", null);
-
-  expect(retireError).toBeNull();
-
-  const { error: insertError } = await admin.from("legal_documents").insert({
-    consent_type: consentType,
-    version: rotatedVersion,
-    title: `Rotated ${consentType}`,
-    document_url: null,
-    published_at: new Date().toISOString(),
-  });
-
-  expect(insertError).toBeNull();
-
-  return rotatedVersion;
-}
-
-async function restoreCurrentLegalDocument(
-  admin: TestClient,
-  consentType: UserConsentType,
-  rotatedVersion: string,
-) {
-  await admin
-    .from("legal_documents")
-    .update({ retired_at: new Date().toISOString() })
-    .eq("consent_type", consentType)
-    .eq("version", rotatedVersion)
-    .is("retired_at", null);
-
-  const { error: restoreError } = await admin
-    .from("legal_documents")
-    .update({ retired_at: null })
-    .eq("consent_type", consentType)
-    .eq("version", consentVersions[consentType]);
-
-  expect(restoreError).toBeNull();
-}
-
-async function createBorrowerPortfolio(
+async function createPortfolioAndApplication(
   client: TestClient,
   borrowerId: string = ids.borrower,
+  preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
 ) {
   const { data: portfolio, error: portfolioError } = await client
     .from("borrower_portfolios")
     .insert({
       borrower_id: borrowerId,
-      business_name: "Aling Nena Store",
-      business_description:
-        "Neighborhood retail store selling daily grocery and household items.",
       business_type: "sari_sari_store",
-      started_operating_at: "2022-01-01",
-      business_address: "12 Mabini Street",
-      barangay: "San Jose",
-      city_or_municipality: "Quezon City",
-      province: "Metro Manila",
       location: "Quezon City",
-      operating_model: "fixed_store",
-      primary_sales_channel: "walk_in",
-      revenue_period: "average_monthly_last_3_months",
-      revenue_confidence: "partially_documented",
       monthly_gross_revenue: 48000,
       monthly_expenses: 31000,
       existing_loan_payments: 2500,
       years_in_operation: 3,
-      expense_breakdown: {
-        inventory: 24000,
-        rent: 4000,
-        payroll: 0,
-        utilities: 1500,
-        other: 1500,
-      },
-      debt_obligation_summary: {
-        active_lender_count: 1,
-        total_outstanding_debt: 15000,
-        notes: "",
-      },
       loan_purpose_context:
         "Working capital for inventory and supplier purchases during peak demand.",
-      profile_last_confirmed_at: new Date().toISOString(),
-      profile_review_status: "reviewed",
     })
     .select("id")
     .single<InsertedRow>();
@@ -394,21 +155,11 @@ async function createBorrowerPortfolio(
     throw new Error("Expected borrower portfolio insert to return a row.");
   }
 
-  return portfolio.id as string;
-}
-
-async function createPortfolioAndApplication(
-  client: TestClient,
-  borrowerId: string = ids.borrower,
-  preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
-) {
-  const portfolioId = await createBorrowerPortfolio(client, borrowerId);
-
   const { data: application, error: applicationError } = await client
     .from("loan_applications")
     .insert({
       borrower_id: borrowerId,
-      borrower_portfolio_id: portfolioId,
+      borrower_portfolio_id: portfolio.id,
       requested_amount: 25000,
       purpose: "Inventory restock",
       preferred_term: preferredTerm,
@@ -424,7 +175,7 @@ async function createPortfolioAndApplication(
   }
 
   return {
-    portfolioId,
+    portfolioId: portfolio.id as string,
     applicationId: application.id as string,
   };
 }
@@ -598,20 +349,6 @@ async function submitProofForSchedule(
   return result.data as Json as RepaymentProofResult;
 }
 
-async function readNotifications(
-  client: TestClient,
-  type: string,
-): Promise<NotificationRow[]> {
-  const { data, error } = await client
-    .from("notifications")
-    .select("id, user_id, type, title, message, href")
-    .eq("type", type)
-    .order("created_at", { ascending: true });
-
-  expect(error).toBeNull();
-  return (data ?? []) as NotificationRow[];
-}
-
 describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () => {
   let admin: TestClient;
   let borrower: TestClient;
@@ -633,1156 +370,6 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
   beforeEach(async () => {
     await cleanWorkflowRows(admin);
-  });
-
-  it("provisions borrower and lender signups and gates lender approval", async () => {
-    const createdUserIds: string[] = [];
-
-    try {
-      const borrowerEmail = `borrower.${crypto.randomUUID()}@lendfolio.local`;
-      const lenderEmail = `lender.${crypto.randomUUID()}@lendfolio.local`;
-      const rejectedEmail = `lender.${crypto.randomUUID()}@lendfolio.local`;
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: borrowerEmail,
-        displayName: "Signup Borrower",
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      const { data: borrowerProfile, error: borrowerProfileError } =
-        await signupBorrower.client
-          .from("profiles")
-          .select("id, role, status")
-          .eq("id", signupBorrower.userId)
-          .single();
-
-      expect(borrowerProfileError).toBeNull();
-      expect(borrowerProfile).toMatchObject({
-        role: "borrower",
-        status: "active",
-      });
-
-      const { data: borrowerVerification, error: borrowerVerificationError } =
-        await signupBorrower.client
-          .from("borrower_verifications")
-          .select("id, verification_status")
-          .eq("borrower_id", signupBorrower.userId)
-          .single();
-
-      expect(borrowerVerificationError).toBeNull();
-      expect(borrowerVerification).toMatchObject({
-        verification_status: "pending",
-      });
-
-      const { data: borrowerOnboarding, error: borrowerOnboardingError } =
-        await signupBorrower.client
-          .from("account_onboarding_states")
-          .select("provisioning_state, onboarding_state")
-          .eq("user_id", signupBorrower.userId)
-          .single();
-
-      expect(borrowerOnboardingError).toBeNull();
-      expect(borrowerOnboarding).toMatchObject({
-        provisioning_state: "ready_for_review",
-        onboarding_state: "borrower_review_pending",
-      });
-
-      const { data: borrowerProvisioningEvents, error: borrowerEventsError } =
-        await manager
-          .from("provisioning_events")
-          .select("event_status, requested_role, source")
-          .eq("user_id", signupBorrower.userId)
-          .order("created_at", { ascending: true });
-
-      expect(borrowerEventsError).toBeNull();
-      expect(borrowerProvisioningEvents).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            event_status: "attempted",
-            requested_role: "borrower",
-            source: "auth_user_created",
-          }),
-          expect.objectContaining({
-            event_status: "succeeded",
-            requested_role: "borrower",
-            source: "auth_user_created",
-          }),
-        ]),
-      );
-
-      const { error: borrowerVerificationMutationError } =
-        await signupBorrower.client
-          .from("borrower_verifications")
-          .update({ verification_status: "approved" })
-          .eq("borrower_id", signupBorrower.userId);
-
-      expect(borrowerVerificationMutationError).not.toBeNull();
-
-      const { error: roleMutationError } = await signupBorrower.client
-        .from("profiles")
-        .update({ role: "manager" })
-        .eq("id", signupBorrower.userId);
-
-      expect(roleMutationError).not.toBeNull();
-
-      const signupLender = await signUpSelfServeAccount({
-        role: "lender",
-        email: lenderEmail,
-        displayName: "Signup Lender",
-        organizationName: "Signup Capital",
-      });
-      createdUserIds.push(signupLender.userId);
-
-      const { data: lenderProfile, error: lenderProfileError } =
-        await signupLender.client
-          .from("profiles")
-          .select("id, role, status")
-          .eq("id", signupLender.userId)
-          .single();
-
-      expect(lenderProfileError).toBeNull();
-      expect(lenderProfile).toMatchObject({
-        role: "lender",
-        status: "active",
-      });
-
-      const { data: pendingLenderProfile, error: pendingLenderProfileError } =
-        await signupLender.client
-          .from("lender_profiles")
-          .select(
-            "id, organization_name, contact_person, phone_number, business_address, operating_area, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status",
-          )
-          .eq("user_id", signupLender.userId)
-          .single();
-
-      expect(pendingLenderProfileError).toBeNull();
-      expect(pendingLenderProfile).toMatchObject({
-        organization_name: "Signup Capital",
-        contact_person: "Signup Contact",
-        phone_number: "+63 917 555 0199",
-        business_address: "99 Signup Street, Quezon City",
-        operating_area: "Metro Manila",
-        min_loan_amount: 5000,
-        max_loan_amount: 50000,
-        typical_repayment_terms: "1 to 6 months",
-        lender_description:
-          "Signup lender profile for manual manager verification testing.",
-        verification_status: "pending",
-      });
-
-      const { data: lenderOnboarding, error: lenderOnboardingError } =
-        await signupLender.client
-          .from("account_onboarding_states")
-          .select("provisioning_state, onboarding_state")
-          .eq("user_id", signupLender.userId)
-          .single();
-
-      expect(lenderOnboardingError).toBeNull();
-      expect(lenderOnboarding).toMatchObject({
-        provisioning_state: "ready_for_review",
-        onboarding_state: "lender_review_pending",
-      });
-
-      const { data: lenderProvisioningEvents, error: lenderEventsError } =
-        await manager
-          .from("provisioning_events")
-          .select("event_status, requested_role, source")
-          .eq("user_id", signupLender.userId)
-          .order("created_at", { ascending: true });
-
-      expect(lenderEventsError).toBeNull();
-      expect(lenderProvisioningEvents).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            event_status: "attempted",
-            requested_role: "lender",
-            source: "auth_user_created",
-          }),
-          expect.objectContaining({
-            event_status: "succeeded",
-            requested_role: "lender",
-            source: "auth_user_created",
-          }),
-        ]),
-      );
-
-      const managerLenders = await loadManagerLenders(manager, {
-        verificationStatus: "pending",
-      });
-      expect(managerLenders.ok).toBe(true);
-      expect(managerLenders.lenders.map((lender) => lender.id)).toContain(
-        pendingLenderProfile?.id,
-      );
-
-      const managerLenderDetail = await loadManagerLenderDetail(
-        manager,
-        pendingLenderProfile?.id ?? "",
-      );
-      expect(managerLenderDetail.ok).toBe(true);
-      expect(managerLenderDetail.lender).toMatchObject({
-        organizationName: "Signup Capital",
-        verificationStatus: "pending",
-      });
-
-      const { error: verificationMutationError } = await signupLender.client
-        .from("lender_profiles")
-        .update({ verification_status: "approved" })
-        .eq("user_id", signupLender.userId);
-
-      expect(verificationMutationError).not.toBeNull();
-
-      const { error: reviewFieldMutationError } = await signupLender.client
-        .from("lender_profiles")
-        .update({ manager_review_notes: "Self-approved." })
-        .eq("user_id", signupLender.userId);
-
-      expect(reviewFieldMutationError).not.toBeNull();
-
-      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
-
-      const pendingBorrowerApplication =
-        await signupBorrower.client.rpc("submit_loan_application", {
-          p_requested_amount: 25000,
-          p_purpose: "Inventory restock",
-          p_preferred_term: "3_months",
-          p_remarks: "Review against current cash flow.",
-        });
-
-      expect(pendingBorrowerApplication.error).toBeNull();
-      expect(
-        pendingBorrowerApplication.data as Json as SubmitApplicationResult,
-      ).toMatchObject({
-        ok: false,
-        code: "borrower_verification_required",
-        message:
-          "Borrower verification is required before submitting a loan application.",
-      });
-
-      const borrowerSelfReview = await signupBorrower.client.rpc(
-        "review_borrower_verification",
-        {
-          p_borrower_id: signupBorrower.userId,
-          p_decision: "approve",
-        },
-      );
-
-      expect(borrowerSelfReview.error).toBeNull();
-      expect(
-        borrowerSelfReview.data as Json as ReviewBorrowerResult,
-      ).toMatchObject({
-        ok: false,
-      });
-
-      const borrowerApproval = await manager.rpc("review_borrower_verification", {
-        p_borrower_id: signupBorrower.userId,
-        p_decision: "approve",
-        p_manager_review_notes: "Approved after manual profile review.",
-      });
-
-      expect(borrowerApproval.error).toBeNull();
-      expect(
-        borrowerApproval.data as Json as ReviewBorrowerResult,
-      ).toMatchObject({
-        ok: true,
-        verification_status: "approved",
-      });
-
-      const acceptedBorrowerApplication =
-        await signupBorrower.client.rpc("submit_loan_application", {
-          p_requested_amount: 25000,
-          p_purpose: "Inventory restock",
-          p_preferred_term: "3_months",
-          p_remarks: "Review against current cash flow.",
-        });
-
-      expect(acceptedBorrowerApplication.error).toBeNull();
-      expect(
-        acceptedBorrowerApplication.data as Json as SubmitApplicationResult,
-      ).toMatchObject({
-        ok: true,
-      });
-
-      const acceptedBorrowerApplicationResult =
-        acceptedBorrowerApplication.data as Json as SubmitApplicationResult;
-      const applicationId =
-        acceptedBorrowerApplicationResult.application &&
-        typeof acceptedBorrowerApplicationResult.application === "object" &&
-        !Array.isArray(acceptedBorrowerApplicationResult.application) &&
-        typeof acceptedBorrowerApplicationResult.application.id === "string"
-          ? acceptedBorrowerApplicationResult.application.id
-          : "";
-      expect(applicationId).toBeTruthy();
-
-      const { data: pendingApplication, error: pendingApplicationError } =
-        await signupLender.client
-          .from("loan_applications")
-          .select("id")
-          .eq("id", applicationId);
-
-      expect(pendingApplicationError).toBeNull();
-      expect(pendingApplication).toEqual([]);
-
-      const pendingOffer = await createOffer(
-        signupLender.client,
-        signupLender.userId,
-        applicationId,
-        "Signup Capital",
-      );
-
-      expect(pendingOffer.error).toBeNull();
-      expect(pendingOffer.result).toMatchObject({ ok: false });
-
-      const selfReview = await signupLender.client.rpc(
-        "review_lender_verification",
-        {
-          p_lender_profile_id: pendingLenderProfile?.id ?? "",
-          p_decision: "approve",
-        },
-      );
-
-      expect(selfReview.error).toBeNull();
-      expect(selfReview.data as Json as ReviewLenderResult).toMatchObject({
-        ok: false,
-      });
-
-      const approval = await manager.rpc("review_lender_verification", {
-        p_lender_profile_id: pendingLenderProfile?.id ?? "",
-        p_decision: "approve",
-        p_manager_review_notes: "Approved after manual profile review.",
-      });
-
-      expect(approval.error).toBeNull();
-      expect(approval.data as Json as ReviewLenderResult).toMatchObject({
-        ok: true,
-        verification_status: "approved",
-      });
-
-      const { data: approvedLenderProfile, error: approvedLenderProfileError } =
-        await manager
-          .from("lender_profiles")
-          .select(
-            "verification_status, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, manager_review_notes",
-          )
-          .eq("id", pendingLenderProfile?.id ?? "")
-          .single();
-
-      expect(approvedLenderProfileError).toBeNull();
-      expect(approvedLenderProfile).toMatchObject({
-        verification_status: "approved",
-        approved_by: ids.manager,
-        rejected_at: null,
-        rejected_by: null,
-        rejection_reason: null,
-        manager_review_notes: "Approved after manual profile review.",
-      });
-      expect(approvedLenderProfile?.approved_at).toBeTruthy();
-
-      const { data: approvedApplication, error: approvedApplicationError } =
-        await signupLender.client
-          .from("loan_applications")
-          .select("id")
-          .eq("id", applicationId);
-
-      expect(approvedApplicationError).toBeNull();
-      expect(approvedApplication).toHaveLength(1);
-
-      const approvedOffer = await createOffer(
-        signupLender.client,
-        signupLender.userId,
-        applicationId,
-        "Signup Capital",
-      );
-
-      expect(approvedOffer.error).toBeNull();
-      expect(approvedOffer.data).toMatchObject({ status: "pending" });
-
-      const signupRejectedLender = await signUpSelfServeAccount({
-        role: "lender",
-        email: rejectedEmail,
-        displayName: "Rejected Lender",
-        organizationName: "Rejected Capital",
-      });
-      createdUserIds.push(signupRejectedLender.userId);
-
-      const { data: rejectedLenderProfile, error: rejectedProfileError } =
-        await signupRejectedLender.client
-          .from("lender_profiles")
-          .select("id")
-          .eq("user_id", signupRejectedLender.userId)
-          .single();
-
-      expect(rejectedProfileError).toBeNull();
-
-      const rejectionWithoutReason = await manager.rpc(
-        "review_lender_verification",
-        {
-          p_lender_profile_id: rejectedLenderProfile?.id ?? "",
-          p_decision: "reject",
-        },
-      );
-
-      expect(rejectionWithoutReason.error).toBeNull();
-      expect(
-        rejectionWithoutReason.data as Json as ReviewLenderResult,
-      ).toMatchObject({
-        ok: false,
-      });
-
-      const rejection = await manager.rpc("review_lender_verification", {
-        p_lender_profile_id: rejectedLenderProfile?.id ?? "",
-        p_decision: "reject",
-        p_rejection_reason: "Business registration details were incomplete.",
-        p_manager_review_notes: "Ask for updated documents before reconsidering.",
-      });
-
-      expect(rejection.error).toBeNull();
-      expect(rejection.data as Json as ReviewLenderResult).toMatchObject({
-        ok: true,
-        verification_status: "rejected",
-      });
-
-      const { data: rejectedReviewRow, error: rejectedReviewRowError } =
-        await manager
-          .from("lender_profiles")
-          .select(
-            "verification_status, approved_at, approved_by, rejected_at, rejected_by, rejection_reason, manager_review_notes",
-          )
-          .eq("id", rejectedLenderProfile?.id ?? "")
-          .single();
-
-      expect(rejectedReviewRowError).toBeNull();
-      expect(rejectedReviewRow).toMatchObject({
-        verification_status: "rejected",
-        approved_at: null,
-        approved_by: null,
-        rejected_by: ids.manager,
-        rejection_reason: "Business registration details were incomplete.",
-        manager_review_notes: "Ask for updated documents before reconsidering.",
-      });
-      expect(rejectedReviewRow?.rejected_at).toBeTruthy();
-
-      const { data: rejectedApplication, error: rejectedApplicationError } =
-        await signupRejectedLender.client
-          .from("loan_applications")
-          .select("id")
-          .eq("id", applicationId);
-
-      expect(rejectedApplicationError).toBeNull();
-      expect(rejectedApplication).toEqual([]);
-
-      const rejectedOffer = await createOffer(
-        signupRejectedLender.client,
-        signupRejectedLender.userId,
-        applicationId,
-        "Rejected Capital",
-      );
-
-      expect(rejectedOffer.error).toBeNull();
-      expect(rejectedOffer.result).toMatchObject({ ok: false });
-
-      const borrowerReviewAttempt = await signupBorrower.client.rpc(
-        "review_lender_verification",
-        {
-          p_lender_profile_id: rejectedLenderProfile?.id ?? "",
-          p_decision: "approve",
-        },
-      );
-
-      expect(borrowerReviewAttempt.error).toBeNull();
-      expect(
-        borrowerReviewAttempt.data as Json as ReviewLenderResult,
-      ).toMatchObject({
-        ok: false,
-      });
-
-      const invalidLenderSignupAttempt = await createSupabaseClient(
-        supabaseAnonKey,
-      ).auth.signUp({
-        email: `invalid-lender.${crypto.randomUUID()}@lendfolio.local`,
-        password,
-        options: {
-          data: {
-            lendfolio_role: "lender",
-            display_name: "Invalid Lender",
-            organization_name: "Invalid Capital",
-          },
-        },
-      });
-
-      expect(invalidLenderSignupAttempt.error).toBeNull();
-      expect(invalidLenderSignupAttempt.data.user?.id).toBeTruthy();
-      if (invalidLenderSignupAttempt.data.user?.id) {
-        createdUserIds.push(invalidLenderSignupAttempt.data.user.id);
-      }
-
-      const invalidUserId = invalidLenderSignupAttempt.data.user?.id ?? "";
-      const { data: invalidProfile, error: invalidProfileError } = await manager
-        .from("profiles")
-        .select("id")
-        .eq("id", invalidUserId);
-
-      expect(invalidProfileError).toBeNull();
-      expect(invalidProfile).toEqual([]);
-
-      const { data: invalidEvents, error: invalidEventsError } = await manager
-        .from("provisioning_events")
-        .select("event_status, requested_role, message")
-        .eq("user_id", invalidUserId)
-        .order("created_at", { ascending: true });
-
-      expect(invalidEventsError).toBeNull();
-      expect(invalidEvents).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            event_status: "attempted",
-            requested_role: "lender",
-          }),
-          expect.objectContaining({
-            event_status: "failed",
-            requested_role: "lender",
-            message: "A valid contact person is required.",
-          }),
-        ]),
-      );
-
-      const managerSignupAttempt = await createSupabaseClient(
-        supabaseAnonKey,
-      ).auth.signUp({
-        email: `manager.${crypto.randomUUID()}@lendfolio.local`,
-        password,
-        options: {
-          data: {
-            lendfolio_role: "manager",
-            display_name: "Self Serve Manager",
-          },
-        },
-      });
-
-      expect(managerSignupAttempt.error).toBeNull();
-      expect(managerSignupAttempt.data.user?.id).toBeTruthy();
-      if (managerSignupAttempt.data.user?.id) {
-        createdUserIds.push(managerSignupAttempt.data.user.id);
-      }
-
-      const managerSignupUserId = managerSignupAttempt.data.user?.id ?? "";
-      const { data: managerSignupProfile, error: managerSignupProfileError } =
-        await manager
-          .from("profiles")
-          .select("id")
-          .eq("id", managerSignupUserId);
-
-      expect(managerSignupProfileError).toBeNull();
-      expect(managerSignupProfile).toEqual([]);
-
-      const { data: managerSignupEvents, error: managerSignupEventsError } =
-        await manager
-          .from("provisioning_events")
-          .select("event_status, requested_role, message")
-          .eq("user_id", managerSignupUserId)
-          .order("created_at", { ascending: true });
-
-      expect(managerSignupEventsError).toBeNull();
-      expect(managerSignupEvents).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            event_status: "failed",
-            requested_role: "manager",
-            message: "Unsupported signup role.",
-          }),
-        ]),
-      );
-
-      const { data: approvalAudit, error: approvalAuditError } = await manager
-        .from("audit_logs")
-        .select("action, target_table")
-        .in("action", ["lender_approved", "lender_rejected"]);
-
-      expect(approvalAuditError).toBeNull();
-      expect(approvalAudit).toEqual(
-        expect.arrayContaining([
-          expect.objectContaining({
-            action: "lender_approved",
-            target_table: "lender_profiles",
-          }),
-          expect.objectContaining({
-            action: "lender_rejected",
-            target_table: "lender_profiles",
-          }),
-        ]),
-      );
-    } finally {
-      await cleanWorkflowRows(admin);
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("repairs borrower provisioning idempotently", async () => {
-    const createdUserIds: string[] = [];
-
-    try {
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: `repair-borrower.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Repair Borrower",
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      const { error: deleteVerificationError } = await admin
-        .from("borrower_verifications")
-        .delete()
-        .eq("borrower_id", signupBorrower.userId);
-
-      expect(deleteVerificationError).toBeNull();
-
-      const firstRepair = await manager.rpc("repair_user_provisioning", {
-        p_user_id: signupBorrower.userId,
-      });
-      const secondRepair = await manager.rpc("repair_user_provisioning", {
-        p_user_id: signupBorrower.userId,
-      });
-
-      expect(firstRepair.error).toBeNull();
-      expect(firstRepair.data as Json as RepairProvisioningResult).toMatchObject({
-        ok: true,
-        role: "borrower",
-      });
-      expect(secondRepair.error).toBeNull();
-      expect(secondRepair.data as Json as RepairProvisioningResult).toMatchObject({
-        ok: true,
-        role: "borrower",
-      });
-
-      const { count: verificationCount, error: verificationCountError } =
-        await manager
-          .from("borrower_verifications")
-          .select("id", { count: "exact", head: true })
-          .eq("borrower_id", signupBorrower.userId);
-
-      expect(verificationCountError).toBeNull();
-      expect(verificationCount).toBe(1);
-
-      const { data: repairEvents, error: repairEventsError } = await manager
-        .from("provisioning_events")
-        .select("event_status, requested_role, source")
-        .eq("user_id", signupBorrower.userId)
-        .eq("source", "repair_user_provisioning");
-
-      expect(repairEventsError).toBeNull();
-      expect(
-        repairEvents?.filter((event) => event.event_status === "succeeded"),
-      ).toHaveLength(2);
-
-      const borrowerRepairAttempt = await signupBorrower.client.rpc(
-        "repair_user_provisioning",
-        {
-          p_user_id: signupBorrower.userId,
-        },
-      );
-
-      expect(borrowerRepairAttempt.error).toBeNull();
-      expect(
-        borrowerRepairAttempt.data as Json as RepairProvisioningResult,
-      ).toMatchObject({
-        ok: false,
-      });
-    } finally {
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for missing borrower loan application consent", async () => {
-    const createdUserIds: string[] = [];
-
-    try {
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: `missing-loan-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Missing Loan Consent",
-        acceptedConsentTypes: [
-          "terms_of_service",
-          "privacy_notice",
-          "document_processing_consent",
-        ],
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
-
-      const result = await signupBorrower.client.rpc("submit_loan_application", {
-        p_requested_amount: 25000,
-        p_purpose: "Inventory restock",
-        p_preferred_term: "3_months",
-        p_remarks: "",
-      });
-
-      expect(result.error).toBeNull();
-      expect(result.data as Json as SubmitApplicationResult).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message:
-          "Accept the required disclosures before submitting a loan application.",
-      });
-    } finally {
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for stale borrower loan application consent", async () => {
-    const createdUserIds: string[] = [];
-    let rotatedVersion: string | null = null;
-
-    try {
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: `stale-loan-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Stale Loan Consent",
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      rotatedVersion = await rotateCurrentLegalDocument(
-        admin,
-        "credit_review_authorization",
-      );
-
-      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
-
-      const result = await signupBorrower.client.rpc("submit_loan_application", {
-        p_requested_amount: 25000,
-        p_purpose: "Inventory restock",
-        p_preferred_term: "3_months",
-        p_remarks: "",
-      });
-
-      expect(result.error).toBeNull();
-      expect(result.data as Json as SubmitApplicationResult).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message:
-          "Accept the required disclosures before submitting a loan application.",
-      });
-    } finally {
-      if (rotatedVersion) {
-        await restoreCurrentLegalDocument(
-          admin,
-          "credit_review_authorization",
-          rotatedVersion,
-        );
-      }
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for missing borrower document upload consent", async () => {
-    const createdUserIds: string[] = [];
-
-    try {
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: `missing-document-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Missing Document Consent",
-        acceptedConsentTypes: [
-          "terms_of_service",
-          "privacy_notice",
-          "credit_review_authorization",
-        ],
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      const { data: verification, error: verificationError } =
-        await signupBorrower.client
-          .from("borrower_verifications")
-          .select("id")
-          .eq("borrower_id", signupBorrower.userId)
-          .single<InsertedRow>();
-
-      expect(verificationError).toBeNull();
-      expect(verification?.id).toBeTruthy();
-
-      const result = await signupBorrower.client.rpc(
-        "submit_borrower_verification_document",
-        {
-          p_borrower_verification_id: verification?.id ?? "",
-          p_storage_path: `borrowers/${signupBorrower.userId}/verification/${verification?.id}/missing.pdf`,
-          p_document_type: "valid_id",
-          p_file_name: "missing.pdf",
-          p_file_type: "application/pdf",
-          p_file_size: 1024,
-        },
-      );
-
-      expect(result.error).toBeNull();
-      expect(
-        result.data as Json as SubmitBorrowerVerificationDocumentResult,
-      ).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message:
-          "Accept the required disclosures before uploading verification documents.",
-      });
-    } finally {
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for stale borrower document upload consent", async () => {
-    const createdUserIds: string[] = [];
-    let rotatedVersion: string | null = null;
-
-    try {
-      const signupBorrower = await signUpSelfServeAccount({
-        role: "borrower",
-        email: `stale-document-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Stale Document Consent",
-      });
-      createdUserIds.push(signupBorrower.userId);
-
-      rotatedVersion = await rotateCurrentLegalDocument(
-        admin,
-        "document_processing_consent",
-      );
-
-      const { data: verification, error: verificationError } =
-        await signupBorrower.client
-          .from("borrower_verifications")
-          .select("id")
-          .eq("borrower_id", signupBorrower.userId)
-          .single<InsertedRow>();
-
-      expect(verificationError).toBeNull();
-      expect(verification?.id).toBeTruthy();
-
-      const result = await signupBorrower.client.rpc(
-        "submit_borrower_verification_document",
-        {
-          p_borrower_verification_id: verification?.id ?? "",
-          p_storage_path: `borrowers/${signupBorrower.userId}/verification/${verification?.id}/stale.pdf`,
-          p_document_type: "valid_id",
-          p_file_name: "stale.pdf",
-          p_file_type: "application/pdf",
-          p_file_size: 1024,
-        },
-      );
-
-      expect(result.error).toBeNull();
-      expect(
-        result.data as Json as SubmitBorrowerVerificationDocumentResult,
-      ).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message:
-          "Accept the required disclosures before uploading verification documents.",
-      });
-    } finally {
-      if (rotatedVersion) {
-        await restoreCurrentLegalDocument(
-          admin,
-          "document_processing_consent",
-          rotatedVersion,
-        );
-      }
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for missing lender review consent", async () => {
-    const createdUserIds: string[] = [];
-
-    try {
-      const signupLender = await signUpSelfServeAccount({
-        role: "lender",
-        email: `missing-lender-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Missing Lender Consent",
-        organizationName: "Missing Consent Capital",
-        acceptedConsentTypes: ["terms_of_service", "privacy_notice"],
-      });
-      createdUserIds.push(signupLender.userId);
-
-      const { data: lenderProfile, error: lenderProfileError } =
-        await signupLender.client
-          .from("lender_profiles")
-          .select("id")
-          .eq("user_id", signupLender.userId)
-          .single<InsertedRow>();
-
-      expect(lenderProfileError).toBeNull();
-      expect(lenderProfile?.id).toBeTruthy();
-
-      const result = await manager.rpc("review_lender_verification", {
-        p_lender_profile_id: lenderProfile?.id ?? "",
-        p_decision: "approve",
-      });
-
-      expect(result.error).toBeNull();
-      expect(result.data as Json as ReviewLenderResult).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message: "Lender must accept the required disclosures before approval.",
-      });
-    } finally {
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("returns consent_required for stale lender review consent", async () => {
-    const createdUserIds: string[] = [];
-    let rotatedVersion: string | null = null;
-
-    try {
-      const signupLender = await signUpSelfServeAccount({
-        role: "lender",
-        email: `stale-lender-consent.${crypto.randomUUID()}@lendfolio.local`,
-        displayName: "Stale Lender Consent",
-        organizationName: "Stale Consent Capital",
-      });
-      createdUserIds.push(signupLender.userId);
-
-      rotatedVersion = await rotateCurrentLegalDocument(
-        admin,
-        "lender_review_consent",
-      );
-
-      const { data: lenderProfile, error: lenderProfileError } =
-        await signupLender.client
-          .from("lender_profiles")
-          .select("id")
-          .eq("user_id", signupLender.userId)
-          .single<InsertedRow>();
-
-      expect(lenderProfileError).toBeNull();
-      expect(lenderProfile?.id).toBeTruthy();
-
-      const result = await manager.rpc("review_lender_verification", {
-        p_lender_profile_id: lenderProfile?.id ?? "",
-        p_decision: "approve",
-      });
-
-      expect(result.error).toBeNull();
-      expect(result.data as Json as ReviewLenderResult).toMatchObject({
-        ok: false,
-        code: "consent_required",
-        message: "Lender must accept the required disclosures before approval.",
-      });
-    } finally {
-      if (rotatedVersion) {
-        await restoreCurrentLegalDocument(
-          admin,
-          "lender_review_consent",
-          rotatedVersion,
-        );
-      }
-      await deleteAuthUsers(admin, createdUserIds);
-    }
-  });
-
-  it("blocks managers from approving their own lender profile", async () => {
-    const lenderProfileId = crypto.randomUUID();
-
-    try {
-      const { error: insertError } = await admin.from("lender_profiles").insert({
-        id: lenderProfileId,
-        user_id: ids.manager,
-        organization_name: "Manager Capital",
-        contact_person: "Manager Reviewer",
-        phone_number: "+63 917 555 0100",
-        business_address: "1 Manager Street, Manila",
-        operating_area: "Metro Manila",
-        business_registration_number: "MANAGER-SELF-REVIEW",
-        min_loan_amount: 5000,
-        max_loan_amount: 50000,
-        typical_repayment_terms: "1 to 6 months",
-        lender_description: "Manager-owned lender profile for self-review guard.",
-        verification_status: "pending",
-      });
-
-      expect(insertError).toBeNull();
-
-      const result = await manager.rpc("review_lender_verification", {
-        p_lender_profile_id: lenderProfileId,
-        p_decision: "approve",
-      });
-
-      expect(result.error).toBeNull();
-      expect(result.data as Json as ReviewLenderResult).toMatchObject({
-        ok: false,
-        message: "Managers cannot review their own lender profile.",
-      });
-    } finally {
-      await admin.from("lender_profiles").delete().eq("id", lenderProfileId);
-    }
-  });
-
-  it("submits borrower applications through the credit-limit RPC", async () => {
-    const missingProfileResult = await borrower.rpc("submit_loan_application", {
-      p_requested_amount: 25000,
-      p_purpose: "Inventory restock",
-      p_preferred_term: "3_months",
-      p_remarks: "",
-    });
-
-    expect(missingProfileResult.error).toBeNull();
-    expect(
-      missingProfileResult.data as Json as SubmitApplicationResult,
-    ).toMatchObject({
-      ok: false,
-      code: "missing_portfolio",
-    });
-
-    await createBorrowerPortfolio(borrower);
-
-    const acceptedApplication = await borrower.rpc("submit_loan_application", {
-      p_requested_amount: 30000,
-      p_purpose: "Inventory restock",
-      p_preferred_term: "3_months",
-      p_remarks: "Review against current cash flow.",
-    });
-
-    expect(acceptedApplication.error).toBeNull();
-    expect(
-      acceptedApplication.data as Json as SubmitApplicationResult,
-    ).toMatchObject({
-      ok: true,
-      credit_limit: 54300,
-      used_credit: 0,
-      available_credit: 54300,
-    });
-    const acceptedApplicationResult =
-      acceptedApplication.data as Json as SubmitApplicationResult;
-    const acceptedApplicationId =
-      acceptedApplicationResult.application &&
-      typeof acceptedApplicationResult.application === "object" &&
-      !Array.isArray(acceptedApplicationResult.application) &&
-      typeof acceptedApplicationResult.application.id === "string"
-        ? acceptedApplicationResult.application.id
-        : null;
-    expect(acceptedApplicationId).toBeTruthy();
-
-    const { data: storedApplication, error: storedApplicationError } =
-      await borrower
-        .from("loan_applications")
-        .select(
-          "credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission",
-        )
-        .eq("id", acceptedApplicationId ?? "")
-        .single();
-
-    expect(storedApplicationError).toBeNull();
-    expect(storedApplication).toMatchObject({
-      credit_limit_at_submission: 54300,
-      used_credit_at_submission: 0,
-      available_credit_at_submission: 54300,
-    });
-
-    const blockedApplication = await borrower.rpc("submit_loan_application", {
-      p_requested_amount: 60000,
-      p_purpose: "Inventory restock",
-      p_preferred_term: "3_months",
-      p_remarks: "",
-    });
-
-    expect(blockedApplication.error).toBeNull();
-    expect(
-      blockedApplication.data as Json as SubmitApplicationResult,
-    ).toMatchObject({
-      ok: false,
-      code: "credit_limit_exceeded",
-      message: "Requested amount exceeds your available credit.",
-    });
-  });
-
-  it("blocks direct loan application inserts that exceed available credit", async () => {
-    const portfolioId = await createBorrowerPortfolio(borrower);
-
-    const { data: application, error: applicationError } = await borrower
-      .from("loan_applications")
-      .insert({
-        borrower_id: ids.borrower,
-        borrower_portfolio_id: portfolioId,
-        requested_amount: 30000,
-        purpose: "Inventory restock",
-        preferred_term: "3_months",
-        remarks: "Review against current cash flow.",
-      })
-      .select(
-        "id, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission",
-      )
-      .single<InsertedRow>();
-
-    expect(applicationError).toBeNull();
-    expect(application?.id).toBeTruthy();
-    expect(application).toMatchObject({
-      credit_limit_at_submission: 54300,
-      used_credit_at_submission: 0,
-      available_credit_at_submission: 54300,
-    });
-
-    const { error: blockedError } = await borrower
-      .from("loan_applications")
-      .insert({
-        borrower_id: ids.borrower,
-        borrower_portfolio_id: portfolioId,
-        requested_amount: 60000,
-        purpose: "Inventory restock",
-        preferred_term: "3_months",
-        remarks: "",
-      });
-
-    expect(blockedError?.message).toContain(
-      "Requested amount exceeds your available credit.",
-    );
-  });
-
-  it("reduces available credit when active unpaid loans have outstanding balance", async () => {
-    const { activeLoanId } = await createAcceptedLoanWithSchedule(
-      borrower,
-      approvedLender,
-    );
-    const { data: activeLoan, error: activeLoanError } = await borrower
-      .from("active_loans")
-      .select("outstanding_balance")
-      .eq("id", activeLoanId)
-      .single();
-
-    expect(activeLoanError).toBeNull();
-    expect(Number(activeLoan?.outstanding_balance)).toBe(23800);
-
-    const blockedApplication = await borrower.rpc("submit_loan_application", {
-      p_requested_amount: 40000,
-      p_purpose: "Inventory restock",
-      p_preferred_term: "3_months",
-      p_remarks: "",
-    });
-
-    expect(blockedApplication.error).toBeNull();
-    expect(
-      blockedApplication.data as Json as SubmitApplicationResult,
-    ).toMatchObject({
-      ok: false,
-      code: "credit_limit_exceeded",
-      available_credit: 30500,
-    });
-
-    const { error: closeLoanError } = await admin
-      .from("active_loans")
-      .update({ status: "paid", outstanding_balance: 0 })
-      .eq("id", activeLoanId);
-
-    expect(closeLoanError).toBeNull();
-
-    const acceptedApplication = await borrower.rpc("submit_loan_application", {
-      p_requested_amount: 40000,
-      p_purpose: "Inventory restock",
-      p_preferred_term: "3_months",
-      p_remarks: "",
-    });
-
-    expect(acceptedApplication.error).toBeNull();
-    expect(
-      acceptedApplication.data as Json as SubmitApplicationResult,
-    ).toMatchObject({
-      ok: true,
-      used_credit: 0,
-      available_credit: 54300,
-    });
   });
 
   it("enforces borrower isolation, lender approval, manager visibility, and audit creation", async () => {
@@ -1854,501 +441,6 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
           target_table: "loan_offers",
         }),
       ]),
-    );
-  });
-
-  it("enforces notification RLS for owners, unrelated users, and managers", async () => {
-    const { data: notification, error: notificationError } = await admin
-      .from("notifications")
-      .insert({
-        user_id: ids.borrower,
-        type: "offer_created",
-        title: "New offer received",
-        message: "A lender sent an offer for your application.",
-        href: "/borrower/offers",
-      })
-      .select("id")
-      .single<{ id: string }>();
-
-    expect(notificationError).toBeNull();
-    expect(notification?.id).toBeTruthy();
-
-    const notificationId = notification?.id ?? "";
-
-    const { data: borrowerNotifications, error: borrowerReadError } =
-      await borrower
-        .from("notifications")
-        .select("id, user_id, read_at")
-        .eq("id", notificationId);
-
-    expect(borrowerReadError).toBeNull();
-    expect(borrowerNotifications).toEqual([
-      expect.objectContaining({
-        id: notificationId,
-        user_id: ids.borrower,
-        read_at: null,
-      }),
-    ]);
-
-    const { data: otherBorrowerNotifications, error: otherBorrowerReadError } =
-      await otherBorrower
-        .from("notifications")
-        .select("id")
-        .eq("id", notificationId);
-
-    expect(otherBorrowerReadError).toBeNull();
-    expect(otherBorrowerNotifications).toEqual([]);
-
-    const { data: lenderNotifications, error: lenderReadError } =
-      await approvedLender
-        .from("notifications")
-        .select("id")
-        .eq("id", notificationId);
-
-    expect(lenderReadError).toBeNull();
-    expect(lenderNotifications).toEqual([]);
-
-    const readAt = new Date().toISOString();
-    const { data: updatedNotification, error: updateReadError } = await borrower
-      .from("notifications")
-      .update({ read_at: readAt })
-      .eq("id", notificationId)
-      .select("id, read_at")
-      .single();
-
-    expect(updateReadError).toBeNull();
-    expect(updatedNotification?.id).toBe(notificationId);
-    expect(updatedNotification?.read_at).toBeTruthy();
-
-    const { data: unreadNotification, error: updateUnreadError } =
-      await borrower
-        .from("notifications")
-        .update({ read_at: null })
-        .eq("id", notificationId)
-        .select("id, read_at")
-        .single();
-
-    expect(updateUnreadError).toBeNull();
-    expect(unreadNotification).toMatchObject({
-      id: notificationId,
-      read_at: null,
-    });
-
-    const { error: changeOwnerError } = await borrower
-      .from("notifications")
-      .update({ user_id: ids.otherBorrower })
-      .eq("id", notificationId);
-
-    expect(changeOwnerError).not.toBeNull();
-
-    const { data: ownerCheck, error: ownerCheckError } = await admin
-      .from("notifications")
-      .select("user_id")
-      .eq("id", notificationId)
-      .single();
-
-    expect(ownerCheckError).toBeNull();
-    expect(ownerCheck).toMatchObject({ user_id: ids.borrower });
-
-    const { error: directInsertError } = await borrower
-      .from("notifications")
-      .insert({
-        user_id: ids.borrower,
-        type: "borrower_direct_insert",
-        title: "Direct insert",
-        message: "Borrowers should not create notification rows directly.",
-      });
-
-    expect(directInsertError).not.toBeNull();
-
-    const { data: managerNotifications, error: managerReadError } =
-      await manager
-        .from("notifications")
-        .select("id, user_id")
-        .eq("id", notificationId);
-
-    expect(managerReadError).toBeNull();
-    expect(managerNotifications).toEqual([
-      expect.objectContaining({
-        id: notificationId,
-        user_id: ids.borrower,
-      }),
-    ]);
-  });
-
-  it("lets users load and mark only their own notifications", async () => {
-    const { data: insertedNotifications, error: insertError } = await admin
-      .from("notifications")
-      .insert([
-        {
-          user_id: ids.borrower,
-          type: "offer_received",
-          title: "New offer received",
-          message: "A lender sent an offer for your application.",
-          href: "/borrower",
-        },
-        {
-          user_id: ids.borrower,
-          type: "repayment_verified",
-          title: "Repayment verified",
-          message: "Your repayment proof was approved.",
-          href: "/borrower",
-        },
-        {
-          user_id: ids.otherBorrower,
-          type: "offer_received",
-          title: "Other borrower notification",
-          message: "This belongs to another borrower.",
-          href: "/borrower",
-        },
-      ])
-      .select("id, user_id, created_at")
-      .order("created_at", { ascending: true });
-
-    expect(insertError).toBeNull();
-    expect(insertedNotifications).toHaveLength(3);
-
-    const borrowerNotificationId = insertedNotifications?.[0]?.id ?? "";
-    const otherBorrowerNotificationId = insertedNotifications?.[2]?.id ?? "";
-
-    const { data: borrowerNotifications, error: borrowerReadError } =
-      await borrower
-        .from("notifications")
-        .select("id, user_id, read_at", { count: "exact" })
-        .order("created_at", { ascending: true });
-
-    expect(borrowerReadError).toBeNull();
-    expect(borrowerNotifications).toHaveLength(2);
-    expect(
-      borrowerNotifications?.every(
-        (notification) => notification.user_id === ids.borrower,
-      ),
-    ).toBe(true);
-
-    const { count: initialUnreadCount, error: initialCountError } = await borrower
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .is("read_at", null);
-
-    expect(initialCountError).toBeNull();
-    expect(initialUnreadCount).toBe(2);
-
-    const readAt = new Date().toISOString();
-    const { data: markedNotification, error: markReadError } = await borrower
-      .from("notifications")
-      .update({ read_at: readAt })
-      .eq("id", borrowerNotificationId)
-      .select("id, read_at")
-      .single();
-
-    expect(markReadError).toBeNull();
-    expect(markedNotification).toMatchObject({
-      id: borrowerNotificationId,
-    });
-    expect(new Date(markedNotification?.read_at ?? "").toISOString()).toBe(readAt);
-
-    const { count: unreadAfterOne, error: unreadAfterOneError } = await borrower
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .is("read_at", null);
-
-    expect(unreadAfterOneError).toBeNull();
-    expect(unreadAfterOne).toBe(1);
-
-    const otherAttemptReadAt = new Date().toISOString();
-    const { data: otherAttemptRows, error: otherAttemptError } =
-      await otherBorrower
-        .from("notifications")
-        .update({ read_at: otherAttemptReadAt })
-        .eq("id", borrowerNotificationId)
-        .select("id, read_at");
-
-    expect(otherAttemptError).toBeNull();
-    expect(otherAttemptRows).toEqual([]);
-
-    const { data: protectedNotification, error: protectedCheckError } = await admin
-      .from("notifications")
-      .select("id, read_at")
-      .eq("id", borrowerNotificationId)
-      .single();
-
-    expect(protectedCheckError).toBeNull();
-    expect(protectedNotification).toMatchObject({
-      id: borrowerNotificationId,
-    });
-    expect(new Date(protectedNotification?.read_at ?? "").toISOString()).toBe(readAt);
-
-    const markAllReadAt = new Date().toISOString();
-    const { error: markAllError } = await borrower
-      .from("notifications")
-      .update({ read_at: markAllReadAt })
-      .eq("user_id", ids.borrower)
-      .is("read_at", null);
-
-    expect(markAllError).toBeNull();
-
-    const { count: finalUnreadCount, error: finalCountError } = await borrower
-      .from("notifications")
-      .select("id", { count: "exact", head: true })
-      .is("read_at", null);
-
-    expect(finalCountError).toBeNull();
-    expect(finalUnreadCount).toBe(0);
-
-    const { data: untouchedOtherNotification, error: untouchedOtherError } =
-      await admin
-        .from("notifications")
-        .select("id, read_at")
-        .eq("id", otherBorrowerNotificationId)
-        .single();
-
-    expect(untouchedOtherError).toBeNull();
-    expect(untouchedOtherNotification).toMatchObject({
-      id: otherBorrowerNotificationId,
-      read_at: null,
-    });
-  });
-
-  it("creates notifications for offer creation, acceptance, and competing declines", async () => {
-    const { applicationId } = await createPortfolioAndApplication(borrower);
-
-    const firstOffer = await createOffer(
-      approvedLender,
-      ids.approvedLender,
-      applicationId,
-      "Approved Capital",
-      22000,
-    );
-    const secondOffer = await createOffer(
-      partnerLender,
-      ids.partnerLender,
-      applicationId,
-      "Partner Capital",
-      23000,
-    );
-
-    expect(firstOffer.error).toBeNull();
-    expect(secondOffer.error).toBeNull();
-    if (!firstOffer.data || !secondOffer.data) {
-      throw new Error("Expected competing offer inserts to return rows.");
-    }
-
-    expect(await readNotifications(borrower, "offer_received")).toEqual([
-      expect.objectContaining({
-        user_id: ids.borrower,
-        title: "New loan offer received",
-        message: "A lender sent an offer for your loan application.",
-        href: "/borrower",
-      }),
-      expect.objectContaining({
-        user_id: ids.borrower,
-        title: "New loan offer received",
-      }),
-    ]);
-    expect(await readNotifications(otherBorrower, "offer_received")).toEqual([]);
-
-    await acceptOfferAndLoadActiveLoan(
-      borrower,
-      firstOffer.data.id,
-      applicationId,
-    );
-
-    expect(await readNotifications(approvedLender, "offer_accepted")).toEqual([
-      expect.objectContaining({
-        user_id: ids.approvedLender,
-        title: "Offer accepted",
-        message: "A borrower accepted your loan offer.",
-        href: "/lender",
-      }),
-    ]);
-    expect(await readNotifications(partnerLender, "offer_declined")).toEqual([
-      expect.objectContaining({
-        user_id: ids.partnerLender,
-        title: "Offer declined",
-        message: "A borrower accepted another offer for this application.",
-        href: "/lender",
-      }),
-    ]);
-
-    const managerOfferNotifications = await manager
-      .from("notifications")
-      .select("id, type")
-      .in("type", ["offer_received", "offer_accepted", "offer_declined"]);
-
-    expect(managerOfferNotifications.error).toBeNull();
-    expect(managerOfferNotifications.data).toHaveLength(4);
-  });
-
-  it("creates a notification when a borrower declines an offer", async () => {
-    const { applicationId } = await createPortfolioAndApplication(borrower);
-    const offer = await createOffer(
-      approvedLender,
-      ids.approvedLender,
-      applicationId,
-      "Approved Capital",
-    );
-
-    expect(offer.error).toBeNull();
-    if (!offer.data) {
-      throw new Error("Expected offer insert to return a row.");
-    }
-
-    const decline = await borrower.rpc("decline_loan_offer", {
-      p_offer_id: offer.data.id,
-    });
-
-    expect(decline.error).toBeNull();
-    expect(decline.data as Json as OfferRpcResult).toMatchObject({
-      ok: true,
-    });
-    expect(await readNotifications(approvedLender, "offer_declined")).toEqual([
-      expect.objectContaining({
-        user_id: ids.approvedLender,
-        title: "Offer declined",
-        message: "A borrower declined your loan offer.",
-        href: "/lender",
-      }),
-    ]);
-  });
-
-  it("creates notifications for repayment proof submission and review", async () => {
-    const acceptedLoan = await createAcceptedLoanWithTerm(
-      borrower,
-      approvedLender,
-      "3_months",
-    );
-    const firstScheduleId = acceptedLoan.schedules[0]?.id as string | undefined;
-    const secondScheduleId = acceptedLoan.schedules[1]?.id as string | undefined;
-
-    expect(firstScheduleId).toBeTruthy();
-    expect(secondScheduleId).toBeTruthy();
-    if (!firstScheduleId || !secondScheduleId) {
-      throw new Error("Expected repayment schedules for proof notification test.");
-    }
-
-    const rejectedProof = await submitProofForSchedule(
-      borrower,
-      firstScheduleId,
-      acceptedLoan.activeLoanId,
-    );
-    expect(rejectedProof).toMatchObject({ ok: true });
-
-    expect(
-      await readNotifications(approvedLender, "repayment_proof_submitted"),
-    ).toEqual([
-      expect.objectContaining({
-        user_id: ids.approvedLender,
-        title: "Repayment proof submitted",
-        message: "A borrower submitted repayment proof for review.",
-        href: "/lender",
-      }),
-    ]);
-
-    const rejection = await approvedLender.rpc("review_repayment_proof", {
-      p_proof_id: rejectedProof.proof_id ?? "",
-      p_decision: "rejected",
-      p_review_notes: "Needs a clearer receipt.",
-    });
-
-    expect(rejection.error).toBeNull();
-    expect(rejection.data as Json as RepaymentProofResult).toMatchObject({
-      ok: true,
-    });
-
-    expect(await readNotifications(borrower, "repayment_rejected")).toEqual([
-      expect.objectContaining({
-        user_id: ids.borrower,
-        title: "Repayment proof rejected",
-        message:
-          "Your repayment proof was rejected. Upload a clearer proof to continue.",
-        href: "/borrower",
-      }),
-    ]);
-
-    const verifiedProof = await submitProofForSchedule(
-      borrower,
-      secondScheduleId,
-      acceptedLoan.activeLoanId,
-    );
-    expect(verifiedProof).toMatchObject({ ok: true });
-
-    const verification = await approvedLender.rpc("review_repayment_proof", {
-      p_proof_id: verifiedProof.proof_id ?? "",
-      p_decision: "verified",
-      p_review_notes: "",
-    });
-
-    expect(verification.error).toBeNull();
-    expect(verification.data as Json as RepaymentProofResult).toMatchObject({
-      ok: true,
-    });
-
-    expect(await readNotifications(borrower, "repayment_verified")).toEqual([
-      expect.objectContaining({
-        user_id: ids.borrower,
-        title: "Repayment verified",
-        message: "Your repayment proof was verified.",
-        href: "/borrower",
-      }),
-    ]);
-  });
-
-  it("creates non-duplicated overdue refresh notifications on state transitions", async () => {
-    const acceptedLoan = await createAcceptedLoanWithTerm(
-      borrower,
-      approvedLender,
-      "3_months",
-    );
-    const firstScheduleId = acceptedLoan.schedules[0]?.id as string | undefined;
-
-    expect(firstScheduleId).toBeTruthy();
-    if (!firstScheduleId) {
-      throw new Error("Expected repayment schedule for overdue notification test.");
-    }
-
-    const { error: dueDateError } = await admin
-      .from("loan_repayment_schedules")
-      .update({ due_date: "2026-05-01" })
-      .eq("id", firstScheduleId);
-
-    expect(dueDateError).toBeNull();
-
-    const refresh = await manager.rpc("refresh_overdue_repayment_statuses");
-    expect(refresh.error).toBeNull();
-    expect(refresh.data as Json as RefreshOverdueResult).toMatchObject({
-      ok: true,
-      late_repayment_count: 1,
-      overdue_loan_count: 1,
-    });
-
-    expect(await readNotifications(borrower, "repayment_late")).toEqual([
-      expect.objectContaining({
-        user_id: ids.borrower,
-        title: "Repayment is late",
-        message: "A repayment is past due. Upload payment proof when ready.",
-        href: "/borrower",
-      }),
-    ]);
-    expect(await readNotifications(approvedLender, "loan_overdue")).toEqual([
-      expect.objectContaining({
-        user_id: ids.approvedLender,
-        title: "Loan is overdue",
-        message: "A borrower loan has an overdue repayment.",
-        href: "/lender",
-      }),
-    ]);
-
-    const secondRefresh = await manager.rpc("refresh_overdue_repayment_statuses");
-    expect(secondRefresh.error).toBeNull();
-    expect(secondRefresh.data as Json as RefreshOverdueResult).toMatchObject({
-      ok: true,
-      late_repayment_count: 0,
-      overdue_loan_count: 0,
-    });
-
-    expect(await readNotifications(borrower, "repayment_late")).toHaveLength(1);
-    expect(await readNotifications(approvedLender, "loan_overdue")).toHaveLength(
-      1,
     );
   });
 
@@ -2456,33 +548,6 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       ok: false,
       message: "Repayment amount must be at least the approved amount.",
     });
-
-    const approvedAboveRequested = await approvedLender.rpc(
-      "create_loan_offer",
-      {
-        p_loan_application_id: applicationId,
-        p_approved_amount: 25001,
-        p_repayment_amount: 26000,
-        p_fees: 500,
-        p_due_date: "2026-08-24",
-        p_remarks: "",
-      },
-    );
-    expect(approvedAboveRequested.error).toBeNull();
-    expect(approvedAboveRequested.data as Json as OfferRpcResult).toMatchObject({
-      ok: false,
-      message: "Approved amount cannot exceed the requested amount.",
-    });
-
-    const validOffer = await createOffer(
-      approvedLender,
-      ids.approvedLender,
-      applicationId,
-      "Approved Capital",
-      22000,
-    );
-    expect(validOffer.error).toBeNull();
-    expect(validOffer.result).toMatchObject({ ok: true });
   });
 
   it("accepts only one competing offer atomically and records workflow audit logs", async () => {
@@ -3245,187 +1310,6 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(paidLoan).toMatchObject({ status: "paid" });
   });
 
-  it("refreshes late repayments and overdue loans only for past due unresolved schedules", async () => {
-    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
-      borrower,
-      approvedLender,
-      "3_months",
-      23801,
-    );
-    const [pastDue, futureDue, submittedSchedule] = schedules;
-
-    const submittedProof = await submitProofForSchedule(
-      borrower,
-      submittedSchedule.id,
-      activeLoanId,
-      ids.borrower,
-      "submitted-before-refresh",
-    );
-    expect(submittedProof.ok).toBe(true);
-
-    const { error: updateSchedulesError } = await admin
-      .from("loan_repayment_schedules")
-      .update({ due_date: "2020-01-01" })
-      .in("id", [pastDue.id, submittedSchedule.id]);
-    expect(updateSchedulesError).toBeNull();
-
-    const { error: updateFutureError } = await admin
-      .from("loan_repayment_schedules")
-      .update({ due_date: "2027-01-01" })
-      .eq("id", futureDue.id);
-    expect(updateFutureError).toBeNull();
-
-    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
-    expect(refreshResult.error).toBeNull();
-    expect(refreshResult.data as Json as RefreshOverdueResult).toMatchObject({
-      ok: true,
-      late_repayment_count: 1,
-      overdue_loan_count: 1,
-    });
-
-    const { data: refreshedSchedules, error: schedulesError } = await manager
-      .from("loan_repayment_schedules")
-      .select("id, status")
-      .eq("active_loan_id", activeLoanId);
-    expect(schedulesError).toBeNull();
-    expect(refreshedSchedules).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: pastDue.id, status: "late" }),
-        expect.objectContaining({ id: futureDue.id, status: "due" }),
-        expect.objectContaining({ id: submittedSchedule.id, status: "submitted" }),
-      ]),
-    );
-
-    const { data: loan, error: loanError } = await manager
-      .from("active_loans")
-      .select("status")
-      .eq("id", activeLoanId)
-      .single();
-    expect(loanError).toBeNull();
-    expect(loan).toMatchObject({ status: "overdue" });
-
-    const overview = await loadManagerOverview(
-      manager as Parameters<typeof loadManagerOverview>[0],
-    );
-    const metrics = new Map(
-      overview.metrics.map((metric) => [metric.label, metric.value]),
-    );
-    expect(metrics.get("Late repayments")).toBe(1);
-    expect(metrics.get("Overdue loans")).toBe(1);
-
-    const blockedRefresh = await borrower.rpc("refresh_overdue_repayment_statuses");
-    expect(blockedRefresh.error).toBeNull();
-    expect(blockedRefresh.data as Json as RefreshOverdueResult).toMatchObject({
-      ok: false,
-      message: "Only managers can refresh overdue statuses.",
-    });
-
-    const { data: auditLogs, error: auditError } = await manager
-      .from("audit_logs")
-      .select("action")
-      .in("action", ["repayment_marked_late", "loan_marked_overdue"]);
-    expect(auditError).toBeNull();
-    expect(auditLogs).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ action: "repayment_marked_late" }),
-        expect.objectContaining({ action: "loan_marked_overdue" }),
-      ]),
-    );
-  });
-
-  it("leaves verified repayments out of late refreshes", async () => {
-    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
-      borrower,
-      approvedLender,
-      "3_months",
-      23801,
-    );
-    const verifiedSchedule = schedules[0];
-    const verifiedProof = await submitProofForSchedule(
-      borrower,
-      verifiedSchedule.id,
-      activeLoanId,
-      ids.borrower,
-      "verified-before-refresh",
-    );
-    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
-      p_proof_id: verifiedProof.proof_id ?? "",
-      p_decision: "verified",
-      p_review_notes: "",
-    });
-    expect(verifyResult.error).toBeNull();
-
-    const { error: updateScheduleError } = await admin
-      .from("loan_repayment_schedules")
-      .update({ due_date: "2020-01-01" })
-      .eq("id", verifiedSchedule.id);
-    expect(updateScheduleError).toBeNull();
-
-    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
-    expect(refreshResult.error).toBeNull();
-    expect(refreshResult.data as Json as RefreshOverdueResult).toMatchObject({
-      ok: true,
-      late_repayment_count: 0,
-      overdue_loan_count: 0,
-    });
-
-    const { data: schedule, error: scheduleError } = await manager
-      .from("loan_repayment_schedules")
-      .select("status")
-      .eq("id", verifiedSchedule.id)
-      .single();
-    expect(scheduleError).toBeNull();
-    expect(schedule).toMatchObject({ status: "verified" });
-  });
-
-  it("restores an overdue loan to active after the last late repayment is verified", async () => {
-    const { activeLoanId, schedules } = await createAcceptedLoanWithTerm(
-      borrower,
-      approvedLender,
-      "3_months",
-      23801,
-    );
-    const lateSchedule = schedules[0];
-
-    const { error: updateScheduleError } = await admin
-      .from("loan_repayment_schedules")
-      .update({ due_date: "2020-01-01" })
-      .eq("id", lateSchedule.id);
-    expect(updateScheduleError).toBeNull();
-
-    const refreshResult = await manager.rpc("refresh_overdue_repayment_statuses");
-    expect(refreshResult.error).toBeNull();
-
-    const lateProof = await submitProofForSchedule(
-      borrower,
-      lateSchedule.id,
-      activeLoanId,
-      ids.borrower,
-      "late-resolved",
-    );
-    expect(lateProof.ok).toBe(true);
-
-    const verifyResult = await approvedLender.rpc("review_repayment_proof", {
-      p_proof_id: lateProof.proof_id ?? "",
-      p_decision: "verified",
-      p_review_notes: "",
-    });
-    expect(verifyResult.error).toBeNull();
-    expect(verifyResult.data as Json as RepaymentProofResult).toMatchObject({
-      ok: true,
-      loan_status: "active",
-    });
-
-    const { data: loan, error: loanError } = await manager
-      .from("active_loans")
-      .select("outstanding_balance, status")
-      .eq("id", activeLoanId)
-      .single();
-    expect(loanError).toBeNull();
-    expect(Number(loan?.outstanding_balance)).toBeGreaterThan(0);
-    expect(loan).toMatchObject({ status: "active" });
-  });
-
   it("lets a borrower submit repayment proof for their own active loan repayment", async () => {
     const { activeLoanId, repaymentScheduleId } =
       await createAcceptedLoanWithSchedule(borrower, approvedLender);
@@ -3904,15 +1788,64 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         borrower: expect.objectContaining({ displayName: "Borrower One" }),
         lender: expect.objectContaining({ displayName: "Approved Lender" }),
         status: "active",
-        schedule: expect.objectContaining({
+        schedule: {
           installmentCount: 3,
           verifiedCount: 1,
           submittedCount: 1,
           rejectedCount: 1,
           nextDueDate: schedules[1].due_date,
-        }),
+        },
       }),
     ]);
+
+    const loansByBorrower = await loadManagerLoans(managerClient, {
+      borrower: "Borrower One",
+    });
+    expect(loansByBorrower.loans).toEqual([
+      expect.objectContaining({ id: activeLoanId }),
+    ]);
+
+    const loanDetail = await loadManagerLoanDetail(managerClient, activeLoanId);
+    expect(loanDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      loan: expect.objectContaining({
+        id: activeLoanId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        lender: expect.objectContaining({ displayName: "Approved Lender" }),
+        repaymentSchedules: expect.arrayContaining([
+          expect.objectContaining({
+            installmentNumber: 1,
+            amountDue: expect.any(Number),
+          }),
+        ]),
+        repaymentProofs: expect.arrayContaining([
+          expect.objectContaining({ id: submittedProof.proof_id }),
+        ]),
+      }),
+    });
+
+    const invalidLoanDetail = await loadManagerLoanDetail(
+      managerClient,
+      "not-a-loan-id",
+    );
+    expect(invalidLoanDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      loan: null,
+      message: "Invalid loan ID.",
+    });
+
+    const missingLoanDetail = await loadManagerLoanDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingLoanDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      loan: null,
+      message: "Loan not found.",
+    });
 
     const repayments = await loadManagerRepayments(managerClient, {});
     expect(repayments).toMatchObject({ ok: true });
@@ -3947,6 +1880,52 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       expect.objectContaining({ id: submittedProof.proof_id }),
     ]);
 
+    const submittedProofRow = repayments.proofs.find(
+      (proof) => proof.id === submittedProof.proof_id,
+    );
+    expect(submittedProofRow).toBeDefined();
+
+    const proofDetail = await loadManagerRepaymentProofDetail(
+      managerClient,
+      submittedProof.proof_id ?? "",
+    );
+    expect(proofDetail).toMatchObject({
+      ok: true,
+      proof: expect.objectContaining({
+        id: submittedProof.proof_id,
+        proofStatus: "submitted",
+        repaymentStatus: "submitted",
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        lender: expect.objectContaining({ displayName: "Approved Lender" }),
+      }),
+    });
+
+    const invalidProofDetail = await loadManagerRepaymentProofDetail(
+      managerClient,
+      "not-a-proof-id",
+    );
+    expect(invalidProofDetail).toMatchObject({
+      ok: false,
+      proof: null,
+      message: "Invalid repayment proof ID.",
+    });
+
+    for (const range of ["this_week", "this_month", "this_year"]) {
+      const rangeFilters = resolveSubmittedDateRangeFilters({
+        range,
+        now: new Date(submittedProofRow?.submittedAt ?? ""),
+      });
+      const filteredRepayments = await loadManagerRepayments(managerClient, {
+        proofStatus: "submitted",
+        repaymentStatus: "submitted",
+        ...rangeFilters,
+      });
+
+      expect(filteredRepayments.proofs).toEqual([
+        expect.objectContaining({ id: submittedProof.proof_id }),
+      ]);
+    }
+
     const applications = await loadManagerApplications(managerClient, {
       status: "accepted",
     });
@@ -3963,6 +1942,48 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         }),
       }),
     ]);
+
+    const applicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      applicationId,
+    );
+    expect(applicationDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      application: expect.objectContaining({
+        id: applicationId,
+        borrower: expect.objectContaining({ displayName: "Borrower One" }),
+        offers: expect.arrayContaining([
+          expect.objectContaining({
+            status: "accepted",
+            lender_name: "Approved Capital",
+          }),
+        ]),
+        activeLoan: expect.objectContaining({ id: activeLoanId }),
+      }),
+    });
+
+    const invalidApplicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      "not-an-application-id",
+    );
+    expect(invalidApplicationDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      application: null,
+      message: "Invalid application ID.",
+    });
+
+    const missingApplicationDetail = await loadManagerApplicationDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingApplicationDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      application: null,
+      message: "Application not found.",
+    });
 
     const auditLogs = await loadManagerAuditLogs(managerClient, {
       action: "repayment_proof",
@@ -3984,6 +2005,48 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         }),
       ]),
     );
+
+    const auditLogId = auditLogs.logs.find(
+      (log) => log.action === "repayment_proof_submitted",
+    )?.id;
+    expect(auditLogId).toBeDefined();
+
+    const auditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      auditLogId ?? "",
+    );
+    expect(auditLogDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      log: expect.objectContaining({
+        id: auditLogId,
+        action: "repayment_proof_submitted",
+        targetTable: "repayment_proofs",
+        metadata: expect.anything(),
+      }),
+    });
+
+    const invalidAuditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      "not-an-audit-log-id",
+    );
+    expect(invalidAuditLogDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      log: null,
+      message: "Invalid audit log ID.",
+    });
+
+    const missingAuditLogDetail = await loadManagerAuditLogDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingAuditLogDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      log: null,
+      message: "Audit log not found.",
+    });
 
     const lookup = await loadManagerLookup(managerClient, "Borrower One");
     expect(lookup).toMatchObject({ ok: true });
@@ -4007,5 +2070,121 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         ],
       }),
     ]);
+
+    const allUsers = await loadManagerUserDirectory(managerClient, {});
+    expect(allUsers).toMatchObject({ ok: true });
+    expect(new Set(allUsers.users.map((user) => user.role))).toEqual(
+      new Set(["borrower", "lender", "manager"]),
+    );
+
+    const borrowers = await loadManagerUserDirectory(managerClient, {
+      role: "borrower",
+    });
+    expect(borrowers.users.length).toBeGreaterThan(0);
+    expect(borrowers.users.every((user) => user.role === "borrower")).toBe(true);
+    expect(borrowers.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "borrower",
+          profile: expect.objectContaining({ displayName: "Borrower One" }),
+          portfolioLocation: "Quezon City",
+          applicationCount: 1,
+          activeLoanCount: 1,
+          latestApplicationStatus: "accepted",
+        }),
+      ]),
+    );
+
+    const borrowerDetail = await loadManagerUserDetail(managerClient, ids.borrower);
+    expect(borrowerDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      user: expect.objectContaining({
+        role: "borrower",
+        profile: expect.objectContaining({ displayName: "Borrower One" }),
+        portfolio: expect.objectContaining({ location: "Quezon City" }),
+        applications: [
+          expect.objectContaining({
+            id: applicationId,
+            activeLoan: expect.objectContaining({ id: activeLoanId }),
+          }),
+        ],
+      }),
+    });
+
+    const invalidUserDetail = await loadManagerUserDetail(
+      managerClient,
+      "not-a-user-id",
+    );
+    expect(invalidUserDetail).toMatchObject({
+      ok: false,
+      mode: "invalid-id",
+      user: null,
+      message: "Invalid user ID.",
+    });
+
+    const missingUserDetail = await loadManagerUserDetail(
+      managerClient,
+      "99999999-9999-4999-9999-999999999999",
+    );
+    expect(missingUserDetail).toMatchObject({
+      ok: false,
+      mode: "not-found",
+      user: null,
+      message: "User not found.",
+    });
+
+    const lenders = await loadManagerUserDirectory(managerClient, {
+      role: "lender",
+    });
+    expect(lenders.users.length).toBeGreaterThan(0);
+    expect(lenders.users.every((user) => user.role === "lender")).toBe(true);
+    expect(lenders.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "lender",
+          profile: expect.objectContaining({ displayName: "Approved Lender" }),
+          organizationName: "Approved Capital",
+          verificationStatus: "approved",
+          offerCount: 1,
+          acceptedOfferCount: 1,
+          activeLoanCount: 1,
+          submittedProofCount: 1,
+        }),
+      ]),
+    );
+
+    const lenderDetail = await loadManagerUserDetail(
+      managerClient,
+      ids.approvedLender,
+    );
+    expect(lenderDetail).toMatchObject({
+      ok: true,
+      mode: "loaded",
+      user: expect.objectContaining({
+        role: "lender",
+        profile: expect.objectContaining({ displayName: "Approved Lender" }),
+        lenderProfile: expect.objectContaining({
+          organization_name: "Approved Capital",
+        }),
+        activeLoans: [expect.objectContaining({ id: activeLoanId })],
+        submittedProofs: [expect.objectContaining({ id: submittedProof.proof_id })],
+      }),
+    });
+
+    const managers = await loadManagerUserDirectory(managerClient, {
+      role: "manager",
+    });
+    expect(managers.users.length).toBeGreaterThan(0);
+    expect(managers.users.every((user) => user.role === "manager")).toBe(true);
+    expect(managers.users).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          role: "manager",
+          profile: expect.objectContaining({ displayName: "Platform Manager" }),
+          status: "active",
+        }),
+      ]),
+    );
   });
 });

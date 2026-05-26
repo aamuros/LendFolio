@@ -1,4 +1,5 @@
 import { requireManager } from "@/lib/access-control";
+import Link from "next/link";
 import {
   getShortId,
   loadManagerApplications,
@@ -6,10 +7,12 @@ import {
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
-  DataCard,
+  AutoFilterGrid,
   EmptyState,
-  Field,
-  FilterGrid,
+  ManagerDetailsLink,
+  ManagerRecordHeader,
+  ManagerRecordList,
+  ManagerRecordRow,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -17,8 +20,6 @@ import {
   StatusMessage,
   TextFilter,
   formatCurrency,
-  formatDateOnly,
-  formatDateTime,
 } from "../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -42,7 +43,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
       <ManagerShell
         title="Applications & offers"
         description="Read-only application and offer lifecycle visibility."
-        activeTab={null}
+        activeTab="applications"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -50,14 +51,17 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
   }
 
   const result = await loadManagerApplications(access.supabase, filters);
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const applicationGridClass =
+    "sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_0.85fr_0.8fr_0.8fr_4.5rem] sm:items-center sm:gap-3";
 
   return (
     <ManagerShell
       title="Applications & offers"
       description="Track borrower requests, preferred terms, offer counts, and accepted terms."
-      activeTab={null}
+      activeTab="applications"
     >
-      <FilterGrid>
+      <AutoFilterGrid>
         <SelectFilter
           label="Application status"
           name="status"
@@ -98,11 +102,20 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
           type="date"
           defaultValue={filters.submittedTo}
         />
-      </FilterGrid>
+      </AutoFilterGrid>
+
+      {hasActiveFilters ? (
+        <Link
+          href="/manager/applications"
+          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+        >
+          Reset filters
+        </Link>
+      ) : null}
 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
-      <section className="grid gap-3">
+      <section>
         {result.applications.length === 0 ? (
           <EmptyState
             title="No applications found"
@@ -110,70 +123,84 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
           />
         ) : null}
 
-        {result.applications.map((application) => (
-          <DataCard key={application.id}>
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold">
-                  Application {getShortId(application.id)}
-                </h2>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  {application.purpose}
-                </p>
-              </div>
-              <StatusBadge status={application.status} />
-            </div>
-            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Field
-                label="Borrower"
-                value={<PersonLabel person={application.borrower} />}
-              />
-              <Field
-                label="Requested amount"
-                value={formatCurrency(application.requestedAmount)}
-              />
-              <Field
-                label="Preferred term"
-                value={managerPreferredTermLabels[application.preferredTerm]}
-              />
-              <Field
-                label="Submitted"
-                value={formatDateTime(application.submittedAt)}
-              />
-              <Field
-                label="Readiness"
-                value={
-                  application.creditReadinessStatus?.replaceAll("_", " ") ??
-                  "Not recorded"
-                }
-              />
-              <Field
-                label="Risk flags"
-                value={
-                  application.riskFlags.length
-                    ? application.riskFlags
-                        .map((flag) => flag.replaceAll("_", " "))
-                        .join(", ")
-                    : "None"
-                }
-              />
-              <Field
-                label="Offers"
-                value={`${application.offerCounts.pending} pending, ${application.offerCounts.accepted} accepted, ${application.offerCounts.declined} declined, ${application.offerCounts.expired} expired`}
-              />
-              <Field
-                label="Accepted offer"
-                value={
-                  application.acceptedOffer
-                    ? `${application.acceptedOffer.lenderName} · ${formatCurrency(
-                        application.acceptedOffer.repaymentAmount,
-                      )} due ${formatDateOnly(application.acceptedOffer.dueDate)}`
-                    : "None"
-                }
-              />
-            </dl>
-          </DataCard>
-        ))}
+        {result.applications.length > 0 ? (
+          <ManagerRecordList>
+            <ManagerRecordHeader className={applicationGridClass}>
+              <span>Application</span>
+              <span>Borrower</span>
+              <span>Requested</span>
+              <span>Term</span>
+              <span>Status</span>
+              <span className="justify-self-center">Details</span>
+            </ManagerRecordHeader>
+
+            {result.applications.map((application) => (
+              <ManagerRecordRow key={application.id}>
+                <article
+                  className={`grid gap-2 px-3 py-2.5 sm:grid ${applicationGridClass}`}
+                >
+                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                    <h2 className="truncate text-sm font-semibold">
+                      Application {getShortId(application.id)}
+                    </h2>
+                    <ManagerDetailsLink
+                      href={`/manager/applications/${application.id}`}
+                    />
+                  </div>
+
+                  <p className="truncate text-sm text-[var(--muted-foreground)] sm:hidden">
+                    {application.purpose}
+                  </p>
+
+                  <p className="text-xs sm:hidden">
+                    <PersonLabel person={application.borrower} />
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(application.requestedAmount)}
+                    </span>
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      {managerPreferredTermLabels[application.preferredTerm]}
+                    </span>
+                    <StatusBadge status={application.status} />
+                  </div>
+
+                  <div className="hidden min-w-0 sm:block">
+                    <h2 className="truncate text-sm font-semibold">
+                      Application {getShortId(application.id)}
+                    </h2>
+                    <p className="truncate text-xs text-[var(--muted-foreground)]">
+                      {application.purpose}
+                    </p>
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={application.borrower} />
+                  </div>
+
+                  <p className="hidden text-sm font-semibold sm:block">
+                    {formatCurrency(application.requestedAmount)}
+                  </p>
+
+                  <p className="hidden text-sm sm:block">
+                    {managerPreferredTermLabels[application.preferredTerm]}
+                  </p>
+
+                  <div className="hidden items-center sm:flex">
+                    <StatusBadge status={application.status} />
+                  </div>
+
+                  <span className="hidden sm:inline-flex sm:justify-self-center">
+                    <ManagerDetailsLink
+                      href={`/manager/applications/${application.id}`}
+                    />
+                  </span>
+                </article>
+              </ManagerRecordRow>
+            ))}
+          </ManagerRecordList>
+        ) : null}
       </section>
     </ManagerShell>
   );

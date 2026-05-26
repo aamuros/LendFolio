@@ -1,11 +1,15 @@
+import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
+import { resolveSubmittedDateRangeFilters } from "@/lib/date-ranges";
 import { getShortId, loadManagerRepayments } from "@/lib/manager-operations";
 import {
   AccessDenied,
-  DataCard,
+  AutoFilterGrid,
   EmptyState,
-  Field,
-  FilterGrid,
+  ManagerDetailsLink,
+  ManagerRecordHeader,
+  ManagerRecordList,
+  ManagerRecordRow,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -14,7 +18,6 @@ import {
   TextFilter,
   formatCurrency,
   formatDateOnly,
-  formatDateTime,
 } from "../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -25,6 +28,7 @@ type PageProps = {
     repaymentStatus?: string;
     lender?: string;
     borrower?: string;
+    range?: string;
     submittedFrom?: string;
     submittedTo?: string;
   }>;
@@ -46,7 +50,14 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     );
   }
 
-  const result = await loadManagerRepayments(access.supabase, filters);
+  const submittedDateFilters = resolveSubmittedDateRangeFilters(filters);
+  const result = await loadManagerRepayments(access.supabase, {
+    ...filters,
+    ...submittedDateFilters,
+  });
+  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const proofGridClass =
+    "sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_0.8fr_0.75fr_5rem] sm:items-center sm:gap-3";
 
   return (
     <ManagerShell
@@ -54,7 +65,7 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
       description="Monitor submitted evidence, repayment status, and lender review notes."
       activeTab="proofs"
     >
-      <FilterGrid>
+      <AutoFilterGrid>
         <SelectFilter
           label="Proof status"
           name="proofStatus"
@@ -83,6 +94,18 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
           name="borrower"
           defaultValue={filters.borrower}
         />
+        <SelectFilter
+          label="Submitted range"
+          name="range"
+          defaultValue={filters.range}
+          emptyLabel="Any time"
+          options={[
+            { value: "this_week", label: "This week" },
+            { value: "this_month", label: "This month" },
+            { value: "this_year", label: "This year" },
+            { value: "custom", label: "Custom" },
+          ]}
+        />
         <TextFilter
           label="Submitted from"
           name="submittedFrom"
@@ -95,11 +118,20 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
           type="date"
           defaultValue={filters.submittedTo}
         />
-      </FilterGrid>
+      </AutoFilterGrid>
+
+      {hasActiveFilters ? (
+        <Link
+          href="/manager/repayments"
+          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+        >
+          Reset filters
+        </Link>
+      ) : null}
 
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
 
-      <section className="grid gap-3">
+      <section>
         {result.proofs.length === 0 ? (
           <EmptyState
             title="No repayment proofs found"
@@ -107,44 +139,87 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
           />
         ) : null}
 
-        {result.proofs.map((proof) => (
-          <DataCard
-            key={proof.id}
-            className={
-              proof.repaymentStatus === "late"
-                ? "border-[#f3c7c7] bg-[#fffafa]"
-                : ""
-            }
-          >
-            <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
-                <h2 className="text-lg font-semibold break-all">{proof.fileName}</h2>
-                <p className="text-sm text-[var(--muted-foreground)]">
-                  Loan {getShortId(proof.activeLoanId)} · installment{" "}
-                  {proof.installmentNumber}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <StatusBadge status={proof.proofStatus} />
-                <StatusBadge status={proof.repaymentStatus} />
-              </div>
-            </div>
-            <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Field label="Borrower" value={<PersonLabel person={proof.borrower} />} />
-              <Field label="Lender" value={<PersonLabel person={proof.lender} />} />
-              <Field label="Amount due" value={formatCurrency(proof.amountDue)} />
-              <Field label="Due date" value={formatDateOnly(proof.dueDate)} />
-              <Field label="Submitted" value={formatDateTime(proof.submittedAt)} />
-              <Field label="Reviewed" value={formatDateTime(proof.reviewedAt)} />
-              <Field label="Review notes" value={proof.reviewNotes ?? "No notes"} />
-            </dl>
-            {proof.repaymentStatus === "late" ? (
-              <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm font-semibold text-[#8f1d1d]">
-                Payment overdue
-              </p>
-            ) : null}
-          </DataCard>
-        ))}
+        {result.proofs.length > 0 ? (
+          <ManagerRecordList>
+            <ManagerRecordHeader className={proofGridClass}>
+              <span>Proof</span>
+              <span>Borrower</span>
+              <span>Lender</span>
+              <span>Amount</span>
+              <span>Status</span>
+              <span className="justify-self-center">Details</span>
+            </ManagerRecordHeader>
+
+            {result.proofs.map((proof) => (
+              <ManagerRecordRow key={proof.id}>
+                <article
+                  className={`grid gap-2 px-3 py-2.5 sm:grid ${proofGridClass}`}
+                >
+                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold">
+                        {proof.fileName}
+                      </h2>
+                      <p className="text-xs text-[var(--muted-foreground)]">
+                        Loan {getShortId(proof.activeLoanId)} · installment{" "}
+                        {proof.installmentNumber}
+                      </p>
+                    </div>
+
+                    <ManagerDetailsLink href={`/manager/repayments/${proof.id}`} />
+                  </div>
+
+                  <p className="truncate text-xs text-[var(--muted-foreground)] sm:hidden">
+                    {proof.borrower.displayName} → {proof.lender.displayName}
+                  </p>
+
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
+                    <span className="text-sm font-semibold">
+                      {formatCurrency(proof.amountDue)}
+                    </span>
+                    <span className="text-xs text-[var(--muted-foreground)]">
+                      Due {formatDateOnly(proof.dueDate)}
+                    </span>
+                    <StatusBadge status={proof.proofStatus} />
+                  </div>
+
+                  <div className="hidden min-w-0 sm:block">
+                    <h2 className="truncate text-sm font-semibold">
+                      {proof.fileName}
+                    </h2>
+                    <p className="text-xs text-[var(--muted-foreground)]">
+                      Loan {getShortId(proof.activeLoanId)} · installment{" "}
+                      {proof.installmentNumber}
+                    </p>
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={proof.borrower} />
+                  </div>
+
+                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
+                    <PersonLabel person={proof.lender} />
+                  </div>
+
+                  <div className="hidden text-sm font-semibold sm:block">
+                    {formatCurrency(proof.amountDue)}
+                    <span className="block text-xs font-normal text-[var(--muted-foreground)]">
+                      Due {formatDateOnly(proof.dueDate)}
+                    </span>
+                  </div>
+
+                  <div className="hidden items-center sm:flex">
+                    <StatusBadge status={proof.proofStatus} />
+                  </div>
+
+                  <span className="hidden sm:inline-flex sm:justify-self-center">
+                    <ManagerDetailsLink href={`/manager/repayments/${proof.id}`} />
+                  </span>
+                </article>
+              </ManagerRecordRow>
+            ))}
+          </ManagerRecordList>
+        ) : null}
       </section>
     </ManagerShell>
   );

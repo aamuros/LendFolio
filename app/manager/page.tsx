@@ -1,26 +1,43 @@
 import Link from "next/link";
-import { refreshOverdueStatusesAction } from "@/app/manager/actions";
 import { requireManager } from "@/lib/access-control";
 import {
-  loadManagerOverview,
-  type ManagerOverviewMetric,
-} from "@/lib/manager-operations";
+  loadManagerDashboardOverview,
+  type ManagerDashboardKpi,
+  type ManagerDashboardOverview,
+  type ManagerMonthlyUserHeadcount,
+  type ManagerUserStatusDistribution,
+} from "@/lib/manager-dashboard";
+import { BorrowerReadinessPanel } from "./borrower-readiness-panel";
+import { LenderPerformancePanel } from "./lender-performance-panel";
 import {
   AccessDenied,
   DataCard,
   ManagerShell,
   StatusMessage,
-  managerNavItems,
 } from "./manager-ui";
 
 export const dynamic = "force-dynamic";
 
-export default async function ManagerPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ overdueRefresh?: string }>;
-}) {
-  const params = await searchParams;
+const numberFormatter = new Intl.NumberFormat("en-US");
+const statusChartStyles = {
+  active: {
+    label: "Active",
+    color: "var(--primary)",
+  },
+  pending: {
+    label: "Pending",
+    color: "#f3b43f",
+  },
+  suspended: {
+    label: "Suspended",
+    color: "#e85d75",
+  },
+} as const;
+const statusOrder = ["active", "pending", "suspended"] as const;
+const donutRadius = 42;
+const donutCircumference = 2 * Math.PI * donutRadius;
+
+export default async function ManagerPage() {
   const access = await requireManager();
 
   if (!access.ok) {
@@ -34,222 +51,444 @@ export default async function ManagerPage({
     );
   }
 
-  const overview = await loadManagerOverview(access.supabase);
+  const dashboard = await loadManagerDashboardOverview(access.supabase);
 
   return (
     <ManagerShell
       title="Manager dashboard"
-      description="Monitor portfolio activity, repayment evidence, application movement, and workflow events from one place."
+      description="Monitor portfolio activity, user readiness, application movement, and lender performance from one place."
       activeTab="home"
     >
-      {!overview.ok ? (
-        <StatusMessage message={overview.message} tone="error" />
-      ) : null}
-      {params.overdueRefresh === "success" ? (
-        <StatusMessage message="Overdue statuses refreshed." />
-      ) : null}
-      {params.overdueRefresh === "error" ? (
-        <StatusMessage message="Could not refresh overdue statuses." tone="error" />
+      {!dashboard.ok ? (
+        <StatusMessage message={dashboard.message} tone="error" />
       ) : null}
 
-      <HomeOverview metrics={overview.metrics} />
-
-      <section className="grid gap-3">
-        <h2 className="text-sm font-semibold text-[var(--muted-foreground)]">
-          Operations
-        </h2>
-        {managerNavItems
-          .filter((item) =>
-            ["/manager/applications", "/manager/audit-logs", "/manager/lookup"].includes(
-              item.href,
-            ) ||
-            item.href === "/manager/lenders" ||
-            item.href === "/manager/borrower-verifications",
-          )
-          .map((item) => (
-          <Link key={item.href} href={item.href}>
-            <DataCard>
-              <div className="flex items-start justify-between gap-4">
-                <div className="grid gap-1">
-                  <h2 className="text-lg font-semibold">{item.title}</h2>
-                  <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-                    {item.description}
-                  </p>
-                </div>
-                <span aria-hidden="true" className="text-lg font-semibold">
-                  -&gt;
-                </span>
-              </div>
-            </DataCard>
-          </Link>
-        ))}
-      </section>
+      <ManagerDashboardHome dashboard={dashboard.dashboard} />
     </ManagerShell>
   );
 }
 
-function HomeOverview({ metrics }: { metrics: ManagerOverviewMetric[] }) {
-  const metric = (label: string) =>
-    metrics.find((item) => item.label === label) ?? {
-      label,
-      value: 0,
-      href: "/manager",
-    };
-  const submittedProofs = metric("Submitted proofs");
-  const rejectedProofs = metric("Rejected proofs");
-  const openApplications = metric("Open/submitted applications");
-  const activeLoans = metric("Active loans");
-  const overdueLoans = metric("Overdue loans");
-  const lateRepayments = metric("Late repayments");
-  const pendingOffers = metric("Pending offers");
-  const borrowerReviews = metric("Borrower reviews");
-  const borrowerDocuments = metric("Borrower documents");
-  const nextAction =
-    borrowerDocuments.value > 0
-      ? {
-          title: `${borrowerDocuments.value} borrower ${
-            borrowerDocuments.value === 1 ? "document needs" : "documents need"
-          } review`,
-          description: "Open submitted verification evidence before approving borrower access.",
-          href: borrowerDocuments.href,
-          label: "Review borrowers",
-        }
-      : borrowerReviews.value > 0
-        ? {
-            title: `${borrowerReviews.value} borrower ${
-              borrowerReviews.value === 1 ? "review is" : "reviews are"
-            } pending`,
-            description: "Check borrower verification records waiting for manager action.",
-            href: borrowerReviews.href,
-            label: "Review borrowers",
-          }
-        : submittedProofs.value > 0
-      ? {
-          title: `${submittedProofs.value} repayment proof ${
-            submittedProofs.value === 1 ? "needs" : "need"
-          } review`,
-          description: "Open submitted evidence and confirm lender review progress.",
-          href: submittedProofs.href,
-          label: "Review proofs",
-        }
-      : rejectedProofs.value > 0
-        ? {
-            title: `${rejectedProofs.value} rejected ${
-              rejectedProofs.value === 1 ? "proof" : "proofs"
-            } to monitor`,
-            description: "Check rejected proof activity and borrower follow-through.",
-            href: rejectedProofs.href,
-            label: "View rejected proofs",
-          }
-        : openApplications.value > 0
-          ? {
-              title: `${openApplications.value} ${
-                openApplications.value === 1 ? "application is" : "applications are"
-              } open`,
-              description: "Track submitted borrower requests and offer movement.",
-              href: openApplications.href,
-              label: "View applications",
-            }
-          : activeLoans.value > 0
-            ? {
-                title: `${activeLoans.value} active ${
-                  activeLoans.value === 1 ? "loan" : "loans"
-                }`,
-                description: "Review funded loans and upcoming repayment dates.",
-                href: activeLoans.href,
-                label: "View loans",
-              }
-            : pendingOffers.value > 0
-              ? {
-                  title: `${pendingOffers.value} pending ${
-                    pendingOffers.value === 1 ? "offer" : "offers"
-                  }`,
-                  description: "Monitor offers waiting on borrower response.",
-                  href: pendingOffers.href,
-                  label: "View offers",
-                }
-              : {
-                  title: "Operations are clear",
-                  description: "New borrower and repayment activity will appear here.",
-                  href: "/manager/lookup",
-                  label: "Search records",
-                };
-
+function ManagerDashboardHome({
+  dashboard,
+}: {
+  dashboard: ManagerDashboardOverview;
+}) {
   return (
-    <section className="grid gap-4">
-      <div className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
-        <div className="grid gap-3">
-          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-            Today
-          </p>
-          <h2 className="text-3xl leading-tight font-semibold">
-            {nextAction.title}
-          </h2>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {nextAction.description}
-          </p>
-          <Link
-            href={nextAction.href}
-            className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            {nextAction.label}
-          </Link>
-          <form action={refreshOverdueStatusesAction}>
-            <button
-              type="submit"
-              className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-            >
-              Refresh overdue statuses
-            </button>
-          </form>
-        </div>
-      </div>
+    <section className="grid gap-5">
+      <DashboardKpiGrid kpis={dashboard.kpis} />
 
-      <div className="grid grid-cols-3 gap-3">
-        <SummaryCard metric={lateRepayments} label="Late" />
-        <SummaryCard metric={overdueLoans} label="Overdue" />
-        <SummaryCard metric={activeLoans} label="Active" />
-      </div>
+      <section className="grid gap-4 lg:grid-cols-[minmax(0,1.55fr)_minmax(17rem,0.85fr)]">
+        <UserHeadcountChart monthlyHeadcount={dashboard.monthlyHeadcount} />
+        <UserStatusDonut distribution={dashboard.statusDistribution} />
+      </section>
 
-      <div className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
-        <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-          Portfolio snapshot
-        </p>
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {metrics.map((item) => (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3 transition hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            >
-              <p className="text-2xl font-semibold">{item.value}</p>
-              <p className="mt-1 text-xs font-semibold text-[var(--muted-foreground)]">
-                {item.label}
-              </p>
-            </Link>
-          ))}
-        </div>
-      </div>
+      <section className="grid gap-4 lg:grid-cols-2">
+        <LenderPerformancePanel rows={dashboard.lenderPerformance} />
+        <BorrowerReadinessPanel rows={dashboard.borrowerPerformance} />
+      </section>
     </section>
   );
 }
 
-function SummaryCard({
-  metric,
-  label,
-}: {
-  metric: ManagerOverviewMetric;
-  label: string;
-}) {
+function DashboardKpiGrid({ kpis }: { kpis: ManagerDashboardKpi[] }) {
+  return (
+    <section
+      aria-label="Manager dashboard key metrics"
+      className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
+    >
+      {kpis.map((kpi) => (
+        <DashboardKpiCard key={kpi.label} kpi={kpi} />
+      ))}
+    </section>
+  );
+}
+
+function DashboardKpiCard({ kpi }: { kpi: ManagerDashboardKpi }) {
   return (
     <Link
-      href={metric.href}
-      className="rounded-2xl border border-[var(--border)] bg-white px-3 py-4 text-center shadow-sm transition hover:border-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+      href={kpi.href}
+      className="group grid min-h-40 gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
     >
-      <p className="text-2xl font-semibold">{metric.value}</p>
-      <p className="mt-1 text-xs font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </p>
+      <div className="flex items-start justify-between gap-3">
+        <span
+          aria-hidden="true"
+          className={`grid size-11 place-items-center rounded-2xl border shadow-sm ring-1 ring-white/70 ${getKpiAccentClass(
+            kpi.accent,
+          )}`}
+        >
+          <KpiIcon label={kpi.label} />
+        </span>
+      </div>
+      <div className="grid gap-1">
+        <p className="text-3xl leading-none font-semibold">
+          {formatCount(kpi.value)}
+        </p>
+        <h2 className="text-sm font-semibold">{kpi.label}</h2>
+        <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+          {kpi.description}
+        </p>
+      </div>
     </Link>
   );
+}
+
+function UserHeadcountChart({
+  monthlyHeadcount,
+}: {
+  monthlyHeadcount: ManagerMonthlyUserHeadcount[];
+}) {
+  const hasUsers = monthlyHeadcount.some((month) => month.total > 0);
+  const maxTotal = Math.max(
+    1,
+    ...monthlyHeadcount.map((month) => month.total),
+  );
+
+  return (
+    <DataCard>
+      <ChartCardHeader
+        title="User headcount"
+        description="Monthly registrations by profile status"
+      />
+      {hasUsers ? (
+        <>
+          <StatusLegend />
+          <div className="overflow-x-auto pb-1">
+            <div className="flex min-w-[760px] items-end gap-2 pt-2">
+              {monthlyHeadcount.map((month) => (
+                <div key={month.month} className="grid flex-1 gap-2 text-center">
+                  <div
+                    className="relative flex h-32 items-end justify-center border-b border-[var(--border)] px-1.5 pb-0"
+                    aria-label={`${month.label}: ${month.active} active, ${month.pending} pending, ${month.suspended} suspended`}
+                  >
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-1.5 top-0 border-t border-dashed border-[var(--border)]/70"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-1.5 top-1/2 border-t border-dashed border-[var(--border)]/70"
+                    />
+                    <div
+                      className={`flex w-8 flex-col-reverse overflow-hidden rounded-t-lg border border-[var(--border)]/60 bg-[var(--muted)]/20 ${
+                        month.total > 0 ? "" : "opacity-40"
+                      }`}
+                      style={{
+                        height:
+                          month.total > 0
+                            ? `${Math.max((month.total / maxTotal) * 100, 8)}%`
+                            : "6px",
+                      }}
+                    >
+                      {month.total > 0
+                        ? statusOrder.map((status) => (
+                            <span
+                              key={status}
+                              className="block w-full"
+                              style={{
+                                height: `${(month[status] / month.total) * 100}%`,
+                                backgroundColor: statusChartStyles[status].color,
+                              }}
+                              title={`${statusChartStyles[status].label}: ${month[status]}`}
+                            />
+                          ))
+                        : null}
+                    </div>
+                  </div>
+                  <div className="grid gap-0.5">
+                    <p className="text-[11px] font-semibold text-[var(--foreground)]">
+                      {month.label}
+                    </p>
+                    <p className="text-[11px] text-[var(--muted-foreground)]">
+                      {formatCount(month.total)} total
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      ) : (
+        <DashboardEmptyState
+          title="No users yet"
+          description="Monthly headcount will appear after user profiles are created."
+        />
+      )}
+    </DataCard>
+  );
+}
+
+function UserStatusDonut({
+  distribution,
+}: {
+  distribution: ManagerUserStatusDistribution[];
+}) {
+  const total = distribution.reduce((sum, item) => sum + item.count, 0);
+  const segments = getDonutSegments(distribution, total);
+
+  return (
+    <DataCard>
+      <ChartCardHeader
+        title="User status"
+        description="Profile distribution across active, pending, and suspended users"
+      />
+      {total > 0 ? (
+        <div className="grid gap-5">
+          <div className="grid place-items-center">
+            <svg
+              role="img"
+              aria-label={`User status distribution: ${distribution
+                .map((item) => `${item.label} ${item.count}`)
+                .join(", ")}`}
+              viewBox="0 0 120 120"
+              className="size-44"
+            >
+              <title>User status distribution</title>
+              <circle
+                cx="60"
+                cy="60"
+                r={donutRadius}
+                fill="none"
+                stroke="var(--muted)"
+                strokeWidth="16"
+              />
+              {segments.map((segment) => (
+                <circle
+                  key={segment.status}
+                  cx="60"
+                  cy="60"
+                  r={donutRadius}
+                  fill="none"
+                  stroke={segment.color}
+                  strokeDasharray={`${segment.length} ${donutCircumference}`}
+                  strokeDashoffset={-segment.offset}
+                  strokeLinecap="round"
+                  strokeWidth="16"
+                  transform="rotate(-90 60 60)"
+                />
+              ))}
+              <text
+                x="60"
+                y="57"
+                textAnchor="middle"
+                className="fill-[var(--foreground)] text-xl font-semibold"
+              >
+                {formatCount(total)}
+              </text>
+              <text
+                x="60"
+                y="74"
+                textAnchor="middle"
+                className="fill-[var(--muted-foreground)] text-[10px] font-semibold"
+              >
+                users
+              </text>
+            </svg>
+          </div>
+
+          <div className="grid gap-2">
+            {distribution.map((item) => (
+              <div
+                key={item.status}
+                className="flex items-center justify-between gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/25 px-3 py-2"
+              >
+                <span className="flex min-w-0 items-center gap-2 text-sm font-semibold">
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 rounded-full"
+                    style={{
+                      backgroundColor: statusChartStyles[item.status].color,
+                    }}
+                  />
+                  {item.label}
+                </span>
+                <span className="text-sm font-semibold">
+                  {formatCount(item.count)}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <DashboardEmptyState
+          title="No users yet"
+          description="User status distribution will appear after profiles are created."
+        />
+      )}
+    </DataCard>
+  );
+}
+
+function ChartCardHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="grid gap-1">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function StatusLegend() {
+  return (
+    <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-semibold text-[var(--muted-foreground)]">
+      {statusOrder.map((status) => (
+        <span key={status} className="inline-flex items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="size-2.5 rounded-full"
+            style={{ backgroundColor: statusChartStyles[status].color }}
+          />
+          {statusChartStyles[status].label}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function DashboardEmptyState({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 py-8 text-center">
+      <h3 className="text-base font-semibold">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function getDonutSegments(
+  distribution: ManagerUserStatusDistribution[],
+  total: number,
+) {
+  let offset = 0;
+
+  return distribution
+    .filter((item) => item.count > 0)
+    .map((item) => {
+      const length = (item.count / total) * donutCircumference;
+      const segment = {
+        status: item.status,
+        color: statusChartStyles[item.status].color,
+        length,
+        offset,
+      };
+
+      offset += length;
+      return segment;
+    });
+}
+
+function getKpiAccentClass(accent: ManagerDashboardKpi["accent"]) {
+  const classes = {
+    primary: "border-[#cbe8e4] bg-[#e8f6f3] text-[#0f5f45]",
+    blue: "border-[#cfe7f8] bg-[#eaf6ff] text-[#075985]",
+    amber: "border-[#f7dfac] bg-[#fff7df] text-[#806000]",
+    rose: "border-[#f7cdd8] bg-[#fff0f4] text-[#9f1744]",
+  };
+
+  return classes[accent];
+}
+
+function KpiIcon({ label }: { label: string }) {
+  const iconClass = "size-5";
+
+  if (label === "Total Active Loans") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M7 4.75h7.25L18 8.5v10.75H7z"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M14.25 4.75V8.5H18M9.75 13.1l1.65 1.65 3.1-3.3"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    );
+  }
+
+  if (label === "Total Lenders") {
+    return <BriefcaseIcon className={iconClass} />;
+  }
+
+  if (label === "Total Borrowers") {
+    return (
+      <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+        <path
+          d="M9.25 11.25a3.25 3.25 0 1 0 0-6.5 3.25 3.25 0 0 0 0 6.5ZM4.75 19.25c.55-3.05 2.1-4.6 4.5-4.6s3.95 1.55 4.5 4.6"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M15.25 11.25a2.75 2.75 0 1 0 0-5.5M15.75 14.9c1.85.25 3 1.7 3.5 4.35"
+          stroke="currentColor"
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+
+  return (
+    <svg className={iconClass} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M9 5.25h6M9.75 3.75h4.5l.75 2H9zM6.75 5.25h10.5v15H6.75z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M9.25 11h5.5M9.25 14.5h5.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function BriefcaseIcon({ className = "size-5" }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none">
+      <path
+        d="M8.25 7.75v-1.5a1.5 1.5 0 0 1 1.5-1.5h4.5a1.5 1.5 0 0 1 1.5 1.5v1.5M5.25 7.75h13.5v10.5H5.25z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M5.25 11.25h13.5M10 11.25v1.5h4v-1.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+function formatCount(value: number) {
+  return numberFormatter.format(value);
 }
