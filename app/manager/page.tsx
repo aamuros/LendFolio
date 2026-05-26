@@ -1,15 +1,14 @@
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { requireManager } from "@/lib/access-control";
 import {
   loadManagerDashboardOverview,
   type ManagerDashboardKpi,
   type ManagerDashboardOverview,
-  type ManagerLenderPerformanceRow,
   type ManagerMonthlyUserHeadcount,
   type ManagerUserStatusDistribution,
 } from "@/lib/manager-dashboard";
 import { BorrowerReadinessPanel } from "./borrower-readiness-panel";
+import { LenderPerformancePanel } from "./lender-performance-panel";
 import {
   AccessDenied,
   DataCard,
@@ -319,68 +318,6 @@ function UserStatusDonut({
   );
 }
 
-function LenderPerformancePanel({
-  rows,
-}: {
-  rows: ManagerLenderPerformanceRow[];
-}) {
-  return (
-    <DataCard>
-      <PanelHeader
-        title="Lender performance"
-        description="Top lenders by completed applications"
-        icon={<BriefcaseIcon />}
-      />
-      {rows.length > 0 ? (
-        <ol className="grid gap-2">
-          {rows.map((row, index) => (
-            <li key={row.id}>
-              <Link
-                href={row.href}
-                className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--primary)]"
-              >
-                <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                  <span className="grid size-8 place-items-center rounded-full bg-[var(--muted)] text-xs font-semibold text-[var(--muted-foreground)]">
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0">
-                    <h3 className="truncate text-sm font-semibold">
-                      {row.displayName}
-                    </h3>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      {row.shortId}
-                    </p>
-                  </div>
-                  <div className="shrink-0 rounded-2xl bg-[#e8f6f3] px-3 py-2 text-right text-[#0f5f45]">
-                    <p className="text-lg leading-none font-semibold">
-                      {formatCount(row.completedApplicationCount)}
-                    </p>
-                    <p className="mt-1 text-[11px] font-semibold">
-                      completed
-                    </p>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <MetricChip
-                    value={row.acceptedOfferCount}
-                    label="accepted offers"
-                  />
-                  <MetricChip value={row.activeLoanCount} label="active loans" />
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ol>
-      ) : (
-        <DashboardEmptyState
-          title="No lender activity yet"
-          description="Lender performance will appear after offers are accepted and loans are activated."
-        />
-      )}
-    </DataCard>
-  );
-}
-
 function ChartCardHeader({
   title,
   description,
@@ -394,33 +331,6 @@ function ChartCardHeader({
       <p className="text-sm leading-6 text-[var(--muted-foreground)]">
         {description}
       </p>
-    </div>
-  );
-}
-
-function PanelHeader({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        className="grid size-10 shrink-0 place-items-center rounded-2xl border border-[#cbe8e4] bg-[#e8f6f3] text-[#0f5f45]"
-      >
-        {icon}
-      </span>
-      <div className="grid gap-1">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          {description}
-        </p>
-      </div>
     </div>
   );
 }
@@ -439,15 +349,6 @@ function StatusLegend() {
         </span>
       ))}
     </div>
-  );
-}
-
-function MetricChip({ value, label }: { value: number; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/25 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted-foreground)]">
-      <span className="text-[var(--foreground)]">{formatCount(value)}</span>
-      {label}
-    </span>
   );
 }
 

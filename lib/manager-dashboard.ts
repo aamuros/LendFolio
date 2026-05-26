@@ -14,6 +14,9 @@ type RepaymentProofRow =
   Database["public"]["Tables"]["repayment_proofs"]["Row"];
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
+type BorrowerPortfolioRow =
+  Database["public"]["Tables"]["borrower_portfolios"]["Row"];
+export type BusinessType = Database["public"]["Enums"]["business_type"];
 
 type DashboardProfile = Pick<
   ProfileRow,
@@ -21,13 +24,20 @@ type DashboardProfile = Pick<
 >;
 type DashboardActiveLoan = Pick<
   ActiveLoanRow,
-  "id" | "borrower_id" | "lender_id" | "status"
+  "id" | "borrower_id" | "lender_id" | "loan_application_id" | "status"
 >;
 type DashboardApplication = Pick<
   ApplicationRow,
-  "id" | "borrower_id" | "status"
+  "id" | "borrower_id" | "borrower_portfolio_id" | "status"
 >;
-type DashboardOffer = Pick<LoanOfferRow, "id" | "lender_id" | "status">;
+type DashboardOffer = Pick<
+  LoanOfferRow,
+  "id" | "lender_id" | "loan_application_id" | "status"
+>;
+type DashboardBorrowerPortfolio = Pick<
+  BorrowerPortfolioRow,
+  "id" | "business_type"
+>;
 type DashboardRepaymentSchedule = Pick<
   RepaymentScheduleRow,
   "id" | "borrower_id" | "status"
@@ -70,6 +80,13 @@ export type ManagerUserStatusDistribution = {
   count: number;
 };
 
+export type ManagerLenderBusinessTypePerformance = {
+  businessType: BusinessType;
+  completedApplicationCount: number;
+  acceptedOfferCount: number;
+  activeLoanCount: number;
+};
+
 export type ManagerLenderPerformanceRow = {
   id: string;
   displayName: string;
@@ -78,6 +95,7 @@ export type ManagerLenderPerformanceRow = {
   acceptedOfferCount: number;
   activeLoanCount: number;
   href: string;
+  businessTypePerformance: ManagerLenderBusinessTypePerformance[];
 };
 
 export type ManagerBorrowerPerformanceRow = {
@@ -125,6 +143,7 @@ export async function loadManagerDashboardOverview(
     activeLoans,
     applications,
     offers,
+    borrowerPortfolios,
     repaymentSchedules,
     repaymentProofs,
   ] = await Promise.all([
@@ -136,6 +155,7 @@ export async function loadManagerDashboardOverview(
     loadActiveLoans(supabase),
     loadApplications(supabase),
     loadOffers(supabase),
+    loadBorrowerPortfolios(supabase),
     loadRepaymentSchedules(supabase),
     loadRepaymentProofs(supabase),
   ]);
@@ -148,6 +168,7 @@ export async function loadManagerDashboardOverview(
     activeLoans,
     applications,
     offers,
+    borrowerPortfolios,
     repaymentSchedules,
     repaymentProofs,
   ];
@@ -194,6 +215,8 @@ export async function loadManagerDashboardOverview(
         profiles.data,
         activeLoans.data,
         offers.data,
+        applications.data,
+        borrowerPortfolios.data,
       ),
       borrowerPerformance: buildBorrowerPerformance(
         profiles.data,
@@ -273,7 +296,7 @@ async function loadActiveLoans(
   try {
     const { data, error } = await supabase
       .from("active_loans")
-      .select("id, borrower_id, lender_id, status")
+      .select("id, borrower_id, lender_id, loan_application_id, status")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -288,7 +311,7 @@ async function loadApplications(
   try {
     const { data, error } = await supabase
       .from("loan_applications")
-      .select("id, borrower_id, status")
+      .select("id, borrower_id, borrower_portfolio_id, status")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -303,7 +326,22 @@ async function loadOffers(
   try {
     const { data, error } = await supabase
       .from("loan_offers")
-      .select("id, lender_id, status")
+      .select("id, lender_id, loan_application_id, status")
+      .limit(1000);
+
+    return { ok: !error, data: data ?? [] };
+  } catch {
+    return failedQuery();
+  }
+}
+
+async function loadBorrowerPortfolios(
+  supabase: SupabaseServerClient,
+): Promise<QueryResult<DashboardBorrowerPortfolio>> {
+  try {
+    const { data, error } = await supabase
+      .from("borrower_portfolios")
+      .select("id, business_type")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -405,6 +443,8 @@ function buildLenderPerformance(
   profiles: DashboardProfile[],
   activeLoans: DashboardActiveLoan[],
   offers: DashboardOffer[],
+  applications: DashboardApplication[],
+  borrowerPortfolios: DashboardBorrowerPortfolio[],
 ): ManagerLenderPerformanceRow[] {
   const activeLoansByLender = countBy(
     activeLoans.filter((loan) => loan.status === "active"),
@@ -414,12 +454,28 @@ function buildLenderPerformance(
     offers.filter((offer) => offer.status === "accepted"),
     "lender_id",
   );
+  const applicationBusinessTypeById = getApplicationBusinessTypeById(
+    applications,
+    borrowerPortfolios,
+  );
+  const activeLoansByLenderAndBusinessType = countByLenderBusinessType(
+    activeLoans.filter((loan) => loan.status === "active"),
+    applicationBusinessTypeById,
+  );
+  const acceptedOffersByLenderAndBusinessType = countByLenderBusinessType(
+    offers.filter((offer) => offer.status === "accepted"),
+    applicationBusinessTypeById,
+  );
 
   return profiles
     .filter((profile) => profile.role === "lender")
     .map((profile) => {
       const activeLoanCount = activeLoansByLender.get(profile.id) ?? 0;
       const acceptedOfferCount = acceptedOffersByLender.get(profile.id) ?? 0;
+      const businessTypePerformance = buildBusinessTypePerformance(
+        activeLoansByLenderAndBusinessType.get(profile.id) ?? new Map(),
+        acceptedOffersByLenderAndBusinessType.get(profile.id) ?? new Map(),
+      );
 
       return {
         id: profile.id,
@@ -430,6 +486,7 @@ function buildLenderPerformance(
         acceptedOfferCount,
         activeLoanCount,
         href: `/manager/users/${profile.id}`,
+        businessTypePerformance,
       };
     })
     .filter(
@@ -443,8 +500,7 @@ function buildLenderPerformance(
         b.completedApplicationCount - a.completedApplicationCount ||
         b.activeLoanCount - a.activeLoanCount ||
         a.displayName.localeCompare(b.displayName),
-    )
-    .slice(0, 6);
+    );
 }
 
 function buildBorrowerPerformance(
@@ -564,6 +620,76 @@ function calculateBorrowerReadinessScore({
     overdueDefaultedLoanCount * 10;
 
   return Math.round(Math.min(100, Math.max(0, score)));
+}
+
+function getApplicationBusinessTypeById(
+  applications: DashboardApplication[],
+  borrowerPortfolios: DashboardBorrowerPortfolio[],
+) {
+  const portfolioBusinessTypeById = new Map(
+    borrowerPortfolios.map((portfolio) => [
+      portfolio.id,
+      portfolio.business_type,
+    ]),
+  );
+
+  return new Map(
+    applications.flatMap((application) => {
+      const businessType = portfolioBusinessTypeById.get(
+        application.borrower_portfolio_id,
+      );
+
+      return businessType ? [[application.id, businessType]] : [];
+    }),
+  );
+}
+
+function countByLenderBusinessType<
+  T extends { lender_id: string; loan_application_id: string },
+>(rows: T[], applicationBusinessTypeById: Map<string, BusinessType>) {
+  return rows.reduce((counts, row) => {
+    const businessType = applicationBusinessTypeById.get(
+      row.loan_application_id,
+    );
+
+    if (!businessType) return counts;
+
+    const lenderCounts = counts.get(row.lender_id) ?? new Map();
+    lenderCounts.set(businessType, (lenderCounts.get(businessType) ?? 0) + 1);
+    counts.set(row.lender_id, lenderCounts);
+
+    return counts;
+  }, new Map<string, Map<BusinessType, number>>());
+}
+
+function buildBusinessTypePerformance(
+  activeLoanCounts: Map<BusinessType, number>,
+  acceptedOfferCounts: Map<BusinessType, number>,
+): ManagerLenderBusinessTypePerformance[] {
+  const businessTypes = new Set([
+    ...activeLoanCounts.keys(),
+    ...acceptedOfferCounts.keys(),
+  ]);
+
+  return Array.from(businessTypes)
+    .map((businessType) => {
+      const activeLoanCount = activeLoanCounts.get(businessType) ?? 0;
+      const acceptedOfferCount = acceptedOfferCounts.get(businessType) ?? 0;
+
+      return {
+        businessType,
+        completedApplicationCount:
+          activeLoanCount > 0 ? activeLoanCount : acceptedOfferCount,
+        acceptedOfferCount,
+        activeLoanCount,
+      };
+    })
+    .filter(
+      (row) =>
+        row.completedApplicationCount > 0 ||
+        row.acceptedOfferCount > 0 ||
+        row.activeLoanCount > 0,
+    );
 }
 
 function countBy<T extends Record<K, string>, K extends keyof T>(
