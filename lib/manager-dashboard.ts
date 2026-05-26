@@ -353,7 +353,7 @@ function failedQuery<T>(): QueryResult<T> {
 function buildMonthlyHeadcount(
   profiles: DashboardProfile[],
 ): ManagerMonthlyUserHeadcount[] {
-  const months = getLastTwelveMonths();
+  const months = getDashboardMonths();
   const monthCounts = new Map(
     months.map((month) => [
       month.key,
@@ -576,11 +576,8 @@ function countBy<T extends Record<K, string>, K extends keyof T>(
   }, new Map<string, number>());
 }
 
-function getLastTwelveMonths() {
-  const now = new Date();
-  const start = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 11, 1),
-  );
+function getDashboardMonths() {
+  const start = new Date(Date.UTC(2026, 4, 1));
 
   return Array.from({ length: 12 }, (_, index) => {
     const date = new Date(
