@@ -1914,12 +1914,19 @@ function InlineFeedback({
   successMessage: string;
 }) {
   if (loadState === "loading" || loadState === "error" || loadState === "blocked") {
+    const feedbackMessage =
+      loadState === "loading" ? "Loading applications..." : message.trim();
+
+    if (!feedbackMessage) {
+      return null;
+    }
+
     return (
       <div
         className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
         role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
       >
-        {loadState === "loading" ? "Loading applications..." : message}
+        {feedbackMessage}
       </div>
     );
   }
