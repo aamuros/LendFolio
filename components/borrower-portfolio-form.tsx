@@ -133,12 +133,12 @@ export function BorrowerPortfolioForm({
           setSuccessMessage("");
         }
       }}
-      className="grid gap-4"
+      className="grid gap-6 rounded-3xl bg-white px-5 py-5 shadow-sm"
       aria-describedby="portfolio-save-state"
     >
       {loadState === "error" ? (
         <div
-          className="rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+          className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm leading-6 text-red-800"
           role="alert"
         >
           {statusMessage}
@@ -151,14 +151,9 @@ export function BorrowerPortfolioForm({
         </div>
       ) : null}
 
-      <ReadinessPanel
-        readiness={readiness}
-        monthlyNetCashFlow={credit.monthlyNetCashFlow}
-      />
-
       <FormSection
-        title="Essential business details"
-        description="The basics lenders need to understand the business."
+        title="Business details"
+        description="The basics lenders use to understand the business."
       >
         <Field label="Business name" error={errors.businessName?.message}>
           <input {...register("businessName")} className={inputClassName} />
@@ -196,7 +191,7 @@ export function BorrowerPortfolioForm({
       </FormSection>
 
       <FormSection
-        title="Financial snapshot"
+        title="Financials"
         description="Use a normal monthly estimate for the current business."
       >
         <Field
@@ -237,25 +232,34 @@ export function BorrowerPortfolioForm({
       </FormSection>
 
       <FormSection
-        title="Loan purpose"
-        description="A short note helps lenders understand what the next loan would support."
+        title="Loan use"
+        description="Describe how the financing would support the business."
       >
         <div className="sm:col-span-2">
           <Field
-            label="Loan purpose context"
+            label="Loan purpose"
             error={errors.loanPurposeContext?.message}
           >
             <textarea
               {...register("loanPurposeContext")}
               rows={3}
               className={textareaClassName}
-              placeholder="Describe what the financing would support, such as inventory, equipment, repairs, or working capital."
+              placeholder="Inventory, equipment, repairs, working capital, or another business need."
             />
           </Field>
         </div>
       </FormSection>
 
-      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:flex sm:items-center sm:justify-between">
+      <FormSection title="Review">
+        <div className="sm:col-span-2">
+          <ReadinessPanel
+            readiness={readiness}
+            monthlyNetCashFlow={credit.monthlyNetCashFlow}
+          />
+        </div>
+      </FormSection>
+
+      <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
         <div className="grid gap-2">
           <p
             id="portfolio-save-state"
@@ -277,7 +281,7 @@ export function BorrowerPortfolioForm({
         <button
           type="submit"
           disabled={isPending}
-          className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
         >
           {isPending ? "Saving..." : "Save profile"}
         </button>
@@ -285,7 +289,7 @@ export function BorrowerPortfolioForm({
           <button
             type="button"
             onClick={onCancel}
-            className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-base font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:order-first"
+            className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:order-first"
           >
             Cancel
           </button>
@@ -312,7 +316,7 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-4">
+    <section className="grid gap-3 border-b border-[var(--border)] pb-5 last:border-b-0 last:pb-0">
       <div className="grid gap-1">
         <h3 className="text-base font-semibold">{title}</h3>
         {description ? (
@@ -342,10 +346,10 @@ function ReadinessPanel({
         </span>
       </div>
       <p className="text-[var(--muted-foreground)]">
-        Monthly net cash flow: PHP{" "}
-        {new Intl.NumberFormat("en-PH", { maximumFractionDigits: 0 }).format(
-          monthlyNetCashFlow,
-        )}
+        Net monthly cash flow: PHP{" "}
+        {new Intl.NumberFormat("en-PH", {
+          maximumFractionDigits: 0,
+        }).format(monthlyNetCashFlow)}
       </p>
       {readiness.missingFields.length ? (
         <p className="text-[var(--muted-foreground)]">

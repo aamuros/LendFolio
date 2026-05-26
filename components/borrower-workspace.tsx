@@ -33,7 +33,7 @@ type ProfileMode =
   | "edit"
   | "business"
   | "financial"
-  | "loanPurpose"
+  | "borrowingPower"
   | "verification"
   | "account"
   | "support";
@@ -208,6 +208,7 @@ export function BorrowerWorkspace({
             <div id="business-profile-edit">
               <ProfileSubviewHeader
                 title="Edit Profile"
+                description="Keep your business and loan-use details current."
                 onBack={() => setProfileMode(editReturnMode)}
               />
               <BorrowerPortfolioForm
@@ -269,8 +270,13 @@ function BorrowerProfileHub({
   readiness: BorrowerReadinessResult | null;
   result: LoanApplicationsLoadResult | null;
 }) {
-  const status = getProfileStatus(loadState, portfolio, readiness);
   const verification = result?.borrowerVerification ?? null;
+  const profileStatus = getProfileStatus(
+    loadState,
+    portfolio,
+    readiness,
+    verification?.status ?? null,
+  );
   const verificationLabel =
     verification && verification.status !== "missing"
       ? borrowerVerificationStatusLabels[verification.status]
@@ -280,7 +286,7 @@ function BorrowerProfileHub({
 
   if (activeView === "business") {
     return (
-      <ProfileSubview title="Business Details" onBack={() => onProfileViewChange("index")}>
+      <ProfileSubview title="Business Profile" onBack={() => onProfileViewChange("index")}>
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
           onAction={() => onEditProfile("business")}
@@ -307,6 +313,10 @@ function BorrowerProfileHub({
                 : "Not provided"
             }
           />
+          <ProfileSummaryRow
+            label="Loan use"
+            value={portfolio?.loanPurposeContext || "Not provided"}
+          />
         </ProfileDetailCard>
       </ProfileSubview>
     );
@@ -314,7 +324,7 @@ function BorrowerProfileHub({
 
   if (activeView === "financial") {
     return (
-      <ProfileSubview title="Financial Snapshot" onBack={() => onProfileViewChange("index")}>
+      <ProfileSubview title="Financials" onBack={() => onProfileViewChange("index")}>
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
           onAction={() => onEditProfile("financial")}
@@ -344,14 +354,6 @@ function BorrowerProfileHub({
             }
           />
           <ProfileSummaryRow
-            label="Available credit"
-            value={
-              creditSummary
-                ? formatCreditAmount(creditSummary.availableCredit)
-                : "Not available"
-            }
-          />
-          <ProfileSummaryRow
             label="Profile readiness"
             value={readiness ? formatReadinessStatus(readiness.readinessStatus) : "Not available"}
           />
@@ -365,17 +367,15 @@ function BorrowerProfileHub({
     );
   }
 
-  if (activeView === "loanPurpose") {
+  if (activeView === "borrowingPower") {
     return (
-      <ProfileSubview title="Loan Purpose" onBack={() => onProfileViewChange("index")}>
-        <ProfileDetailCard
-          actionLabel={portfolio ? "Edit" : "Add purpose"}
-          onAction={() => onEditProfile("loanPurpose")}
-        >
-          <p className="text-sm leading-6 text-[var(--foreground)]">
-            {portfolio?.loanPurposeContext || "Not provided"}
-          </p>
-        </ProfileDetailCard>
+      <ProfileSubview title="Borrowing Power" onBack={() => onProfileViewChange("index")}>
+        <BorrowingPowerDetail
+          creditSummary={creditSummary}
+          onUpdateProfile={() => onEditProfile("borrowingPower")}
+          portfolio={portfolio}
+          readiness={readiness}
+        />
       </ProfileSubview>
     );
   }
@@ -433,60 +433,73 @@ function BorrowerProfileHub({
           {message || "Could not load your profile."}
         </section>
       ) : (
-        <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
-          <ProfileMenuRow
-            icon="briefcase"
-            label="Business Details"
-            subtitle={portfolio?.businessName || "Business basics and location"}
-            onClick={() => onProfileViewChange("business")}
-          />
-          <ProfileMenuRow
-            icon="chart"
-            label="Financial Snapshot"
-            subtitle={
-              creditSummary
-                ? `${formatCreditAmount(creditSummary.availableCredit)} available`
-                : "Revenue, expenses, and readiness"
-            }
-            onClick={() => onProfileViewChange("financial")}
-          />
-          <ProfileMenuRow
-            icon="target"
-            label="Loan Purpose"
-            subtitle="How financing would support the business"
-            onClick={() => onProfileViewChange("loanPurpose")}
-          />
-          <ProfileMenuRow
-            icon="shield"
-            label="Verification"
-            subtitle={verificationLabel}
-            onClick={() => onProfileViewChange("verification")}
-          />
-          <ProfileMenuRow
-            icon="lock"
-            label="Account & Security"
-            subtitle={accountEmail || "Signed in"}
-            onClick={() => onProfileViewChange("account")}
-          />
-          <ProfileMenuRow
-            icon="help"
-            label="Help & Support"
-            subtitle="Get help with borrower account questions"
-            onClick={() => onProfileViewChange("support")}
-          />
-          <form action={signOutAction}>
-            <ProfileMenuRow icon="logout" label="Log out" submit />
-          </form>
-        </section>
-      )}
+        <>
+          <ProfileStatusBanner
+            status={profileStatus}
+            onAction={() => {
+              if (profileStatus.action === "verification") {
+                onProfileViewChange("verification");
+                return;
+              }
 
-      <section className="rounded-3xl bg-white px-5 py-4 shadow-sm">
-        <StatusPill tone={status.tone}>{status.label}</StatusPill>
-        <h3 className="mt-3 text-base font-semibold">{status.title}</h3>
-        <p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">
-          {status.description}
-        </p>
-      </section>
+              onEditProfile("index");
+            }}
+          />
+
+          <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+            <ProfileMenuRow
+              icon="briefcase"
+              label="Business Profile"
+              subtitle={portfolio?.businessName || "Business basics and loan use"}
+              onClick={() => onProfileViewChange("business")}
+            />
+            <ProfileMenuRow
+              icon="chart"
+              label="Financials"
+              subtitle="Revenue, expenses, and monthly payments"
+              onClick={() => onProfileViewChange("financial")}
+            />
+            <ProfileMenuRow
+              icon="wallet"
+              label="Borrowing Power"
+              subtitle={
+                creditSummary
+                  ? `${formatCreditAmount(creditSummary.availableCredit)} available`
+                  : "Amount available to request"
+              }
+              onClick={() => onProfileViewChange("borrowingPower")}
+            />
+            <ProfileMenuRow
+              icon="shield"
+              label="Verification"
+              subtitle={verificationLabel}
+              onClick={() => onProfileViewChange("verification")}
+            />
+            <ProfileMenuRow
+              icon="lock"
+              label="Account"
+              subtitle={accountEmail || "Signed in"}
+              onClick={() => onProfileViewChange("account")}
+            />
+            <ProfileMenuRow
+              icon="help"
+              label="Help & Support"
+              subtitle="Borrower account questions"
+              onClick={() => onProfileViewChange("support")}
+            />
+          </section>
+
+          <form action={signOutAction} className="px-2">
+            <button
+              type="submit"
+              className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-[var(--muted-foreground)] transition hover:bg-white hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            >
+              <ProfileIcon name="logout" className="size-4" />
+              Log out
+            </button>
+          </form>
+        </>
+      )}
     </div>
   );
 }
@@ -503,7 +516,7 @@ function ProfileIndexHeader({
   onEditProfile: () => void;
 }) {
   return (
-    <section className="grid gap-5 bg-[var(--background)]">
+    <section className="grid gap-4 bg-[var(--background)]">
       <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
         <button
           type="button"
@@ -516,12 +529,12 @@ function ProfileIndexHeader({
         <h2 className="text-center text-lg font-semibold">Profile</h2>
       </div>
 
-      <div className="grid justify-items-center gap-3 text-center">
-        <div className="grid size-24 place-items-center rounded-full bg-white text-2xl font-semibold text-[var(--foreground)] shadow-sm">
+      <div className="grid justify-items-center gap-2 text-center">
+        <div className="grid size-20 place-items-center rounded-full bg-white text-xl font-semibold text-[var(--foreground)] shadow-sm">
           {getInitials(displayName)}
         </div>
         <div className="grid max-w-full gap-1">
-          <h3 className="max-w-full truncate text-xl font-semibold">
+          <h3 className="max-w-full truncate text-lg font-semibold">
             {displayName}
           </h3>
           <p className="max-w-full truncate text-sm text-[var(--muted-foreground)]">
@@ -531,7 +544,7 @@ function ProfileIndexHeader({
         <button
           type="button"
           onClick={onEditProfile}
-          className="mt-1 inline-flex h-12 min-w-44 items-center justify-center rounded-full bg-black px-6 text-sm font-semibold text-white transition hover:bg-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+          className="mt-0.5 inline-flex h-11 min-w-40 items-center justify-center rounded-full bg-black px-5 text-sm font-semibold text-white transition hover:bg-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
         >
           Edit Profile
         </button>
@@ -558,14 +571,16 @@ function ProfileSubview({
 }
 
 function ProfileSubviewHeader({
+  description,
   onBack,
   title,
 }: {
+  description?: string;
   onBack: () => void;
   title: string;
 }) {
   return (
-    <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
+    <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-start">
       <button
         type="button"
         aria-label="Back to Profile"
@@ -574,7 +589,14 @@ function ProfileSubviewHeader({
       >
         <ProfileIcon name="back" className="size-5" />
       </button>
-      <h2 className="text-center text-lg font-semibold">{title}</h2>
+      <div className="grid gap-1 text-center">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {description ? (
+          <p className="text-sm leading-5 text-[var(--muted-foreground)]">
+            {description}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -622,17 +644,17 @@ function ProfileMenuRow({
     <button
       type={submit ? "submit" : "button"}
       onClick={onClick}
-      className="grid min-h-16 w-full grid-cols-[2.5rem_1fr_1.5rem] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-left last:border-b-0 transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--primary)]"
+      className="grid min-h-14 w-full grid-cols-[2.25rem_1fr_1.25rem] items-center gap-3 border-b border-[var(--border)] px-4 py-2.5 text-left last:border-b-0 transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--primary)]"
     >
-      <span className="grid size-10 place-items-center rounded-full bg-[var(--background)] text-[var(--foreground)]">
+      <span className="grid size-9 place-items-center rounded-full bg-[var(--background)] text-[var(--foreground)]">
         <ProfileIcon name={icon} className="size-5" />
       </span>
       <span className="grid min-w-0 gap-0.5">
-        <span className="text-sm font-semibold text-[var(--foreground)]">
+        <span className="text-sm font-semibold leading-5 text-[var(--foreground)]">
           {label}
         </span>
         {subtitle ? (
-          <span className="truncate text-xs text-[var(--muted-foreground)]">
+          <span className="truncate text-xs leading-4 text-[var(--muted-foreground)]">
             {subtitle}
           </span>
         ) : null}
@@ -675,7 +697,7 @@ type ProfileIconName =
   | "lock"
   | "logout"
   | "shield"
-  | "target";
+  | "wallet";
 
 function ProfileIcon({
   className,
@@ -730,14 +752,11 @@ function ProfileIcon({
         <path d="m9 12 2 2 4-5" />
       </>
     ),
-    target: (
+    wallet: (
       <>
-        <circle cx="12" cy="12" r="8" />
-        <circle cx="12" cy="12" r="3" />
-        <path d="M12 2v3" />
-        <path d="M12 19v3" />
-        <path d="M2 12h3" />
-        <path d="M19 12h3" />
+        <path d="M4 7h16v12H4z" />
+        <path d="M4 10h16" />
+        <path d="M16 15h.01" />
       </>
     ),
   };
@@ -781,6 +800,142 @@ function StatusPill({
   );
 }
 
+function ProfileStatusBanner({
+  onAction,
+  status,
+}: {
+  onAction: () => void;
+  status: ReturnType<typeof getProfileStatus>;
+}) {
+  return (
+    <section className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
+      <div className="min-w-0">
+        <StatusPill tone={status.tone}>{status.label}</StatusPill>
+        <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
+          {status.title}
+        </p>
+        <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
+          {status.description}
+        </p>
+      </div>
+      {status.actionLabel ? (
+        <button
+          type="button"
+          onClick={onAction}
+          className="shrink-0 rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+        >
+          {status.actionLabel}
+        </button>
+      ) : null}
+    </section>
+  );
+}
+
+function BorrowingPowerDetail({
+  creditSummary,
+  onUpdateProfile,
+  portfolio,
+  readiness,
+}: {
+  creditSummary: BorrowerCreditSummary | null;
+  onUpdateProfile: () => void;
+  portfolio: BorrowerPortfolioInput | null;
+  readiness: BorrowerReadinessResult | null;
+}) {
+  return (
+    <section className="grid gap-4 rounded-3xl bg-white px-5 py-5 shadow-sm">
+      <div className="grid gap-1">
+        <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+          Available to request
+        </p>
+        <p className="text-3xl font-semibold tabular-nums">
+          {creditSummary
+            ? formatCreditAmount(creditSummary.availableCredit)
+            : "Not available"}
+        </p>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          Based on your saved financials and any active loan balance.
+        </p>
+      </div>
+
+      <div className="grid gap-2">
+        <ProfileSummaryRow
+          label="Used credit"
+          value={
+            creditSummary
+              ? formatCreditAmount(creditSummary.usedCredit)
+              : "Not available"
+          }
+        />
+        <ProfileSummaryRow
+          label="Max eligible amount"
+          value={
+            creditSummary
+              ? formatCreditAmount(creditSummary.calculatedCreditLimit)
+              : "Not available"
+          }
+        />
+        <ProfileSummaryRow
+          label="Monthly revenue"
+          value={
+            portfolio
+              ? formatCreditAmount(portfolio.monthlyGrossRevenue)
+              : "Not provided"
+          }
+        />
+        <ProfileSummaryRow
+          label="Monthly expenses"
+          value={
+            portfolio
+              ? formatCreditAmount(portfolio.monthlyExpenses)
+              : "Not provided"
+          }
+        />
+        <ProfileSummaryRow
+          label="Existing loan payments"
+          value={
+            portfolio
+              ? formatCreditAmount(portfolio.existingLoanPayments)
+              : "Not provided"
+          }
+        />
+        <ProfileSummaryRow
+          label="Net monthly cash flow"
+          value={
+            creditSummary
+              ? formatCreditAmount(creditSummary.monthlyNetCashFlow)
+              : readiness
+                ? formatCreditAmount(readiness.monthlyNetCashFlow)
+                : "Not available"
+          }
+        />
+        <ProfileSummaryRow
+          label="Readiness"
+          value={
+            readiness
+              ? formatReadinessStatus(readiness.readinessStatus)
+              : "Not available"
+          }
+        />
+      </div>
+
+      <p className="rounded-2xl bg-[var(--muted)]/40 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
+        LendFolio estimates borrowing power from net monthly cash flow, time in
+        operation, revenue limits, and existing active loans. Updating your
+        profile refreshes this amount.
+      </p>
+
+      <button
+        type="button"
+        onClick={onUpdateProfile}
+        className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+      >
+        Update profile details
+      </button>
+    </section>
+  );
+}
+
 function ProfileHubSkeleton() {
   return (
     <section
@@ -807,6 +962,7 @@ function getProfileStatus(
   loadState: PortfolioLoadState,
   portfolio: BorrowerPortfolioInput | null,
   readiness: BorrowerReadinessResult | null,
+  verificationStatus: string | null = null,
 ) {
   if (loadState === "loading") {
     return {
@@ -814,6 +970,7 @@ function getProfileStatus(
       label: "Loading",
       title: "Loading profile",
       description: "Checking your saved business details.",
+      action: null,
       actionLabel: null,
     };
   }
@@ -821,20 +978,22 @@ function getProfileStatus(
   if (loadState === "error") {
     return {
       tone: "attention" as const,
-      label: "Needs attention",
+      label: "Profile needs review",
       title: "Profile unavailable",
       description: "Your profile could not be loaded right now.",
-      actionLabel: "Update profile",
+      action: "edit" as const,
+      actionLabel: "Update profile details",
     };
   }
 
   if (!portfolio || loadState === "empty") {
     return {
       tone: "attention" as const,
-      label: "Profile incomplete",
+      label: "Profile needs review",
       title: "Complete your borrower profile",
       description: "Add the essential business details lenders need first.",
-      actionLabel: "Complete profile",
+      action: "edit" as const,
+      actionLabel: "Update profile details",
     };
   }
 
@@ -844,31 +1003,49 @@ function getProfileStatus(
   ) {
     return {
       tone: "attention" as const,
-      label: "Needs attention",
+      label: "Profile needs review",
       title: "Review your profile",
       description:
         readiness.nextActions[0] ??
         "Some profile details may affect loan application readiness.",
-      actionLabel: "Review details",
+      action: "edit" as const,
+      actionLabel: "Update profile details",
     };
   }
 
   if (readiness?.readinessStatus === "incomplete") {
     return {
       tone: "attention" as const,
-      label: "Profile incomplete",
+      label: "Profile needs review",
       title: "Finish your profile",
       description:
         readiness.nextActions[0] ?? "A few required details are still missing.",
-      actionLabel: "Complete profile",
+      action: "edit" as const,
+      actionLabel: "Update profile details",
+    };
+  }
+
+  if (
+    verificationStatus &&
+    verificationStatus !== "missing" &&
+    verificationStatus !== "approved"
+  ) {
+    return {
+      tone: "attention" as const,
+      label: "Verification required",
+      title: "Complete verification",
+      description: "Verification approval is required before applying.",
+      action: "verification" as const,
+      actionLabel: "Review profile",
     };
   }
 
   return {
     tone: "ready" as const,
-    label: "Profile ready",
-    title: "Business profile is saved",
-    description: "Your essential borrower details are ready for loan review.",
+    label: "Ready to apply",
+    title: "Business profile is ready",
+    description: "Your profile details can support a loan application.",
+    action: null,
     actionLabel: null,
   };
 }
