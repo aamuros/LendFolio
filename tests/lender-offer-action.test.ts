@@ -1,0 +1,197 @@
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createLoanOffer } from "../app/lender/applications/[id]/actions";
+import { requireApprovedLender } from "@/lib/access-control";
+import { revalidatePath } from "next/cache";
+
+vi.mock("@/lib/access-control", () => ({
+  requireApprovedLender: vi.fn(),
+}));
+
+vi.mock("next/cache", () => ({
+  revalidatePath: vi.fn(),
+}));
+
+const mockedRequireApprovedLender = vi.mocked(requireApprovedLender);
+const mockedRevalidatePath = vi.mocked(revalidatePath);
+
+type MockSupabase = {
+  rpc: ReturnType<typeof vi.fn>;
+};
+
+function asSupabase(mockSupabase: MockSupabase) {
+  return mockSupabase as unknown as NonNullable<
+    Awaited<ReturnType<typeof requireApprovedLender>>["supabase"]
+  >;
+}
+
+function createValidOfferFormData() {
+  const formData = new FormData();
+
+  formData.set("requestedAmount", "25000");
+  formData.set("approvedAmount", "20000");
+  formData.set("repaymentAmount", "22000");
+  formData.set("fees", "500");
+  formData.set("dueDate", "2099-01-01");
+  formData.set("remarks", "Offer based on submitted cash flow.");
+
+  return formData;
+}
+
+describe("createLoanOffer", () => {
+  const previousState = {
+    ok: false,
+    message: "",
+  } as const;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("blocks unauthenticated access before invoking the RPC", async () => {
+    const rpc = vi.fn();
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: false,
+      reason: "unauthenticated",
+      message: "Sign in to continue.",
+      supabase: null,
+    });
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      createValidOfferFormData(),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Sign in to continue.",
+    });
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("blocks pending lenders before invoking the RPC", async () => {
+    const mockSupabase = {
+      rpc: vi.fn(),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: false,
+      reason: "forbidden",
+      message:
+        "Your lender access is pending review. You will be able to continue when your account is approved.",
+      supabase: asSupabase(mockSupabase),
+    });
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      createValidOfferFormData(),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Your lender access is pending review. You will be able to continue when your account is approved.",
+    });
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("blocks rejected lenders before invoking the RPC", async () => {
+    const mockSupabase = {
+      rpc: vi.fn(),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: false,
+      reason: "forbidden",
+      message: "Your lender access was not approved.",
+      supabase: asSupabase(mockSupabase),
+    });
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      createValidOfferFormData(),
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Your lender access was not approved.",
+    });
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("lets approved lenders validate and create offers", async () => {
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: true,
+          message: "Offer sent.",
+          loan_application_id: "application-1",
+        },
+        error: null,
+      }),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: true,
+      supabase: asSupabase(mockSupabase),
+      profile: {
+        id: "lender-1",
+        role: "lender",
+        display_name: "Approved Lender",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: {
+          id: "lender-profile-1",
+          user_id: "lender-1",
+          organization_name: "Approved Lending",
+          contact_person: "Approved Contact",
+          phone_number: "+63 917 555 0199",
+          business_address: "Quezon City",
+          operating_area: "Metro Manila",
+          business_registration_number: "DTI-12345",
+          min_loan_amount: 5000,
+          max_loan_amount: 50000,
+          typical_repayment_terms: "1 to 6 months",
+          lender_description: "Approved lender.",
+          verification_status: "approved",
+          approved_at: "2026-05-26T00:00:00.000Z",
+          approved_by: "manager-1",
+          manager_review_notes: null,
+          rejection_reason: null,
+          rejected_at: null,
+          rejected_by: null,
+          created_at: "2026-05-26T00:00:00.000Z",
+          updated_at: "2026-05-26T00:00:00.000Z",
+        },
+      },
+    });
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      createValidOfferFormData(),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Offer sent.",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
+      p_loan_application_id: "application-1",
+      p_approved_amount: 20000,
+      p_repayment_amount: 22000,
+      p_fees: 500,
+      p_due_date: "2099-01-01",
+      p_remarks: "Offer based on submitted cash flow.",
+    });
+    expect(mockedRevalidatePath).toHaveBeenCalledWith(
+      "/lender/applications/application-1",
+    );
+    expect(mockedRevalidatePath).toHaveBeenCalledWith("/borrower");
+  });
+});

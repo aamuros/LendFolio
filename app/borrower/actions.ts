@@ -16,6 +16,23 @@ import {
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 import {
+  buildConsentStatus,
+  getRequiredConsentVersions,
+  hasCurrentRequiredConsents,
+  type ConsentStatus,
+  type UserConsentRecord,
+} from "@/lib/consents";
+import {
+  borrowerVerificationDocumentAllowedTypes,
+  borrowerVerificationDocumentBucket,
+  borrowerVerificationDocumentMaxFileSize,
+  createSafeUploadFileName,
+  getBorrowerVerificationMessage,
+  getBorrowerVerificationStatus,
+  isBorrowerVerificationDocumentType,
+  type BorrowerVerificationSummary,
+} from "@/lib/borrower-verification";
+import {
   loanApplicationSchema,
   mapLoanApplicationRow,
   type LoanApplicationInput,
@@ -70,6 +87,8 @@ export type LoanApplicationSubmitResult =
         | "auth"
         | "validation"
         | "missing-portfolio"
+        | "borrower-verification"
+        | "consent-required"
         | "credit-limit"
         | "supabase";
       message: string;
@@ -106,7 +125,12 @@ export type LoanApplicationsLoadResult =
       mode: "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      borrowerVerification: BorrowerVerificationSummary;
       creditSummary: BorrowerCreditSummary | null;
+      consentStatuses: {
+        borrowerDocumentUpload: ConsentStatus;
+        borrowerLoanApplication: ConsentStatus;
+      };
       message: string;
     }
   | {
@@ -114,7 +138,12 @@ export type LoanApplicationsLoadResult =
       mode: "auth" | "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      borrowerVerification: BorrowerVerificationSummary | null;
       creditSummary: BorrowerCreditSummary | null;
+      consentStatuses: {
+        borrowerDocumentUpload: ConsentStatus;
+        borrowerLoanApplication: ConsentStatus;
+      } | null;
       message: string;
     };
 
@@ -147,6 +176,18 @@ export type RepaymentProofSubmitResult =
     }
   | {
       ok: false;
+      message: string;
+    };
+
+export type BorrowerVerificationDocumentSubmitResult =
+  | {
+      ok: true;
+      message: string;
+      documentId: string;
+    }
+  | {
+      ok: false;
+      code?: "consent_required";
       message: string;
     };
 
@@ -285,10 +326,28 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "auth",
         applications: [],
         hasPortfolio: false,
+        borrowerVerification: null,
         creditSummary: null,
+        consentStatuses: null,
         message: access.message,
       };
     }
+
+    const userConsents = await loadUserConsents(supabase, access.profile.id);
+    const consentStatuses = {
+      borrowerDocumentUpload: buildConsentStatus(
+        "borrower_document_upload",
+        userConsents,
+      ),
+      borrowerLoanApplication: buildConsentStatus(
+        "borrower_loan_application",
+        userConsents,
+      ),
+    };
+    const borrowerVerification = await getBorrowerVerificationStatus(
+      supabase,
+      access.profile.id,
+    );
 
     const { data: portfolio, error: portfolioError } = await supabase
       .from("borrower_portfolios")
@@ -302,7 +361,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: false,
+        borrowerVerification,
         creditSummary: null,
+        consentStatuses,
         message: "Could not confirm your profile.",
       };
     }
@@ -325,7 +386,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        borrowerVerification,
         creditSummary,
+        consentStatuses,
         message: "Could not load applications.",
       };
     }
@@ -336,9 +399,11 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        borrowerVerification,
         creditSummary,
+        consentStatuses,
         message: portfolio
-          ? "Applications loaded."
+          ? getBorrowerVerificationMessage(borrowerVerification)
           : "Save your business profile before submitting an application.",
       };
     }
@@ -362,7 +427,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        borrowerVerification,
         creditSummary,
+        consentStatuses,
         message: "Could not load offers.",
       };
     }
@@ -373,7 +440,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         mode: activeLoansResult.mode,
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        borrowerVerification,
         creditSummary,
+        consentStatuses,
         message: activeLoansResult.message,
       };
     }
@@ -407,9 +476,11 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         };
       }),
       hasPortfolio: Boolean(portfolio),
+      borrowerVerification,
       creditSummary,
+      consentStatuses,
       message: portfolio
-        ? "Applications loaded."
+        ? getBorrowerVerificationMessage(borrowerVerification)
         : "Save your business profile before submitting an application.",
     };
   } catch {
@@ -418,7 +489,9 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       mode: "auth",
       applications: [],
       hasPortfolio: false,
+      borrowerVerification: null,
       creditSummary: null,
+      consentStatuses: null,
       message: "Sign in to continue.",
     };
   }
@@ -510,6 +583,10 @@ export async function submitLoanApplication(
         mode:
           result?.code === "missing_portfolio"
             ? "missing-portfolio"
+            : result?.code === "consent_required"
+              ? "consent-required"
+            : result?.code === "borrower_verification_required"
+              ? "borrower-verification"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
               : "supabase",
@@ -908,6 +985,173 @@ export async function submitRepaymentProof(
   }
 }
 
+export async function submitBorrowerVerificationDocument(
+  _previousState: BorrowerVerificationDocumentSubmitResult | null,
+  formData: FormData,
+): Promise<BorrowerVerificationDocumentSubmitResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const userConsents = await loadUserConsents(supabase, access.profile.id);
+
+    if (
+      !hasCurrentRequiredConsents(
+        userConsents,
+        getRequiredConsentVersions("borrower_document_upload"),
+      )
+    ) {
+      return {
+        ok: false,
+        code: "consent_required",
+        message:
+          "Accept the required disclosures before uploading verification documents.",
+      };
+    }
+
+    const documentType = formData.get("documentType");
+    const documentFile =
+      formData.get("documentFile") ?? formData.get("proofFile");
+
+    if (!isBorrowerVerificationDocumentType(documentType)) {
+      return {
+        ok: false,
+        message: "Choose a verification document type.",
+      };
+    }
+
+    if (!(documentFile instanceof File) || documentFile.size === 0) {
+      return {
+        ok: false,
+        message: "Choose a verification document to upload.",
+      };
+    }
+
+    if (!borrowerVerificationDocumentAllowedTypes.has(documentFile.type)) {
+      return {
+        ok: false,
+        message: "Upload a JPG, PNG, WebP, or PDF file.",
+      };
+    }
+
+    if (documentFile.size > borrowerVerificationDocumentMaxFileSize) {
+      return {
+        ok: false,
+        message: "Upload a file up to 5 MB.",
+      };
+    }
+
+    const { data: verification, error: verificationError } = await supabase
+      .from("borrower_verifications")
+      .select("id, borrower_id, verification_status")
+      .eq("borrower_id", access.profile.id)
+      .maybeSingle();
+
+    if (verificationError || !verification) {
+      return {
+        ok: false,
+        message: "Borrower verification is unavailable.",
+      };
+    }
+
+    if (verification.verification_status === "approved") {
+      return {
+        ok: false,
+        message: "This borrower verification is already approved.",
+      };
+    }
+
+    if (!["pending", "rejected"].includes(verification.verification_status)) {
+      return {
+        ok: false,
+        message: "Could not upload verification document.",
+      };
+    }
+
+    const safeFileName = createSafeUploadFileName(
+      documentFile.name,
+      "verification-document",
+    );
+    const storagePath = [
+      "borrowers",
+      access.profile.id,
+      "verification",
+      verification.id,
+      `${Date.now()}-${safeFileName}`,
+    ].join("/");
+
+    const { error: uploadError } = await supabase.storage
+      .from(borrowerVerificationDocumentBucket)
+      .upload(storagePath, documentFile, {
+        contentType: documentFile.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      return {
+        ok: false,
+        message: "Could not upload verification document.",
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "submit_borrower_verification_document",
+      {
+        p_borrower_verification_id: verification.id,
+        p_storage_path: storagePath,
+        p_document_type: documentType,
+        p_file_name: documentFile.name,
+        p_file_type: documentFile.type,
+        p_file_size: documentFile.size,
+      },
+    );
+
+    const result = data as
+      | {
+          ok?: boolean;
+          code?: string;
+          message?: string;
+          document_id?: string;
+        }
+      | null;
+
+    if (error || !result?.ok || !result.document_id) {
+      await supabase.storage
+        .from(borrowerVerificationDocumentBucket)
+        .remove([storagePath]);
+
+      return {
+        ok: false,
+        code:
+          result?.code === "consent_required" ? "consent_required" : undefined,
+        message: result?.message ?? "Could not save verification document.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/manager");
+    revalidatePath("/manager/borrower-verifications");
+
+    return {
+      ok: true,
+      message: result.message ?? "Verification document uploaded.",
+      documentId: result.document_id,
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not upload verification document.",
+    };
+  }
+}
+
 function isLoanApplicationRow(value: Json | undefined): value is Parameters<
   typeof mapLoanApplicationRow
 >[0] {
@@ -927,13 +1171,26 @@ function isLoanApplicationRow(value: Json | undefined): value is Parameters<
 }
 
 function createSafeProofFileName(fileName: string) {
-  const fallbackName = "repayment-proof";
-  const normalized = fileName
-    .toLowerCase()
-    .replace(/[^a-z0-9._-]+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 120);
+  return createSafeUploadFileName(fileName, "repayment-proof");
+}
 
-  return normalized || fallbackName;
+async function loadUserConsents(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+): Promise<UserConsentRecord[]> {
+  const { data, error } = await supabase
+    .from("user_consents")
+    .select("consent_type, version, accepted_at")
+    .eq("user_id", userId)
+    .order("accepted_at", { ascending: false });
+
+  if (error) {
+    return [];
+  }
+
+  return data.map((consent) => ({
+    consentType: consent.consent_type,
+    version: consent.version,
+    acceptedAt: consent.accepted_at,
+  }));
 }

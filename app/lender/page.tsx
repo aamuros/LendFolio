@@ -7,7 +7,13 @@ import {
   formatDate,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { requireApprovedLender } from "@/lib/access-control";
+import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
+import { getCurrentUserProfile } from "@/lib/access-control";
+import {
+  buildConsentStatus,
+  type UserConsentRecord,
+} from "@/lib/consents";
+import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import {
   loadLenderOffers,
@@ -15,6 +21,7 @@ import {
   type LenderApplicationReview,
   type LenderOfferReview,
 } from "@/lib/lender-applications";
+import { isApprovedLender } from "@/lib/role-rules";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +37,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   const activeTab = tab === "offers" || tab === "account" ? tab : "home";
-  const access = await requireApprovedLender();
+  const access = await getCurrentUserProfile();
 
   if (!access.ok) {
     return (
@@ -38,6 +45,37 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <div className="mx-auto grid max-w-4xl gap-5">
           <LenderHeader showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={access.message} tone="error" />
+          <LenderBottomTabs activeTab={activeTab} />
+        </div>
+      </main>
+    );
+  }
+
+  if (!isApprovedLender(access.profile)) {
+    const lenderConsentStatus = buildConsentStatus(
+      "lender_review",
+      await loadUserConsents(access.supabase, access.profile.id),
+    );
+    const message =
+      access.profile.role === "lender" &&
+      access.profile.lenderProfile?.verification_status === "pending"
+        ? "Your lender access is pending review. You will be able to continue when your account is approved."
+        : access.profile.role === "lender" &&
+            access.profile.lenderProfile?.verification_status === "rejected"
+          ? "Your lender access was not approved."
+          : "Your account does not have access to this workspace.";
+
+    return (
+      <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+        <div className="mx-auto grid max-w-4xl gap-5">
+          <LenderHeader showAccountLink={false} showNotifications={false} />
+          <LenderApplicationsStatus message={message} tone="error" />
+          {access.profile.role === "lender" ? (
+            <ConsentAcceptancePanel
+              scope="lender_review"
+              status={lenderConsentStatus}
+            />
+          ) : null}
           <LenderBottomTabs activeTab={activeTab} />
         </div>
       </main>
@@ -84,6 +122,27 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       </div>
     </main>
   );
+}
+
+async function loadUserConsents(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  userId: string,
+): Promise<UserConsentRecord[]> {
+  const { data, error } = await supabase
+    .from("user_consents")
+    .select("consent_type, version, accepted_at")
+    .eq("user_id", userId)
+    .order("accepted_at", { ascending: false });
+
+  if (error) {
+    return [];
+  }
+
+  return data.map((consent) => ({
+    consentType: consent.consent_type,
+    version: consent.version,
+    acceptedAt: consent.accepted_at,
+  }));
 }
 
 function HomeTab({

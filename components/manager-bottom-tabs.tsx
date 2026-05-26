@@ -1,6 +1,12 @@
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 
-export type ManagerTab = "home" | "loans" | "proofs" | "lenders" | "lookup";
+export type ManagerTab =
+  | "home"
+  | "loans"
+  | "proofs"
+  | "borrowers"
+  | "lenders"
+  | "lookup";
 
 const tabs: AppBottomTab<ManagerTab>[] = [
   { id: "home", label: "Home", icon: "home", href: "/manager" },
@@ -10,6 +16,12 @@ const tabs: AppBottomTab<ManagerTab>[] = [
     label: "Proofs",
     icon: "proofs",
     href: "/manager/repayments",
+  },
+  {
+    id: "borrowers",
+    label: "Borrowers",
+    icon: "account",
+    href: "/manager/borrower-verifications",
   },
   {
     id: "lenders",

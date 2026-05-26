@@ -22,11 +22,24 @@ import {
 import { parseMoneyInput } from "../lib/money-input";
 import { signupSchema } from "../lib/signup";
 import {
+  canSubmitLoanApplicationForVerification,
+  createSafeUploadFileName,
+  getBorrowerVerificationMessage,
+  isBorrowerVerificationDocumentType,
+} from "../lib/borrower-verification";
+import {
   countUnreadNotifications,
   formatNotificationDate,
   mapNotificationRow,
   normalizeNotificationHref,
 } from "../lib/notifications";
+import {
+  borrowerDocumentUploadRequiredConsents,
+  borrowerLoanApplicationRequiredConsents,
+  getRequiredConsentVersions,
+  hasCurrentRequiredConsents,
+  lenderReviewRequiredConsents,
+} from "../lib/consents";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
   applyAcceptedOfferInvariant,
@@ -136,6 +149,79 @@ describe("loan application schema", () => {
       usedCreditAtSubmission: 23800,
       availableCreditAtSubmission: 30500,
     });
+  });
+});
+
+describe("borrower verification gate helpers", () => {
+  const emptyVerificationFields = {
+    id: "verification-1",
+    submittedAt: null,
+    reviewedAt: null,
+    documents: [],
+  };
+
+  it("allows loan application submission only for approved borrowers", () => {
+    expect(
+      canSubmitLoanApplicationForVerification({
+        ...emptyVerificationFields,
+        status: "approved",
+        managerReviewNotes: null,
+        rejectionReason: null,
+      }),
+    ).toBe(true);
+
+    expect(
+      canSubmitLoanApplicationForVerification({
+        ...emptyVerificationFields,
+        status: "pending",
+        managerReviewNotes: null,
+        rejectionReason: null,
+      }),
+    ).toBe(false);
+    expect(
+      canSubmitLoanApplicationForVerification({
+        ...emptyVerificationFields,
+        status: "rejected",
+        managerReviewNotes: "Profile details did not match.",
+        rejectionReason: "Profile details did not match.",
+      }),
+    ).toBe(false);
+    expect(canSubmitLoanApplicationForVerification(null)).toBe(false);
+  });
+
+  it("returns production borrower verification messages", () => {
+    expect(
+      getBorrowerVerificationMessage({
+        ...emptyVerificationFields,
+        status: "pending",
+        managerReviewNotes: null,
+        rejectionReason: null,
+      }),
+    ).toBe(
+      "Your borrower verification is pending review. You can save your profile, but loan applications open after approval.",
+    );
+    expect(
+      getBorrowerVerificationMessage({
+        ...emptyVerificationFields,
+        status: "rejected",
+        managerReviewNotes: null,
+        rejectionReason: "Profile needs review.",
+      }),
+    ).toBe(
+      "Your borrower verification was not approved. Review the manager note before applying again.",
+    );
+    expect(getBorrowerVerificationMessage(null)).toBe(
+      "Borrower verification is required before submitting a loan application.",
+    );
+  });
+
+  it("validates document types and safe upload filenames", () => {
+    expect(isBorrowerVerificationDocumentType("valid_id")).toBe(true);
+    expect(isBorrowerVerificationDocumentType("unsupported")).toBe(false);
+    expect(createSafeUploadFileName(" Valid ID (Front).PNG ", "fallback")).toBe(
+      "valid-id-front-.png",
+    );
+    expect(createSafeUploadFileName("!!!", "fallback")).toBe("fallback");
   });
 });
 
@@ -331,6 +417,230 @@ describe("workflow notifications migration", () => {
     expect(migration).not.toContain(
       "grant insert on public.notifications to authenticated",
     );
+  });
+});
+
+describe("borrower verification migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260526003447_add_borrower_verification_gate.sql",
+    "utf8",
+  );
+
+  it("creates borrower verification storage, enum, indexes, and RLS", () => {
+    expect(migration).toContain("create type public.borrower_verification_status");
+    expect(migration).toContain("create table if not exists public.borrower_verifications");
+    expect(migration).toContain("borrower_verifications_status_created_idx");
+    expect(migration).toContain("borrower_verifications_borrower_status_idx");
+    expect(migration).toContain(
+      "alter table public.borrower_verifications enable row level security",
+    );
+    expect(migration).toContain("borrower_verifications_borrower_select_own");
+    expect(migration).toContain("borrower_verifications_manager_select_all");
+    expect(migration).toContain(
+      "revoke insert, update, delete on public.borrower_verifications from authenticated",
+    );
+  });
+
+  it("defines borrower verification helpers, provisioning, and manager review RPCs", () => {
+    expect(migration).toContain("app_private.is_verified_borrower");
+    expect(migration).toContain("on conflict (borrower_id) do nothing");
+    expect(migration).toContain("review_borrower_verification");
+    expect(migration).toContain("p_decision not in ('approve', 'reject', 'return_to_pending')");
+    expect(migration).toContain("Borrower verification approved.");
+    expect(migration).toContain("Borrower verification rejected.");
+    expect(migration).toContain("Borrower verification returned to pending.");
+  });
+
+  it("blocks loan submission until borrower verification is approved", () => {
+    expect(migration).toContain("borrower_verification_required");
+    expect(migration).toContain(
+      "Borrower verification is required before submitting a loan application.",
+    );
+    expect(migration).toContain("if not app_private.is_verified_borrower(v_actor_id)");
+    expect(migration).toContain(
+      "and app_private.is_verified_borrower((select auth.uid()))",
+    );
+  });
+
+  it("writes borrower verification audit events", () => {
+    expect(migration).toContain("borrower_verification_approved");
+    expect(migration).toContain("borrower_verification_rejected");
+    expect(migration).toContain("borrower_verification_returned_to_pending");
+    expect(migration).toContain("app_private.write_audit_log");
+  });
+});
+
+describe("user consent helpers", () => {
+  it("returns required current consent versions by scope", () => {
+    expect(borrowerDocumentUploadRequiredConsents).toEqual([
+      "terms_of_service",
+      "privacy_notice",
+      "document_processing_consent",
+    ]);
+    expect(borrowerLoanApplicationRequiredConsents).toEqual([
+      "terms_of_service",
+      "privacy_notice",
+      "credit_review_authorization",
+    ]);
+    expect(lenderReviewRequiredConsents).toEqual([
+      "terms_of_service",
+      "privacy_notice",
+      "lender_review_consent",
+    ]);
+  });
+
+  it("requires every current version and ignores older versions", () => {
+    const required = getRequiredConsentVersions("borrower_loan_application");
+
+    expect(
+      hasCurrentRequiredConsents(
+        [
+          {
+            consentType: "terms_of_service",
+            version: "2026-05-terms-v1",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+          {
+            consentType: "privacy_notice",
+            version: "2026-05-privacy-v1",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+          {
+            consentType: "credit_review_authorization",
+            version: "2026-05-credit-review-v0",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+        ],
+        required,
+      ),
+    ).toBe(false);
+
+    expect(
+      hasCurrentRequiredConsents(
+        [
+          {
+            consentType: "terms_of_service",
+            version: "2026-05-terms-v1",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+          {
+            consentType: "privacy_notice",
+            version: "2026-05-privacy-v1",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+          {
+            consentType: "credit_review_authorization",
+            version: "2026-05-credit-review-v1",
+            acceptedAt: "2026-05-26T00:00:00.000Z",
+          },
+          {
+            consentType: "credit_review_authorization",
+            version: "2026-05-credit-review-v1",
+            acceptedAt: "2026-05-26T00:01:00.000Z",
+          },
+        ],
+        required,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe("user consent migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260526005823_add_user_consents.sql",
+    "utf8",
+  );
+
+  it("creates append-only consent records with RLS and indexes", () => {
+    expect(migration).toContain("create type public.user_consent_type");
+    expect(migration).toContain("create table if not exists public.user_consents");
+    expect(migration).toContain("alter table public.user_consents enable row level security");
+    expect(migration).toContain("user_consents_user_type_version_unique_idx");
+    expect(migration).toContain("user_consents_user_accepted_idx");
+    expect(migration).toContain("revoke insert, update, delete on public.user_consents from authenticated");
+  });
+
+  it("defines acceptance RPC, audit event, and consent helpers", () => {
+    expect(migration).toContain("accept_user_consents");
+    expect(migration).toContain("on conflict (user_id, consent_type, version) do nothing");
+    expect(migration).toContain("user_consents_accepted");
+    expect(migration).toContain("app_private.has_current_user_consents");
+    expect(migration).toContain("app_private.has_borrower_document_upload_consents");
+    expect(migration).toContain("app_private.has_borrower_loan_application_consents");
+    expect(migration).toContain("app_private.has_lender_review_consents");
+  });
+
+  it("adds consent gates to sensitive workflow RPCs", () => {
+    expect(migration).toContain("Accept the required disclosures before submitting a loan application.");
+    expect(migration).toContain("Accept the required disclosures before uploading verification documents.");
+    expect(migration).toContain("Lender must accept the required disclosures before approval.");
+    expect(migration).toContain("app_private.has_borrower_loan_application_consents((select auth.uid()))");
+  });
+});
+
+describe("borrower verification document migration", () => {
+  const migration = readFileSync(
+    "supabase/migrations/20260526004411_add_borrower_verification_documents.sql",
+    "utf8",
+  );
+
+  it("creates private document storage, enums, table, indexes, and RLS", () => {
+    expect(migration).toContain(
+      "create type public.borrower_verification_document_status",
+    );
+    expect(migration).toContain(
+      "create type public.borrower_verification_document_type",
+    );
+    expect(migration).toContain(
+      "create table if not exists public.borrower_verification_documents",
+    );
+    expect(migration).toContain("'borrower-verification-documents'");
+    expect(migration).toContain("public = false");
+    expect(migration).toContain(
+      "alter table public.borrower_verification_documents enable row level security",
+    );
+    expect(migration).toContain(
+      "borrower_verification_documents_storage_unique_idx",
+    );
+  });
+
+  it("defines tightly scoped document metadata and storage policies", () => {
+    expect(migration).toContain(
+      "borrower_verification_documents_borrower_select_own",
+    );
+    expect(migration).toContain(
+      "borrower_verification_documents_manager_select_all",
+    );
+    expect(migration).toContain(
+      "revoke insert, update, delete on public.borrower_verification_documents from authenticated",
+    );
+    expect(migration).toContain(
+      "storage_borrower_verification_documents_borrower_insert",
+    );
+    expect(migration).toContain(
+      "storage_borrower_verification_documents_borrower_select",
+    );
+    expect(migration).toContain(
+      "storage_borrower_verification_documents_manager_select",
+    );
+    expect(migration).toContain("(storage.foldername(name))[2] = (select auth.uid())::text");
+  });
+
+  it("defines document submit and manager review RPCs with audit events", () => {
+    expect(migration).toContain("submit_borrower_verification_document");
+    expect(migration).toContain("review_borrower_verification_document");
+    expect(migration).toContain("borrower_verification_document_uploaded");
+    expect(migration).toContain("borrower_verification_document_accepted");
+    expect(migration).toContain("borrower_verification_document_rejected");
+    expect(migration).toContain("p_storage_path not like v_expected_prefix || '%'");
+  });
+
+  it("keeps manager document links short lived and server generated", () => {
+    const operations = readFileSync("lib/manager-operations.ts", "utf8");
+
+    expect(operations).toContain("loadManagerBorrowerVerifications");
+    expect(operations).toContain("createSignedUrl(document.storage_path, 300)");
+    expect(operations).toContain("viewUrl: data?.signedUrl ?? null");
   });
 });
 

@@ -62,7 +62,9 @@ export default async function ManagerPage({
           .filter((item) =>
             ["/manager/applications", "/manager/audit-logs", "/manager/lookup"].includes(
               item.href,
-            ) || item.href === "/manager/lenders",
+            ) ||
+            item.href === "/manager/lenders" ||
+            item.href === "/manager/borrower-verifications",
           )
           .map((item) => (
           <Link key={item.href} href={item.href}>
@@ -100,8 +102,28 @@ function HomeOverview({ metrics }: { metrics: ManagerOverviewMetric[] }) {
   const overdueLoans = metric("Overdue loans");
   const lateRepayments = metric("Late repayments");
   const pendingOffers = metric("Pending offers");
+  const borrowerReviews = metric("Borrower reviews");
+  const borrowerDocuments = metric("Borrower documents");
   const nextAction =
-    submittedProofs.value > 0
+    borrowerDocuments.value > 0
+      ? {
+          title: `${borrowerDocuments.value} borrower ${
+            borrowerDocuments.value === 1 ? "document needs" : "documents need"
+          } review`,
+          description: "Open submitted verification evidence before approving borrower access.",
+          href: borrowerDocuments.href,
+          label: "Review borrowers",
+        }
+      : borrowerReviews.value > 0
+        ? {
+            title: `${borrowerReviews.value} borrower ${
+              borrowerReviews.value === 1 ? "review is" : "reviews are"
+            } pending`,
+            description: "Check borrower verification records waiting for manager action.",
+            href: borrowerReviews.href,
+            label: "Review borrowers",
+          }
+        : submittedProofs.value > 0
       ? {
           title: `${submittedProofs.value} repayment proof ${
             submittedProofs.value === 1 ? "needs" : "need"

@@ -7,7 +7,7 @@ import {
   type LoanOfferInput,
 } from "@/lib/loan-offer";
 import type { Json } from "@/lib/supabase/types";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { requireApprovedLender } from "@/lib/access-control";
 
 export type CreateLoanOfferState =
   | {
@@ -33,6 +33,15 @@ export async function createLoanOffer(
   _previousState: CreateLoanOfferState,
   formData: FormData,
 ): Promise<CreateLoanOfferState> {
+  const access = await requireApprovedLender();
+
+  if (!access.ok) {
+    return {
+      ok: false,
+      message: access.message,
+    };
+  }
+
   const requestedAmount = Number(formData.get("requestedAmount"));
   const schema = Number.isFinite(requestedAmount)
     ? createLoanOfferSchema(requestedAmount)
@@ -56,9 +65,7 @@ export async function createLoanOffer(
   }
 
   try {
-    const supabase = await createSupabaseServerClient();
-
-    const { data, error } = await supabase.rpc("create_loan_offer", {
+    const { data, error } = await access.supabase.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
       p_approved_amount: parsed.data.approvedAmount,
       p_repayment_amount: parsed.data.repaymentAmount,

@@ -374,3 +374,34 @@ set
   rejection_reason = excluded.rejection_reason,
   manager_review_notes = excluded.manager_review_notes,
   updated_at = now();
+
+insert into public.borrower_verifications (
+  borrower_id,
+  verification_status,
+  reviewed_at,
+  reviewed_by,
+  manager_review_notes
+)
+values
+  (
+    '11111111-1111-1111-1111-111111111111',
+    'approved',
+    now(),
+    '66666666-6666-6666-6666-666666666666',
+    'Seeded approved borrower for MVP workflow testing.'
+  ),
+  (
+    '22222222-2222-2222-2222-222222222222',
+    'approved',
+    now(),
+    '66666666-6666-6666-6666-666666666666',
+    'Seeded approved borrower for isolation tests.'
+  )
+on conflict (borrower_id) do update
+set
+  verification_status = excluded.verification_status,
+  reviewed_at = excluded.reviewed_at,
+  reviewed_by = excluded.reviewed_by,
+  manager_review_notes = excluded.manager_review_notes,
+  rejection_reason = null,
+  updated_at = now();

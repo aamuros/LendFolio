@@ -7,6 +7,7 @@ import type { Json } from "@/lib/supabase/types";
 
 type LenderReviewResult = {
   ok?: boolean;
+  code?: string;
   message?: string;
 };
 
@@ -64,7 +65,11 @@ export async function reviewLenderAction(formData: FormData) {
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    redirect(`${returnPath}?review=error`);
+    redirect(
+      `${returnPath}?review=${
+        result?.code === "consent_required" ? "consent-required" : "error"
+      }`,
+    );
   }
 
   revalidatePath("/manager");
@@ -80,4 +85,79 @@ export async function reviewLenderAction(formData: FormData) {
         : "rejected";
 
   redirect(`${returnPath}?review=${review}`);
+}
+
+export async function reviewBorrowerVerificationAction(formData: FormData) {
+  const borrowerId = String(formData.get("borrowerId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
+  const rejectionReason = String(formData.get("rejectionReason") ?? "");
+  const access = await requireManager();
+
+  if (!access.ok || !borrowerId) {
+    redirect("/manager/borrower-verifications?review=error");
+  }
+
+  const { data, error } = await access.supabase.rpc(
+    "review_borrower_verification",
+    {
+      p_borrower_id: borrowerId,
+      p_decision: decision,
+      p_manager_review_notes: managerReviewNotes,
+      p_rejection_reason: rejectionReason,
+    },
+  );
+  const result = data as Json as LenderReviewResult | null;
+
+  if (error || !result?.ok) {
+    redirect("/manager/borrower-verifications?review=error");
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/manager/borrower-verifications");
+  revalidatePath("/borrower");
+
+  const review =
+    decision === "approve"
+      ? "approved"
+      : decision === "return_to_pending"
+        ? "pending"
+        : "rejected";
+
+  redirect(`/manager/borrower-verifications?review=${review}`);
+}
+
+export async function reviewBorrowerVerificationDocumentAction(
+  formData: FormData,
+) {
+  const documentId = String(formData.get("documentId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const reviewNotes = String(formData.get("reviewNotes") ?? "");
+  const access = await requireManager();
+
+  if (!access.ok || !documentId) {
+    redirect("/manager/borrower-verifications?documentReview=error");
+  }
+
+  const { data, error } = await access.supabase.rpc(
+    "review_borrower_verification_document",
+    {
+      p_document_id: documentId,
+      p_decision: decision,
+      p_review_notes: reviewNotes,
+    },
+  );
+  const result = data as Json as LenderReviewResult | null;
+
+  if (error || !result?.ok) {
+    redirect("/manager/borrower-verifications?documentReview=error");
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/manager/borrower-verifications");
+  revalidatePath("/borrower");
+
+  const review = decision === "accept" ? "accepted" : "rejected";
+
+  redirect(`/manager/borrower-verifications?documentReview=${review}`);
 }

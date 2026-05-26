@@ -92,6 +92,13 @@ type ReviewLenderResult = {
   lender_profile_id?: string;
   verification_status?: string;
 };
+type ReviewBorrowerResult = {
+  ok: boolean;
+  message?: string;
+  borrower_id?: string;
+  borrower_verification_id?: string;
+  verification_status?: string;
+};
 type SubmitApplicationResult = {
   ok: boolean;
   code?: string;
@@ -517,6 +524,26 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         status: "active",
       });
 
+      const { data: borrowerVerification, error: borrowerVerificationError } =
+        await signupBorrower.client
+          .from("borrower_verifications")
+          .select("id, verification_status")
+          .eq("borrower_id", signupBorrower.userId)
+          .single();
+
+      expect(borrowerVerificationError).toBeNull();
+      expect(borrowerVerification).toMatchObject({
+        verification_status: "pending",
+      });
+
+      const { error: borrowerVerificationMutationError } =
+        await signupBorrower.client
+          .from("borrower_verifications")
+          .update({ verification_status: "approved" })
+          .eq("borrower_id", signupBorrower.userId);
+
+      expect(borrowerVerificationMutationError).not.toBeNull();
+
       const { error: roleMutationError } = await signupBorrower.client
         .from("profiles")
         .update({ role: "manager" })
@@ -601,10 +628,80 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
       expect(reviewFieldMutationError).not.toBeNull();
 
-      const { applicationId } = await createPortfolioAndApplication(
-        signupBorrower.client,
-        signupBorrower.userId,
+      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
+
+      const pendingBorrowerApplication =
+        await signupBorrower.client.rpc("submit_loan_application", {
+          p_requested_amount: 25000,
+          p_purpose: "Inventory restock",
+          p_preferred_term: "3_months",
+          p_remarks: "Review against current cash flow.",
+        });
+
+      expect(pendingBorrowerApplication.error).toBeNull();
+      expect(
+        pendingBorrowerApplication.data as Json as SubmitApplicationResult,
+      ).toMatchObject({
+        ok: false,
+        code: "borrower_verification_required",
+        message:
+          "Borrower verification is required before submitting a loan application.",
+      });
+
+      const borrowerSelfReview = await signupBorrower.client.rpc(
+        "review_borrower_verification",
+        {
+          p_borrower_id: signupBorrower.userId,
+          p_decision: "approve",
+        },
       );
+
+      expect(borrowerSelfReview.error).toBeNull();
+      expect(
+        borrowerSelfReview.data as Json as ReviewBorrowerResult,
+      ).toMatchObject({
+        ok: false,
+      });
+
+      const borrowerApproval = await manager.rpc("review_borrower_verification", {
+        p_borrower_id: signupBorrower.userId,
+        p_decision: "approve",
+        p_manager_review_notes: "Approved after manual profile review.",
+      });
+
+      expect(borrowerApproval.error).toBeNull();
+      expect(
+        borrowerApproval.data as Json as ReviewBorrowerResult,
+      ).toMatchObject({
+        ok: true,
+        verification_status: "approved",
+      });
+
+      const acceptedBorrowerApplication =
+        await signupBorrower.client.rpc("submit_loan_application", {
+          p_requested_amount: 25000,
+          p_purpose: "Inventory restock",
+          p_preferred_term: "3_months",
+          p_remarks: "Review against current cash flow.",
+        });
+
+      expect(acceptedBorrowerApplication.error).toBeNull();
+      expect(
+        acceptedBorrowerApplication.data as Json as SubmitApplicationResult,
+      ).toMatchObject({
+        ok: true,
+      });
+
+      const acceptedBorrowerApplicationResult =
+        acceptedBorrowerApplication.data as Json as SubmitApplicationResult;
+      const applicationId =
+        acceptedBorrowerApplicationResult.application &&
+        typeof acceptedBorrowerApplicationResult.application === "object" &&
+        !Array.isArray(acceptedBorrowerApplicationResult.application) &&
+        typeof acceptedBorrowerApplicationResult.application.id === "string"
+          ? acceptedBorrowerApplicationResult.application.id
+          : "";
+      expect(applicationId).toBeTruthy();
 
       const { data: pendingApplication, error: pendingApplicationError } =
         await signupLender.client

@@ -1,5 +1,10 @@
 import type { Database, Json } from "@/lib/supabase/types";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  buildConsentStatus,
+  type ConsentStatus,
+  type UserConsentRecord,
+} from "@/lib/consents";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -10,16 +15,22 @@ type ApplicationRow = Database["public"]["Tables"]["loan_applications"]["Row"];
 type AuditLogRow = Database["public"]["Tables"]["audit_logs"]["Row"];
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
+type BorrowerVerificationRow =
+  Database["public"]["Tables"]["borrower_verifications"]["Row"];
+type BorrowerVerificationDocumentRow =
+  Database["public"]["Tables"]["borrower_verification_documents"]["Row"];
 type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
 type LenderProfileRow =
   Database["public"]["Tables"]["lender_profiles"]["Row"];
 type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type UserConsentRow = Database["public"]["Tables"]["user_consents"]["Row"];
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
 type ManagerCountStatus =
   | Database["public"]["Enums"]["active_loan_status"]
   | Database["public"]["Enums"]["application_status"]
   | Database["public"]["Enums"]["offer_status"]
+  | Database["public"]["Enums"]["borrower_verification_document_status"]
   | Database["public"]["Enums"]["repayment_proof_status"]
   | Database["public"]["Enums"]["repayment_status"];
 
@@ -133,6 +144,36 @@ export type ManagerLenderRow = {
   createdAt: string;
   updatedAt: string;
   profile: ManagerProfileSummary;
+  consentStatus: ConsentStatus;
+};
+
+export type ManagerBorrowerVerificationDocumentRow = {
+  id: string;
+  documentType: Database["public"]["Enums"]["borrower_verification_document_type"];
+  status: Database["public"]["Enums"]["borrower_verification_document_status"];
+  fileName: string;
+  fileType: string;
+  fileSize: number;
+  uploadedAt: string;
+  reviewedAt: string | null;
+  reviewNotes: string | null;
+  viewUrl: string | null;
+};
+
+export type ManagerBorrowerVerificationRow = {
+  id: string;
+  borrower: ManagerProfileSummary;
+  verificationStatus: Database["public"]["Enums"]["borrower_verification_status"];
+  submittedAt: string | null;
+  reviewedAt: string | null;
+  reviewedBy: ManagerProfileSummary | null;
+  managerReviewNotes: string | null;
+  rejectionReason: string | null;
+  createdAt: string;
+  updatedAt: string;
+  documents: ManagerBorrowerVerificationDocumentRow[];
+  documentUploadConsentStatus: ConsentStatus;
+  loanApplicationConsentStatus: ConsentStatus;
 };
 
 const activeLoanSelect =
@@ -148,6 +189,10 @@ const portfolioSelect =
 const profileSelect = "id, role, display_name, status, created_at, updated_at";
 const lenderProfileSelect =
   "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at";
+const borrowerVerificationSelect =
+  "id, borrower_id, verification_status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
+const borrowerVerificationDocumentSelect =
+  "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentScheduleSelect =
@@ -173,6 +218,7 @@ export const managerStatusLabels = {
   withdrawn: "Withdrawn",
   pending: "Pending",
   approved: "Approved",
+  superseded: "Superseded",
   expired: "Expired",
   due: "Due",
   verified: "Verified",
@@ -232,6 +278,8 @@ export async function loadManagerOverview(
     openApplications,
     acceptedApplications,
     pendingOffers,
+    pendingBorrowerVerifications,
+    submittedBorrowerDocuments,
   ] = await Promise.all([
     countRows(supabase, "active_loans", { status: "active" }),
     countRows(supabase, "active_loans", { status: "overdue" }),
@@ -243,6 +291,8 @@ export async function loadManagerOverview(
     countApplicationsByStatuses(supabase, ["submitted", "open"]),
     countRows(supabase, "loan_applications", { status: "accepted" }),
     countRows(supabase, "loan_offers", { status: "pending" }),
+    countBorrowerVerificationsByStatus(supabase, "pending"),
+    countRows(supabase, "borrower_verification_documents", { status: "submitted" }),
   ]);
 
   const counts = [
@@ -256,6 +306,8 @@ export async function loadManagerOverview(
     openApplications,
     acceptedApplications,
     pendingOffers,
+    pendingBorrowerVerifications,
+    submittedBorrowerDocuments,
   ];
 
   return {
@@ -306,7 +358,116 @@ export async function loadManagerOverview(
         value: pendingOffers.count,
         href: "/manager/applications",
       },
+      {
+        label: "Borrower reviews",
+        value: pendingBorrowerVerifications.count,
+        href: "/manager/borrower-verifications?status=pending",
+      },
+      {
+        label: "Borrower documents",
+        value: submittedBorrowerDocuments.count,
+        href: "/manager/borrower-verifications?documentStatus=submitted",
+      },
     ],
+  };
+}
+
+export async function loadManagerBorrowerVerifications(
+  supabase: SupabaseServerClient,
+  filters: {
+    status?: string;
+    documentStatus?: string;
+    borrower?: string;
+  } = {},
+): Promise<{
+  ok: boolean;
+  message: string;
+  verifications: ManagerBorrowerVerificationRow[];
+}> {
+  const borrowerIds = await resolveProfileFilterIds(
+    supabase,
+    filters.borrower,
+    "borrower",
+  );
+
+  if (borrowerIds?.length === 0) {
+    return {
+      ok: true,
+      message: "No borrower verifications matched these filters.",
+      verifications: [],
+    };
+  }
+
+  let query = supabase
+    .from("borrower_verifications")
+    .select(borrowerVerificationSelect)
+    .order("created_at", { ascending: false })
+    .limit(100);
+
+  if (isBorrowerVerificationStatus(filters.status)) {
+    query = query.eq("verification_status", filters.status);
+  }
+  if (borrowerIds) query = query.in("borrower_id", borrowerIds);
+
+  const { data, error } = await query;
+
+  if (error) {
+    return {
+      ok: false,
+      message: "Could not load borrower verifications.",
+      verifications: [],
+    };
+  }
+
+  if (data.length === 0) {
+    return {
+      ok: true,
+      message: "No borrower verifications matched these filters.",
+      verifications: [],
+    };
+  }
+
+  const documents = await loadBorrowerVerificationDocuments(
+    supabase,
+    data.map((verification) => verification.id),
+    filters.documentStatus,
+  );
+  const visibleVerificationIds = new Set(
+    [...documents.keys(), ...data.map((verification) => verification.id)].filter(
+      (id) =>
+        !isBorrowerVerificationDocumentStatus(filters.documentStatus) ||
+        (documents.get(id)?.length ?? 0) > 0,
+    ),
+  );
+  const filteredRows = data.filter((verification) =>
+    visibleVerificationIds.has(verification.id),
+  );
+  const profiles = await loadProfilesByIds(
+    supabase,
+    filteredRows.flatMap((verification) =>
+      [verification.borrower_id, verification.reviewed_by].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ),
+  );
+  const consents = await loadUserConsentsByUserIds(
+    supabase,
+    filteredRows.map((verification) => verification.borrower_id),
+  );
+
+  return {
+    ok: true,
+    message: filteredRows.length
+      ? "Borrower verifications loaded."
+      : "No borrower verifications matched these filters.",
+    verifications: filteredRows.map((verification) =>
+      mapManagerBorrowerVerification(
+        verification,
+        profiles,
+        documents.get(verification.id) ?? [],
+        consents.get(verification.borrower_id) ?? [],
+      ),
+    ),
   };
 }
 
@@ -585,11 +746,17 @@ export async function loadManagerLenders(
       ),
     ),
   );
+  const consents = await loadUserConsentsByUserIds(
+    supabase,
+    data.map((lender) => lender.user_id),
+  );
 
   return {
     ok: true,
     message: data.length ? "Lenders loaded." : "No lenders found.",
-    lenders: data.map((lender) => mapManagerLender(lender, profiles)),
+    lenders: data.map((lender) =>
+      mapManagerLender(lender, profiles, consents.get(lender.user_id) ?? []),
+    ),
   };
 }
 
@@ -621,11 +788,12 @@ export async function loadManagerLenderDetail(
       (id): id is string => Boolean(id),
     ),
   );
+  const consents = await loadUserConsentsByUserIds(supabase, [data.user_id]);
 
   return {
     ok: true,
     message: "Lender profile loaded.",
-    lender: mapManagerLender(data, profiles),
+    lender: mapManagerLender(data, profiles, consents.get(data.user_id) ?? []),
   };
 }
 
@@ -846,6 +1014,131 @@ async function loadOffersByApplicationIds(
   }, new Map<string, LoanOfferRow[]>());
 }
 
+async function loadBorrowerVerificationDocuments(
+  supabase: SupabaseServerClient,
+  verificationIds: string[],
+  status?: string,
+) {
+  const uniqueIds = [...new Set(verificationIds)];
+  if (uniqueIds.length === 0) {
+    return new Map<string, ManagerBorrowerVerificationDocumentRow[]>();
+  }
+
+  let query = supabase
+    .from("borrower_verification_documents")
+    .select(borrowerVerificationDocumentSelect)
+    .in("borrower_verification_id", uniqueIds)
+    .order("uploaded_at", { ascending: false });
+
+  if (isBorrowerVerificationDocumentStatus(status)) {
+    query = query.eq("status", status);
+  }
+
+  const { data, error } = await query;
+
+  if (error || data.length === 0) {
+    return new Map<string, ManagerBorrowerVerificationDocumentRow[]>();
+  }
+
+  const mappedDocuments = await Promise.all(
+    data.map(async (document) => ({
+      borrowerVerificationId: document.borrower_verification_id,
+      document: await mapManagerBorrowerVerificationDocument(supabase, document),
+    })),
+  );
+
+  return mappedDocuments.reduce((groups, item) => {
+    groups.set(item.borrowerVerificationId, [
+      ...(groups.get(item.borrowerVerificationId) ?? []),
+      item.document,
+    ]);
+
+    return groups;
+  }, new Map<string, ManagerBorrowerVerificationDocumentRow[]>());
+}
+
+async function mapManagerBorrowerVerificationDocument(
+  supabase: SupabaseServerClient,
+  document: BorrowerVerificationDocumentRow,
+): Promise<ManagerBorrowerVerificationDocumentRow> {
+  const { data } = await supabase.storage
+    .from(document.storage_bucket)
+    .createSignedUrl(document.storage_path, 300);
+
+  return {
+    id: document.id,
+    documentType: document.document_type,
+    status: document.status,
+    fileName: document.file_name,
+    fileType: document.file_type,
+    fileSize: document.file_size,
+    uploadedAt: document.uploaded_at,
+    reviewedAt: document.reviewed_at,
+    reviewNotes: document.review_notes,
+    viewUrl: data?.signedUrl ?? null,
+  };
+}
+
+function mapManagerBorrowerVerification(
+  verification: BorrowerVerificationRow,
+  profiles: Map<string, ProfileRow>,
+  documents: ManagerBorrowerVerificationDocumentRow[],
+  consents: UserConsentRecord[],
+): ManagerBorrowerVerificationRow {
+  return {
+    id: verification.id,
+    borrower: getProfileSummary(profiles, verification.borrower_id),
+    verificationStatus: verification.verification_status,
+    submittedAt: verification.submitted_at,
+    reviewedAt: verification.reviewed_at,
+    reviewedBy: verification.reviewed_by
+      ? getProfileSummary(profiles, verification.reviewed_by)
+      : null,
+    managerReviewNotes: verification.manager_review_notes,
+    rejectionReason: verification.rejection_reason,
+    createdAt: verification.created_at,
+    updatedAt: verification.updated_at,
+    documents,
+    documentUploadConsentStatus: buildConsentStatus(
+      "borrower_document_upload",
+      consents,
+    ),
+    loanApplicationConsentStatus: buildConsentStatus(
+      "borrower_loan_application",
+      consents,
+    ),
+  };
+}
+
+async function loadUserConsentsByUserIds(
+  supabase: SupabaseServerClient,
+  userIds: string[],
+) {
+  const uniqueIds = [...new Set(userIds.filter(Boolean))];
+  if (uniqueIds.length === 0) return new Map<string, UserConsentRecord[]>();
+
+  const { data, error } = await supabase
+    .from("user_consents")
+    .select("user_id, consent_type, version, accepted_at")
+    .in("user_id", uniqueIds)
+    .order("accepted_at", { ascending: false });
+
+  if (error) return new Map<string, UserConsentRecord[]>();
+
+  return data.reduce((groups, consent: Pick<UserConsentRow, "user_id" | "consent_type" | "version" | "accepted_at">) => {
+    const current = groups.get(consent.user_id) ?? [];
+    groups.set(consent.user_id, [
+      ...current,
+      {
+        consentType: consent.consent_type,
+        version: consent.version,
+        acceptedAt: consent.accepted_at,
+      },
+    ]);
+    return groups;
+  }, new Map<string, UserConsentRecord[]>());
+}
+
 async function loadProfilesByIds(
   supabase: SupabaseServerClient,
   ids: string[],
@@ -960,6 +1253,7 @@ function mapAuditLog(
 function mapManagerLender(
   lender: LenderProfileRow,
   profiles: Map<string, ProfileRow>,
+  consents: UserConsentRecord[],
 ): ManagerLenderRow {
   return {
     id: lender.id,
@@ -988,6 +1282,7 @@ function mapManagerLender(
     createdAt: lender.created_at,
     updatedAt: lender.updated_at,
     profile: getProfileSummary(profiles, lender.user_id),
+    consentStatus: buildConsentStatus("lender_review", consents),
   };
 }
 
@@ -1001,6 +1296,7 @@ async function countRows(
   supabase: SupabaseServerClient,
   table:
     | "active_loans"
+    | "borrower_verification_documents"
     | "loan_applications"
     | "loan_offers"
     | "loan_repayment_schedules"
@@ -1011,6 +1307,18 @@ async function countRows(
     .from(table)
     .select("id", { count: "exact", head: true })
     .eq("status", filter.status);
+
+  return { ok: !error, count: count ?? 0 };
+}
+
+async function countBorrowerVerificationsByStatus(
+  supabase: SupabaseServerClient,
+  status: Database["public"]["Enums"]["borrower_verification_status"],
+) {
+  const { count, error } = await supabase
+    .from("borrower_verifications")
+    .select("id", { count: "exact", head: true })
+    .eq("verification_status", status);
 
   return { ok: !error, count: count ?? 0 };
 }
@@ -1065,6 +1373,18 @@ function isProofStatus(
   value: string | undefined,
 ): value is Database["public"]["Enums"]["repayment_proof_status"] {
   return ["submitted", "verified", "rejected"].includes(value ?? "");
+}
+
+function isBorrowerVerificationStatus(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["borrower_verification_status"] {
+  return ["pending", "approved", "rejected"].includes(value ?? "");
+}
+
+function isBorrowerVerificationDocumentStatus(
+  value: string | undefined,
+): value is Database["public"]["Enums"]["borrower_verification_document_status"] {
+  return ["submitted", "accepted", "rejected", "superseded"].includes(value ?? "");
 }
 
 function isRepaymentStatus(

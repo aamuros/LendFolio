@@ -20,17 +20,24 @@ import {
   updateLoanApplication,
   withdrawLoanApplication,
 } from "@/app/borrower/actions";
+import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { CurrencyInput } from "@/components/currency-input";
 import {
   CompactCreditStatusCard,
   CreditEligibilityBanner,
 } from "@/components/borrower-credit-summary";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
+import {
+  canSubmitLoanApplicationForVerification,
+  getBorrowerVerificationMessage,
+  type BorrowerVerificationSummary,
+} from "@/lib/borrower-verification";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import {
   formatCreditAmount,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
+import type { ConsentStatus } from "@/lib/consents";
 import {
   loanApplicationSchema,
   preferredTermLabels,
@@ -81,6 +88,10 @@ export function BorrowerLoanApplicationPanel({
   const [hasPortfolio, setHasPortfolio] = useState(
     initialLoadResult?.hasPortfolio ?? false,
   );
+  const [borrowerVerification, setBorrowerVerification] =
+    useState<BorrowerVerificationSummary | null>(
+      initialLoadResult?.borrowerVerification ?? null,
+    );
   const [message, setMessage] = useState(
     initialLoadResult ? (initialLoadResult.ok ? "" : initialLoadResult.message) : "",
   );
@@ -91,6 +102,10 @@ export function BorrowerLoanApplicationPanel({
   const [creditSummary, setCreditSummary] =
     useState<BorrowerCreditSummary | null>(
       initialLoadResult?.creditSummary ?? null,
+    );
+  const [loanConsentStatus, setLoanConsentStatus] =
+    useState<ConsentStatus | null>(
+      initialLoadResult?.consentStatuses?.borrowerLoanApplication ?? null,
     );
   const [expandedApplicationIds, setExpandedApplicationIds] = useState<
     Set<string>
@@ -147,6 +162,10 @@ export function BorrowerLoanApplicationPanel({
           const nextApplications = result.ok ? result.applications : [];
 
           setHasPortfolio(nextHasPortfolio);
+          setBorrowerVerification(result.borrowerVerification);
+          setLoanConsentStatus(
+            result.consentStatuses?.borrowerLoanApplication ?? null,
+          );
           setApplications(nextApplications);
           setCreditSummary(result.creditSummary);
           setExpandedApplicationIds(
@@ -207,11 +226,22 @@ export function BorrowerLoanApplicationPanel({
   );
   const requestedAmount =
     typeof watchedRequestedAmount === "number" ? watchedRequestedAmount : 0;
+  const canSubmitApplication = canSubmitLoanApplicationForVerification(
+    borrowerVerification,
+  );
+  const borrowerVerificationMessage =
+    getBorrowerVerificationMessage(borrowerVerification);
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
       setMessage("Save your business profile before applying.");
+      return;
+    }
+
+    if (!canSubmitApplication) {
+      setLoadState("ready");
+      setMessage(borrowerVerificationMessage);
       return;
     }
 
@@ -245,7 +275,14 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setLoadState(result.mode === "missing-portfolio" ? "blocked" : "error");
+      setLoadState(
+        result.mode === "missing-portfolio"
+          ? "blocked"
+          : result.mode === "borrower-verification" ||
+              result.mode === "consent-required"
+            ? "ready"
+            : "error",
+      );
       setMessage(result.message);
     });
   }
@@ -553,6 +590,16 @@ export function BorrowerLoanApplicationPanel({
               message="Save your business profile before applying."
               onClick={() => onNavigate?.("profile")}
             />
+          ) : !canSubmitApplication ? (
+            <VerificationGateCard
+              borrowerVerification={borrowerVerification}
+              message={borrowerVerificationMessage}
+            />
+          ) : loanConsentStatus && !loanConsentStatus.isCurrent ? (
+            <ConsentAcceptancePanel
+              scope="borrower_loan_application"
+              status={loanConsentStatus}
+            />
           ) : (
             <ApplicationForm
               creditSummary={creditSummary}
@@ -616,6 +663,41 @@ export function BorrowerLoanApplicationPanel({
             proofFeedback={proofFeedback}
           />
         </>
+      ) : null}
+    </section>
+  );
+}
+
+function VerificationGateCard({
+  borrowerVerification,
+  message,
+}: {
+  borrowerVerification: BorrowerVerificationSummary | null;
+  message: string;
+}) {
+  const managerNote =
+    borrowerVerification?.managerReviewNotes ??
+    borrowerVerification?.rejectionReason;
+
+  return (
+    <section
+      className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 shadow-sm sm:px-5"
+      role="status"
+      aria-live="polite"
+    >
+      <div className="grid gap-1">
+        <p className="font-semibold text-[var(--foreground)]">
+          Borrower verification
+        </p>
+        <p className="text-[var(--muted-foreground)]">{message}</p>
+      </div>
+      {managerNote ? (
+        <div className="rounded-2xl border border-[var(--border)] px-4 py-3">
+          <p className="text-xs font-semibold uppercase text-[var(--muted-foreground)]">
+            Manager note
+          </p>
+          <p className="mt-1 text-[var(--foreground)]">{managerNote}</p>
+        </div>
       ) : null}
     </section>
   );

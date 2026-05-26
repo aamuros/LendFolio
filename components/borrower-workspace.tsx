@@ -12,6 +12,7 @@ import {
 } from "@/components/borrower-bottom-tabs";
 import { CreditProfileSection } from "@/components/borrower-credit-summary";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
+import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { NotificationButton } from "@/components/notification-button";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
@@ -158,6 +159,13 @@ export function BorrowerWorkspace({
           ) : (
             <CreditProfilePlaceholder isPending={isPending} />
           )}
+          <BorrowerVerificationDocumentsPanel
+            verification={initialLoanApplications?.borrowerVerification ?? null}
+            consentStatus={
+              initialLoanApplications?.consentStatuses?.borrowerDocumentUpload ??
+              null
+            }
+          />
           <AccountSection email={accountEmail} />
         </section>
       ) : (

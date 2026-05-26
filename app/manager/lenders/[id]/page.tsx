@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { reviewLenderAction } from "@/app/manager/actions";
 import { requireManager } from "@/lib/access-control";
+import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
   getShortId,
   loadManagerLenderDetail,
@@ -98,6 +99,15 @@ function ReviewStatus({ review }: { review?: string }) {
     return <StatusMessage message="Could not update lender review." tone="error" />;
   }
 
+  if (review === "consent-required") {
+    return (
+      <StatusMessage
+        message="Lender must accept the required disclosures before approval."
+        tone="error"
+      />
+    );
+  }
+
   return null;
 }
 
@@ -165,6 +175,8 @@ function LenderDetail({ lender }: { lender: ManagerLenderRow }) {
           <Field label="Updated" value={formatDateTime(lender.updatedAt)} />
         </dl>
 
+        <ConsentSummary status={lender.consentStatus} />
+
         <dl className="grid gap-3">
           <Field label="Lender description" value={lender.lenderDescription} />
           <Field
@@ -185,6 +197,39 @@ function LenderDetail({ lender }: { lender: ManagerLenderRow }) {
       {lender.verificationStatus === "rejected" ? (
         <ReturnToPendingAction lender={lender} />
       ) : null}
+    </div>
+  );
+}
+
+function ConsentSummary({ status }: { status: ConsentStatus }) {
+  return (
+    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-sm font-semibold">Lender disclosures</p>
+        <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
+          {status.isCurrent ? "Current" : "Missing"}
+        </span>
+      </div>
+      <div className="grid gap-1 text-xs leading-5 text-[var(--muted-foreground)]">
+        {status.required.map((consent) => {
+          const accepted = status.accepted.find(
+            (item) =>
+              item.consentType === consent.consentType &&
+              item.version === consent.version,
+          );
+
+          return (
+            <p key={`${consent.consentType}-${consent.version}`}>
+              <span className="font-semibold text-[var(--foreground)]">
+                {consentTypeLabels[consent.consentType]}:
+              </span>{" "}
+              {accepted
+                ? `${consent.version}, ${formatDateTime(accepted.acceptedAt)}`
+                : "Missing current version"}
+            </p>
+          );
+        })}
+      </div>
     </div>
   );
 }
