@@ -489,10 +489,10 @@ function BorrowerProfileHub({
             />
           </section>
 
-          <form action={signOutAction} className="px-2">
+          <form action={signOutAction} className="pt-1">
             <button
               type="submit"
-              className="inline-flex h-10 items-center gap-2 rounded-full px-3 text-sm font-semibold text-[var(--muted-foreground)] transition hover:bg-white hover:text-[var(--foreground)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
             >
               <ProfileIcon name="logout" className="size-4" />
               Log out
@@ -690,8 +690,10 @@ function ProfileSummaryRow({
 
 type ProfileIconName =
   | "back"
+  | "alert"
   | "briefcase"
   | "chart"
+  | "check"
   | "chevron"
   | "help"
   | "lock"
@@ -708,6 +710,13 @@ function ProfileIcon({
 }) {
   const paths: Record<ProfileIconName, ReactNode> = {
     back: <path d="m15 18-6-6 6-6" />,
+    alert: (
+      <>
+        <path d="M12 9v4" />
+        <path d="M12 17h.01" />
+        <path d="M10.3 4.6 2.7 18a2 2 0 0 0 1.7 3h15.2a2 2 0 0 0 1.7-3L13.7 4.6a2 2 0 0 0-3.4 0Z" />
+      </>
+    ),
     briefcase: (
       <>
         <path d="M10 6h4" />
@@ -723,6 +732,12 @@ function ProfileIcon({
         <path d="M8 16v-5" />
         <path d="M12 16V8" />
         <path d="M16 16v-3" />
+      </>
+    ),
+    check: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="m8.5 12.5 2.5 2.5 4.5-6" />
       </>
     ),
     chevron: <path d="m9 18 6-6-6-6" />,
@@ -807,22 +822,40 @@ function ProfileStatusBanner({
   onAction: () => void;
   status: ReturnType<typeof getProfileStatus>;
 }) {
+  const iconName: ProfileIconName =
+    status.tone === "ready" ? "check" : status.tone === "attention" ? "alert" : "shield";
+  const iconClassName =
+    status.tone === "ready"
+      ? "bg-emerald-50 text-emerald-700"
+      : status.tone === "attention"
+        ? "bg-amber-50 text-amber-800"
+        : "bg-[var(--muted)] text-[var(--muted-foreground)]";
+
   return (
-    <section className="flex items-start justify-between gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
-      <div className="min-w-0">
-        <StatusPill tone={status.tone}>{status.label}</StatusPill>
-        <p className="mt-1 text-sm font-semibold text-[var(--foreground)]">
-          {status.title}
-        </p>
-        <p className="mt-0.5 text-xs leading-5 text-[var(--muted-foreground)]">
-          {status.description}
-        </p>
+    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm sm:grid-cols-[1fr_auto] sm:items-center">
+      <div className="grid min-w-0 grid-cols-[2.25rem_1fr] gap-3">
+        <span
+          className={`mt-0.5 grid size-9 place-items-center rounded-full ${iconClassName}`}
+        >
+          <ProfileIcon name={iconName} className="size-5" />
+        </span>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <StatusPill tone={status.tone}>{status.label}</StatusPill>
+            <p className="text-sm font-semibold leading-5 text-[var(--foreground)]">
+              {status.title}
+            </p>
+          </div>
+          <p className="mt-1 text-xs leading-5 text-[var(--muted-foreground)]">
+            {status.description}
+          </p>
+        </div>
       </div>
       {status.actionLabel ? (
         <button
           type="button"
           onClick={onAction}
-          className="shrink-0 rounded-full border border-[var(--border)] bg-white px-3 py-1.5 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          className="ml-12 inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-xs font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:ml-0"
         >
           {status.actionLabel}
         </button>
