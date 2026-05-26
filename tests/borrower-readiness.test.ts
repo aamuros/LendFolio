@@ -4,41 +4,35 @@ import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 
 const completeProfile = {
   businessName: "Aling Nena Store",
-  businessDescription: "Neighborhood retail store selling daily grocery items.",
   businessType: "sari_sari_store",
-  startedOperatingAt: "2024-01-01",
-  businessAddress: "12 Mabini Street",
-  barangay: "San Jose",
-  cityOrMunicipality: "Quezon City",
-  province: "Metro Manila",
   location: "San Jose, Quezon City",
-  operatingModel: "fixed_store",
-  primarySalesChannel: "walk_in",
-  revenuePeriod: "average_monthly_last_3_months",
-  revenueConfidence: "partially_documented",
   monthlyGrossRevenue: 80000,
   monthlyExpenses: 45000,
   existingLoanPayments: 5000,
   yearsInOperation: 2,
-  inventoryExpense: 30000,
-  rentExpense: 8000,
-  payrollExpense: 4000,
-  utilitiesExpense: 2000,
-  otherExpense: 1000,
-  debtLenderCount: 1,
-  totalOutstandingDebt: 20000,
-  debtNotes: "",
   loanPurposeContext: "Additional inventory for the next month of operations.",
 } as const;
 
 describe("borrower profile validation and readiness", () => {
-  it("rejects a future business start date", () => {
+  it("accepts the simplified essential borrower profile fields", () => {
+    const parsed = borrowerPortfolioSchema.safeParse(completeProfile);
+
+    expect(parsed.success).toBe(true);
+  });
+
+  it("does not require the removed first-pass profile fields", () => {
     const parsed = borrowerPortfolioSchema.safeParse({
-      ...completeProfile,
-      startedOperatingAt: "2999-01-01",
+      businessName: "Aling Nena Store",
+      businessType: "sari_sari_store",
+      location: "San Jose, Quezon City",
+      monthlyGrossRevenue: 80000,
+      monthlyExpenses: 45000,
+      existingLoanPayments: 5000,
+      yearsInOperation: 2,
+      loanPurposeContext: "Additional inventory for the next month of operations.",
     });
 
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
   });
 
   it("rejects negative financial values", () => {

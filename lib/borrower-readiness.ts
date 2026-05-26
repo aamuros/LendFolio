@@ -37,17 +37,8 @@ export type BorrowerReadinessGateInput = {
 
 const requiredProfileFields = [
   ["businessName", "Business name"],
-  ["businessDescription", "Business description"],
   ["businessType", "Business type"],
-  ["startedOperatingAt", "Business start date"],
-  ["businessAddress", "Business address"],
-  ["barangay", "Barangay"],
-  ["cityOrMunicipality", "City or municipality"],
-  ["province", "Province"],
-  ["operatingModel", "Operating model"],
-  ["primarySalesChannel", "Primary sales channel"],
-  ["revenuePeriod", "Revenue period"],
-  ["revenueConfidence", "Revenue confidence"],
+  ["location", "Business location"],
   ["loanPurposeContext", "Loan-use context"],
 ] as const satisfies ReadonlyArray<readonly [keyof BorrowerPortfolioInput, string]>;
 
@@ -93,7 +84,7 @@ export function evaluateBorrowerReadiness(
   if (portfolio.loanPurposeContext.trim().length < 40) {
     riskFlags.add("vague_loan_purpose");
   }
-  if (businessAgeMonths(portfolio.startedOperatingAt) < 6) {
+  if (portfolio.yearsInOperation < 0.5) {
     riskFlags.add("very_new_business");
   }
 
@@ -169,15 +160,4 @@ export function evaluateBorrowerReadiness(
 
 function hasValue(value: unknown) {
   return typeof value === "string" ? value.trim().length > 0 : value != null;
-}
-
-function businessAgeMonths(value: string) {
-  const startedAt = new Date(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(startedAt.getTime())) return 0;
-  const now = new Date();
-  return (
-    (now.getUTCFullYear() - startedAt.getUTCFullYear()) * 12 +
-    now.getUTCMonth() -
-    startedAt.getUTCMonth()
-  );
 }

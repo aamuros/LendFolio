@@ -34,6 +34,7 @@ describe("product foundation", () => {
 describe("borrower portfolio schema", () => {
   it("accepts the MVP borrower portfolio fields", () => {
     const result = borrowerPortfolioSchema.safeParse({
+      businessName: "Aling Nena Store",
       businessType: "sari_sari_store",
       location: "Quezon City",
       monthlyGrossRevenue: 45_000,
@@ -49,6 +50,7 @@ describe("borrower portfolio schema", () => {
 
   it("rejects incomplete loan purpose context", () => {
     const result = borrowerPortfolioSchema.safeParse({
+      businessName: "Nena Food Stall",
       businessType: "food_stall",
       location: "Cebu City",
       monthlyGrossRevenue: 20_000,

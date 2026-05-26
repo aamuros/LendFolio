@@ -14,14 +14,6 @@ import {
   borrowerPortfolioSchema,
   businessTypeLabels,
   businessTypeOptions,
-  operatingModelLabels,
-  operatingModelOptions,
-  primarySalesChannelLabels,
-  primarySalesChannelOptions,
-  revenueConfidenceLabels,
-  revenueConfidenceOptions,
-  revenuePeriodLabels,
-  revenuePeriodOptions,
   type BorrowerPortfolioFormInput,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
@@ -32,36 +24,26 @@ import { parseMoneyInput } from "@/lib/money-input";
 
 const defaultValues: BorrowerPortfolioInput = {
   businessName: "",
-  businessDescription: "",
   businessType: "sari_sari_store",
-  startedOperatingAt: "",
-  businessAddress: "",
-  barangay: "",
-  cityOrMunicipality: "",
-  province: "",
   location: "",
-  operatingModel: "fixed_store",
-  primarySalesChannel: "walk_in",
-  revenuePeriod: "last_30_days",
-  revenueConfidence: "self_declared",
   monthlyGrossRevenue: 0,
   monthlyExpenses: 0,
   existingLoanPayments: 0,
   yearsInOperation: 0,
-  inventoryExpense: 0,
-  rentExpense: 0,
-  payrollExpense: 0,
-  utilitiesExpense: 0,
-  otherExpense: 0,
-  debtLenderCount: 0,
-  totalOutstandingDebt: 0,
-  debtNotes: "",
   loanPurposeContext: "",
 };
 
 type LoadState = "loading" | "empty" | "ready" | "error";
 
-export function BorrowerPortfolioForm() {
+type BorrowerPortfolioFormProps = {
+  onCancel?: () => void;
+  onSaved?: (portfolio: BorrowerPortfolioInput) => void;
+};
+
+export function BorrowerPortfolioForm({
+  onCancel,
+  onSaved,
+}: BorrowerPortfolioFormProps = {}) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [statusMessage, setStatusMessage] = useState<string>("");
@@ -131,6 +113,7 @@ export function BorrowerPortfolioForm() {
         setStatusMessage("");
         setSuccessMessage(result.message);
         reset(values);
+        onSaved?.(values);
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
         setStatusMessage(result.message);
@@ -150,7 +133,7 @@ export function BorrowerPortfolioForm() {
           setSuccessMessage("");
         }
       }}
-      className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
+      className="grid gap-4"
       aria-describedby="portfolio-save-state"
     >
       {loadState === "error" ? (
@@ -173,7 +156,10 @@ export function BorrowerPortfolioForm() {
         monthlyNetCashFlow={credit.monthlyNetCashFlow}
       />
 
-      <FormSection title="Business identity">
+      <FormSection
+        title="Essential business details"
+        description="The basics lenders need to understand the business."
+      >
         <Field label="Business name" error={errors.businessName?.message}>
           <input {...register("businessName")} className={inputClassName} />
         </Field>
@@ -186,45 +172,6 @@ export function BorrowerPortfolioForm() {
             ))}
           </select>
         </Field>
-        <Field
-          label="Business description"
-          error={errors.businessDescription?.message}
-        >
-          <textarea
-            {...register("businessDescription")}
-            rows={3}
-            className={textareaClassName}
-            placeholder="Describe what the business sells or provides."
-          />
-        </Field>
-        <Field
-          label="Business start date"
-          error={errors.startedOperatingAt?.message}
-        >
-          <input
-            type="date"
-            {...register("startedOperatingAt")}
-            className={inputClassName}
-          />
-        </Field>
-      </FormSection>
-
-      <FormSection title="Business location">
-        <Field label="Business address" error={errors.businessAddress?.message}>
-          <input {...register("businessAddress")} className={inputClassName} />
-        </Field>
-        <Field label="Barangay" error={errors.barangay?.message}>
-          <input {...register("barangay")} className={inputClassName} />
-        </Field>
-        <Field
-          label="City or municipality"
-          error={errors.cityOrMunicipality?.message}
-        >
-          <input {...register("cityOrMunicipality")} className={inputClassName} />
-        </Field>
-        <Field label="Province" error={errors.province?.message}>
-          <input {...register("province")} className={inputClassName} />
-        </Field>
         <Field label="Business location" error={errors.location?.message}>
           <input
             {...register("location")}
@@ -232,36 +179,26 @@ export function BorrowerPortfolioForm() {
             placeholder="Barangay, city or province"
           />
         </Field>
-      </FormSection>
-
-      <FormSection title="Operations">
-        <Field label="Operating model" error={errors.operatingModel?.message}>
-          <select {...register("operatingModel")} className={selectClassName}>
-            {operatingModelOptions.map((option) => (
-              <option key={option} value={option}>
-                {operatingModelLabels[option]}
-              </option>
-            ))}
-          </select>
-        </Field>
         <Field
-          label="Primary sales channel"
-          error={errors.primarySalesChannel?.message}
+          label="Years in operation"
+          error={errors.yearsInOperation?.message}
         >
-          <select
-            {...register("primarySalesChannel")}
-            className={selectClassName}
-          >
-            {primarySalesChannelOptions.map((option) => (
-              <option key={option} value={option}>
-                {primarySalesChannelLabels[option]}
-              </option>
-            ))}
-          </select>
+          <input
+            type="number"
+            min="0"
+            max="100"
+            step="0.5"
+            inputMode="decimal"
+            {...register("yearsInOperation", { setValueAs: parseMoneyInput })}
+            className={inputClassName}
+          />
         </Field>
       </FormSection>
 
-      <FormSection title="Financial snapshot">
+      <FormSection
+        title="Financial snapshot"
+        description="Use a normal monthly estimate for the current business."
+      >
         <Field
           label="Monthly gross revenue"
           error={errors.monthlyGrossRevenue?.message}
@@ -272,29 +209,6 @@ export function BorrowerPortfolioForm() {
               setValueAs: parseMoneyInput,
             })}
           />
-        </Field>
-
-        <Field label="Revenue period" error={errors.revenuePeriod?.message}>
-          <select {...register("revenuePeriod")} className={selectClassName}>
-            {revenuePeriodOptions.map((option) => (
-              <option key={option} value={option}>
-                {revenuePeriodLabels[option]}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field
-          label="Revenue confidence"
-          error={errors.revenueConfidence?.message}
-        >
-          <select {...register("revenueConfidence")} className={selectClassName}>
-            {revenueConfidenceOptions.map((option) => (
-              <option key={option} value={option}>
-                {revenueConfidenceLabels[option]}
-              </option>
-            ))}
-          </select>
         </Field>
 
         <Field
@@ -320,110 +234,28 @@ export function BorrowerPortfolioForm() {
             })}
           />
         </Field>
-
-        <Field
-          label="Years in operation"
-          error={errors.yearsInOperation?.message}
-        >
-          <input
-            type="number"
-            min="0"
-            max="100"
-            step="0.5"
-            inputMode="decimal"
-            {...register("yearsInOperation", { setValueAs: parseMoneyInput })}
-            className={inputClassName}
-          />
-        </Field>
       </FormSection>
 
-      <FormSection title="Expense breakdown">
-        <MoneyField
-          label="Inventory or cost of goods"
-          error={errors.inventoryExpense?.message}
-        >
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("inventoryExpense", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-        </MoneyField>
-        <MoneyField label="Rent" error={errors.rentExpense?.message}>
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("rentExpense", { setValueAs: parseMoneyInput })}
-          />
-        </MoneyField>
-        <MoneyField label="Payroll" error={errors.payrollExpense?.message}>
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("payrollExpense", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-        </MoneyField>
-        <MoneyField label="Utilities" error={errors.utilitiesExpense?.message}>
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("utilitiesExpense", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-        </MoneyField>
-        <MoneyField label="Other expenses" error={errors.otherExpense?.message}>
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("otherExpense", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-        </MoneyField>
-      </FormSection>
-
-      <FormSection title="Debt obligations">
-        <Field label="Active lenders" error={errors.debtLenderCount?.message}>
-          <input
-            type="number"
-            min="0"
-            step="1"
-            {...register("debtLenderCount", { setValueAs: parseMoneyInput })}
-            className={inputClassName}
-          />
-        </Field>
-        <Field
-          label="Total outstanding debt"
-          error={errors.totalOutstandingDebt?.message}
-        >
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            registration={register("totalOutstandingDebt", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-        </Field>
-        <Field label="Debt notes" error={errors.debtNotes?.message}>
-          <textarea
-            {...register("debtNotes")}
-            rows={2}
-            className={textareaClassName}
-          />
-        </Field>
-      </FormSection>
-
-      <Field
-        label="Loan purpose context"
-        error={errors.loanPurposeContext?.message}
+      <FormSection
+        title="Loan purpose"
+        description="A short note helps lenders understand what the next loan would support."
       >
-        <textarea
-          {...register("loanPurposeContext")}
-          rows={3}
-          className={textareaClassName}
-          placeholder="Describe what the financing would support, such as inventory, equipment, repairs, or working capital."
-        />
-      </Field>
+        <div className="sm:col-span-2">
+          <Field
+            label="Loan purpose context"
+            error={errors.loanPurposeContext?.message}
+          >
+            <textarea
+              {...register("loanPurposeContext")}
+              rows={3}
+              className={textareaClassName}
+              placeholder="Describe what the financing would support, such as inventory, equipment, repairs, or working capital."
+            />
+          </Field>
+        </div>
+      </FormSection>
 
-      <div className="grid gap-3 border-t border-[var(--border)] pt-4 sm:flex sm:items-center sm:justify-between">
+      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:flex sm:items-center sm:justify-between">
         <div className="grid gap-2">
           <p
             id="portfolio-save-state"
@@ -449,6 +281,15 @@ export function BorrowerPortfolioForm() {
         >
           {isPending ? "Saving..." : "Save profile"}
         </button>
+        {onCancel ? (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="inline-flex h-12 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-base font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:order-first"
+          >
+            Cancel
+          </button>
+        ) : null}
       </div>
     </form>
   );
@@ -463,14 +304,23 @@ const textareaClassName =
 
 function FormSection({
   title,
+  description,
   children,
 }: {
   title: string;
+  description?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-3">
-      <h3 className="text-base font-semibold">{title}</h3>
+    <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-4">
+      <div className="grid gap-1">
+        <h3 className="text-base font-semibold">{title}</h3>
+        {description ? (
+          <p className="text-sm leading-5 text-[var(--muted-foreground)]">
+            {description}
+          </p>
+        ) : null}
+      </div>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
   );
@@ -516,41 +366,32 @@ function ReadinessPanel({
   );
 }
 
-function MoneyField({ label, error, children }: FieldProps) {
-  return (
-    <Field label={label} error={error}>
-      {children}
-    </Field>
-  );
-}
-
 function BorrowerPortfolioFormSkeleton() {
   return (
     <section
-      className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
+      className="grid gap-4"
       aria-busy="true"
       aria-label="Loading business profile"
     >
-      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3">
+      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
         <SkeletonBlock className="h-4 w-28" />
         <SkeletonBlock className="h-3 w-full max-w-sm" />
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        {Array.from({ length: 6 }).map((_, index) => (
-          <div key={index} className="grid gap-1.5">
-            <SkeletonBlock className="h-4 w-32" />
+      {Array.from({ length: 3 }).map((_, index) => (
+        <div
+          key={index}
+          className="grid gap-4 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-4"
+        >
+          <SkeletonBlock className="h-4 w-36" />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SkeletonBlock className="h-11 w-full rounded-xl" />
             <SkeletonBlock className="h-11 w-full rounded-xl" />
           </div>
-        ))}
-      </div>
+        </div>
+      ))}
 
-      <div className="grid gap-1.5">
-        <SkeletonBlock className="h-4 w-36" />
-        <SkeletonBlock className="h-[5.75rem] w-full rounded-xl" />
-      </div>
-
-      <div className="grid gap-3 border-t border-[var(--border)] pt-4 sm:flex sm:items-center sm:justify-between">
+      <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:flex sm:items-center sm:justify-between">
         <div className="grid gap-2">
           <SkeletonBlock className="h-4 w-48" />
           <SkeletonBlock className="h-4 w-32" />
