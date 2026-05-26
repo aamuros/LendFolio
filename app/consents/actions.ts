@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { getCurrentUserProfile } from "@/lib/access-control";
+import { getConsentRequestMetadata } from "@/lib/consent-recording";
 import {
   getRequiredConsentVersions,
   toConsentRpcPayload,
@@ -12,16 +13,17 @@ import type { Json } from "@/lib/supabase/types";
 
 export type ConsentActionResult =
   | {
-      ok: true;
-      message: string;
-    }
+    ok: true;
+    message: string;
+  }
   | {
-      ok: false;
-      message: string;
-      missingConsents?: ReturnType<typeof getRequiredConsentVersions>;
-    };
+    ok: false;
+    message: string;
+    missingConsents?: ReturnType<typeof getRequiredConsentVersions>;
+  };
 
 const supportedScopes = new Set<ConsentScope>([
+  "signup_baseline",
   "borrower_document_upload",
   "borrower_loan_application",
   "lender_review",
@@ -42,11 +44,7 @@ export async function acceptUserConsentsAction(
 
   const requiredConsents = getRequiredConsentVersions(scope);
   const requestHeaders = await headers();
-  const ipAddress =
-    requestHeaders.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    requestHeaders.get("x-real-ip") ||
-    null;
-  const userAgent = requestHeaders.get("user-agent") ?? null;
+  const { ipAddress, userAgent } = getConsentRequestMetadata(requestHeaders);
 
   const { data, error } = await access.supabase.rpc("accept_user_consents", {
     p_consents: toConsentRpcPayload(requiredConsents) as Json,

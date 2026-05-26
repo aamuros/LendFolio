@@ -171,11 +171,22 @@ information for managers: organization, contact person, phone number, business
 address, operating area, optional registration number, loan amount range,
 typical repayment terms, and lender description.
 
+Signup requires the current Terms of Service and Privacy Notice. The current
+legal document versions live in `public.legal_documents`, and accepted versions
+are recorded in append-only `public.user_consents` rows through the
+`accept_user_consents` RPC. Signup does not collect credit review, document
+processing, or lender review consent; those remain gated at the workflows that
+need them.
+
 Manager accounts remain manually seeded or provisioned and cannot be created
-through self-serve signup. Managers review lenders from `/manager/lenders` and
-the manager-only lender detail page. Approval stores `approved_at`,
-`approved_by`, and optional review notes. Rejection stores `rejected_at`,
-`rejected_by`, a required rejection reason, and optional review notes.
+through self-serve signup. Provisioning writes attempted, succeeded, and failed
+events to `public.provisioning_events`; managers can run
+`repair_user_provisioning(user_id)` to retry borrower or lender provisioning
+without duplicating trusted rows. Managers review lenders from
+`/manager/lenders` and the manager-only lender detail page. Approval stores
+`approved_at`, `approved_by`, and optional review notes. Rejection stores
+`rejected_at`, `rejected_by`, a required rejection reason, and optional review
+notes.
 
 This is manual platform review only. It is not automated identity verification,
 KYB, credit scoring, real payment setup, e-wallet integration, automated
@@ -184,6 +195,10 @@ reconciliation, reporting, or email notification delivery.
 The runnable migrations are
 `supabase/migrations/20260525110149_add_account_onboarding.sql` and
 `supabase/migrations/20260525115311_lender_verification_profile_depth.sql`.
+Consent registry and signup baseline capture are in
+`supabase/migrations/20260526050823_consent_signup_baseline.sql`.
+Provisioning events, repair, and onboarding state helpers are in
+`supabase/migrations/20260526051837_provisioning_lifecycle.sql`.
 
 ## Draft SQL
 

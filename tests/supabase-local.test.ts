@@ -88,6 +88,7 @@ type RefreshOverdueResult = {
 };
 type ReviewLenderResult = {
   ok: boolean;
+  code?: string;
   message?: string;
   lender_profile_id?: string;
   verification_status?: string;
@@ -99,6 +100,12 @@ type ReviewBorrowerResult = {
   borrower_verification_id?: string;
   verification_status?: string;
 };
+type RepairProvisioningResult = {
+  ok: boolean;
+  message?: string;
+  user_id?: string;
+  role?: string;
+};
 type SubmitApplicationResult = {
   ok: boolean;
   code?: string;
@@ -108,6 +115,34 @@ type SubmitApplicationResult = {
   used_credit?: number;
   available_credit?: number;
 };
+type SubmitBorrowerVerificationDocumentResult = {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  document_id?: string;
+};
+type UserConsentType = Database["public"]["Enums"]["user_consent_type"];
+
+const consentVersions = {
+  terms_of_service: "2026-05-terms-v1",
+  privacy_notice: "2026-05-privacy-v1",
+  credit_review_authorization: "2026-05-credit-review-v1",
+  document_processing_consent: "2026-05-document-processing-v1",
+  lender_review_consent: "2026-05-lender-review-v1",
+} as const satisfies Record<UserConsentType, string>;
+
+const borrowerWorkflowConsentTypes = [
+  "terms_of_service",
+  "privacy_notice",
+  "credit_review_authorization",
+  "document_processing_consent",
+] as const satisfies UserConsentType[];
+
+const lenderWorkflowConsentTypes = [
+  "terms_of_service",
+  "privacy_notice",
+  "lender_review_consent",
+] as const satisfies UserConsentType[];
 
 function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
@@ -138,6 +173,7 @@ async function signUpSelfServeAccount(input: {
   role: "borrower" | "lender";
   email: string;
   displayName: string;
+  acceptedConsentTypes?: readonly UserConsentType[];
   organizationName?: string;
   contactPerson?: string;
   phoneNumber?: string;
@@ -189,10 +225,36 @@ async function signUpSelfServeAccount(input: {
     throw new Error("Expected signup to return an auth user.");
   }
 
+  await acceptCurrentConsents(
+    client,
+    input.acceptedConsentTypes ??
+      (input.role === "borrower"
+        ? borrowerWorkflowConsentTypes
+        : lenderWorkflowConsentTypes),
+  );
+
   return {
     client,
     userId: data.user.id,
   };
+}
+
+async function acceptCurrentConsents(
+  client: TestClient,
+  consentTypes: readonly UserConsentType[],
+) {
+  if (consentTypes.length === 0) {
+    return;
+  }
+
+  const { error: consentError } = await client.rpc("accept_user_consents", {
+    p_consents: consentTypes.map((consentType) => ({
+      consent_type: consentType,
+      version: consentVersions[consentType],
+    })),
+  });
+
+  expect(consentError).toBeNull();
 }
 
 async function deleteAuthUsers(admin: TestClient, userIds: string[]) {
@@ -228,6 +290,56 @@ async function cleanWorkflowRows(admin: TestClient) {
     ids.otherBorrower,
   ]);
   await admin.from("audit_logs").delete().neq("action", "__keep_none__");
+}
+
+async function rotateCurrentLegalDocument(
+  admin: TestClient,
+  consentType: UserConsentType,
+) {
+  const currentVersion = consentVersions[consentType];
+  const rotatedVersion = `${currentVersion}-rotated-${crypto.randomUUID()}`;
+
+  const { error: retireError } = await admin
+    .from("legal_documents")
+    .update({ retired_at: new Date().toISOString() })
+    .eq("consent_type", consentType)
+    .eq("version", currentVersion)
+    .is("retired_at", null);
+
+  expect(retireError).toBeNull();
+
+  const { error: insertError } = await admin.from("legal_documents").insert({
+    consent_type: consentType,
+    version: rotatedVersion,
+    title: `Rotated ${consentType}`,
+    document_url: null,
+    published_at: new Date().toISOString(),
+  });
+
+  expect(insertError).toBeNull();
+
+  return rotatedVersion;
+}
+
+async function restoreCurrentLegalDocument(
+  admin: TestClient,
+  consentType: UserConsentType,
+  rotatedVersion: string,
+) {
+  await admin
+    .from("legal_documents")
+    .update({ retired_at: new Date().toISOString() })
+    .eq("consent_type", consentType)
+    .eq("version", rotatedVersion)
+    .is("retired_at", null);
+
+  const { error: restoreError } = await admin
+    .from("legal_documents")
+    .update({ retired_at: null })
+    .eq("consent_type", consentType)
+    .eq("version", consentVersions[consentType]);
+
+  expect(restoreError).toBeNull();
 }
 
 async function createBorrowerPortfolio(
@@ -536,6 +648,42 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         verification_status: "pending",
       });
 
+      const { data: borrowerOnboarding, error: borrowerOnboardingError } =
+        await signupBorrower.client
+          .from("account_onboarding_states")
+          .select("provisioning_state, onboarding_state")
+          .eq("user_id", signupBorrower.userId)
+          .single();
+
+      expect(borrowerOnboardingError).toBeNull();
+      expect(borrowerOnboarding).toMatchObject({
+        provisioning_state: "ready_for_review",
+        onboarding_state: "borrower_review_pending",
+      });
+
+      const { data: borrowerProvisioningEvents, error: borrowerEventsError } =
+        await manager
+          .from("provisioning_events")
+          .select("event_status, requested_role, source")
+          .eq("user_id", signupBorrower.userId)
+          .order("created_at", { ascending: true });
+
+      expect(borrowerEventsError).toBeNull();
+      expect(borrowerProvisioningEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event_status: "attempted",
+            requested_role: "borrower",
+            source: "auth_user_created",
+          }),
+          expect.objectContaining({
+            event_status: "succeeded",
+            requested_role: "borrower",
+            source: "auth_user_created",
+          }),
+        ]),
+      );
+
       const { error: borrowerVerificationMutationError } =
         await signupBorrower.client
           .from("borrower_verifications")
@@ -595,6 +743,42 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
           "Signup lender profile for manual manager verification testing.",
         verification_status: "pending",
       });
+
+      const { data: lenderOnboarding, error: lenderOnboardingError } =
+        await signupLender.client
+          .from("account_onboarding_states")
+          .select("provisioning_state, onboarding_state")
+          .eq("user_id", signupLender.userId)
+          .single();
+
+      expect(lenderOnboardingError).toBeNull();
+      expect(lenderOnboarding).toMatchObject({
+        provisioning_state: "ready_for_review",
+        onboarding_state: "lender_review_pending",
+      });
+
+      const { data: lenderProvisioningEvents, error: lenderEventsError } =
+        await manager
+          .from("provisioning_events")
+          .select("event_status, requested_role, source")
+          .eq("user_id", signupLender.userId)
+          .order("created_at", { ascending: true });
+
+      expect(lenderEventsError).toBeNull();
+      expect(lenderProvisioningEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event_status: "attempted",
+            requested_role: "lender",
+            source: "auth_user_created",
+          }),
+          expect.objectContaining({
+            event_status: "succeeded",
+            requested_role: "lender",
+            source: "auth_user_created",
+          }),
+        ]),
+      );
 
       const managerLenders = await loadManagerLenders(manager, {
         verificationStatus: "pending",
@@ -899,8 +1083,41 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         },
       });
 
-      expect(invalidLenderSignupAttempt.error).not.toBeNull();
-      expect(invalidLenderSignupAttempt.data.user).toBeNull();
+      expect(invalidLenderSignupAttempt.error).toBeNull();
+      expect(invalidLenderSignupAttempt.data.user?.id).toBeTruthy();
+      if (invalidLenderSignupAttempt.data.user?.id) {
+        createdUserIds.push(invalidLenderSignupAttempt.data.user.id);
+      }
+
+      const invalidUserId = invalidLenderSignupAttempt.data.user?.id ?? "";
+      const { data: invalidProfile, error: invalidProfileError } = await manager
+        .from("profiles")
+        .select("id")
+        .eq("id", invalidUserId);
+
+      expect(invalidProfileError).toBeNull();
+      expect(invalidProfile).toEqual([]);
+
+      const { data: invalidEvents, error: invalidEventsError } = await manager
+        .from("provisioning_events")
+        .select("event_status, requested_role, message")
+        .eq("user_id", invalidUserId)
+        .order("created_at", { ascending: true });
+
+      expect(invalidEventsError).toBeNull();
+      expect(invalidEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event_status: "attempted",
+            requested_role: "lender",
+          }),
+          expect.objectContaining({
+            event_status: "failed",
+            requested_role: "lender",
+            message: "A valid contact person is required.",
+          }),
+        ]),
+      );
 
       const managerSignupAttempt = await createSupabaseClient(
         supabaseAnonKey,
@@ -915,7 +1132,39 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         },
       });
 
-      expect(managerSignupAttempt.error).not.toBeNull();
+      expect(managerSignupAttempt.error).toBeNull();
+      expect(managerSignupAttempt.data.user?.id).toBeTruthy();
+      if (managerSignupAttempt.data.user?.id) {
+        createdUserIds.push(managerSignupAttempt.data.user.id);
+      }
+
+      const managerSignupUserId = managerSignupAttempt.data.user?.id ?? "";
+      const { data: managerSignupProfile, error: managerSignupProfileError } =
+        await manager
+          .from("profiles")
+          .select("id")
+          .eq("id", managerSignupUserId);
+
+      expect(managerSignupProfileError).toBeNull();
+      expect(managerSignupProfile).toEqual([]);
+
+      const { data: managerSignupEvents, error: managerSignupEventsError } =
+        await manager
+          .from("provisioning_events")
+          .select("event_status, requested_role, message")
+          .eq("user_id", managerSignupUserId)
+          .order("created_at", { ascending: true });
+
+      expect(managerSignupEventsError).toBeNull();
+      expect(managerSignupEvents).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            event_status: "failed",
+            requested_role: "manager",
+            message: "Unsupported signup role.",
+          }),
+        ]),
+      );
 
       const { data: approvalAudit, error: approvalAuditError } = await manager
         .from("audit_logs")
@@ -938,6 +1187,401 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     } finally {
       await cleanWorkflowRows(admin);
       await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("repairs borrower provisioning idempotently", async () => {
+    const createdUserIds: string[] = [];
+
+    try {
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: `repair-borrower.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Repair Borrower",
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      const { error: deleteVerificationError } = await admin
+        .from("borrower_verifications")
+        .delete()
+        .eq("borrower_id", signupBorrower.userId);
+
+      expect(deleteVerificationError).toBeNull();
+
+      const firstRepair = await manager.rpc("repair_user_provisioning", {
+        p_user_id: signupBorrower.userId,
+      });
+      const secondRepair = await manager.rpc("repair_user_provisioning", {
+        p_user_id: signupBorrower.userId,
+      });
+
+      expect(firstRepair.error).toBeNull();
+      expect(firstRepair.data as Json as RepairProvisioningResult).toMatchObject({
+        ok: true,
+        role: "borrower",
+      });
+      expect(secondRepair.error).toBeNull();
+      expect(secondRepair.data as Json as RepairProvisioningResult).toMatchObject({
+        ok: true,
+        role: "borrower",
+      });
+
+      const { count: verificationCount, error: verificationCountError } =
+        await manager
+          .from("borrower_verifications")
+          .select("id", { count: "exact", head: true })
+          .eq("borrower_id", signupBorrower.userId);
+
+      expect(verificationCountError).toBeNull();
+      expect(verificationCount).toBe(1);
+
+      const { data: repairEvents, error: repairEventsError } = await manager
+        .from("provisioning_events")
+        .select("event_status, requested_role, source")
+        .eq("user_id", signupBorrower.userId)
+        .eq("source", "repair_user_provisioning");
+
+      expect(repairEventsError).toBeNull();
+      expect(
+        repairEvents?.filter((event) => event.event_status === "succeeded"),
+      ).toHaveLength(2);
+
+      const borrowerRepairAttempt = await signupBorrower.client.rpc(
+        "repair_user_provisioning",
+        {
+          p_user_id: signupBorrower.userId,
+        },
+      );
+
+      expect(borrowerRepairAttempt.error).toBeNull();
+      expect(
+        borrowerRepairAttempt.data as Json as RepairProvisioningResult,
+      ).toMatchObject({
+        ok: false,
+      });
+    } finally {
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for missing borrower loan application consent", async () => {
+    const createdUserIds: string[] = [];
+
+    try {
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: `missing-loan-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Missing Loan Consent",
+        acceptedConsentTypes: [
+          "terms_of_service",
+          "privacy_notice",
+          "document_processing_consent",
+        ],
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
+
+      const result = await signupBorrower.client.rpc("submit_loan_application", {
+        p_requested_amount: 25000,
+        p_purpose: "Inventory restock",
+        p_preferred_term: "3_months",
+        p_remarks: "",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data as Json as SubmitApplicationResult).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message:
+          "Accept the required disclosures before submitting a loan application.",
+      });
+    } finally {
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for stale borrower loan application consent", async () => {
+    const createdUserIds: string[] = [];
+    let rotatedVersion: string | null = null;
+
+    try {
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: `stale-loan-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Stale Loan Consent",
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      rotatedVersion = await rotateCurrentLegalDocument(
+        admin,
+        "credit_review_authorization",
+      );
+
+      await createBorrowerPortfolio(signupBorrower.client, signupBorrower.userId);
+
+      const result = await signupBorrower.client.rpc("submit_loan_application", {
+        p_requested_amount: 25000,
+        p_purpose: "Inventory restock",
+        p_preferred_term: "3_months",
+        p_remarks: "",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data as Json as SubmitApplicationResult).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message:
+          "Accept the required disclosures before submitting a loan application.",
+      });
+    } finally {
+      if (rotatedVersion) {
+        await restoreCurrentLegalDocument(
+          admin,
+          "credit_review_authorization",
+          rotatedVersion,
+        );
+      }
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for missing borrower document upload consent", async () => {
+    const createdUserIds: string[] = [];
+
+    try {
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: `missing-document-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Missing Document Consent",
+        acceptedConsentTypes: [
+          "terms_of_service",
+          "privacy_notice",
+          "credit_review_authorization",
+        ],
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      const { data: verification, error: verificationError } =
+        await signupBorrower.client
+          .from("borrower_verifications")
+          .select("id")
+          .eq("borrower_id", signupBorrower.userId)
+          .single<InsertedRow>();
+
+      expect(verificationError).toBeNull();
+      expect(verification?.id).toBeTruthy();
+
+      const result = await signupBorrower.client.rpc(
+        "submit_borrower_verification_document",
+        {
+          p_borrower_verification_id: verification?.id ?? "",
+          p_storage_path: `borrowers/${signupBorrower.userId}/verification/${verification?.id}/missing.pdf`,
+          p_document_type: "valid_id",
+          p_file_name: "missing.pdf",
+          p_file_type: "application/pdf",
+          p_file_size: 1024,
+        },
+      );
+
+      expect(result.error).toBeNull();
+      expect(
+        result.data as Json as SubmitBorrowerVerificationDocumentResult,
+      ).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message:
+          "Accept the required disclosures before uploading verification documents.",
+      });
+    } finally {
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for stale borrower document upload consent", async () => {
+    const createdUserIds: string[] = [];
+    let rotatedVersion: string | null = null;
+
+    try {
+      const signupBorrower = await signUpSelfServeAccount({
+        role: "borrower",
+        email: `stale-document-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Stale Document Consent",
+      });
+      createdUserIds.push(signupBorrower.userId);
+
+      rotatedVersion = await rotateCurrentLegalDocument(
+        admin,
+        "document_processing_consent",
+      );
+
+      const { data: verification, error: verificationError } =
+        await signupBorrower.client
+          .from("borrower_verifications")
+          .select("id")
+          .eq("borrower_id", signupBorrower.userId)
+          .single<InsertedRow>();
+
+      expect(verificationError).toBeNull();
+      expect(verification?.id).toBeTruthy();
+
+      const result = await signupBorrower.client.rpc(
+        "submit_borrower_verification_document",
+        {
+          p_borrower_verification_id: verification?.id ?? "",
+          p_storage_path: `borrowers/${signupBorrower.userId}/verification/${verification?.id}/stale.pdf`,
+          p_document_type: "valid_id",
+          p_file_name: "stale.pdf",
+          p_file_type: "application/pdf",
+          p_file_size: 1024,
+        },
+      );
+
+      expect(result.error).toBeNull();
+      expect(
+        result.data as Json as SubmitBorrowerVerificationDocumentResult,
+      ).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message:
+          "Accept the required disclosures before uploading verification documents.",
+      });
+    } finally {
+      if (rotatedVersion) {
+        await restoreCurrentLegalDocument(
+          admin,
+          "document_processing_consent",
+          rotatedVersion,
+        );
+      }
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for missing lender review consent", async () => {
+    const createdUserIds: string[] = [];
+
+    try {
+      const signupLender = await signUpSelfServeAccount({
+        role: "lender",
+        email: `missing-lender-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Missing Lender Consent",
+        organizationName: "Missing Consent Capital",
+        acceptedConsentTypes: ["terms_of_service", "privacy_notice"],
+      });
+      createdUserIds.push(signupLender.userId);
+
+      const { data: lenderProfile, error: lenderProfileError } =
+        await signupLender.client
+          .from("lender_profiles")
+          .select("id")
+          .eq("user_id", signupLender.userId)
+          .single<InsertedRow>();
+
+      expect(lenderProfileError).toBeNull();
+      expect(lenderProfile?.id).toBeTruthy();
+
+      const result = await manager.rpc("review_lender_verification", {
+        p_lender_profile_id: lenderProfile?.id ?? "",
+        p_decision: "approve",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data as Json as ReviewLenderResult).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message: "Lender must accept the required disclosures before approval.",
+      });
+    } finally {
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("returns consent_required for stale lender review consent", async () => {
+    const createdUserIds: string[] = [];
+    let rotatedVersion: string | null = null;
+
+    try {
+      const signupLender = await signUpSelfServeAccount({
+        role: "lender",
+        email: `stale-lender-consent.${crypto.randomUUID()}@lendfolio.local`,
+        displayName: "Stale Lender Consent",
+        organizationName: "Stale Consent Capital",
+      });
+      createdUserIds.push(signupLender.userId);
+
+      rotatedVersion = await rotateCurrentLegalDocument(
+        admin,
+        "lender_review_consent",
+      );
+
+      const { data: lenderProfile, error: lenderProfileError } =
+        await signupLender.client
+          .from("lender_profiles")
+          .select("id")
+          .eq("user_id", signupLender.userId)
+          .single<InsertedRow>();
+
+      expect(lenderProfileError).toBeNull();
+      expect(lenderProfile?.id).toBeTruthy();
+
+      const result = await manager.rpc("review_lender_verification", {
+        p_lender_profile_id: lenderProfile?.id ?? "",
+        p_decision: "approve",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data as Json as ReviewLenderResult).toMatchObject({
+        ok: false,
+        code: "consent_required",
+        message: "Lender must accept the required disclosures before approval.",
+      });
+    } finally {
+      if (rotatedVersion) {
+        await restoreCurrentLegalDocument(
+          admin,
+          "lender_review_consent",
+          rotatedVersion,
+        );
+      }
+      await deleteAuthUsers(admin, createdUserIds);
+    }
+  });
+
+  it("blocks managers from approving their own lender profile", async () => {
+    const lenderProfileId = crypto.randomUUID();
+
+    try {
+      const { error: insertError } = await admin.from("lender_profiles").insert({
+        id: lenderProfileId,
+        user_id: ids.manager,
+        organization_name: "Manager Capital",
+        contact_person: "Manager Reviewer",
+        phone_number: "+63 917 555 0100",
+        business_address: "1 Manager Street, Manila",
+        operating_area: "Metro Manila",
+        business_registration_number: "MANAGER-SELF-REVIEW",
+        min_loan_amount: 5000,
+        max_loan_amount: 50000,
+        typical_repayment_terms: "1 to 6 months",
+        lender_description: "Manager-owned lender profile for self-review guard.",
+        verification_status: "pending",
+      });
+
+      expect(insertError).toBeNull();
+
+      const result = await manager.rpc("review_lender_verification", {
+        p_lender_profile_id: lenderProfileId,
+        p_decision: "approve",
+      });
+
+      expect(result.error).toBeNull();
+      expect(result.data as Json as ReviewLenderResult).toMatchObject({
+        ok: false,
+        message: "Managers cannot review their own lender profile.",
+      });
+    } finally {
+      await admin.from("lender_profiles").delete().eq("id", lenderProfileId);
     }
   });
 

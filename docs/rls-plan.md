@@ -45,6 +45,8 @@ Use `public.profiles.role` or trusted server-side app metadata for role decision
 - Borrower and lender accounts are self-serve, but manager accounts remain
   manually seeded or provisioned. Self-serve signup metadata is provisioning
   input only; authorization must continue to use trusted database rows.
+  Provisioning events are manager-readable, and provisioning repair is exposed
+  only through a manager-guarded RPC.
 - Lender approval is manual manager review, not automated identity verification
   or credit scoring. Managers can read all lender profiles and use the lender
   review RPC to approve, reject with a required reason, or return rejected
@@ -59,6 +61,7 @@ portfolios, loan applications, loan offers, atomic acceptance, lender
 closed-context reads, active loans, and preferred-term repayment schedules.
 The repayment proof migration adds private proof metadata, Storage policies, and
 atomic RPCs for proof submission, verification, rejection, and balance updates.
-The account onboarding and lender verification profile-depth migrations add
-self-serve borrower/lender provisioning and manager-only manual lender review.
+The account onboarding, provisioning lifecycle, and lender verification
+profile-depth migrations add self-serve borrower/lender provisioning,
+manager-only repair, and manager-only manual lender review.
 `docs/schema-draft.sql` remains a review draft, not an applied migration.

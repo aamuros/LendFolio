@@ -39,6 +39,7 @@ import {
   getRequiredConsentVersions,
   hasCurrentRequiredConsents,
   lenderReviewRequiredConsents,
+  signupBaselineRequiredConsents,
 } from "../lib/consents";
 import { canAccessRole, isApprovedLender } from "../lib/role-rules";
 import {
@@ -472,6 +473,10 @@ describe("borrower verification migration", () => {
 
 describe("user consent helpers", () => {
   it("returns required current consent versions by scope", () => {
+    expect(signupBaselineRequiredConsents).toEqual([
+      "terms_of_service",
+      "privacy_notice",
+    ]);
     expect(borrowerDocumentUploadRequiredConsents).toEqual([
       "terms_of_service",
       "privacy_notice",
@@ -550,6 +555,14 @@ describe("user consent migration", () => {
     "supabase/migrations/20260526005823_add_user_consents.sql",
     "utf8",
   );
+  const baselineMigration = readFileSync(
+    "supabase/migrations/20260526050823_consent_signup_baseline.sql",
+    "utf8",
+  );
+  const hardeningMigration = readFileSync(
+    "supabase/migrations/20260526053953_harden_workflow_consent_enforcement.sql",
+    "utf8",
+  );
 
   it("creates append-only consent records with RLS and indexes", () => {
     expect(migration).toContain("create type public.user_consent_type");
@@ -575,6 +588,27 @@ describe("user consent migration", () => {
     expect(migration).toContain("Accept the required disclosures before uploading verification documents.");
     expect(migration).toContain("Lender must accept the required disclosures before approval.");
     expect(migration).toContain("app_private.has_borrower_loan_application_consents((select auth.uid()))");
+  });
+
+  it("adds a legal document registry and preserves append-only consent evidence", () => {
+    expect(baselineMigration).toContain("create table if not exists public.legal_documents");
+    expect(baselineMigration).toContain("alter table public.legal_documents enable row level security");
+    expect(baselineMigration).toContain("legal_documents_one_current_per_type_idx");
+    expect(baselineMigration).toContain("prevent_user_consents_mutation");
+    expect(baselineMigration).toContain("before update or delete on public.user_consents");
+  });
+
+  it("rejects stale or unregistered consent versions in the acceptance RPC", () => {
+    expect(baselineMigration).toContain("left join public.legal_documents document");
+    expect(baselineMigration).toContain("document.retired_at is null");
+    expect(baselineMigration).toContain("Accept the current disclosures before continuing.");
+  });
+
+  it("checks workflow consent against active legal document versions", () => {
+    expect(hardeningMigration).toContain("app_private.current_required_consents");
+    expect(hardeningMigration).toContain("document.retired_at is null");
+    expect(hardeningMigration).toContain("document.version = required->>'version'");
+    expect(hardeningMigration).toContain("'__missing_current_legal_document__'");
   });
 });
 
@@ -927,6 +961,8 @@ describe("signup validation", () => {
     email: "lender@example.com",
     password: "LendFolio123!",
     confirmPassword: "LendFolio123!",
+    termsAccepted: "on",
+    privacyAccepted: "on",
   };
 
   it("accepts borrower signup input without an organization", () => {
@@ -937,6 +973,8 @@ describe("signup validation", () => {
         email: "MARIA@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
+        termsAccepted: "on",
+        privacyAccepted: "on",
       }).success,
     ).toBe(true);
 
@@ -948,6 +986,8 @@ describe("signup validation", () => {
         email: "maria@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
+        termsAccepted: "on",
+        privacyAccepted: "on",
       }).success,
     ).toBe(true);
 
@@ -967,6 +1007,8 @@ describe("signup validation", () => {
         email: "borrower@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
+        termsAccepted: "on",
+        privacyAccepted: "on",
       }).success,
     ).toBe(true);
   });
@@ -986,6 +1028,8 @@ describe("signup validation", () => {
         email: "lender@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
+        termsAccepted: "on",
+        privacyAccepted: "on",
       }).success,
     ).toBe(false);
   });
@@ -1009,8 +1053,28 @@ describe("signup validation", () => {
         email: "manager@example.com",
         password: "LendFolio123!",
         confirmPassword: "LendFolio123!",
+        termsAccepted: "on",
+        privacyAccepted: "on",
       }).success,
     ).toBe(false);
+  });
+
+  it("requires Terms of Service and Privacy Notice acceptance", () => {
+    const result = signupSchema.safeParse({
+      role: "borrower",
+      displayName: "Maria Santos",
+      email: "maria@example.com",
+      password: "LendFolio123!",
+      confirmPassword: "LendFolio123!",
+    });
+
+    expect(result.success).toBe(false);
+
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      expect(errors.termsAccepted).toContain("Accept the Terms of Service.");
+      expect(errors.privacyAccepted).toContain("Acknowledge the Privacy Notice.");
+    }
   });
 
   it("rejects lender signup without an organization", () => {
@@ -1167,9 +1231,18 @@ describe("database workflow safeguards", () => {
       "supabase/migrations/20260525115311_lender_verification_profile_depth.sql",
       "utf8",
     );
+    const provisioningLifecycleMigration = readFileSync(
+      "supabase/migrations/20260526051837_provisioning_lifecycle.sql",
+      "utf8",
+    );
 
     expect(migration).toContain("provision_new_auth_user");
     expect(migration).toContain("v_role not in ('borrower', 'lender')");
+    expect(provisioningLifecycleMigration).toContain("provisioning_events");
+    expect(provisioningLifecycleMigration).toContain("repair_user_provisioning");
+    expect(provisioningLifecycleMigration).toContain(
+      "account_onboarding_states",
+    );
     expect(profileDepthMigration).toContain("contact_person");
     expect(profileDepthMigration).toContain("Rejection reason is required.");
     expect(profileDepthMigration).toContain("manager_review_notes");

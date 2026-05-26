@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { signupSchema } from "@/lib/signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -21,7 +22,9 @@ type SignupFieldErrors = Partial<
     | "lenderDescription"
     | "email"
     | "password"
-    | "confirmPassword",
+    | "confirmPassword"
+    | "termsAccepted"
+    | "privacyAccepted",
     string[]
   >
 >;
@@ -52,6 +55,8 @@ export async function signupAction(
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
+    termsAccepted: formData.get("termsAccepted"),
+    privacyAccepted: formData.get("privacyAccepted"),
   });
 
   if (!parsed.success) {
@@ -119,6 +124,19 @@ export async function signupAction(
         status: "success",
         message:
           "Check your email to confirm your account, then sign in to continue.",
+      };
+    }
+
+    const acceptedBaseline = await acceptBaselineUserConsents(
+      supabase,
+      requestHeaders,
+    );
+
+    if (!acceptedBaseline) {
+      return {
+        status: "success",
+        message:
+          "Account created. Sign in to finish setting up your workspace.",
       };
     }
 

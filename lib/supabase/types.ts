@@ -36,6 +36,7 @@ export type LenderVerificationStatus = "pending" | "approved" | "rejected";
 export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 export type PreferredTerm = "1_month" | "3_months" | "6_months" | "12_months";
 export type ProfileStatus = "active" | "pending" | "suspended";
+export type ProvisioningEventStatus = "attempted" | "succeeded" | "failed";
 export type ActiveLoanStatus =
   | "active"
   | "paid"
@@ -169,6 +170,39 @@ export type Database = {
           accepted_at?: string;
           ip_address?: string | null;
           user_agent?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
+      legal_documents: {
+        Row: {
+          id: string;
+          consent_type: UserConsentType;
+          version: string;
+          title: string;
+          document_url: string | null;
+          published_at: string;
+          retired_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          consent_type: UserConsentType;
+          version: string;
+          title: string;
+          document_url?: string | null;
+          published_at?: string;
+          retired_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          consent_type?: UserConsentType;
+          version?: string;
+          title?: string;
+          document_url?: string | null;
+          published_at?: string;
+          retired_at?: string | null;
           created_at?: string;
         };
         Relationships: [];
@@ -644,8 +678,59 @@ export type Database = {
         };
         Relationships: [];
       };
+      provisioning_events: {
+        Row: {
+          id: string;
+          user_id: string;
+          event_status: ProvisioningEventStatus;
+          requested_role: string | null;
+          source: string;
+          message: string;
+          metadata: Json;
+          actor_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          event_status: ProvisioningEventStatus;
+          requested_role?: string | null;
+          source: string;
+          message: string;
+          metadata?: Json;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          event_status?: ProvisioningEventStatus;
+          requested_role?: string | null;
+          source?: string;
+          message?: string;
+          metadata?: Json;
+          actor_id?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
-    Views: Record<string, never>;
+    Views: {
+      account_onboarding_states: {
+        Row: {
+          user_id: string;
+          role: AppRole;
+          profile_status: ProfileStatus;
+          borrower_verification_status: BorrowerVerificationStatus | null;
+          lender_verification_status: LenderVerificationStatus | null;
+          provisioning_state: string;
+          onboarding_state: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Relationships: [];
+      };
+    };
     Functions: {
       accept_user_consents: {
         Args: {
@@ -699,6 +784,12 @@ export type Database = {
           p_decision: string;
           p_manager_review_notes?: string | null;
           p_rejection_reason?: string | null;
+        };
+        Returns: Json;
+      };
+      repair_user_provisioning: {
+        Args: {
+          p_user_id: string;
         };
         Returns: Json;
       };
@@ -775,6 +866,7 @@ export type Database = {
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;
       profile_status: ProfileStatus;
+      provisioning_event_status: ProvisioningEventStatus;
       repayment_proof_status: RepaymentProofStatus;
       repayment_status: RepaymentStatus;
       user_consent_type: UserConsentType;

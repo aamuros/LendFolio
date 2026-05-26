@@ -147,13 +147,26 @@ export function SignupForm() {
         error={state.fieldErrors?.confirmPassword}
       />
 
+      <fieldset className="grid gap-3">
+        <legend className="sr-only">Required disclosures</legend>
+        <ConsentCheckbox
+          name="termsAccepted"
+          label="I agree to the LendFolio Terms of Service."
+          error={state.fieldErrors?.termsAccepted}
+        />
+        <ConsentCheckbox
+          name="privacyAccepted"
+          label="I acknowledge the LendFolio Privacy Notice."
+          error={state.fieldErrors?.privacyAccepted}
+        />
+      </fieldset>
+
       {state.message ? (
         <p
-          className={`border-l-2 px-4 py-3 text-sm leading-6 ${
-            isSuccess
+          className={`border-l-2 px-4 py-3 text-sm leading-6 ${isSuccess
               ? "border-[var(--primary)] bg-[#edf5f1] text-[#244a3c]"
               : "border-[var(--accent)] bg-[var(--background)] text-[var(--muted-foreground)]"
-          }`}
+            }`}
           role={isSuccess ? "status" : "alert"}
         >
           {state.message}
@@ -178,11 +191,10 @@ function RoleOption({
 }) {
   return (
     <label
-      className={`grid min-h-12 cursor-pointer place-items-center rounded-md border px-3 text-sm font-semibold transition ${
-        checked
+      className={`grid min-h-12 cursor-pointer place-items-center rounded-md border px-3 text-sm font-semibold transition ${checked
           ? "border-[var(--primary)] bg-[var(--primary)] text-white"
           : "border-[var(--border)] bg-white text-[var(--foreground)] hover:border-[var(--primary)]"
-      }`}
+        }`}
     >
       <input
         className="sr-only"
@@ -194,6 +206,32 @@ function RoleOption({
       />
       {label}
     </label>
+  );
+}
+
+function ConsentCheckbox({
+  name,
+  label,
+  error,
+}: {
+  name: string;
+  label: string;
+  error?: string[];
+}) {
+  return (
+    <div className="grid gap-2">
+      <label className="flex items-start gap-3 text-sm leading-6 text-[var(--foreground)]">
+        <input
+          className="mt-1 h-4 w-4 rounded border-[var(--border)] text-[var(--primary)] focus:ring-[var(--primary)]"
+          type="checkbox"
+          name={name}
+          value="on"
+          required
+        />
+        <span>{label}</span>
+      </label>
+      <FieldError messages={error} />
+    </div>
   );
 }
 

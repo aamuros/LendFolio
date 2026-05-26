@@ -52,6 +52,23 @@ describe("acceptUserConsentsAction", () => {
     );
   });
 
+  it("accepts baseline signup consent versions only", async () => {
+    const rpc = mockAccess();
+
+    const result = await acceptUserConsentsAction("signup_baseline");
+
+    expect(result.ok).toBe(true);
+    expect(rpc).toHaveBeenCalledWith(
+      "accept_user_consents",
+      expect.objectContaining({
+        p_consents: [
+          { consent_type: "terms_of_service", version: "2026-05-terms-v1" },
+          { consent_type: "privacy_notice", version: "2026-05-privacy-v1" },
+        ],
+      }),
+    );
+  });
+
   it("accepts borrower document upload consent versions", async () => {
     const rpc = mockAccess();
 

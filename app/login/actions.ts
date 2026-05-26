@@ -1,7 +1,9 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getRouteForRole } from "@/lib/app-roles";
+import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppRole, ProfileStatus } from "@/lib/supabase/types";
 
@@ -36,6 +38,9 @@ export async function loginAction(
         message: "Could not sign in. Check your email and password.",
       };
     }
+
+    const requestHeaders = await headers();
+    await acceptBaselineUserConsents(supabase, requestHeaders);
 
     const { data: profile } = await supabase
       .from("profiles")

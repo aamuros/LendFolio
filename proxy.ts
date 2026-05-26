@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { getSupabaseEnv } from "@/lib/supabase/env";
 import type { Database } from "@/lib/supabase/types";
 
@@ -40,6 +41,10 @@ export async function proxy(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("next", `${request.nextUrl.pathname}${request.nextUrl.search}`);
     return NextResponse.redirect(url);
+  }
+
+  if (user && isProtectedPath(request.nextUrl.pathname)) {
+    await acceptBaselineUserConsents(supabase, request.headers);
   }
 
   return response;

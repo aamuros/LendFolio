@@ -80,7 +80,9 @@ Implemented:
 - Lender repayment proof verification and rejection
 - Outstanding balance reduction after proof verification
 - Self-serve borrower and lender signup
+- Terms of Service and Privacy Notice consent capture at signup
 - Profile-based roles and approved-lender access checks
+- Observable account provisioning events and manager-only provisioning repair
 - Lender signup review profile capture for manual manager verification
 - Manager-controlled lender filtering, detail review, approval, and rejection
 - Manager operations dashboard for loans, repayment proofs, audit logs,

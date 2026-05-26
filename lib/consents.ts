@@ -3,6 +3,7 @@ import type { Database } from "@/lib/supabase/types";
 export type UserConsentType = Database["public"]["Enums"]["user_consent_type"];
 
 export type ConsentScope =
+  | "signup_baseline"
   | "borrower_document_upload"
   | "borrower_loan_application"
   | "lender_review";
@@ -42,6 +43,11 @@ export const consentTypeLabels = {
   lender_review_consent: "Lender Review Consent",
 } as const satisfies Record<UserConsentType, string>;
 
+export const signupBaselineRequiredConsents = [
+  "terms_of_service",
+  "privacy_notice",
+] as const satisfies UserConsentType[];
+
 export const borrowerDocumentUploadRequiredConsents = [
   "terms_of_service",
   "privacy_notice",
@@ -64,7 +70,9 @@ export function getRequiredConsentVersions(
   scope: ConsentScope,
 ): ConsentVersionRequirement[] {
   const requiredConsents =
-    scope === "borrower_document_upload"
+    scope === "signup_baseline"
+      ? signupBaselineRequiredConsents
+      : scope === "borrower_document_upload"
       ? borrowerDocumentUploadRequiredConsents
       : scope === "borrower_loan_application"
         ? borrowerLoanApplicationRequiredConsents

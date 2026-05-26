@@ -405,3 +405,32 @@ set
   manager_review_notes = excluded.manager_review_notes,
   rejection_reason = null,
   updated_at = now();
+
+insert into public.user_consents (
+  user_id,
+  consent_type,
+  version,
+  user_agent
+)
+select
+  profiles.id,
+  consent.consent_type::public.user_consent_type,
+  consent.version,
+  'local seed'
+from public.profiles
+cross join (
+  values
+    ('terms_of_service', '2026-05-terms-v1'),
+    ('privacy_notice', '2026-05-privacy-v1'),
+    ('credit_review_authorization', '2026-05-credit-review-v1'),
+    ('document_processing_consent', '2026-05-document-processing-v1'),
+    ('lender_review_consent', '2026-05-lender-review-v1')
+) as consent(consent_type, version)
+where profiles.id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222',
+  '33333333-3333-3333-3333-333333333333',
+  '44444444-4444-4444-4444-444444444444',
+  '55555555-5555-5555-5555-555555555555'
+)
+on conflict (user_id, consent_type, version) do nothing;

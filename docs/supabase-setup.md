@@ -30,14 +30,28 @@ Only public browser-safe values belong in `NEXT_PUBLIC_*`. Do not add a service 
 
 - Borrower and lender accounts are created from `/signup`.
 - Signup calls Supabase Auth `signUp` with initial provisioning metadata.
-- The database trigger on `auth.users` creates trusted `public.profiles` rows.
+- The database trigger on `auth.users` attempts trusted account provisioning and
+  writes `public.provisioning_events` rows for attempted, succeeded, and failed
+  provisioning outcomes.
 - Borrower profiles are created with `role = 'borrower'` and `status = 'active'`.
 - Lender profiles are created with `role = 'lender'`, `status = 'active'`, and
   `public.lender_profiles.verification_status = 'pending'`.
 - Lender signup also stores the submitted manual-review profile details:
   organization, contact, phone, business address, operating area, optional
   registration number, loan range, repayment terms, and description.
-- Manager accounts are not self-serve. Seed or provision them manually.
+- Signup requires Terms of Service and Privacy Notice acceptance. The app
+  records those accepted versions in `public.user_consents` through
+  `accept_user_consents`; Auth metadata is not legal consent evidence.
+- Manager accounts are not self-serve. Signup metadata requesting a manager role
+  is recorded as a failed provisioning event and does not create a trusted
+  manager profile. Seed or provision manager profiles manually.
+- Managers can inspect provisioning events and run
+  `repair_user_provisioning(user_id)` for Auth users whose trusted borrower or
+  lender rows were not created. Repair uses the same metadata validation as the
+  signup trigger and is idempotent.
+- `public.account_onboarding_states` provides a read-only borrower/lender state
+  summary for provisioned accounts. It derives readiness from trusted profile,
+  borrower verification, and lender verification rows.
 - Manager lender review happens at `/manager/lenders` and the manager-only
   lender detail page. Approval and rejection are manual decisions; this is not
   automated identity verification, KYB, or credit scoring.
@@ -52,6 +66,10 @@ Local Supabase currently has email confirmations disabled, so signup can return
 an active session immediately. Hosted projects often require email confirmation.
 If confirmations are enabled, keep Supabase redirect URLs aligned with the app
 origin and direct users back to sign in after confirmation.
+Baseline Terms and Privacy consent is attempted immediately when signup returns
+an active session. If email confirmation prevents that write, the app retries
+the same append-only RPC on the first authenticated login or protected-route
+session.
 
 ## App Client Structure
 
