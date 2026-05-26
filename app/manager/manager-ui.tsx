@@ -189,10 +189,24 @@ export function Field({ label, value }: { label: string; value: React.ReactNode 
 }
 
 export function StatusBadge({ status }: { status: string }) {
-  const positive = ["verified", "paid", "accepted", "active"];
-  const warning = ["submitted", "pending", "due", "open"];
-  const danger = ["rejected", "overdue", "defaulted", "declined", "late"];
-  const muted = ["closed", "withdrawn", "expired"];
+  const positive = ["verified", "paid", "accepted", "active", "approved"];
+  const warning = [
+    "submitted",
+    "pending",
+    "pending_documents",
+    "under_review",
+    "due",
+    "open",
+  ];
+  const danger = [
+    "rejected",
+    "needs_resubmission",
+    "overdue",
+    "defaulted",
+    "declined",
+    "late",
+  ];
+  const muted = ["closed", "withdrawn", "expired", "not_started"];
   const className = positive.includes(status)
     ? "bg-[#e1f5ee] text-[#0f5f45]"
     : warning.includes(status)

@@ -110,7 +110,11 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    redirect("/manager/borrower-verifications?review=error");
+    redirect(
+      `/manager/borrower-verifications?review=${
+        result?.code === "documents_required" ? "documents-required" : "error"
+      }`,
+    );
   }
 
   revalidatePath("/manager");
@@ -120,6 +124,8 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   const review =
     decision === "approve"
       ? "approved"
+      : decision === "needs_resubmission"
+        ? "needs-resubmission"
       : decision === "return_to_pending"
         ? "pending"
         : "rejected";

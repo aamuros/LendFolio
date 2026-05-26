@@ -62,6 +62,10 @@ export type LoanApplicationSummary = {
   creditLimitAtSubmission: number | null;
   usedCreditAtSubmission: number | null;
   availableCreditAtSubmission: number | null;
+  monthlyNetCashFlowAtSubmission: number | null;
+  creditReadinessStatus: Database["public"]["Enums"]["borrower_credit_readiness_status"] | null;
+  borrowerProfileSnapshot: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_profile_snapshot"];
+  borrowerReadinessSnapshot: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_readiness_snapshot"];
   purpose: string;
   preferredTerm: (typeof preferredTermOptions)[number];
   remarks: string | null;
@@ -75,6 +79,10 @@ type LoanApplicationRow =
     | "credit_limit_at_submission"
     | "used_credit_at_submission"
     | "available_credit_at_submission"
+    | "monthly_net_cash_flow_at_submission"
+    | "credit_readiness_status"
+    | "borrower_profile_snapshot"
+    | "borrower_readiness_snapshot"
   > &
     Partial<
       Pick<
@@ -82,6 +90,10 @@ type LoanApplicationRow =
         | "credit_limit_at_submission"
         | "used_credit_at_submission"
         | "available_credit_at_submission"
+        | "monthly_net_cash_flow_at_submission"
+        | "credit_readiness_status"
+        | "borrower_profile_snapshot"
+        | "borrower_readiness_snapshot"
       >
     >;
 
@@ -94,6 +106,11 @@ export function mapLoanApplicationRow(
     creditLimitAtSubmission: row.credit_limit_at_submission ?? null,
     usedCreditAtSubmission: row.used_credit_at_submission ?? null,
     availableCreditAtSubmission: row.available_credit_at_submission ?? null,
+    monthlyNetCashFlowAtSubmission:
+      row.monthly_net_cash_flow_at_submission ?? null,
+    creditReadinessStatus: row.credit_readiness_status ?? null,
+    borrowerProfileSnapshot: row.borrower_profile_snapshot ?? null,
+    borrowerReadinessSnapshot: row.borrower_readiness_snapshot ?? null,
     purpose: row.purpose,
     preferredTerm: row.preferred_term,
     remarks: row.remarks,

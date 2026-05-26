@@ -20,7 +20,15 @@ export type ApplicationStatus =
   | "accepted"
   | "declined"
   | "withdrawn";
-export type BorrowerVerificationStatus = "pending" | "approved" | "rejected";
+export type BorrowerVerificationStatus =
+  | "not_started"
+  | "pending"
+  | "pending_documents"
+  | "submitted"
+  | "under_review"
+  | "approved"
+  | "rejected"
+  | "needs_resubmission";
 export type BorrowerVerificationDocumentStatus =
   | "submitted"
   | "accepted"
@@ -56,6 +64,44 @@ export type UserConsentType =
   | "credit_review_authorization"
   | "document_processing_consent"
   | "lender_review_consent";
+export type BorrowerOperatingModel =
+  | "fixed_store"
+  | "market_stall"
+  | "home_based"
+  | "online"
+  | "mobile"
+  | "mixed"
+  | "other";
+export type BorrowerPrimarySalesChannel =
+  | "walk_in"
+  | "online_marketplace"
+  | "social_media"
+  | "delivery_apps"
+  | "wholesale"
+  | "mixed"
+  | "other";
+export type BorrowerRevenuePeriod =
+  | "last_30_days"
+  | "average_monthly_last_3_months"
+  | "average_monthly_last_6_months"
+  | "seasonal_estimate";
+export type BorrowerRevenueConfidence =
+  | "self_declared"
+  | "partially_documented"
+  | "document_supported"
+  | "manager_reviewed";
+export type BorrowerProfileReviewStatus =
+  | "self_declared"
+  | "needs_review"
+  | "reviewed"
+  | "rejected"
+  | "stale";
+export type BorrowerCreditReadinessStatus =
+  | "incomplete"
+  | "complete"
+  | "needs_review"
+  | "not_eligible"
+  | "eligible_to_apply";
 
 export type Database = {
   public: {
@@ -211,39 +257,84 @@ export type Database = {
         Row: {
           id: string;
           borrower_id: string;
+          business_name: string | null;
+          business_description: string | null;
           business_type: BusinessType;
+          started_operating_at: string | null;
+          business_address: string | null;
+          barangay: string | null;
+          city_or_municipality: string | null;
+          province: string | null;
           location: string;
+          operating_model: BorrowerOperatingModel | null;
+          primary_sales_channel: BorrowerPrimarySalesChannel | null;
+          revenue_period: BorrowerRevenuePeriod | null;
+          revenue_confidence: BorrowerRevenueConfidence | null;
           monthly_gross_revenue: number;
           monthly_expenses: number;
           existing_loan_payments: number;
           years_in_operation: number;
+          expense_breakdown: Json;
+          debt_obligation_summary: Json;
           loan_purpose_context: string;
+          profile_last_confirmed_at: string | null;
+          profile_review_status: BorrowerProfileReviewStatus;
           created_at: string;
           updated_at: string;
         };
         Insert: {
           id?: string;
           borrower_id: string;
+          business_name?: string | null;
+          business_description?: string | null;
           business_type: BusinessType;
+          started_operating_at?: string | null;
+          business_address?: string | null;
+          barangay?: string | null;
+          city_or_municipality?: string | null;
+          province?: string | null;
           location: string;
+          operating_model?: BorrowerOperatingModel | null;
+          primary_sales_channel?: BorrowerPrimarySalesChannel | null;
+          revenue_period?: BorrowerRevenuePeriod | null;
+          revenue_confidence?: BorrowerRevenueConfidence | null;
           monthly_gross_revenue: number;
           monthly_expenses: number;
           existing_loan_payments: number;
           years_in_operation: number;
+          expense_breakdown?: Json;
+          debt_obligation_summary?: Json;
           loan_purpose_context: string;
+          profile_last_confirmed_at?: string | null;
+          profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
           updated_at?: string;
         };
         Update: {
           id?: string;
           borrower_id?: string;
+          business_name?: string | null;
+          business_description?: string | null;
           business_type?: BusinessType;
+          started_operating_at?: string | null;
+          business_address?: string | null;
+          barangay?: string | null;
+          city_or_municipality?: string | null;
+          province?: string | null;
           location?: string;
+          operating_model?: BorrowerOperatingModel | null;
+          primary_sales_channel?: BorrowerPrimarySalesChannel | null;
+          revenue_period?: BorrowerRevenuePeriod | null;
+          revenue_confidence?: BorrowerRevenueConfidence | null;
           monthly_gross_revenue?: number;
           monthly_expenses?: number;
           existing_loan_payments?: number;
           years_in_operation?: number;
+          expense_breakdown?: Json;
+          debt_obligation_summary?: Json;
           loan_purpose_context?: string;
+          profile_last_confirmed_at?: string | null;
+          profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
           updated_at?: string;
         };
@@ -354,6 +445,10 @@ export type Database = {
           credit_limit_at_submission: number | null;
           used_credit_at_submission: number | null;
           available_credit_at_submission: number | null;
+          monthly_net_cash_flow_at_submission: number | null;
+          credit_readiness_status: BorrowerCreditReadinessStatus | null;
+          borrower_profile_snapshot: Json | null;
+          borrower_readiness_snapshot: Json | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks: string | null;
@@ -370,6 +465,10 @@ export type Database = {
           credit_limit_at_submission?: number | null;
           used_credit_at_submission?: number | null;
           available_credit_at_submission?: number | null;
+          monthly_net_cash_flow_at_submission?: number | null;
+          credit_readiness_status?: BorrowerCreditReadinessStatus | null;
+          borrower_profile_snapshot?: Json | null;
+          borrower_readiness_snapshot?: Json | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks?: string | null;
@@ -386,6 +485,10 @@ export type Database = {
           credit_limit_at_submission?: number | null;
           used_credit_at_submission?: number | null;
           available_credit_at_submission?: number | null;
+          monthly_net_cash_flow_at_submission?: number | null;
+          credit_readiness_status?: BorrowerCreditReadinessStatus | null;
+          borrower_profile_snapshot?: Json | null;
+          borrower_readiness_snapshot?: Json | null;
           purpose?: string;
           preferred_term?: PreferredTerm;
           remarks?: string | null;
@@ -801,6 +904,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_borrower_application_readiness: {
+        Args: Record<PropertyKey, never>;
+        Returns: Json;
+      };
       submit_borrower_verification_document: {
         Args: {
           p_borrower_verification_id: string;
@@ -859,6 +966,12 @@ export type Database = {
       app_role: AppRole;
       application_status: ApplicationStatus;
       business_type: BusinessType;
+      borrower_operating_model: BorrowerOperatingModel;
+      borrower_primary_sales_channel: BorrowerPrimarySalesChannel;
+      borrower_revenue_period: BorrowerRevenuePeriod;
+      borrower_revenue_confidence: BorrowerRevenueConfidence;
+      borrower_profile_review_status: BorrowerProfileReviewStatus;
+      borrower_credit_readiness_status: BorrowerCreditReadinessStatus;
       borrower_verification_status: BorrowerVerificationStatus;
       borrower_verification_document_status: BorrowerVerificationDocumentStatus;
       borrower_verification_document_type: BorrowerVerificationDocumentType;

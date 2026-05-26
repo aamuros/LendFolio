@@ -378,6 +378,7 @@ set
 insert into public.borrower_verifications (
   borrower_id,
   verification_status,
+  submitted_at,
   reviewed_at,
   reviewed_by,
   manager_review_notes
@@ -387,6 +388,7 @@ values
     '11111111-1111-1111-1111-111111111111',
     'approved',
     now(),
+    now(),
     '66666666-6666-6666-6666-666666666666',
     'Seeded approved borrower for MVP workflow testing.'
   ),
@@ -394,17 +396,60 @@ values
     '22222222-2222-2222-2222-222222222222',
     'approved',
     now(),
+    now(),
     '66666666-6666-6666-6666-666666666666',
     'Seeded approved borrower for isolation tests.'
   )
 on conflict (borrower_id) do update
 set
   verification_status = excluded.verification_status,
+  submitted_at = excluded.submitted_at,
   reviewed_at = excluded.reviewed_at,
   reviewed_by = excluded.reviewed_by,
   manager_review_notes = excluded.manager_review_notes,
   rejection_reason = null,
   updated_at = now();
+
+insert into public.borrower_verification_documents (
+  borrower_verification_id,
+  borrower_id,
+  storage_path,
+  document_type,
+  file_name,
+  file_type,
+  file_size,
+  status,
+  reviewed_at,
+  reviewed_by
+)
+select
+  borrower_verifications.id,
+  borrower_verifications.borrower_id,
+  concat(
+    'borrowers/',
+    borrower_verifications.borrower_id::text,
+    '/verification/',
+    borrower_verifications.id::text,
+    '/',
+    document_type,
+    '.pdf'
+  ),
+  document_type::public.borrower_verification_document_type,
+  concat(document_type, '.pdf'),
+  'application/pdf',
+  1024,
+  'accepted',
+  now(),
+  '66666666-6666-6666-6666-666666666666'
+from public.borrower_verifications
+cross join (
+  values ('valid_id'), ('business_proof')
+) as required_documents(document_type)
+where borrower_verifications.borrower_id in (
+  '11111111-1111-1111-1111-111111111111',
+  '22222222-2222-2222-2222-222222222222'
+)
+on conflict (storage_bucket, storage_path) do nothing;
 
 insert into public.user_consents (
   user_id,

@@ -94,9 +94,16 @@ export default async function LenderApplicationDetailPage({
                 value={formatPreferredTerm(application.preferredTerm)}
               />
               <ReviewItem label="Purpose" value={application.purpose} />
+                <ReviewItem
+                  label="Submitted"
+                  value={formatDate(application.submittedAt)}
+                />
               <ReviewItem
-                label="Submitted"
-                value={formatDate(application.submittedAt)}
+                label="Readiness"
+                value={
+                  application.creditReadinessStatus?.replaceAll("_", " ") ??
+                  "Not recorded"
+                }
               />
             </dl>
           </div>
@@ -157,6 +164,14 @@ export default async function LenderApplicationDetailPage({
                 <ReviewItem
                   label="Used credit"
                   value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
+                />
+                <ReviewItem
+                  label="Net cash flow"
+                  value={
+                    application.monthlyNetCashFlowAtSubmission == null
+                      ? "Not recorded"
+                      : `PHP ${formatCurrency(application.monthlyNetCashFlowAtSubmission)}`
+                  }
                 />
               </dl>
             ) : (

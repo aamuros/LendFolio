@@ -17,6 +17,11 @@ export type BorrowerCreditSummary = {
   usedCredit: number;
   availableCredit: number;
   monthlyNetCashFlow: number;
+  baseLimit: number;
+  yearsMultiplier: number;
+  grossRevenueCap: number;
+  maximumCap: number;
+  riskFlags: string[];
 };
 
 export const creditLimitMaximum = 1_000_000;
@@ -24,15 +29,15 @@ export const creditLimitMaximum = 1_000_000;
 export function calculateBorrowerCreditLimit(
   portfolio: CreditLimitPortfolioInput,
 ) {
+  const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
+  const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
+  const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
+  const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
   const monthlyNetCashFlow =
-    portfolio.monthlyGrossRevenue -
-    portfolio.monthlyExpenses -
-    portfolio.existingLoanPayments;
+    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
   const baseLimit = monthlyNetCashFlow * 3;
-  const yearsMultiplier = getYearsInOperationMultiplier(
-    portfolio.yearsInOperation,
-  );
-  const grossRevenueCap = portfolio.monthlyGrossRevenue * 2;
+  const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
+  const grossRevenueCap = monthlyGrossRevenue * 2;
   const cappedLimit = Math.min(
     baseLimit * yearsMultiplier,
     grossRevenueCap,
@@ -42,23 +47,60 @@ export function calculateBorrowerCreditLimit(
   return Math.max(0, floorToNearest100(cappedLimit));
 }
 
+export function explainBorrowerCreditLimit(
+  portfolio: CreditLimitPortfolioInput,
+) {
+  const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
+  const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
+  const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
+  const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
+  const monthlyNetCashFlow =
+    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
+  const baseLimit = monthlyNetCashFlow * 3;
+  const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
+  const grossRevenueCap = monthlyGrossRevenue * 2;
+  const calculatedCreditLimit = calculateBorrowerCreditLimit(portfolio);
+  const riskFlags: string[] = [];
+
+  if (monthlyNetCashFlow <= 0) riskFlags.push("non_positive_cash_flow");
+  if (monthlyExpenses > monthlyGrossRevenue) {
+    riskFlags.push("expenses_exceed_revenue");
+  }
+  if (existingLoanPayments > monthlyNetCashFlow * 0.4) {
+    riskFlags.push("high_existing_debt_payments");
+  }
+  if (yearsInOperation < 1) riskFlags.push("very_new_business");
+
+  return {
+    calculatedCreditLimit,
+    monthlyNetCashFlow,
+    baseLimit,
+    yearsMultiplier,
+    grossRevenueCap,
+    maximumCap: creditLimitMaximum,
+    riskFlags,
+  };
+}
+
 export function calculateBorrowerAvailableCredit(input: {
   portfolio: CreditLimitPortfolioInput;
   activeLoans: CreditLimitLoanInput[];
 }): BorrowerCreditSummary {
-  const calculatedCreditLimit = calculateBorrowerCreditLimit(input.portfolio);
+  const creditLimit = explainBorrowerCreditLimit(input.portfolio);
   const usedCredit = input.activeLoans
     .filter((loan) => loan.outstandingBalance > 0)
     .reduce((total, loan) => total + loan.outstandingBalance, 0);
 
   return {
-    calculatedCreditLimit,
+    calculatedCreditLimit: creditLimit.calculatedCreditLimit,
     usedCredit,
-    availableCredit: Math.max(0, calculatedCreditLimit - usedCredit),
-    monthlyNetCashFlow:
-      input.portfolio.monthlyGrossRevenue -
-      input.portfolio.monthlyExpenses -
-      input.portfolio.existingLoanPayments,
+    availableCredit: Math.max(0, creditLimit.calculatedCreditLimit - usedCredit),
+    monthlyNetCashFlow: creditLimit.monthlyNetCashFlow,
+    baseLimit: creditLimit.baseLimit,
+    yearsMultiplier: creditLimit.yearsMultiplier,
+    grossRevenueCap: creditLimit.grossRevenueCap,
+    maximumCap: creditLimit.maximumCap,
+    riskFlags: creditLimit.riskFlags,
   };
 }
 
@@ -82,4 +124,9 @@ function getYearsInOperationMultiplier(yearsInOperation: number) {
 
 function floorToNearest100(value: number) {
   return Math.floor(value / 100) * 100;
+}
+
+function toFiniteNumber(value: number) {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : 0;
 }

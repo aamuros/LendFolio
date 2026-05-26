@@ -78,9 +78,12 @@ export default async function ManagerBorrowerVerificationsPage({
           name="status"
           defaultValue={params.status}
           options={[
-            { value: "pending", label: "Pending" },
+            { value: "pending_documents", label: "Pending documents" },
+            { value: "submitted", label: "Submitted" },
+            { value: "under_review", label: "Under review" },
             { value: "approved", label: "Approved" },
             { value: "rejected", label: "Rejected" },
+            { value: "needs_resubmission", label: "Needs resubmission" },
           ]}
         />
         <SelectFilter
@@ -132,6 +135,21 @@ function ReviewStatus({
 
   if (review === "pending") {
     return <StatusMessage message="Borrower verification returned to pending." />;
+  }
+
+  if (review === "needs-resubmission") {
+    return (
+      <StatusMessage message="Borrower verification marked for resubmission." />
+    );
+  }
+
+  if (review === "documents-required") {
+    return (
+      <StatusMessage
+        message="Accept the required documents before approving verification."
+        tone="error"
+      />
+    );
   }
 
   if (review === "error") {
@@ -225,8 +243,30 @@ function BorrowerVerificationCard({
       ) : null}
 
       <div className="grid gap-3">
+        <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
+          <h3 className="text-sm font-semibold">Required documents</h3>
+          {verification.documentPolicy.requiredDocumentTypes.map((documentType) => (
+            <div
+              key={documentType}
+              className="flex items-center justify-between gap-3 text-sm"
+            >
+              <span>{borrowerVerificationDocumentTypeLabels[documentType]}</span>
+              <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
+                {verification.documentPolicy.acceptedDocumentTypes.includes(
+                  documentType,
+                )
+                  ? "Accepted"
+                  : verification.documentPolicy.submittedDocumentTypes.includes(
+                        documentType,
+                      )
+                    ? "Submitted"
+                    : "Missing"}
+              </span>
+            </div>
+          ))}
+        </div>
         <h3 className="text-sm font-semibold text-[var(--muted-foreground)]">
-          Evidence
+          Evidence history
         </h3>
         {verification.documents.length === 0 ? (
           <p className="rounded-2xl border border-dashed border-[var(--border)] px-3 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
@@ -275,6 +315,14 @@ function BorrowerVerificationCard({
             className="h-10 rounded-full border border-red-200 bg-red-50 px-5 text-sm font-semibold text-red-800 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-red-500"
           >
             Reject
+          </button>
+          <button
+            type="submit"
+            name="decision"
+            value="needs_resubmission"
+            className="h-10 rounded-full border border-amber-200 bg-amber-50 px-5 text-sm font-semibold text-amber-900 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-amber-500"
+          >
+            Needs resubmission
           </button>
           <button
             type="submit"

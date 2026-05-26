@@ -141,6 +141,23 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
                 value={formatDateTime(application.submittedAt)}
               />
               <Field
+                label="Readiness"
+                value={
+                  application.creditReadinessStatus?.replaceAll("_", " ") ??
+                  "Not recorded"
+                }
+              />
+              <Field
+                label="Risk flags"
+                value={
+                  application.riskFlags.length
+                    ? application.riskFlags
+                        .map((flag) => flag.replaceAll("_", " "))
+                        .join(", ")
+                    : "None"
+                }
+              />
+              <Field
                 label="Offers"
                 value={`${application.offerCounts.pending} pending, ${application.offerCounts.accepted} accepted, ${application.offerCounts.declined} declined, ${application.offerCounts.expired} expired`}
               />

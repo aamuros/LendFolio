@@ -11,6 +11,7 @@ import {
   borrowerVerificationDocumentStatusLabels,
   borrowerVerificationDocumentTypeLabels,
   borrowerVerificationDocumentTypes,
+  borrowerVerificationStatusLabels,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
 import type { ConsentStatus } from "@/lib/consents";
@@ -32,8 +33,13 @@ export function BorrowerVerificationDocumentsPanel({
     submitBorrowerVerificationDocument,
     initialState,
   );
-  const canUpload =
-    verification?.status === "pending" || verification?.status === "rejected";
+  const canUpload = [
+    "not_started",
+    "pending",
+    "pending_documents",
+    "rejected",
+    "needs_resubmission",
+  ].includes(verification?.status ?? "");
 
   useEffect(() => {
     if (!state?.ok) {
@@ -54,15 +60,18 @@ export function BorrowerVerificationDocumentsPanel({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h3 className="text-lg font-semibold">Borrower verification</h3>
           <span className="rounded-full bg-[var(--muted)] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
-            {verification.status}
+            {borrowerVerificationStatusLabels[verification.status]}
           </span>
         </div>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
           {verification.status === "approved"
             ? "Your borrower account is approved."
-            : verification.status === "rejected"
+            : verification.status === "rejected" ||
+                verification.status === "needs_resubmission"
               ? "Upload an updated document for another review."
-              : "Upload verification documents so a manager can review your borrower account."}
+              : verification.documentPolicy.readyForManagerReview
+                ? "Your documents are waiting for manager review."
+                : "Upload verification documents so a manager can review your borrower account."}
         </p>
         {verification.rejectionReason ? (
           <p className="rounded-2xl border border-red-200 bg-red-50 px-3 py-2 text-sm leading-6 text-red-800">
@@ -77,6 +86,48 @@ export function BorrowerVerificationDocumentsPanel({
           status={consentStatus}
         />
       ) : null}
+
+      <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
+        <p className="text-sm font-semibold">Verification checklist</p>
+        <ChecklistItem
+          label="Required disclosures"
+          done={consentStatus?.isCurrent === true}
+          pendingText="Accept Terms, Privacy Notice, and Document Processing Consent."
+        />
+        {verification.documentPolicy.requiredDocumentTypes.map((documentType) => (
+          <ChecklistItem
+            key={documentType}
+            label={borrowerVerificationDocumentTypeLabels[documentType]}
+            done={verification.documentPolicy.acceptedDocumentTypes.includes(
+              documentType,
+            )}
+            pendingText={
+              verification.documentPolicy.submittedDocumentTypes.includes(
+                documentType,
+              )
+                ? "Waiting for manager acceptance."
+                : "Upload this document."
+            }
+          />
+        ))}
+        <ChecklistItem
+          label="Manager review"
+          done={verification.status === "approved"}
+          pendingText={
+            verification.documentPolicy.readyForManagerReview
+              ? "Wait for manager review."
+              : "Complete required documents first."
+          }
+        />
+        <ChecklistItem
+          label="Application readiness"
+          done={
+            verification.status === "approved" &&
+            verification.documentPolicy.documentsAccepted
+          }
+          pendingText="Loan submission opens after verification approval."
+        />
+      </div>
 
       {canUpload ? (
         <form ref={formRef} action={formAction} className="grid gap-3">
@@ -163,6 +214,36 @@ export function BorrowerVerificationDocumentsPanel({
         )}
       </div>
     </section>
+  );
+}
+
+function ChecklistItem({
+  done,
+  label,
+  pendingText,
+}: {
+  done: boolean;
+  label: string;
+  pendingText: string;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-3 text-sm leading-6">
+      <div>
+        <p className="font-semibold">{label}</p>
+        {!done ? (
+          <p className="text-[var(--muted-foreground)]">{pendingText}</p>
+        ) : null}
+      </div>
+      <span
+        className={`rounded-full px-2 py-1 text-xs font-semibold ${
+          done
+            ? "bg-emerald-50 text-emerald-700"
+            : "bg-white text-[var(--muted-foreground)]"
+        }`}
+      >
+        {done ? "Done" : "Pending"}
+      </span>
+    </div>
   );
 }
 

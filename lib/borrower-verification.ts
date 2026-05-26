@@ -20,6 +20,7 @@ export type BorrowerVerificationSummary = {
   submittedAt: string | null;
   reviewedAt: string | null;
   documents: BorrowerVerificationDocumentSummary[];
+  documentPolicy: BorrowerVerificationDocumentPolicy;
 };
 
 export type BorrowerVerificationDocumentType =
@@ -61,6 +62,11 @@ export const borrowerVerificationDocumentTypes = [
   "other",
 ] as const satisfies BorrowerVerificationDocumentType[];
 
+export const requiredBorrowerVerificationDocumentTypes = [
+  "valid_id",
+  "business_proof",
+] as const satisfies BorrowerVerificationDocumentType[];
+
 export const borrowerVerificationDocumentTypeLabels: Record<
   BorrowerVerificationDocumentType,
   string
@@ -82,10 +88,79 @@ export const borrowerVerificationDocumentStatusLabels: Record<
   superseded: "Superseded",
 };
 
+export const borrowerVerificationStatusLabels: Record<
+  BorrowerVerificationStatus,
+  string
+> = {
+  not_started: "Not started",
+  pending: "Pending documents",
+  pending_documents: "Pending documents",
+  submitted: "Submitted",
+  under_review: "Under review",
+  approved: "Approved",
+  rejected: "Rejected",
+  needs_resubmission: "Needs resubmission",
+};
+
+export type BorrowerVerificationDocumentPolicy = {
+  requiredDocumentTypes: BorrowerVerificationDocumentType[];
+  missingRequiredDocumentTypes: BorrowerVerificationDocumentType[];
+  submittedDocumentTypes: BorrowerVerificationDocumentType[];
+  acceptedDocumentTypes: BorrowerVerificationDocumentType[];
+  rejectedDocumentTypes: BorrowerVerificationDocumentType[];
+  readyForManagerReview: boolean;
+  documentsAccepted: boolean;
+};
+
+export function calculateBorrowerVerificationDocumentPolicy(
+  documents: Pick<
+    BorrowerVerificationDocumentSummary,
+    "documentType" | "status"
+  >[],
+): BorrowerVerificationDocumentPolicy {
+  const submitted = new Set<BorrowerVerificationDocumentType>();
+  const accepted = new Set<BorrowerVerificationDocumentType>();
+  const rejected = new Set<BorrowerVerificationDocumentType>();
+
+  for (const document of documents) {
+    if (document.status === "submitted" || document.status === "accepted") {
+      submitted.add(document.documentType);
+    }
+
+    if (document.status === "accepted") {
+      accepted.add(document.documentType);
+    }
+
+    if (document.status === "rejected") {
+      rejected.add(document.documentType);
+    }
+  }
+
+  const missingRequiredDocumentTypes =
+    requiredBorrowerVerificationDocumentTypes.filter(
+      (documentType) => !accepted.has(documentType),
+    );
+
+  return {
+    requiredDocumentTypes: [...requiredBorrowerVerificationDocumentTypes],
+    missingRequiredDocumentTypes,
+    submittedDocumentTypes: [...submitted],
+    acceptedDocumentTypes: [...accepted],
+    rejectedDocumentTypes: [...rejected],
+    readyForManagerReview: requiredBorrowerVerificationDocumentTypes.every(
+      (documentType) => submitted.has(documentType),
+    ),
+    documentsAccepted: missingRequiredDocumentTypes.length === 0,
+  };
+}
+
 export function canSubmitLoanApplicationForVerification(
   verification: BorrowerVerificationSummary | null,
 ) {
-  return verification?.status === "approved";
+  return (
+    verification?.status === "approved" &&
+    verification.documentPolicy.documentsAccepted
+  );
 }
 
 export function getBorrowerVerificationMessage(
@@ -96,14 +171,23 @@ export function getBorrowerVerificationMessage(
   }
 
   if (verification.status === "approved") {
-    return "Borrower verification approved.";
+    return verification.documentPolicy.documentsAccepted
+      ? "Borrower verification approved."
+      : "Required verification documents must be accepted before applying.";
   }
 
-  if (verification.status === "rejected") {
-    return "Your borrower verification was not approved. Review the manager note before applying again.";
+  if (
+    verification.status === "rejected" ||
+    verification.status === "needs_resubmission"
+  ) {
+    return "Your borrower verification needs updates before applying.";
   }
 
-  return "Your borrower verification is pending review. You can save your profile, but loan applications open after approval.";
+  if (!verification.documentPolicy.readyForManagerReview) {
+    return "Upload the required verification documents before manager review.";
+  }
+
+  return "Your borrower verification is waiting for manager review.";
 }
 
 export async function getBorrowerVerificationStatus(
@@ -127,6 +211,7 @@ export async function getBorrowerVerificationStatus(
       submittedAt: null,
       reviewedAt: null,
       documents: [],
+      documentPolicy: calculateBorrowerVerificationDocumentPolicy([]),
     };
   }
 
@@ -138,6 +223,10 @@ export async function getBorrowerVerificationStatus(
     .eq("borrower_verification_id", data.id)
     .order("uploaded_at", { ascending: false });
 
+  const mappedDocuments = (documents ?? []).map(
+    mapBorrowerVerificationDocumentRow,
+  );
+
   return {
     id: data.id,
     status: data.verification_status,
@@ -145,7 +234,8 @@ export async function getBorrowerVerificationStatus(
     rejectionReason: data.rejection_reason,
     submittedAt: data.submitted_at,
     reviewedAt: data.reviewed_at,
-    documents: (documents ?? []).map(mapBorrowerVerificationDocumentRow),
+    documents: mappedDocuments,
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy(mappedDocuments),
   };
 }
 

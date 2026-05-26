@@ -1,7 +1,4 @@
-import {
-  businessTypeLabels,
-  type BorrowerPortfolioInput,
-} from "@/lib/borrower-portfolio";
+import { businessTypeLabels } from "@/lib/borrower-portfolio";
 import { requireApprovedLender } from "@/lib/access-control";
 import {
   loadLenderActiveLoans,
@@ -33,8 +30,15 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     | "offer_accepted"
     | "offer_declined"
     | "offer_expired";
-  portfolio: BorrowerPortfolioInput & {
+  portfolio: {
+    businessType: BorrowerPortfolioRow["business_type"];
     businessTypeLabel: string;
+    location: string;
+    monthlyGrossRevenue: number;
+    monthlyExpenses: number;
+    existingLoanPayments: number;
+    yearsInOperation: number;
+    loanPurposeContext: string;
   };
   financialIndicators: {
     estimatedNetMonthlyRevenue: number;
@@ -101,10 +105,10 @@ export type LenderOffersLoadResult =
     };
 
 const lenderReviewApplicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
 
 const lenderReviewPortfolioSelect =
-  "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 
 const lenderReviewOfferSelect =
   "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at";
@@ -439,30 +443,80 @@ function toLenderApplicationReview(
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
 ): LenderApplicationReview {
   const mappedApplication = mapLoanApplicationRow(application);
+  const reviewPortfolio = getSubmittedPortfolio(application, portfolio);
   const estimatedNetMonthlyRevenue =
-    portfolio.monthly_gross_revenue - portfolio.monthly_expenses;
+    reviewPortfolio.monthly_gross_revenue - reviewPortfolio.monthly_expenses;
 
   return {
     ...mappedApplication,
     borrowerId: application.borrower_id,
     currentLenderOfferState: getCurrentLenderOfferState(offers),
     portfolio: {
-      businessType: portfolio.business_type,
-      businessTypeLabel: businessTypeLabels[portfolio.business_type],
-      location: portfolio.location,
-      monthlyGrossRevenue: portfolio.monthly_gross_revenue,
-      monthlyExpenses: portfolio.monthly_expenses,
-      existingLoanPayments: portfolio.existing_loan_payments,
-      yearsInOperation: portfolio.years_in_operation,
-      loanPurposeContext: portfolio.loan_purpose_context,
+      businessType: reviewPortfolio.business_type,
+      businessTypeLabel: businessTypeLabels[reviewPortfolio.business_type],
+      location: reviewPortfolio.location,
+      monthlyGrossRevenue: reviewPortfolio.monthly_gross_revenue,
+      monthlyExpenses: reviewPortfolio.monthly_expenses,
+      existingLoanPayments: reviewPortfolio.existing_loan_payments,
+      yearsInOperation: reviewPortfolio.years_in_operation,
+      loanPurposeContext: reviewPortfolio.loan_purpose_context,
     },
     financialIndicators: {
       estimatedNetMonthlyRevenue,
       monthlyCashAfterLoanPayments:
-        estimatedNetMonthlyRevenue - portfolio.existing_loan_payments,
+        estimatedNetMonthlyRevenue - reviewPortfolio.existing_loan_payments,
     },
     offers: offers.map(mapLoanOfferRow),
   };
+}
+
+function getSubmittedPortfolio(
+  application: Database["public"]["Tables"]["loan_applications"]["Row"],
+  fallback: BorrowerPortfolioRow,
+): BorrowerPortfolioRow {
+  const snapshot = application.borrower_profile_snapshot;
+
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return fallback;
+  }
+  const profile = snapshot as Record<string, unknown>;
+
+  return {
+    ...fallback,
+    business_type:
+      isBusinessType(profile.business_type)
+        ? profile.business_type
+        : fallback.business_type,
+    location:
+      typeof profile.location === "string" ? profile.location : fallback.location,
+    monthly_gross_revenue:
+      typeof profile.monthly_gross_revenue === "number"
+        ? profile.monthly_gross_revenue
+        : fallback.monthly_gross_revenue,
+    monthly_expenses:
+      typeof profile.monthly_expenses === "number"
+        ? profile.monthly_expenses
+        : fallback.monthly_expenses,
+    existing_loan_payments:
+      typeof profile.existing_loan_payments === "number"
+        ? profile.existing_loan_payments
+        : fallback.existing_loan_payments,
+    years_in_operation:
+      typeof profile.years_in_operation === "number"
+        ? profile.years_in_operation
+        : fallback.years_in_operation,
+    loan_purpose_context:
+      typeof profile.loan_purpose_context === "string"
+        ? profile.loan_purpose_context
+        : fallback.loan_purpose_context,
+  };
+}
+
+function isBusinessType(value: unknown): value is BorrowerPortfolioRow["business_type"] {
+  return (
+    typeof value === "string" &&
+    Object.prototype.hasOwnProperty.call(businessTypeLabels, value)
+  );
 }
 
 function combineOffersWithApplications(

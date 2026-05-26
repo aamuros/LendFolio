@@ -16,6 +16,10 @@ import {
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 import {
+  evaluateBorrowerReadiness,
+  type BorrowerReadinessResult,
+} from "@/lib/borrower-readiness";
+import {
   buildConsentStatus,
   getRequiredConsentVersions,
   hasCurrentRequiredConsents,
@@ -87,6 +91,7 @@ export type LoanApplicationSubmitResult =
         | "auth"
         | "validation"
         | "missing-portfolio"
+        | "readiness"
         | "borrower-verification"
         | "consent-required"
         | "credit-limit"
@@ -127,6 +132,7 @@ export type LoanApplicationsLoadResult =
       hasPortfolio: boolean;
       borrowerVerification: BorrowerVerificationSummary;
       creditSummary: BorrowerCreditSummary | null;
+      readiness: BorrowerReadinessResult | null;
       consentStatuses: {
         borrowerDocumentUpload: ConsentStatus;
         borrowerLoanApplication: ConsentStatus;
@@ -140,6 +146,7 @@ export type LoanApplicationsLoadResult =
       hasPortfolio: boolean;
       borrowerVerification: BorrowerVerificationSummary | null;
       creditSummary: BorrowerCreditSummary | null;
+      readiness: BorrowerReadinessResult | null;
       consentStatuses: {
         borrowerDocumentUpload: ConsentStatus;
         borrowerLoanApplication: ConsentStatus;
@@ -201,7 +208,7 @@ const repaymentProofAllowedTypes = new Set([
 ]);
 
 const borrowerPortfolioCreditSelect =
-  "id, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 
 export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
   try {
@@ -220,7 +227,7 @@ export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResu
     const { data, error } = await supabase
       .from("borrower_portfolios")
       .select(
-        "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at",
+        "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at",
       )
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
@@ -281,13 +288,38 @@ export async function saveBorrowerPortfolio(
     const { error } = await supabase.from("borrower_portfolios").upsert(
       {
         borrower_id: access.profile.id,
+        business_name: parsed.data.businessName,
+        business_description: parsed.data.businessDescription,
         business_type: parsed.data.businessType,
+        started_operating_at: parsed.data.startedOperatingAt,
+        business_address: parsed.data.businessAddress,
+        barangay: parsed.data.barangay,
+        city_or_municipality: parsed.data.cityOrMunicipality,
+        province: parsed.data.province,
         location: parsed.data.location,
+        operating_model: parsed.data.operatingModel,
+        primary_sales_channel: parsed.data.primarySalesChannel,
+        revenue_period: parsed.data.revenuePeriod,
+        revenue_confidence: parsed.data.revenueConfidence,
         monthly_gross_revenue: parsed.data.monthlyGrossRevenue,
         monthly_expenses: parsed.data.monthlyExpenses,
         existing_loan_payments: parsed.data.existingLoanPayments,
         years_in_operation: parsed.data.yearsInOperation,
+        expense_breakdown: {
+          inventory: parsed.data.inventoryExpense,
+          rent: parsed.data.rentExpense,
+          payroll: parsed.data.payrollExpense,
+          utilities: parsed.data.utilitiesExpense,
+          other: parsed.data.otherExpense,
+        },
+        debt_obligation_summary: {
+          active_lender_count: parsed.data.debtLenderCount,
+          total_outstanding_debt: parsed.data.totalOutstandingDebt,
+          notes: parsed.data.debtNotes || "",
+        },
         loan_purpose_context: parsed.data.loanPurposeContext,
+        profile_last_confirmed_at: new Date().toISOString(),
+        profile_review_status: "self_declared",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "borrower_id" },
@@ -328,6 +360,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: false,
         borrowerVerification: null,
         creditSummary: null,
+        readiness: null,
         consentStatuses: null,
         message: access.message,
       };
@@ -363,6 +396,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: false,
         borrowerVerification,
         creditSummary: null,
+        readiness: null,
         consentStatuses,
         message: "Could not confirm your profile.",
       };
@@ -371,11 +405,20 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
     const creditSummary = portfolio
       ? await loadBorrowerCreditSummary(access.profile.id, portfolio, supabase)
       : null;
+    const readiness = evaluateBorrowerReadiness(
+      portfolio ? mapBorrowerPortfolioRow(portfolio) : null,
+      {
+        accountStatus: access.profile.status,
+        borrowerVerification,
+        loanApplicationConsent: consentStatuses.borrowerLoanApplication,
+        creditSummary,
+      },
+    );
 
     const { data, error } = await supabase
       .from("loan_applications")
       .select(
-        "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
+        "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
       )
       .eq("borrower_id", access.profile.id)
       .order("submitted_at", { ascending: false });
@@ -388,6 +431,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: Boolean(portfolio),
         borrowerVerification,
         creditSummary,
+        readiness,
         consentStatuses,
         message: "Could not load applications.",
       };
@@ -401,6 +445,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: Boolean(portfolio),
         borrowerVerification,
         creditSummary,
+        readiness,
         consentStatuses,
         message: portfolio
           ? getBorrowerVerificationMessage(borrowerVerification)
@@ -429,6 +474,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: Boolean(portfolio),
         borrowerVerification,
         creditSummary,
+        readiness,
         consentStatuses,
         message: "Could not load offers.",
       };
@@ -442,6 +488,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
         hasPortfolio: Boolean(portfolio),
         borrowerVerification,
         creditSummary,
+        readiness,
         consentStatuses,
         message: activeLoansResult.message,
       };
@@ -478,6 +525,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       hasPortfolio: Boolean(portfolio),
       borrowerVerification,
       creditSummary,
+      readiness,
       consentStatuses,
       message: portfolio
         ? getBorrowerVerificationMessage(borrowerVerification)
@@ -491,6 +539,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       hasPortfolio: false,
       borrowerVerification: null,
       creditSummary: null,
+      readiness: null,
       consentStatuses: null,
       message: "Sign in to continue.",
     };
@@ -581,14 +630,24 @@ export async function submitLoanApplication(
       return {
         ok: false,
         mode:
-          result?.code === "missing_portfolio"
+          result?.code === "missing_portfolio" ||
+          result?.code === "profile_required" ||
+          result?.code === "profile_incomplete"
             ? "missing-portfolio"
             : result?.code === "consent_required"
               ? "consent-required"
             : result?.code === "borrower_verification_required"
+              || result?.code === "documents_required"
               ? "borrower-verification"
+            : result?.code === "account_not_active" ||
+                result?.code === "suspended"
+              ? "auth"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
+            : result?.code === "profile_needs_review" ||
+                result?.code === "profile_stale" ||
+                result?.code === "not_eligible"
+              ? "readiness"
               : "supabase",
         message: result?.message ?? "Could not submit application.",
       };
@@ -1068,7 +1127,15 @@ export async function submitBorrowerVerificationDocument(
       };
     }
 
-    if (!["pending", "rejected"].includes(verification.verification_status)) {
+    if (
+      ![
+        "not_started",
+        "pending",
+        "pending_documents",
+        "rejected",
+        "needs_resubmission",
+      ].includes(verification.verification_status)
+    ) {
       return {
         ok: false,
         message: "Could not upload verification document.",

@@ -23,6 +23,7 @@ import { parseMoneyInput } from "../lib/money-input";
 import { signupSchema } from "../lib/signup";
 import {
   canSubmitLoanApplicationForVerification,
+  calculateBorrowerVerificationDocumentPolicy,
   createSafeUploadFileName,
   getBorrowerVerificationMessage,
   isBorrowerVerificationDocumentType,
@@ -58,14 +59,34 @@ describe("product foundation", () => {
 });
 
 describe("borrower portfolio schema", () => {
-  it("accepts the MVP borrower portfolio fields", () => {
+  it("accepts the production borrower portfolio fields", () => {
     const result = borrowerPortfolioSchema.safeParse({
+      businessName: "Aling Nena Store",
+      businessDescription:
+        "Neighborhood retail store selling grocery and household items.",
       businessType: "sari_sari_store",
+      startedOperatingAt: "2024-01-01",
+      businessAddress: "12 Mabini Street",
+      barangay: "San Jose",
+      cityOrMunicipality: "Quezon City",
+      province: "Metro Manila",
       location: "Quezon City",
+      operatingModel: "fixed_store",
+      primarySalesChannel: "walk_in",
+      revenuePeriod: "average_monthly_last_3_months",
+      revenueConfidence: "partially_documented",
       monthlyGrossRevenue: 45_000,
       monthlyExpenses: 28_000,
       existingLoanPayments: 3_500,
       yearsInOperation: 2,
+      inventoryExpense: 20_000,
+      rentExpense: 4_000,
+      payrollExpense: 0,
+      utilitiesExpense: 2_000,
+      otherExpense: 2_000,
+      debtLenderCount: 1,
+      totalOutstandingDebt: 20_000,
+      debtNotes: "",
       loanPurposeContext:
         "Additional working capital for inventory before the holiday season.",
     });
@@ -75,12 +96,32 @@ describe("borrower portfolio schema", () => {
 
   it("rejects incomplete loan purpose context", () => {
     const result = borrowerPortfolioSchema.safeParse({
+      businessName: "Food Cart",
+      businessDescription:
+        "Food stall serving cooked meals and drinks near offices.",
       businessType: "food_stall",
+      startedOperatingAt: "2024-01-01",
+      businessAddress: "1 Colon Street",
+      barangay: "Central",
+      cityOrMunicipality: "Cebu City",
+      province: "Cebu",
       location: "Cebu City",
+      operatingModel: "market_stall",
+      primarySalesChannel: "walk_in",
+      revenuePeriod: "last_30_days",
+      revenueConfidence: "self_declared",
       monthlyGrossRevenue: 20_000,
       monthlyExpenses: 15_000,
       existingLoanPayments: 0,
       yearsInOperation: 1,
+      inventoryExpense: 10_000,
+      rentExpense: 3_000,
+      payrollExpense: 0,
+      utilitiesExpense: 1_000,
+      otherExpense: 1_000,
+      debtLenderCount: 0,
+      totalOutstandingDebt: 0,
+      debtNotes: "",
       loanPurposeContext: "Inventory",
     });
 
@@ -159,7 +200,12 @@ describe("borrower verification gate helpers", () => {
     submittedAt: null,
     reviewedAt: null,
     documents: [],
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy([]),
   };
+  const acceptedDocumentPolicy = calculateBorrowerVerificationDocumentPolicy([
+    { documentType: "valid_id", status: "accepted" },
+    { documentType: "business_proof", status: "accepted" },
+  ]);
 
   it("allows loan application submission only for approved borrowers", () => {
     expect(
@@ -168,6 +214,7 @@ describe("borrower verification gate helpers", () => {
         status: "approved",
         managerReviewNotes: null,
         rejectionReason: null,
+        documentPolicy: acceptedDocumentPolicy,
       }),
     ).toBe(true);
 
@@ -199,7 +246,7 @@ describe("borrower verification gate helpers", () => {
         rejectionReason: null,
       }),
     ).toBe(
-      "Your borrower verification is pending review. You can save your profile, but loan applications open after approval.",
+      "Upload the required verification documents before manager review.",
     );
     expect(
       getBorrowerVerificationMessage({
@@ -209,7 +256,7 @@ describe("borrower verification gate helpers", () => {
         rejectionReason: "Profile needs review.",
       }),
     ).toBe(
-      "Your borrower verification was not approved. Review the manager note before applying again.",
+      "Your borrower verification needs updates before applying.",
     );
     expect(getBorrowerVerificationMessage(null)).toBe(
       "Borrower verification is required before submitting a loan application.",
@@ -223,6 +270,23 @@ describe("borrower verification gate helpers", () => {
       "valid-id-front-.png",
     );
     expect(createSafeUploadFileName("!!!", "fallback")).toBe("fallback");
+  });
+
+  it("calculates required verification document readiness", () => {
+    expect(
+      calculateBorrowerVerificationDocumentPolicy([
+        { documentType: "valid_id", status: "accepted" },
+        { documentType: "business_proof", status: "submitted" },
+        { documentType: "address_proof", status: "rejected" },
+      ]),
+    ).toMatchObject({
+      missingRequiredDocumentTypes: ["business_proof"],
+      submittedDocumentTypes: ["valid_id", "business_proof"],
+      acceptedDocumentTypes: ["valid_id"],
+      rejectedDocumentTypes: ["address_proof"],
+      readyForManagerReview: true,
+      documentsAccepted: false,
+    });
   });
 });
 
@@ -675,6 +739,56 @@ describe("borrower verification document migration", () => {
     expect(operations).toContain("loadManagerBorrowerVerifications");
     expect(operations).toContain("createSignedUrl(document.storage_path, 300)");
     expect(operations).toContain("viewUrl: data?.signedUrl ?? null");
+  });
+});
+
+describe("production borrower verification readiness migration", () => {
+  const enumMigration = readFileSync(
+    "supabase/migrations/20260526054915_production_borrower_verification_readiness.sql",
+    "utf8",
+  );
+  const migration = readFileSync(
+    "supabase/migrations/20260526055837_borrower_verification_readiness_enforcement.sql",
+    "utf8",
+  );
+
+  it("adds production borrower verification states", () => {
+    expect(enumMigration).toContain("'not_started'");
+    expect(enumMigration).toContain("'pending_documents'");
+    expect(enumMigration).toContain("'submitted'");
+    expect(enumMigration).toContain("'under_review'");
+    expect(enumMigration).toContain("'needs_resubmission'");
+  });
+
+  it("centralizes document policy and application readiness", () => {
+    expect(migration).toContain(
+      "app_private.borrower_required_verification_document_types",
+    );
+    expect(migration).toContain(
+      "app_private.borrower_verification_document_policy",
+    );
+    expect(migration).toContain("app_private.borrower_application_readiness");
+    expect(migration).toContain("public.get_borrower_application_readiness");
+    expect(migration).toContain("'valid_id'");
+    expect(migration).toContain("'business_proof'");
+  });
+
+  it("enforces readiness in loan submission and insert policy", () => {
+    expect(migration).toContain("profile_required");
+    expect(migration).toContain("borrower_verification_required");
+    expect(migration).toContain("documents_required");
+    expect(migration).toContain("consent_required");
+    expect(migration).toContain("account_not_active");
+    expect(migration).toContain("suspended");
+    expect(migration).toContain("app_private.is_application_ready_borrower");
+  });
+
+  it("prevents incomplete approval and audits verification events", () => {
+    expect(migration).toContain("Required verification documents must be accepted before approval.");
+    expect(migration).toContain("borrower_verification_submitted");
+    expect(migration).toContain("borrower_application_ready");
+    expect(migration).toContain("borrower_verification_document_uploaded");
+    expect(migration).toContain("accepted_document_immutable");
   });
 });
 

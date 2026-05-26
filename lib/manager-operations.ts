@@ -1,6 +1,10 @@
 import type { Database, Json } from "@/lib/supabase/types";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
+  calculateBorrowerVerificationDocumentPolicy,
+  type BorrowerVerificationDocumentPolicy,
+} from "@/lib/borrower-verification";
+import {
   buildConsentStatus,
   type ConsentStatus,
   type UserConsentRecord,
@@ -100,6 +104,8 @@ export type ManagerApplicationRow = {
   purpose: string;
   preferredTerm: Database["public"]["Enums"]["preferred_term"];
   status: Database["public"]["Enums"]["application_status"];
+  creditReadinessStatus: Database["public"]["Enums"]["borrower_credit_readiness_status"] | null;
+  riskFlags: string[];
   submittedAt: string;
   offerCounts: Record<Database["public"]["Enums"]["offer_status"], number>;
   acceptedOffer: {
@@ -172,6 +178,7 @@ export type ManagerBorrowerVerificationRow = {
   createdAt: string;
   updatedAt: string;
   documents: ManagerBorrowerVerificationDocumentRow[];
+  documentPolicy: BorrowerVerificationDocumentPolicy;
   documentUploadConsentStatus: ConsentStatus;
   loanApplicationConsentStatus: ConsentStatus;
 };
@@ -179,13 +186,13 @@ export type ManagerBorrowerVerificationRow = {
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
 const applicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =
   "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at";
 const portfolioSelect =
-  "id, borrower_id, business_type, location, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, loan_purpose_context, created_at, updated_at";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 const profileSelect = "id, role, display_name, status, created_at, updated_at";
 const lenderProfileSelect =
   "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at";
@@ -217,6 +224,10 @@ export const managerStatusLabels = {
   declined: "Declined",
   withdrawn: "Withdrawn",
   pending: "Pending",
+  not_started: "Not started",
+  pending_documents: "Pending documents",
+  under_review: "Under review",
+  needs_resubmission: "Needs resubmission",
   approved: "Approved",
   superseded: "Superseded",
   expired: "Expired",
@@ -291,7 +302,7 @@ export async function loadManagerOverview(
     countApplicationsByStatuses(supabase, ["submitted", "open"]),
     countRows(supabase, "loan_applications", { status: "accepted" }),
     countRows(supabase, "loan_offers", { status: "pending" }),
-    countBorrowerVerificationsByStatus(supabase, "pending"),
+    countBorrowerVerificationsByStatus(supabase, "pending_documents"),
     countRows(supabase, "borrower_verification_documents", { status: "submitted" }),
   ]);
 
@@ -951,6 +962,8 @@ async function mapManagerApplications(
       purpose: application.purpose,
       preferredTerm: application.preferred_term,
       status: application.status,
+      creditReadinessStatus: application.credit_readiness_status,
+      riskFlags: getReadinessRiskFlags(application.borrower_readiness_snapshot),
       submittedAt: application.submitted_at,
       offerCounts: offers.reduce(
         (counts, offer) => ({
@@ -969,6 +982,26 @@ async function mapManagerApplications(
         : null,
     };
   });
+}
+
+function getReadinessRiskFlags(readiness: Json | null) {
+  if (!readiness || typeof readiness !== "object" || Array.isArray(readiness)) {
+    return [];
+  }
+
+  const profileReadiness = readiness.profile_readiness;
+  if (
+    !profileReadiness ||
+    typeof profileReadiness !== "object" ||
+    Array.isArray(profileReadiness) ||
+    !Array.isArray(profileReadiness.risk_flags)
+  ) {
+    return [];
+  }
+
+  return profileReadiness.risk_flags.filter(
+    (flag): flag is string => typeof flag === "string",
+  );
 }
 
 async function loadLoansByApplicationIds(
@@ -1099,6 +1132,7 @@ function mapManagerBorrowerVerification(
     createdAt: verification.created_at,
     updatedAt: verification.updated_at,
     documents,
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy(documents),
     documentUploadConsentStatus: buildConsentStatus(
       "borrower_document_upload",
       consents,
@@ -1378,7 +1412,16 @@ function isProofStatus(
 function isBorrowerVerificationStatus(
   value: string | undefined,
 ): value is Database["public"]["Enums"]["borrower_verification_status"] {
-  return ["pending", "approved", "rejected"].includes(value ?? "");
+  return [
+    "not_started",
+    "pending",
+    "pending_documents",
+    "submitted",
+    "under_review",
+    "approved",
+    "rejected",
+    "needs_resubmission",
+  ].includes(value ?? "");
 }
 
 function isBorrowerVerificationDocumentStatus(

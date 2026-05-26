@@ -350,14 +350,40 @@ async function createBorrowerPortfolio(
     .from("borrower_portfolios")
     .insert({
       borrower_id: borrowerId,
+      business_name: "Aling Nena Store",
+      business_description:
+        "Neighborhood retail store selling daily grocery and household items.",
       business_type: "sari_sari_store",
+      started_operating_at: "2022-01-01",
+      business_address: "12 Mabini Street",
+      barangay: "San Jose",
+      city_or_municipality: "Quezon City",
+      province: "Metro Manila",
       location: "Quezon City",
+      operating_model: "fixed_store",
+      primary_sales_channel: "walk_in",
+      revenue_period: "average_monthly_last_3_months",
+      revenue_confidence: "partially_documented",
       monthly_gross_revenue: 48000,
       monthly_expenses: 31000,
       existing_loan_payments: 2500,
       years_in_operation: 3,
+      expense_breakdown: {
+        inventory: 24000,
+        rent: 4000,
+        payroll: 0,
+        utilities: 1500,
+        other: 1500,
+      },
+      debt_obligation_summary: {
+        active_lender_count: 1,
+        total_outstanding_debt: 15000,
+        notes: "",
+      },
       loan_purpose_context:
         "Working capital for inventory and supplier purchases during peak demand.",
+      profile_last_confirmed_at: new Date().toISOString(),
+      profile_review_status: "reviewed",
     })
     .select("id")
     .single<InsertedRow>();
