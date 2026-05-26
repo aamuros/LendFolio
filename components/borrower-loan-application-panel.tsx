@@ -23,7 +23,6 @@ import {
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { CurrencyInput } from "@/components/currency-input";
 import {
-  CompactCreditStatusCard,
   CreditEligibilityBanner,
 } from "@/components/borrower-credit-summary";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
@@ -33,6 +32,7 @@ import {
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
   formatCreditAmount,
   type BorrowerCreditSummary,
@@ -92,6 +92,9 @@ export function BorrowerLoanApplicationPanel({
     useState<BorrowerVerificationSummary | null>(
       initialLoadResult?.borrowerVerification ?? null,
     );
+  const [readiness, setReadiness] = useState<BorrowerReadinessResult | null>(
+    initialLoadResult?.readiness ?? null,
+  );
   const [message, setMessage] = useState(
     initialLoadResult ? (initialLoadResult.ok ? "" : initialLoadResult.message) : "",
   );
@@ -107,6 +110,9 @@ export function BorrowerLoanApplicationPanel({
     useState<ConsentStatus | null>(
       initialLoadResult?.consentStatuses?.borrowerLoanApplication ?? null,
     );
+  const [consentStatuses, setConsentStatuses] = useState<
+    LoanApplicationsLoadResult["consentStatuses"]
+  >(initialLoadResult?.consentStatuses ?? null);
   const [expandedApplicationIds, setExpandedApplicationIds] = useState<
     Set<string>
   >(() =>
@@ -163,6 +169,8 @@ export function BorrowerLoanApplicationPanel({
 
           setHasPortfolio(nextHasPortfolio);
           setBorrowerVerification(result.borrowerVerification);
+          setReadiness(result.readiness);
+          setConsentStatuses(result.consentStatuses);
           setLoanConsentStatus(
             result.consentStatuses?.borrowerLoanApplication ?? null,
           );
@@ -566,10 +574,13 @@ export function BorrowerLoanApplicationPanel({
       {view === "home" ? (
         <HomeSummary
           applications={applications}
+          borrowerVerification={borrowerVerification}
+          consentStatuses={consentStatuses}
           creditSummary={creditSummary}
           hasPortfolio={hasPortfolio}
           loadState={loadState}
           onNavigate={onNavigate}
+          readiness={readiness}
         />
       ) : null}
 
@@ -705,89 +716,714 @@ function VerificationGateCard({
 
 function HomeSummary({
   applications,
+  borrowerVerification,
+  consentStatuses,
   creditSummary,
   hasPortfolio,
   loadState,
   onNavigate,
+  readiness,
 }: {
   applications: BorrowerLoanApplicationSummary[];
+  borrowerVerification: BorrowerVerificationSummary | null;
+  consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
   creditSummary: BorrowerCreditSummary | null;
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
+  readiness: BorrowerReadinessResult | null;
 }) {
-  const summary = getHomeSummary(hasPortfolio, applications);
-  const latestApplication = applications[0];
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
-  const latestActiveLoan = activeLoans[0];
-  const pendingOfferCount = applications.reduce(
-    (count, application) =>
-      count +
-      application.offers.filter((offer) => offer.status === "pending").length,
-    0,
-  );
+  const activeLoans = getActiveLoans(applications);
+  const dueThisMonth = getThisMonthDue(activeLoans);
+  const averageDays = getAverageDaysToPay(activeLoans);
+  const debtProgress = getDebtProgress(activeLoans);
+  const profileCompletion = getProfileCompletion({
+    borrowerVerification,
+    consentStatuses,
+    creditSummary,
+    hasPortfolio,
+    readiness,
+  });
+  const calendarDays = getCalendarDaysWithDueDates(activeLoans);
+  const dueUpcoming = getUpcomingDueItems(activeLoans);
+  const usedCreditRatio = creditSummary
+    ? getProgressRatio(
+        creditSummary.usedCredit,
+        creditSummary.calculatedCreditLimit,
+      )
+    : 0;
+  const dueCapacityRatio =
+    creditSummary && creditSummary.monthlyNetCashFlow > 0
+      ? dueThisMonth.totalDue / creditSummary.monthlyNetCashFlow
+      : null;
+  const dueCapacityStatus = getDueCapacityStatus(dueCapacityRatio);
+  const averageDaysRatio =
+    averageDays.averageDays === null
+      ? 0
+      : clamp(averageDays.averageDays / getDaysInCurrentMonth(), 0, 1);
+  const averageUrgency = getAverageDaysUrgency(averageDays.averageDays);
 
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-4 sm:gap-5">
       <div className="grid gap-1">
         <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">
           Home
         </h1>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          Track your financing request and next step.
+          Track credit capacity, repayments, and active loans.
         </p>
       </div>
 
-      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
-        <div className="grid gap-2">
-          {summary.label ? (
-            <p className="text-sm font-semibold text-[var(--accent)]">
-              {summary.label}
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.9fr)]">
+        <section className="grid gap-5 rounded-3xl bg-[#111827] px-4 py-5 text-white shadow-sm sm:px-5">
+          <div className="grid gap-1">
+            <p className="text-sm font-semibold text-white/70">
+              Financing overview
             </p>
-          ) : null}
-          <h2 className="text-2xl leading-tight font-semibold">
-            {loadState === "loading" ? "Loading your workspace..." : summary.title}
-          </h2>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {loadState === "loading" ? "Checking your profile and applications." : summary.description}
+            <h2 className="text-2xl leading-tight font-semibold">
+              {loadState === "loading"
+                ? "Loading your workspace..."
+                : "Your request capacity"}
+            </h2>
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-3">
+            <DashboardMetricBlock title="Available to Request">
+              {creditSummary ? (
+                <>
+                  <MoneyText
+                    value={creditSummary.availableCredit}
+                    className="text-2xl font-semibold text-white"
+                  />
+                  <p className="text-xs leading-5 text-white/65">
+                    {formatMoney(creditSummary.availableCredit)} available of{" "}
+                    {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                  </p>
+                  <DashboardProgressBar
+                    value={usedCreditRatio}
+                    trackClassName="bg-white/15"
+                    barClassName="bg-[#7dd3fc]"
+                  />
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-white/70">
+                  Complete your business profile to calculate your request limit.
+                </p>
+              )}
+            </DashboardMetricBlock>
+
+            <DashboardMetricBlock title="Due Within This Month">
+              <div className="flex items-end justify-between gap-3">
+                <MoneyText
+                  value={dueThisMonth.totalDue}
+                  className="text-2xl font-semibold text-white"
+                />
+                <span className={`text-xs font-semibold ${dueCapacityStatus.className}`}>
+                  {dueCapacityStatus.label}
+                </span>
+              </div>
+              <p className="text-xs leading-5 text-white/65">
+                {creditSummary && creditSummary.monthlyNetCashFlow > 0
+                  ? `Compared with ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
+                  : "No cashflow data"}
+              </p>
+              <DashboardProgressBar
+                value={dueCapacityRatio ?? 0}
+                trackClassName="bg-white/15"
+                barClassName={dueCapacityStatus.barClassName}
+              />
+            </DashboardMetricBlock>
+
+            <DashboardMetricBlock title="Average Time to Pay All Debts">
+              <p className="text-2xl font-semibold text-white">
+                {averageDays.averageDays === null
+                  ? "No unpaid debt"
+                  : averageDays.averageDays < 0
+                    ? "Overdue avg"
+                    : `${averageDays.averageDays} days avg`}
+              </p>
+              <p className="text-xs leading-5 text-white/65">
+                Based on unpaid installments
+              </p>
+              <DashboardProgressBar
+                value={averageDaysRatio}
+                trackClassName="bg-white/15"
+                barClassName={averageUrgency.barClassName}
+              />
+            </DashboardMetricBlock>
+          </div>
+        </section>
+
+        <DashboardPanel title="Due dates">
+          <div className="grid gap-4">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-[var(--muted-foreground)]">
+              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                <span key={day}>{day}</span>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1">
+              {calendarDays.map((day, index) =>
+                day ? (
+                  <div
+                    key={day.key}
+                    className={`grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold ${
+                      day.dueItems.length > 0
+                        ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        : day.isToday
+                          ? "border-[var(--primary)] bg-white text-[var(--foreground)]"
+                          : "border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)]"
+                    }`}
+                    title={
+                      day.dueItems.length > 0
+                        ? `${day.dueItems.length} repayment due`
+                        : undefined
+                    }
+                  >
+                    {day.day}
+                  </div>
+                ) : (
+                  <div key={`empty-${index}`} className="aspect-square min-h-10" />
+                ),
+              )}
+            </div>
+
+            <div className="grid gap-2">
+              <p className="text-sm font-semibold">Upcoming</p>
+              {dueUpcoming.length > 0 ? (
+                dueUpcoming.map((item) => (
+                  <div
+                    key={item.repayment.id}
+                    className="grid gap-2 rounded-2xl border border-[var(--border)] px-3 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
+                  >
+                    <div className="grid gap-1">
+                      <p className="font-semibold">
+                        Installment {item.repayment.installmentNumber}
+                      </p>
+                      <p className="text-[var(--muted-foreground)]">
+                        {formatMoney(item.repayment.amountDue)} ·{" "}
+                        {formatDateOnly(item.repayment.dueDate)}
+                      </p>
+                    </div>
+                    <RepaymentStatusPill status={item.repayment.status} />
+                  </div>
+                ))
+              ) : (
+                <EmptyState message="No unpaid due dates this month." />
+              )}
+            </div>
+          </div>
+        </DashboardPanel>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)]">
+        <div className="grid gap-4">
+          <DashboardPanel title="Profile completion">
+            <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
+              <ProgressRing value={profileCompletion.percentage} />
+              <div className="grid gap-2">
+                <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                  {profileCompletion.nextStep}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => onNavigate?.("profile")}
+                  className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+                >
+                  Open profile
+                </button>
+              </div>
+            </div>
+          </DashboardPanel>
+
+          <DashboardPanel title="Debt payment progress">
+            {debtProgress.totalDebt > 0 ? (
+              <div className="grid gap-4">
+                <div className="flex items-end justify-between gap-3">
+                  <div>
+                    <MoneyText
+                      value={debtProgress.totalPaid}
+                      className="text-2xl font-semibold"
+                    />
+                    <p className="text-sm text-[var(--muted-foreground)]">
+                      paid of {formatMoney(debtProgress.totalDebt)}
+                    </p>
+                  </div>
+                  <p className="text-lg font-semibold">
+                    {Math.round(debtProgress.percentComplete * 100)}% complete
+                  </p>
+                </div>
+                <DashboardProgressBar
+                  value={debtProgress.percentComplete}
+                  barClassName="bg-[var(--primary)]"
+                />
+              </div>
+            ) : (
+              <EmptyState message="Active loan progress will appear here." />
+            )}
+          </DashboardPanel>
+        </div>
+
+        <DashboardPanel
+          title="My Loans"
+          action={
+            activeLoans.length > 0 ? (
+              <button
+                type="button"
+                onClick={() => onNavigate?.("loans")}
+                className="text-sm font-semibold text-[var(--primary)]"
+              >
+                View in Loans
+              </button>
+            ) : null
+          }
+        >
+          {activeLoans.length > 0 ? (
+            <div className="grid gap-3">
+              {activeLoans.map((loan) => (
+                <DashboardLoanCard
+                  key={loan.id}
+                  loan={loan}
+                  onNavigate={onNavigate}
+                />
+              ))}
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              <EmptyState message="Accepted offers will appear here as active loans." />
+              <button
+                type="button"
+                onClick={() => onNavigate?.("offers")}
+                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+              >
+                Review offers
+              </button>
+            </div>
+          )}
+        </DashboardPanel>
+      </div>
+    </div>
+  );
+}
+
+type ActiveLoan = NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+type RepaymentScheduleItem = ActiveLoan["schedule"][number];
+type DashboardDueItem = {
+  loan: ActiveLoan;
+  repayment: RepaymentScheduleItem;
+};
+
+function DashboardPanel({
+  action = null,
+  children,
+  title,
+}: {
+  action?: ReactNode;
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function DashboardMetricBlock({
+  children,
+  title,
+}: {
+  children: ReactNode;
+  title: string;
+}) {
+  return (
+    <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.08] px-4 py-4">
+      <p className="text-sm font-semibold text-white/70">{title}</p>
+      {children}
+    </div>
+  );
+}
+
+function DashboardProgressBar({
+  barClassName = "bg-[var(--primary)]",
+  trackClassName = "bg-[var(--muted)]",
+  value,
+}: {
+  barClassName?: string;
+  trackClassName?: string;
+  value: number;
+}) {
+  return (
+    <div
+      className={`h-2.5 overflow-hidden rounded-full ${trackClassName}`}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamp(value, 0, 1) * 100)}
+    >
+      <div
+        className={`h-full rounded-full ${barClassName}`}
+        style={{ width: `${clamp(value, 0, 1) * 100}%` }}
+      />
+    </div>
+  );
+}
+
+function ProgressRing({ value }: { value: number }) {
+  const percentage = Math.round(clamp(value / 100, 0, 1) * 100);
+
+  return (
+    <div
+      className="grid size-32 place-items-center rounded-full"
+      style={{
+        background: `conic-gradient(var(--primary) ${percentage * 3.6}deg, var(--muted) 0deg)`,
+      }}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={percentage}
+    >
+      <div className="grid size-24 place-items-center rounded-full bg-white">
+        <span className="text-2xl font-semibold">{percentage}%</span>
+      </div>
+    </div>
+  );
+}
+
+function DashboardLoanCard({
+  loan,
+  onNavigate,
+}: {
+  loan: ActiveLoan;
+  onNavigate?: (tab: BorrowerTab) => void;
+}) {
+  const installmentProgress = getLoanInstallmentProgress(loan);
+
+  return (
+    <article className="grid gap-4 rounded-3xl border border-[var(--border)] px-4 py-4">
+      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+        <div className="grid gap-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-base font-semibold">Loan</h3>
+            <LoanStatusPill status={loan.status} />
+          </div>
+          <p className="text-sm text-[var(--muted-foreground)]">
+            Final due {formatDateOnly(loan.dueDate)}
           </p>
         </div>
         <button
           type="button"
-          onClick={() => onNavigate?.(summary.tab)}
-          disabled={loadState === "loading"}
-          className="inline-flex h-12 w-full items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70 sm:w-fit"
+          onClick={() => onNavigate?.("loans")}
+          className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
-          {summary.action}
+          View in Loans
         </button>
-      </section>
-
-      {creditSummary ? (
-        <CompactCreditStatusCard summary={creditSummary} />
-      ) : null}
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <SummaryCard
-          label="Application"
-          value={
-            latestApplication
-              ? formatApplicationStatus(latestApplication.status)
-              : "Draft"
-          }
-        />
-        <SummaryCard
-          label="Loan"
-          value={
-            latestActiveLoan
-              ? formatLoanStatus(latestActiveLoan.status)
-              : getOfferSummary(applications, pendingOfferCount)
-          }
-        />
       </div>
-    </div>
+
+      <dl className="grid gap-3 text-sm sm:grid-cols-2">
+        <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
+        <SummaryItem
+          label="Outstanding"
+          value={formatMoney(loan.outstandingBalance)}
+        />
+      </dl>
+
+      <div className="grid gap-2">
+        <div className="flex items-center justify-between gap-3 text-sm">
+          <p className="font-semibold">
+            {installmentProgress.completed}/{installmentProgress.total} installments
+            complete
+          </p>
+          <p className="text-[var(--muted-foreground)]">
+            {Math.round(installmentProgress.ratio * 100)}%
+          </p>
+        </div>
+        <DashboardProgressBar value={installmentProgress.ratio} />
+      </div>
+
+      {installmentProgress.nextRepayment ? (
+        <div className="grid gap-1 rounded-2xl bg-[var(--muted)] px-3 py-3 text-sm">
+          <p className="font-semibold">Next unpaid installment</p>
+          <p className="text-[var(--muted-foreground)]">
+            Installment {installmentProgress.nextRepayment.installmentNumber} ·{" "}
+            {formatMoney(installmentProgress.nextRepayment.amountDue)} · Due{" "}
+            {formatDateOnly(installmentProgress.nextRepayment.dueDate)}
+          </p>
+        </div>
+      ) : null}
+    </article>
   );
+}
+
+function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
+  return applications.flatMap((application) =>
+    application.activeLoan ? [application.activeLoan] : [],
+  );
+}
+
+function getThisMonthDue(activeLoans: ActiveLoan[]) {
+  const today = new Date();
+  const dueItems = activeLoans
+    .flatMap((loan) =>
+      loan.schedule.map((repayment) => ({ loan, repayment })),
+    )
+    .filter(
+      ({ repayment }) =>
+        isSameMonth(repayment.dueDate, today) && !isRepaymentVerified(repayment),
+    );
+
+  return {
+    dueItems,
+    totalDue: dueItems.reduce(
+      (total, item) => total + item.repayment.amountDue,
+      0,
+    ),
+  };
+}
+
+function getAverageDaysToPay(activeLoans: ActiveLoan[]) {
+  const today = startOfLocalDay(new Date());
+  const unpaidRepayments = activeLoans
+    .flatMap((loan) => loan.schedule)
+    .filter((repayment) => !isRepaymentVerified(repayment));
+
+  if (unpaidRepayments.length === 0) {
+    return { averageDays: null, count: 0 };
+  }
+
+  const totalDays = unpaidRepayments.reduce((total, repayment) => {
+    const dueDate = parseDateOnly(repayment.dueDate);
+    const days = Math.ceil(
+      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+    );
+
+    return total + days;
+  }, 0);
+
+  return {
+    averageDays: Math.round(totalDays / unpaidRepayments.length),
+    count: unpaidRepayments.length,
+  };
+}
+
+function getDebtProgress(activeLoans: ActiveLoan[]) {
+  const totalDebt = activeLoans.reduce(
+    (total, loan) => total + loan.repaymentAmount,
+    0,
+  );
+  const totalOutstanding = activeLoans.reduce(
+    (total, loan) => total + loan.outstandingBalance,
+    0,
+  );
+  const totalPaid = Math.max(totalDebt - totalOutstanding, 0);
+
+  return {
+    percentComplete: getProgressRatio(totalPaid, totalDebt),
+    totalDebt,
+    totalOutstanding,
+    totalPaid,
+  };
+}
+
+function getLoanInstallmentProgress(loan: ActiveLoan) {
+  const completed = loan.schedule.filter(isRepaymentVerified).length;
+  const total = loan.schedule.length;
+
+  return {
+    completed,
+    nextRepayment: getNextRepayment(loan.schedule),
+    ratio: getProgressRatio(completed, total),
+    total,
+  };
+}
+
+function getProfileCompletion({
+  borrowerVerification,
+  consentStatuses,
+  creditSummary,
+  hasPortfolio,
+  readiness,
+}: {
+  borrowerVerification: BorrowerVerificationSummary | null;
+  consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
+  creditSummary: BorrowerCreditSummary | null;
+  hasPortfolio: boolean;
+  readiness: BorrowerReadinessResult | null;
+}) {
+  const verificationComplete =
+    borrowerVerification?.status === "approved" &&
+    borrowerVerification.documentPolicy.documentsAccepted;
+  const loanConsentCurrent =
+    consentStatuses?.borrowerLoanApplication.isCurrent ?? false;
+  const percentage =
+    (hasPortfolio ? 50 : 0) +
+    (verificationComplete ? 30 : 0) +
+    (loanConsentCurrent ? 10 : 0) +
+    (creditSummary ? 10 : 0);
+
+  const readinessNextStep = readiness?.nextActions[0];
+  const nextStep = !hasPortfolio
+    ? "Save your business profile to unlock financing."
+    : !verificationComplete
+      ? "Complete borrower verification before applying."
+      : !loanConsentCurrent
+        ? "Accept the current loan application consent."
+        : !creditSummary
+          ? "Update your business profile to calculate your request limit."
+          : readinessNextStep ?? "Your profile is ready for financing requests.";
+
+  return {
+    nextStep,
+    percentage: Math.min(percentage, 100),
+  };
+}
+
+function getCalendarDaysWithDueDates(activeLoans: ActiveLoan[]) {
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const firstDay = new Date(year, month, 1);
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const days: (null | {
+    day: number;
+    dueItems: DashboardDueItem[];
+    isToday: boolean;
+    key: string;
+  })[] = Array.from({ length: firstDay.getDay() }, () => null);
+  const dueItemsByDay = new Map<number, DashboardDueItem[]>();
+
+  for (const loan of activeLoans) {
+    for (const repayment of loan.schedule) {
+      const dueDate = parseDateOnly(repayment.dueDate);
+
+      if (
+        dueDate.getFullYear() === year &&
+        dueDate.getMonth() === month &&
+        !isRepaymentVerified(repayment)
+      ) {
+        const day = dueDate.getDate();
+        const current = dueItemsByDay.get(day) ?? [];
+        current.push({ loan, repayment });
+        dueItemsByDay.set(day, current);
+      }
+    }
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    days.push({
+      day,
+      dueItems: dueItemsByDay.get(day) ?? [],
+      isToday: day === today.getDate(),
+      key: `${year}-${month + 1}-${day}`,
+    });
+  }
+
+  return days;
+}
+
+function getUpcomingDueItems(activeLoans: ActiveLoan[]) {
+  const thisMonthDue = getThisMonthDue(activeLoans).dueItems;
+
+  return thisMonthDue
+    .sort(
+      (left, right) =>
+        parseDateOnly(left.repayment.dueDate).getTime() -
+        parseDateOnly(right.repayment.dueDate).getTime(),
+    )
+    .slice(0, 4);
+}
+
+function getDueCapacityStatus(ratio: number | null) {
+  if (ratio === null) {
+    return {
+      barClassName: "bg-white/35",
+      className: "text-white/65",
+      label: "No cashflow data",
+    };
+  }
+
+  if (ratio > 0.7) {
+    return {
+      barClassName: "bg-[#f87171]",
+      className: "text-[#fecaca]",
+      label: "Danger",
+    };
+  }
+
+  if (ratio > 0.4) {
+    return {
+      barClassName: "bg-[#facc15]",
+      className: "text-[#fde68a]",
+      label: "Caution",
+    };
+  }
+
+  return {
+    barClassName: "bg-[#34d399]",
+    className: "text-[#bbf7d0]",
+    label: "Safe",
+  };
+}
+
+function getAverageDaysUrgency(averageDays: number | null) {
+  if (averageDays === null) {
+    return { barClassName: "bg-white/35" };
+  }
+
+  if (averageDays <= 7) {
+    return { barClassName: "bg-[#f87171]" };
+  }
+
+  if (averageDays <= 14) {
+    return { barClassName: "bg-[#facc15]" };
+  }
+
+  return { barClassName: "bg-[#34d399]" };
+}
+
+function isRepaymentVerified(repayment: RepaymentScheduleItem) {
+  return (
+    repayment.status === "verified" ||
+    repayment.latestProof?.status === "verified"
+  );
+}
+
+function getProgressRatio(value: number, total: number) {
+  if (total <= 0) {
+    return 0;
+  }
+
+  return clamp(value / total, 0, 1);
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function getDaysInCurrentMonth() {
+  const today = new Date();
+
+  return new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+}
+
+function isSameMonth(dateValue: string, target: Date) {
+  const date = parseDateOnly(dateValue);
+
+  return (
+    date.getFullYear() === target.getFullYear() &&
+    date.getMonth() === target.getMonth()
+  );
+}
+
+function parseDateOnly(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function startOfLocalDay(value: Date) {
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate());
 }
 
 function ApplicationForm({
@@ -1344,17 +1980,6 @@ function SectionHeader({
   );
 }
 
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs font-semibold tracking-[0.12em] text-[var(--muted-foreground)] uppercase">
-        {label}
-      </p>
-      <p className="mt-1 text-lg font-semibold capitalize">{value}</p>
-    </div>
-  );
-}
-
 function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
@@ -1865,75 +2490,6 @@ function ApplicationEditForm({
   );
 }
 
-function getHomeSummary(
-  hasPortfolio: boolean,
-  applications: BorrowerLoanApplicationSummary[],
-) {
-  const hasApplication = applications.length > 0;
-  const hasPendingOffer = applications.some((application) =>
-    application.offers.some((offer) => offer.status === "pending"),
-  );
-  const hasAcceptedOffer = applications.some((application) =>
-    application.offers.some((offer) => offer.status === "accepted"),
-  );
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
-  const activeLoanAction = getActiveLoanHomeAction(activeLoans);
-
-  if (!hasPortfolio) {
-    return {
-      action: "Complete profile",
-      description: "Complete your business profile to apply.",
-      label: "",
-      tab: "profile",
-      title: "Complete your profile",
-    } satisfies HomeSummaryContent;
-  }
-
-  if (hasPendingOffer) {
-    return {
-      action: "Review offers",
-      description: "You have pending offers to review.",
-      label: "",
-      tab: "offers",
-      title: "Offer available",
-    } satisfies HomeSummaryContent;
-  }
-
-  if (activeLoanAction) {
-    return activeLoanAction;
-  }
-
-  if (hasAcceptedOffer) {
-    return {
-      action: "View offer",
-      description: "Your application has been accepted.",
-      label: "Status",
-      tab: "offers",
-      title: "Offer accepted",
-    } satisfies HomeSummaryContent;
-  }
-
-  if (hasApplication) {
-    return {
-      action: "View application",
-      description: "Your application is submitted. Offers will appear when lenders respond.",
-      label: "",
-      tab: "apply",
-      title: "Application submitted",
-    } satisfies HomeSummaryContent;
-  }
-
-  return {
-    action: "Start application",
-    description: "Your profile is ready. Submit a loan application.",
-    label: "",
-    tab: "apply",
-    title: "Ready to apply",
-  } satisfies HomeSummaryContent;
-}
-
 function formatLoanStatus(status: string) {
   if (status === "active") {
     return "Active loan";
@@ -1956,100 +2512,6 @@ function formatLoanStatus(status: string) {
   }
 
   return status;
-}
-
-function getActiveLoanHomeAction(
-  loans: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>[],
-) {
-  const rejected = loans
-    .flatMap((loan) => loan.schedule)
-    .find((repayment) => repayment.latestProof?.status === "rejected");
-
-  if (rejected) {
-    return {
-      action: "Go to loan",
-      description:
-        rejected.latestProof?.reviewNotes ||
-        "Upload a corrected proof for lender review.",
-      label: "",
-      tab: "loans",
-      title: "Proof rejected",
-    } satisfies HomeSummaryContent;
-  }
-
-  const due = loans
-    .flatMap((loan) => loan.schedule)
-    .find((repayment) => repayment.status === "due" || repayment.status === "late");
-
-  if (due) {
-    return {
-      action: "Go to loan",
-      description: "Upload proof for your repayment.",
-      label: "",
-      tab: "loans",
-      title: due.status === "late" ? "Repayment late" : "Repayment due",
-    } satisfies HomeSummaryContent;
-  }
-
-  const submitted = loans
-    .flatMap((loan) => loan.schedule)
-    .find(
-      (repayment) =>
-        repayment.status === "submitted" ||
-        repayment.latestProof?.status === "submitted",
-    );
-
-  if (submitted) {
-    return {
-      action: "View loan",
-      description: "Your lender is reviewing the submitted proof.",
-      label: "",
-      tab: "loans",
-      title: "Proof under review",
-    } satisfies HomeSummaryContent;
-  }
-
-  const paidLoan = loans.find((loan) => loan.status === "paid");
-
-  if (paidLoan) {
-    return {
-      action: "View loan",
-      description: "Your repayment has been verified.",
-      label: "",
-      tab: "loans",
-      title: "Loan paid",
-    } satisfies HomeSummaryContent;
-  }
-
-  const verified = loans
-    .flatMap((loan) => loan.schedule)
-    .find(
-      (repayment) =>
-        repayment.status === "verified" ||
-        repayment.latestProof?.status === "verified",
-    );
-
-  if (verified) {
-    return {
-      action: "View loan",
-      description: "Your repayment proof has been verified.",
-      label: "",
-      tab: "loans",
-      title: "Payment verified",
-    } satisfies HomeSummaryContent;
-  }
-
-  if (loans.length > 0) {
-    return {
-      action: "View loan",
-      description: "Your accepted offer is now an active loan.",
-      label: "",
-      tab: "loans",
-      title: "Active loan",
-    } satisfies HomeSummaryContent;
-  }
-
-  return null;
 }
 
 function formatRepaymentStatus(status: string) {
@@ -2205,19 +2667,13 @@ function getNextRepayment(
   schedule: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"],
 ) {
   return (
-    schedule.find((repayment) =>
-      ["due", "late", "rejected", "submitted"].includes(repayment.status),
+    schedule.find(
+      (repayment) =>
+        !isRepaymentVerified(repayment) &&
+        ["due", "late", "rejected", "submitted"].includes(repayment.status),
     ) ?? null
   );
 }
-
-type HomeSummaryContent = {
-  action: string;
-  description: string;
-  label: string;
-  tab: BorrowerTab;
-  title: string;
-};
 
 function formatApplicationStatus(status: string) {
   if (status === "submitted" || status === "open") {
@@ -2233,25 +2689,6 @@ function formatApplicationStatus(status: string) {
   }
 
   return status;
-}
-
-function getOfferSummary(
-  applications: BorrowerLoanApplicationSummary[],
-  pendingOfferCount: number,
-) {
-  const hasAcceptedOffer = applications.some((application) =>
-    application.offers.some((offer) => offer.status === "accepted"),
-  );
-
-  if (hasAcceptedOffer) {
-    return "Accepted";
-  }
-
-  if (pendingOfferCount > 0) {
-    return "Pending";
-  }
-
-  return "None";
 }
 
 function getDefaultExpandedApplicationIds(
