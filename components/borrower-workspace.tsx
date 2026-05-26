@@ -28,7 +28,15 @@ import {
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 
-type ProfileMode = "summary" | "edit" | "verification";
+type ProfileMode =
+  | "index"
+  | "edit"
+  | "business"
+  | "financial"
+  | "loanPurpose"
+  | "verification"
+  | "account"
+  | "support";
 type PortfolioLoadState = "loading" | "ready" | "empty" | "error";
 
 type BorrowerWorkspaceProps = {
@@ -41,7 +49,8 @@ export function BorrowerWorkspace({
   initialLoanApplications = null,
 }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
-  const [profileMode, setProfileMode] = useState<ProfileMode>("summary");
+  const [profileMode, setProfileMode] = useState<ProfileMode>("index");
+  const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
   const [portfolioLoadState, setPortfolioLoadState] =
     useState<PortfolioLoadState>("loading");
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
@@ -108,7 +117,7 @@ export function BorrowerWorkspace({
   function changeTab(tab: BorrowerTab) {
     setActiveTab(tab);
     if (tab !== "profile") {
-      setProfileMode("summary");
+      setProfileMode("index");
     }
   }
 
@@ -143,7 +152,8 @@ export function BorrowerWorkspace({
     };
   }, [activeTab, startTransition]);
 
-  function openProfileEdit() {
+  function openProfileEdit(returnMode: ProfileMode = "index") {
+    setEditReturnMode(returnMode);
     setProfileMode("edit");
     requestAnimationFrame(() => {
       document
@@ -156,115 +166,65 @@ export function BorrowerWorkspace({
     setPortfolio(savedPortfolio);
     setPortfolioLoadState("ready");
     setPortfolioMessage("");
-    setProfileMode("summary");
+    setProfileMode(editReturnMode);
   }
 
   return (
     <div className="grid gap-5 pb-28 sm:pb-32">
-      <header className="flex min-h-10 items-center justify-between gap-4">
-        <p className="text-sm font-semibold text-[var(--foreground)]">
-          LendFolio
-        </p>
-        <div className="flex items-center gap-2">
-          <NotificationButton />
-          <button
-            type="button"
-            aria-label="Open profile"
-            onClick={() => changeTab("profile")}
-            className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="size-5"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21a8 8 0 0 1 16 0" />
-            </svg>
-          </button>
-        </div>
-      </header>
-
-      {activeTab === "profile" ? (
-        <section className="grid gap-4">
-          <div className="grid gap-3">
+      {activeTab === "profile" ? null : (
+        <header className="flex min-h-10 items-center justify-between gap-4">
+          <p className="text-sm font-semibold text-[var(--foreground)]">
+            LendFolio
+          </p>
+          <div className="flex items-center gap-2">
+            <NotificationButton />
             <button
               type="button"
-              onClick={() => changeTab("home")}
-              className="inline-flex h-10 w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+              aria-label="Open profile"
+              onClick={() => changeTab("profile")}
+              className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
             >
               <svg
                 aria-hidden="true"
                 viewBox="0 0 24 24"
-                className="size-4"
+                className="size-5"
                 fill="none"
                 stroke="currentColor"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 strokeWidth="2"
               >
-                <path d="m15 18-6-6 6-6" />
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 21a8 8 0 0 1 16 0" />
               </svg>
-              Back
             </button>
-            <SectionHeader
-              title={profileMode === "edit" ? "Edit profile" : "Profile"}
-              description={
-                profileMode === "edit"
-                  ? "Update the essentials lenders use to review your business."
-                  : "Review your business, verification, and account settings."
-              }
-            />
           </div>
+        </header>
+      )}
+
+      {activeTab === "profile" ? (
+        <section className="grid gap-4">
           {profileMode === "edit" ? (
             <div id="business-profile-edit">
+              <ProfileSubviewHeader
+                title="Edit Profile"
+                onBack={() => setProfileMode(editReturnMode)}
+              />
               <BorrowerPortfolioForm
-                onCancel={() => setProfileMode("summary")}
+                onCancel={() => setProfileMode(editReturnMode)}
                 onSaved={handlePortfolioSaved}
               />
             </div>
-          ) : profileMode === "verification" ? (
-            <section className="grid gap-3" aria-label="Verification details">
-              <button
-                type="button"
-                onClick={() => setProfileMode("summary")}
-                className="inline-flex h-10 w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-              >
-                <svg
-                  aria-hidden="true"
-                  viewBox="0 0 24 24"
-                  className="size-4"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
-                Profile summary
-              </button>
-              <BorrowerVerificationDocumentsPanel
-                verification={initialLoanApplications?.borrowerVerification ?? null}
-                consentStatus={
-                  initialLoanApplications?.consentStatuses
-                    ?.borrowerDocumentUpload ?? null
-                }
-              />
-            </section>
           ) : (
             <BorrowerProfileHub
               accountEmail={accountEmail}
+              activeView={profileMode}
               creditSummary={creditSummary}
               loadState={portfolioLoadState}
               message={portfolioMessage}
               onEditProfile={openProfileEdit}
-              onManageVerification={() => setProfileMode("verification")}
+              onNavigateHome={() => changeTab("home")}
+              onProfileViewChange={setProfileMode}
               portfolio={portfolio}
               readiness={readiness}
               result={initialLoanApplications}
@@ -286,21 +246,25 @@ export function BorrowerWorkspace({
 
 function BorrowerProfileHub({
   accountEmail,
+  activeView,
   creditSummary,
   loadState,
   message,
   onEditProfile,
-  onManageVerification,
+  onNavigateHome,
+  onProfileViewChange,
   portfolio,
   readiness,
   result,
 }: {
   accountEmail: string;
+  activeView: ProfileMode;
   creditSummary: BorrowerCreditSummary | null;
   loadState: PortfolioLoadState;
   message: string;
-  onEditProfile: () => void;
-  onManageVerification: () => void;
+  onEditProfile: (returnMode?: ProfileMode) => void;
+  onNavigateHome: () => void;
+  onProfileViewChange: (view: ProfileMode) => void;
   portfolio: BorrowerPortfolioInput | null;
   readiness: BorrowerReadinessResult | null;
   result: LoanApplicationsLoadResult | null;
@@ -311,187 +275,375 @@ function BorrowerProfileHub({
     verification && verification.status !== "missing"
       ? borrowerVerificationStatusLabels[verification.status]
       : "Not started";
-  const verificationDetail =
-    verification?.status === "approved"
-      ? "Borrower verification is approved."
-      : verification?.documentPolicy.missingRequiredDocumentTypes.length
-        ? "Upload required documents for review."
-        : "Manage borrower verification documents.";
+  const displayName =
+    portfolio?.businessName.trim() || accountEmail || "Borrower profile";
+
+  if (activeView === "business") {
+    return (
+      <ProfileSubview title="Business Details" onBack={() => onProfileViewChange("index")}>
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          onAction={() => onEditProfile("business")}
+        >
+          <ProfileSummaryRow
+            label="Business name"
+            value={portfolio?.businessName || "Not provided"}
+          />
+          <ProfileSummaryRow
+            label="Business type"
+            value={
+              portfolio ? businessTypeLabels[portfolio.businessType] : "Not provided"
+            }
+          />
+          <ProfileSummaryRow
+            label="Business location"
+            value={portfolio?.location || "Not provided"}
+          />
+          <ProfileSummaryRow
+            label="Years in operation"
+            value={
+              portfolio
+                ? formatYearsInOperation(portfolio.yearsInOperation)
+                : "Not provided"
+            }
+          />
+        </ProfileDetailCard>
+      </ProfileSubview>
+    );
+  }
+
+  if (activeView === "financial") {
+    return (
+      <ProfileSubview title="Financial Snapshot" onBack={() => onProfileViewChange("index")}>
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          onAction={() => onEditProfile("financial")}
+        >
+          <ProfileSummaryRow
+            label="Monthly gross revenue"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.monthlyGrossRevenue)
+                : "Not provided"
+            }
+          />
+          <ProfileSummaryRow
+            label="Monthly expenses"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.monthlyExpenses)
+                : "Not provided"
+            }
+          />
+          <ProfileSummaryRow
+            label="Existing monthly loan payments"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.existingLoanPayments)
+                : "Not provided"
+            }
+          />
+          <ProfileSummaryRow
+            label="Available credit"
+            value={
+              creditSummary
+                ? formatCreditAmount(creditSummary.availableCredit)
+                : "Not available"
+            }
+          />
+          <ProfileSummaryRow
+            label="Profile readiness"
+            value={readiness ? formatReadinessStatus(readiness.readinessStatus) : "Not available"}
+          />
+        </ProfileDetailCard>
+        {readiness?.nextActions.length ? (
+          <p className="rounded-2xl bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
+            {readiness.nextActions[0]}
+          </p>
+        ) : null}
+      </ProfileSubview>
+    );
+  }
+
+  if (activeView === "loanPurpose") {
+    return (
+      <ProfileSubview title="Loan Purpose" onBack={() => onProfileViewChange("index")}>
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add purpose"}
+          onAction={() => onEditProfile("loanPurpose")}
+        >
+          <p className="text-sm leading-6 text-[var(--foreground)]">
+            {portfolio?.loanPurposeContext || "Not provided"}
+          </p>
+        </ProfileDetailCard>
+      </ProfileSubview>
+    );
+  }
+
+  if (activeView === "verification") {
+    return (
+      <ProfileSubview title="Verification" onBack={() => onProfileViewChange("index")}>
+        <BorrowerVerificationDocumentsPanel
+          verification={result?.borrowerVerification ?? null}
+          consentStatus={result?.consentStatuses?.borrowerDocumentUpload ?? null}
+        />
+      </ProfileSubview>
+    );
+  }
+
+  if (activeView === "account") {
+    return (
+      <ProfileSubview title="Account & Security" onBack={() => onProfileViewChange("index")}>
+        <AccountSection email={accountEmail} />
+      </ProfileSubview>
+    );
+  }
+
+  if (activeView === "support") {
+    return (
+      <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
+        <section className="grid gap-3 rounded-3xl bg-white px-5 py-5 shadow-sm">
+          <h3 className="text-base font-semibold">Support</h3>
+          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            For questions about your borrower profile, verification, or loan
+            applications, contact LendFolio support through your registered
+            account email.
+          </p>
+        </section>
+      </ProfileSubview>
+    );
+  }
 
   return (
-    <div className="grid gap-4">
-      <section className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid min-w-0 flex-1 gap-2">
-            <StatusPill tone={status.tone}>{status.label}</StatusPill>
-            <div className="grid gap-1">
-              <h3 className="text-lg leading-tight font-semibold">
-                {status.title}
-              </h3>
-              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-                {status.description}
-              </p>
-            </div>
-          </div>
-          {status.actionLabel ? (
-            <button
-              type="button"
-              onClick={onEditProfile}
-              className="inline-flex h-10 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-            >
-              {status.actionLabel}
-            </button>
-          ) : null}
-        </div>
-        {creditSummary ? (
-          <div className="grid gap-1 rounded-2xl border border-[var(--border)] bg-[var(--background)] px-4 py-3">
-            <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-              Available to request
-            </p>
-            <p className="text-2xl font-semibold tabular-nums">
-              {formatCreditAmount(creditSummary.availableCredit)}
-            </p>
-          </div>
-        ) : null}
-      </section>
+    <div className="grid gap-5">
+      <ProfileIndexHeader
+        email={accountEmail}
+        displayName={displayName}
+        onBack={onNavigateHome}
+        onEditProfile={() => onEditProfile("index")}
+      />
 
       {loadState === "loading" ? (
         <ProfileHubSkeleton />
       ) : loadState === "error" ? (
         <section
-          className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 text-sm leading-6 text-[var(--muted-foreground)] shadow-sm"
+          className="rounded-3xl bg-white px-5 py-5 text-sm leading-6 text-[var(--muted-foreground)] shadow-sm"
           role="alert"
         >
           {message || "Could not load your profile."}
         </section>
       ) : (
-        <div className="grid gap-3">
-          <ProfileSummarySection
-            actionLabel={portfolio ? "Edit" : "Add"}
-            onAction={onEditProfile}
-            title="Business details"
-          >
-            <ProfileSummaryRow
-              label="Business name"
-              value={portfolio?.businessName || "Not provided"}
-            />
-            <ProfileSummaryRow
-              label="Business type"
-              value={
-                portfolio
-                  ? businessTypeLabels[portfolio.businessType]
-                  : "Not provided"
-              }
-            />
-            <ProfileSummaryRow
-              label="Business location"
-              value={portfolio?.location || "Not provided"}
-            />
-            <ProfileSummaryRow
-              label="Years in operation"
-              value={
-                portfolio
-                  ? formatYearsInOperation(portfolio.yearsInOperation)
-                  : "Not provided"
-              }
-            />
-          </ProfileSummarySection>
-
-          <ProfileSummarySection
-            actionLabel={portfolio ? "Edit" : "Add"}
-            onAction={onEditProfile}
-            title="Financial snapshot"
-          >
-            <ProfileSummaryRow
-              label="Monthly gross revenue"
-              value={
-                portfolio
-                  ? formatCreditAmount(portfolio.monthlyGrossRevenue)
-                  : "Not provided"
-              }
-            />
-            <ProfileSummaryRow
-              label="Monthly expenses"
-              value={
-                portfolio
-                  ? formatCreditAmount(portfolio.monthlyExpenses)
-                  : "Not provided"
-              }
-            />
-            <ProfileSummaryRow
-              label="Existing monthly loan payments"
-              value={
-                portfolio
-                  ? formatCreditAmount(portfolio.existingLoanPayments)
-                  : "Not provided"
-              }
-            />
-          </ProfileSummarySection>
-
-          <ProfileSummarySection
-            actionLabel={portfolio ? "Edit" : "Add"}
-            onAction={onEditProfile}
-            title="Loan purpose"
-          >
-            <p className="text-sm leading-6 text-[var(--foreground)]">
-              {portfolio?.loanPurposeContext || "Not provided"}
-            </p>
-          </ProfileSummarySection>
-
-          <ProfileSummarySection
-            actionLabel="Manage"
-            onAction={onManageVerification}
-            title="Verification"
-          >
-            <ProfileSummaryRow label="Status" value={verificationLabel} />
-            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-              {verificationDetail}
-            </p>
-          </ProfileSummarySection>
-        </div>
+        <section className="overflow-hidden rounded-3xl bg-white shadow-sm">
+          <ProfileMenuRow
+            icon="briefcase"
+            label="Business Details"
+            subtitle={portfolio?.businessName || "Business basics and location"}
+            onClick={() => onProfileViewChange("business")}
+          />
+          <ProfileMenuRow
+            icon="chart"
+            label="Financial Snapshot"
+            subtitle={
+              creditSummary
+                ? `${formatCreditAmount(creditSummary.availableCredit)} available`
+                : "Revenue, expenses, and readiness"
+            }
+            onClick={() => onProfileViewChange("financial")}
+          />
+          <ProfileMenuRow
+            icon="target"
+            label="Loan Purpose"
+            subtitle="How financing would support the business"
+            onClick={() => onProfileViewChange("loanPurpose")}
+          />
+          <ProfileMenuRow
+            icon="shield"
+            label="Verification"
+            subtitle={verificationLabel}
+            onClick={() => onProfileViewChange("verification")}
+          />
+          <ProfileMenuRow
+            icon="lock"
+            label="Account & Security"
+            subtitle={accountEmail || "Signed in"}
+            onClick={() => onProfileViewChange("account")}
+          />
+          <ProfileMenuRow
+            icon="help"
+            label="Help & Support"
+            subtitle="Get help with borrower account questions"
+            onClick={() => onProfileViewChange("support")}
+          />
+          <form action={signOutAction}>
+            <ProfileMenuRow icon="logout" label="Log out" submit />
+          </form>
+        </section>
       )}
-      <AccountSection email={accountEmail} />
+
+      <section className="rounded-3xl bg-white px-5 py-4 shadow-sm">
+        <StatusPill tone={status.tone}>{status.label}</StatusPill>
+        <h3 className="mt-3 text-base font-semibold">{status.title}</h3>
+        <p className="mt-1 text-sm leading-6 text-[var(--muted-foreground)]">
+          {status.description}
+        </p>
+      </section>
     </div>
   );
 }
 
-function ProfileSummarySection({
+function ProfileIndexHeader({
+  displayName,
+  email,
+  onBack,
+  onEditProfile,
+}: {
+  displayName: string;
+  email: string;
+  onBack: () => void;
+  onEditProfile: () => void;
+}) {
+  return (
+    <section className="grid gap-5 bg-[var(--background)]">
+      <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
+        <button
+          type="button"
+          aria-label="Back to Home"
+          onClick={onBack}
+          className="inline-flex size-10 items-center justify-center rounded-full bg-white text-[var(--foreground)] shadow-sm transition hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          <ProfileIcon name="back" className="size-5" />
+        </button>
+        <h2 className="text-center text-lg font-semibold">Profile</h2>
+      </div>
+
+      <div className="grid justify-items-center gap-3 text-center">
+        <div className="grid size-24 place-items-center rounded-full bg-white text-2xl font-semibold text-[var(--foreground)] shadow-sm">
+          {getInitials(displayName)}
+        </div>
+        <div className="grid max-w-full gap-1">
+          <h3 className="max-w-full truncate text-xl font-semibold">
+            {displayName}
+          </h3>
+          <p className="max-w-full truncate text-sm text-[var(--muted-foreground)]">
+            {email || "Signed in"}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onEditProfile}
+          className="mt-1 inline-flex h-12 min-w-44 items-center justify-center rounded-full bg-black px-6 text-sm font-semibold text-white transition hover:bg-[#171717] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-black"
+        >
+          Edit Profile
+        </button>
+      </div>
+    </section>
+  );
+}
+
+function ProfileSubview({
+  children,
+  onBack,
+  title,
+}: {
+  children: ReactNode;
+  onBack: () => void;
+  title: string;
+}) {
+  return (
+    <section className="grid gap-4">
+      <ProfileSubviewHeader title={title} onBack={onBack} />
+      {children}
+    </section>
+  );
+}
+
+function ProfileSubviewHeader({
+  onBack,
+  title,
+}: {
+  onBack: () => void;
+  title: string;
+}) {
+  return (
+    <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
+      <button
+        type="button"
+        aria-label="Back to Profile"
+        onClick={onBack}
+        className="inline-flex size-10 items-center justify-center rounded-full bg-white text-[var(--foreground)] shadow-sm transition hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+      >
+        <ProfileIcon name="back" className="size-5" />
+      </button>
+      <h2 className="text-center text-lg font-semibold">{title}</h2>
+    </div>
+  );
+}
+
+function ProfileDetailCard({
   actionLabel,
   children,
   onAction,
-  title,
 }: {
   actionLabel: string;
   children: ReactNode;
   onAction: () => void;
-  title: string;
 }) {
   return (
-    <section className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
-      <div className="flex items-center justify-between gap-3">
-        <h3 className="text-base font-semibold">{title}</h3>
+    <section className="grid gap-3 rounded-3xl bg-white px-5 py-5 shadow-sm">
+      <div className="flex justify-end">
         <button
           type="button"
           onClick={onAction}
-          className="inline-flex h-9 items-center gap-1 rounded-full border border-[var(--border)] bg-white px-3 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          className="inline-flex h-10 items-center gap-1 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
         >
           {actionLabel}
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="size-4"
-            fill="none"
-            stroke="currentColor"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth="2"
-          >
-            <path d="m9 18 6-6-6-6" />
-          </svg>
+          <ProfileIcon name="chevron" className="size-4" />
         </button>
       </div>
       <div className="grid gap-2">{children}</div>
     </section>
+  );
+}
+
+function ProfileMenuRow({
+  icon,
+  label,
+  onClick,
+  submit = false,
+  subtitle,
+}: {
+  icon: ProfileIconName;
+  label: string;
+  onClick?: () => void;
+  submit?: boolean;
+  subtitle?: string;
+}) {
+  return (
+    <button
+      type={submit ? "submit" : "button"}
+      onClick={onClick}
+      className="grid min-h-16 w-full grid-cols-[2.5rem_1fr_1.5rem] items-center gap-3 border-b border-[var(--border)] px-4 py-3 text-left last:border-b-0 transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--primary)]"
+    >
+      <span className="grid size-10 place-items-center rounded-full bg-[var(--background)] text-[var(--foreground)]">
+        <ProfileIcon name={icon} className="size-5" />
+      </span>
+      <span className="grid min-w-0 gap-0.5">
+        <span className="text-sm font-semibold text-[var(--foreground)]">
+          {label}
+        </span>
+        {subtitle ? (
+          <span className="truncate text-xs text-[var(--muted-foreground)]">
+            {subtitle}
+          </span>
+        ) : null}
+      </span>
+      {submit ? null : (
+        <ProfileIcon
+          name="chevron"
+          className="size-5 justify-self-end text-[var(--muted-foreground)]"
+        />
+      )}
+    </button>
   );
 }
 
@@ -511,6 +663,98 @@ function ProfileSummaryRow({
         {value}
       </p>
     </div>
+  );
+}
+
+type ProfileIconName =
+  | "back"
+  | "briefcase"
+  | "chart"
+  | "chevron"
+  | "help"
+  | "lock"
+  | "logout"
+  | "shield"
+  | "target";
+
+function ProfileIcon({
+  className,
+  name,
+}: {
+  className: string;
+  name: ProfileIconName;
+}) {
+  const paths: Record<ProfileIconName, ReactNode> = {
+    back: <path d="m15 18-6-6 6-6" />,
+    briefcase: (
+      <>
+        <path d="M10 6h4" />
+        <path d="M9 6a3 3 0 0 1 6 0" />
+        <path d="M4 8h16v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z" />
+        <path d="M4 13h16" />
+      </>
+    ),
+    chart: (
+      <>
+        <path d="M4 19V5" />
+        <path d="M4 19h16" />
+        <path d="M8 16v-5" />
+        <path d="M12 16V8" />
+        <path d="M16 16v-3" />
+      </>
+    ),
+    chevron: <path d="m9 18 6-6-6-6" />,
+    help: (
+      <>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M9.5 9a2.8 2.8 0 1 1 4.8 2c-.9.8-1.3 1.2-1.3 2.3" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+    lock: (
+      <>
+        <rect width="14" height="10" x="5" y="11" rx="2" />
+        <path d="M8 11V8a4 4 0 0 1 8 0v3" />
+      </>
+    ),
+    logout: (
+      <>
+        <path d="M10 17 15 12 10 7" />
+        <path d="M15 12H3" />
+        <path d="M21 19V5" />
+      </>
+    ),
+    shield: (
+      <>
+        <path d="M12 3 5 6v5c0 4.5 2.9 8.5 7 10 4.1-1.5 7-5.5 7-10V6Z" />
+        <path d="m9 12 2 2 4-5" />
+      </>
+    ),
+    target: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 2v3" />
+        <path d="M12 19v3" />
+        <path d="M2 12h3" />
+        <path d="M19 12h3" />
+      </>
+    ),
+  };
+
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 24 24"
+      className={className}
+      fill="none"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="2"
+    >
+      {paths[name]}
+    </svg>
   );
 }
 
@@ -540,7 +784,7 @@ function StatusPill({
 function ProfileHubSkeleton() {
   return (
     <section
-      className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm"
+      className="grid gap-3 rounded-3xl bg-white px-5 py-5 shadow-sm"
       aria-busy="true"
       aria-label="Loading profile summary"
     >
@@ -639,26 +883,27 @@ function formatYearsInOperation(value: number) {
   }).format(value)} years`;
 }
 
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="grid gap-1">
-      <h2 className="text-2xl leading-tight font-semibold">{title}</h2>
-      <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-        {description}
-      </p>
-    </div>
-  );
+function formatReadinessStatus(value: BorrowerReadinessResult["readinessStatus"]) {
+  return value
+    .split("_")
+    .map((word) => word[0]?.toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function getInitials(value: string) {
+  const initials = value
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0]?.toUpperCase())
+    .join("");
+
+  return initials || "B";
 }
 
 function AccountSection({ email }: { email: string }) {
   return (
-    <section className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-4 shadow-sm">
+    <section className="grid gap-3 rounded-3xl bg-white px-5 py-4 shadow-sm">
       <h3 className="text-base font-semibold">Account</h3>
       <p className="break-words text-sm text-[var(--muted-foreground)]">
         {email || "Signed in"}
