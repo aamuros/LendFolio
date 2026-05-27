@@ -1,4 +1,4 @@
-# Local Demo Accounts And Workflow Data
+# Local Test Accounts And Workflow Data
 
 Use the seeded local Supabase accounts when you need repeatable borrower,
 lender, and manager records for QA. These accounts are for local development
@@ -21,28 +21,35 @@ All seeded users use the password `LendFolio123!`.
 
 | Role | Email | Purpose |
 | --- | --- | --- |
-| Borrower | `borrower@lendfolio.local` | Creates the business profile, loan application, offer acceptance, and repayment proofs. |
-| Borrower | `borrower.alt@lendfolio.local` | Verifies borrower isolation. |
-| Approved lender | `lender@lendfolio.local` | Reviews applications, creates offers, and reviews repayment proofs. |
-| Approved lender | `lender.partner@lendfolio.local` | Creates competing offers for acceptance checks. |
-| Pending lender | `lender.pending@lendfolio.local` | Verifies unapproved lenders cannot create offers. |
-| Manager | `manager@lendfolio.local` | Verifies manager dashboard records, lookup, and audit logs. |
+| Borrower | `borrower@lendfolio.local` | Business profile, verification, loan application, offer acceptance, repayment proofs |
+| Borrower | `borrower.alt@lendfolio.local` | Verifies borrower data isolation |
+| Approved lender | `lender@lendfolio.local` | Reviews applications, creates offers, reviews repayment proofs |
+| Approved lender | `lender.partner@lendfolio.local` | Creates competing offers for acceptance checks |
+| Pending lender | `lender.pending@lendfolio.local` | Verifies unapproved lenders cannot create offers |
+| Manager | `manager@lendfolio.local` | Dashboard records, verification queue, lender review, lookup, audit logs |
 
 ## Manual QA Flow
 
 1. Sign in as `borrower@lendfolio.local` at `/login?role=borrower`.
-2. Open `/borrower`, save a business profile, and submit a loan application.
-3. Sign in as `lender@lendfolio.local` at `/login?role=lender`.
-4. Open `/lender/applications`, review the submitted application, and send an offer.
-5. Sign in again as `borrower@lendfolio.local`.
-6. Accept the offer and confirm an active loan and repayment schedule appear.
-7. Upload repayment proof for a due installment.
-8. Sign in as `lender@lendfolio.local` and verify or reject the submitted proof.
-9. Sign in as `manager@lendfolio.local` at `/login?role=manager`.
-10. Check `/manager`, `/manager/loans`, `/manager/repayments`,
-    `/manager/applications`, `/manager/audit-logs`, and `/manager/lookup`.
+2. Open `/borrower`, save a business profile.
+3. Upload verification documents (valid ID and business proof).
+4. Sign in as `manager@lendfolio.local` at `/login?role=manager`.
+5. Open `/manager/borrower-verifications`, accept documents, approve
+   verification.
+6. Sign back in as the borrower.
+7. Accept loan application disclosures and submit a loan application.
+8. Sign in as `lender@lendfolio.local` at `/login?role=lender`.
+9. Open `/lender/applications`, review the submitted application, send an offer.
+10. Sign in again as `borrower@lendfolio.local`.
+11. Accept the offer and confirm an active loan and repayment schedule appear.
+12. Upload repayment proof for a due installment.
+13. Sign in as `lender@lendfolio.local` and verify or reject the submitted proof.
+14. Sign in as `manager@lendfolio.local` at `/login?role=manager`.
+15. Check `/manager`, `/manager/loans`, `/manager/repayments`,
+    `/manager/applications`, `/manager/audit-logs`, `/manager/lenders`,
+    `/manager/borrower-verifications`, and `/manager/lookup`.
 
-Useful manager states to verify:
+### Manager States To Verify
 
 - `loan_applications.status` becomes `accepted` after offer acceptance.
 - One `loan_offers` row is `accepted`; competing pending offers become
@@ -53,6 +60,7 @@ Useful manager states to verify:
   `verified`.
 - `audit_logs` includes application, offer, loan, repayment schedule, proof, and
   balance events.
+- `notifications` include workflow event notifications for affected users.
 
 ## Automated Verification
 
