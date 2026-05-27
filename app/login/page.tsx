@@ -23,17 +23,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
           </Link>
         </header>
 
-        <section className="rounded-lg border border-[var(--border)] bg-white px-5 py-6 shadow-[0_18px_50px_rgba(22,22,22,0.06)] sm:px-7 sm:py-7">
-          <div className="grid gap-6">
-            <div>
-              <h1 className="text-3xl leading-tight font-semibold tracking-[-0.01em] text-balance">
-                Sign in
-              </h1>
-            </div>
-
-            <LoginForm signedOut={signedOut} />
-          </div>
-        </section>
+        <LoginForm signedOut={signedOut} />
 
         <div className="flex justify-center gap-4 text-sm">
           <Link
