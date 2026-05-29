@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
+import type { ReactNode } from "react";
 import { signOutAction } from "@/app/login/actions";
 import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
@@ -22,15 +22,16 @@ import {
   type LenderOfferReview,
 } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
+import type { ActiveLoanSummary } from "@/lib/active-loans";
 
 export const dynamic = "force-dynamic";
 
 type LenderPageProps = {
-  searchParams: Promise<{ message?: string; tab?: string }>;
+  searchParams: Promise<{ message?: string; tab?: string; loanSearch?: string }>;
 };
 
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab } = await searchParams;
+  const { message, tab, loanSearch = "" } = await searchParams;
 
   if (message === "signed-in") {
     redirect("/lender");
@@ -98,13 +99,14 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   return (
     <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
-      <div className="mx-auto grid max-w-4xl gap-5">
+      <div className="mx-auto grid max-w-6xl gap-5">
         <LenderHeader showAccountLink={activeTab !== "account"} />
 
         {activeTab === "home" ? (
           <HomeTab
             applications={applications}
             offers={offers}
+            loanSearch={loanSearch}
             applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
             offersError={!offersResult.ok ? offersResult.message : ""}
           />
@@ -148,20 +150,19 @@ async function loadUserConsents(
 function HomeTab({
   applications,
   offers,
+  loanSearch,
   applicationsError,
   offersError,
 }: {
   applications: LenderApplicationReview[];
   offers: LenderOfferReview[];
+  loanSearch: string;
   applicationsError: string;
   offersError: string;
 }) {
   const needsReviewCount = applications.filter(
     (application) => application.currentLenderOfferState === "not_offered",
   ).length;
-  const pendingOffers = offers.filter((offer) => offer.status === "pending").length;
-  const acceptedOffers = offers.filter((offer) => offer.status === "accepted").length;
-  const activeLoans = offers.filter((offer) => offer.activeLoan).length;
   const repaymentProofsNeedingReview = offers.reduce(
     (count, offer) =>
       count +
@@ -170,73 +171,119 @@ function HomeTab({
       ).length ?? 0),
     0,
   );
-  const nextAction =
-    repaymentProofsNeedingReview > 0
-      ? {
-          title: `${repaymentProofsNeedingReview} repayment proof ${
-            repaymentProofsNeedingReview === 1 ? "needs" : "need"
-          } review`,
-          description: "Review submitted proof before updating repayment status.",
-          href: "/lender?tab=offers",
-          label: "Review proof",
-        }
-      : needsReviewCount > 0
-      ? {
-          title: `${needsReviewCount} ${needsReviewCount === 1 ? "application needs" : "applications need"} review`,
-          description: "Open the queue and review borrower context before sending terms.",
-          href: "/lender/applications",
-          label: "Review applications",
-        }
-      : pendingOffers > 0
-        ? {
-            title: "Offer sent",
-            description: "Track pending borrower responses from your offers list.",
-            href: "/lender?tab=offers",
-            label: "View offers",
-          }
-        : acceptedOffers > 0
-          ? {
-              title: activeLoans > 0 ? "Active loan" : "Offer accepted",
-              description:
-                activeLoans > 0
-                  ? "Accepted offers with active loans are ready to track."
-                  : "Your accepted offers stay available for reference.",
-              href: "/lender?tab=offers",
-              label: activeLoans > 0 ? "View loans" : "View offers",
-            }
-          : {
-              title: "No open applications",
-              description: "New borrower requests will appear in your review queue.",
-              href: "/lender/applications",
-              label: "Open applications",
-            };
+  const dashboardLoans = getUniqueActiveLoansFromOffers(offers);
+  const metrics = buildLenderDashboardMetrics(dashboardLoans);
+  const calendarDays = buildRepaymentCalendarDays(dashboardLoans);
+  const ratingTrend = buildRatingTrend(dashboardLoans);
+  const filteredLoans = filterDashboardLoans(dashboardLoans, loanSearch);
+  const progressPercent =
+    metrics.averageMonthlyRevenue > 0
+      ? Math.min(100, (metrics.currentMonthRevenue / metrics.averageMonthlyRevenue) * 100)
+      : 0;
 
   return (
     <section className="grid gap-4">
-      <div className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
+      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d12] p-3 text-white shadow-2xl shadow-black/20 sm:p-4">
         <div className="grid gap-3">
-          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-            Today
-          </p>
-          <h1 className="text-3xl leading-tight font-semibold">
-            {nextAction.title}
-          </h1>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {nextAction.description}
-          </p>
-          <Link
-            href={nextAction.href}
-            className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            {nextAction.label}
-          </Link>
-        </div>
-      </div>
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3">
+            <div>
+              <h1 className="text-xl font-semibold tracking-normal">Lender dashboard</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                Active portfolio, repayments, and borrower follow-ups.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-300">
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+                {needsReviewCount} new
+              </span>
+              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+                {repaymentProofsNeedingReview} proofs
+              </span>
+            </div>
+          </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <SummaryCard label="New" value={needsReviewCount.toString()} />
-        <SummaryCard label="Proofs" value={repaymentProofsNeedingReview.toString()} />
-        <SummaryCard label="Active" value={activeLoans.toString()} />
+          <div className="grid gap-3 lg:grid-cols-3">
+            <DashboardKpiCard
+              label="Total month's revenue"
+              value={formatPhp(metrics.currentMonthRevenue)}
+              helper="Verified this month"
+              percentChange={metrics.revenueChangePercent}
+            />
+            <DashboardKpiCard
+              label="This month's active loans"
+              value={metrics.currentMonthActiveLoans.toString()}
+              helper="Active or overdue"
+              percentChange={metrics.activeLoansChangePercent}
+            />
+            <DashboardKpiCard
+              label="Avg. loans per month"
+              value={formatCompactNumber(metrics.averageLoanStartsPerMonth)}
+              helper="New active loan starts"
+              percentChange={metrics.loanStartsChangePercent}
+            />
+          </div>
+
+          <div className="grid gap-3 xl:grid-cols-[1fr_1.2fr_1.2fr]">
+            <DashboardPanel title="Total revenue">
+              <div className="grid gap-4">
+                <div>
+                  <p className="text-3xl font-semibold">
+                    {formatPhp(metrics.totalVerifiedRevenue)}
+                  </p>
+                  <p className="mt-1 text-sm text-slate-400">
+                    Verified repayments across loaded active loans.
+                  </p>
+                </div>
+                <div>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div
+                      className="h-full rounded-full bg-emerald-400"
+                      style={{ width: `${progressPercent}%` }}
+                    />
+                  </div>
+                  <p className="mt-2 text-xs font-medium text-slate-400">
+                    {formatPhp(metrics.currentMonthRevenue)} of{" "}
+                    {formatPhp(metrics.averageMonthlyRevenue)} average monthly revenue
+                  </p>
+                </div>
+              </div>
+            </DashboardPanel>
+
+            <DashboardPanel title="Customer rating">
+              <RatingTrendChart trend={ratingTrend} />
+            </DashboardPanel>
+
+            <DashboardPanel title="Repayment calendar">
+              <RepaymentCalendar days={calendarDays} />
+            </DashboardPanel>
+          </div>
+
+          <DashboardPanel
+            title="Active loans"
+            action={
+              <form action="/lender" className="w-full sm:w-72">
+                <input type="hidden" name="tab" value="home" />
+                <label className="sr-only" htmlFor="loanSearch">
+                  Search active loans
+                </label>
+                <input
+                  id="loanSearch"
+                  name="loanSearch"
+                  type="search"
+                  defaultValue={loanSearch}
+                  placeholder="Search loans"
+                  className="h-10 w-full rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/60"
+                />
+              </form>
+            }
+          >
+            <ActiveLoansTable
+              loans={filteredLoans}
+              hasLoans={dashboardLoans.length > 0}
+              searchQuery={loanSearch}
+            />
+          </DashboardPanel>
+        </div>
       </div>
 
       {applicationsError ? (
@@ -245,6 +292,703 @@ function HomeTab({
       {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
     </section>
   );
+}
+
+type DashboardLoan = {
+  loan: ActiveLoanSummary;
+  offer: LenderOfferReview;
+  context: string;
+  location: string;
+  purpose: string;
+};
+
+type DashboardMetrics = {
+  currentMonthRevenue: number;
+  previousMonthRevenue: number;
+  revenueChangePercent: number;
+  currentMonthActiveLoans: number;
+  previousMonthActiveLoans: number;
+  activeLoansChangePercent: number;
+  averageLoanStartsPerMonth: number;
+  previousAverageLoanStartsPerMonth: number;
+  loanStartsChangePercent: number;
+  totalVerifiedRevenue: number;
+  averageMonthlyRevenue: number;
+};
+
+type CalendarRepayment = {
+  id: string;
+  amountDue: number;
+  dueDate: string;
+  status: string;
+  context: string;
+  isLate: boolean;
+};
+
+type CalendarDay = {
+  date: Date;
+  dayNumber: number;
+  isCurrentMonth: boolean;
+  repayments: CalendarRepayment[];
+};
+
+type RatingTrendPoint = {
+  monthLabel: string;
+  rating: number | null;
+  verified: number;
+  total: number;
+};
+
+export function getMonthRange(value: Date) {
+  const start = new Date(value.getFullYear(), value.getMonth(), 1);
+  const end = new Date(value.getFullYear(), value.getMonth() + 1, 0, 23, 59, 59, 999);
+
+  return { start, end };
+}
+
+export function getPreviousMonthRange(value: Date) {
+  return getMonthRange(new Date(value.getFullYear(), value.getMonth() - 1, 1));
+}
+
+export function getPercentageChange(current: number, previous: number) {
+  if (previous === 0 && current > 0) {
+    return 100;
+  }
+
+  if (previous === 0 && current === 0) {
+    return 0;
+  }
+
+  return ((current - previous) / previous) * 100;
+}
+
+export function formatPercentChange(value: number) {
+  if (value === 0) {
+    return "0%";
+  }
+
+  const formatted = new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 0,
+  }).format(Math.abs(value));
+
+  return `${value > 0 ? "+" : "-"}${formatted}%`;
+}
+
+export function getUniqueActiveLoansFromOffers(
+  offers: LenderOfferReview[],
+): DashboardLoan[] {
+  const loansById = new Map<string, DashboardLoan>();
+
+  offers.forEach((offer) => {
+    if (!offer.activeLoan || loansById.has(offer.activeLoan.id)) {
+      return;
+    }
+
+    const portfolio = offer.application?.portfolio;
+    const context = portfolio
+      ? `${portfolio.businessTypeLabel} in ${portfolio.location}`
+      : "Borrower business";
+
+    loansById.set(offer.activeLoan.id, {
+      loan: offer.activeLoan,
+      offer,
+      context,
+      location: portfolio?.location ?? "",
+      purpose: offer.application?.purpose ?? "",
+    });
+  });
+
+  return [...loansById.values()];
+}
+
+export function buildLenderDashboardMetrics(
+  loans: DashboardLoan[],
+  today = new Date(),
+): DashboardMetrics {
+  const currentMonth = getMonthRange(today);
+  const previousMonth = getPreviousMonthRange(today);
+  const previousSixMonthStart = new Date(
+    today.getFullYear(),
+    today.getMonth() - 11,
+    1,
+  );
+  const currentSixMonthStart = new Date(today.getFullYear(), today.getMonth() - 5, 1);
+  const previousSixMonthEnd = new Date(
+    today.getFullYear(),
+    today.getMonth() - 6,
+    0,
+    23,
+    59,
+    59,
+    999,
+  );
+
+  const currentMonthRevenue = sumVerifiedRevenueInRange(loans, currentMonth);
+  const previousMonthRevenue = sumVerifiedRevenueInRange(loans, previousMonth);
+  const currentMonthActiveLoans = countLoansOverlappingRange(loans, currentMonth);
+  const previousMonthActiveLoans = countLoansOverlappingRange(loans, previousMonth);
+  const totalVerifiedRevenue = loans.reduce(
+    (sum, item) =>
+      sum +
+      item.loan.schedule.reduce(
+        (scheduleSum, repayment) =>
+          repayment.status === "verified"
+            ? scheduleSum + repayment.amountDue
+            : scheduleSum,
+        0,
+      ),
+    0,
+  );
+  const averageMonthlyRevenue = buildMonthlyRevenueTotals(
+    loans,
+    currentSixMonthStart,
+    currentMonth.end,
+  ).reduce((sum, total) => sum + total, 0) / 6;
+  const averageLoanStartsPerMonth =
+    countLoanStartsInRange(loans, currentSixMonthStart, currentMonth.end) / 6;
+  const previousAverageLoanStartsPerMonth =
+    countLoanStartsInRange(loans, previousSixMonthStart, previousSixMonthEnd) / 6;
+
+  return {
+    currentMonthRevenue,
+    previousMonthRevenue,
+    revenueChangePercent: getPercentageChange(
+      currentMonthRevenue,
+      previousMonthRevenue,
+    ),
+    currentMonthActiveLoans,
+    previousMonthActiveLoans,
+    activeLoansChangePercent: getPercentageChange(
+      currentMonthActiveLoans,
+      previousMonthActiveLoans,
+    ),
+    averageLoanStartsPerMonth,
+    previousAverageLoanStartsPerMonth,
+    loanStartsChangePercent: getPercentageChange(
+      averageLoanStartsPerMonth,
+      previousAverageLoanStartsPerMonth,
+    ),
+    totalVerifiedRevenue,
+    averageMonthlyRevenue,
+  };
+}
+
+export function buildRepaymentCalendarDays(
+  loans: DashboardLoan[],
+  today = new Date(),
+): CalendarDay[] {
+  const month = getMonthRange(today);
+  const firstDay = month.start.getDay();
+  const gridStart = new Date(month.start);
+  gridStart.setDate(month.start.getDate() - firstDay);
+  const repaymentGroups = groupRepaymentsByDate(loans);
+
+  return Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(gridStart);
+    date.setDate(gridStart.getDate() + index);
+    const key = toDateKey(date);
+
+    return {
+      date,
+      dayNumber: date.getDate(),
+      isCurrentMonth: date.getMonth() === today.getMonth(),
+      repayments: repaymentGroups.get(key) ?? [],
+    };
+  });
+}
+
+export function buildRatingTrend(
+  loans: DashboardLoan[],
+  today = new Date(),
+): RatingTrendPoint[] {
+  return Array.from({ length: 6 }, (_, index) => {
+    const monthDate = new Date(today.getFullYear(), today.getMonth() - 5 + index, 1);
+    const range = getMonthRange(monthDate);
+    const repayments = getRepaymentsInRange(loans, range);
+    const verified = repayments.filter(
+      (repayment) => repayment.status === "verified",
+    ).length;
+
+    return {
+      monthLabel: new Intl.DateTimeFormat("en-PH", { month: "short" }).format(
+        monthDate,
+      ),
+      rating: repayments.length > 0 ? (verified / repayments.length) * 5 : null,
+      verified,
+      total: repayments.length,
+    };
+  });
+}
+
+function DashboardKpiCard({
+  label,
+  value,
+  helper,
+  percentChange,
+}: {
+  label: string;
+  value: string;
+  helper: string;
+  percentChange: number;
+}) {
+  const isPositive = percentChange > 0;
+  const isNegative = percentChange < 0;
+
+  return (
+    <div className="relative min-h-36 rounded-3xl border border-white/10 bg-[#111821] px-4 py-4 shadow-lg shadow-black/10">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+        {label}
+      </p>
+      <p className="mt-5 text-3xl font-semibold tracking-normal">{value}</p>
+      <p className="mt-2 text-sm text-slate-400">{helper}</p>
+      <span
+        className={`absolute right-4 bottom-4 rounded-full px-2.5 py-1 text-xs font-semibold ${
+          isPositive
+            ? "bg-emerald-400/15 text-emerald-300"
+            : isNegative
+              ? "bg-rose-400/15 text-rose-300"
+              : "bg-white/10 text-slate-300"
+        }`}
+      >
+        {formatPercentChange(percentChange)}
+      </span>
+    </div>
+  );
+}
+
+function DashboardPanel({
+  title,
+  action,
+  children,
+}: {
+  title: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <section className="rounded-3xl border border-white/10 bg-[#111821] p-4 shadow-lg shadow-black/10">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h2 className="text-sm font-semibold text-slate-200">{title}</h2>
+        {action}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function RatingTrendChart({ trend }: { trend: RatingTrendPoint[] }) {
+  const points = trend
+    .map((point, index) => ({ ...point, index }))
+    .filter((point) => point.rating !== null);
+
+  if (points.length === 0) {
+    return (
+      <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 text-center text-sm leading-6 text-slate-400">
+        No repayment history yet.
+      </div>
+    );
+  }
+
+  const width = 360;
+  const height = 150;
+  const padding = 18;
+  const getX = (index: number) =>
+    padding + (index / Math.max(1, trend.length - 1)) * (width - padding * 2);
+  const getY = (rating: number) =>
+    height - padding - (rating / 5) * (height - padding * 2);
+  const linePath = points
+    .map((point, index) => {
+      const command = index === 0 ? "M" : "L";
+      return `${command} ${getX(point.index)} ${getY(point.rating ?? 0)}`;
+    })
+    .join(" ");
+  const areaPath =
+    points.length > 1
+      ? `${linePath} L ${getX(points[points.length - 1].index)} ${height - padding} L ${getX(points[0].index)} ${height - padding} Z`
+      : "";
+  const latestRating = points[points.length - 1].rating ?? 0;
+
+  return (
+    <div className="grid gap-3">
+      <div className="flex items-end justify-between gap-3">
+        <div>
+          <p className="text-3xl font-semibold">{latestRating.toFixed(1)}</p>
+          <p className="text-sm text-slate-400">Latest repayment-based score</p>
+        </div>
+        <p className="text-xs font-semibold text-slate-500">Out of 5.0</p>
+      </div>
+      <svg
+        viewBox={`0 0 ${width} ${height}`}
+        role="img"
+        aria-label="Repayment-based customer rating trend"
+        className="h-40 w-full overflow-visible"
+      >
+        <defs>
+          <linearGradient id="ratingArea" x1="0" x2="0" y1="0" y2="1">
+            <stop offset="0%" stopColor="#34d399" stopOpacity="0.42" />
+            <stop offset="100%" stopColor="#34d399" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {[1, 2, 3, 4, 5].map((line) => (
+          <line
+            key={line}
+            x1={padding}
+            x2={width - padding}
+            y1={getY(line)}
+            y2={getY(line)}
+            stroke="rgba(148, 163, 184, 0.16)"
+          />
+        ))}
+        {areaPath ? <path d={areaPath} fill="url(#ratingArea)" /> : null}
+        {points.length > 1 ? (
+          <path
+            d={linePath}
+            fill="none"
+            stroke="#34d399"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth="3"
+          />
+        ) : null}
+        {points.map((point) => (
+          <circle
+            key={`${point.monthLabel}-${point.index}`}
+            cx={getX(point.index)}
+            cy={getY(point.rating ?? 0)}
+            r="4"
+            fill="#34d399"
+            stroke="#111821"
+            strokeWidth="2"
+          />
+        ))}
+      </svg>
+      <div className="grid grid-cols-6 gap-1 text-center text-[0.68rem] font-semibold text-slate-500">
+        {trend.map((point) => (
+          <span key={point.monthLabel}>{point.monthLabel}</span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function RepaymentCalendar({ days }: { days: CalendarDay[] }) {
+  const today = new Date();
+  const todayKey = toDateKey(today);
+  const upcoming = days
+    .filter((day) => day.isCurrentMonth)
+    .flatMap((day) => day.repayments)
+    .filter((repayment) => repayment.dueDate >= todayKey)
+    .sort((first, second) => first.dueDate.localeCompare(second.dueDate))
+    .slice(0, 4);
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[1fr_1.05fr] xl:grid-cols-1">
+      <div>
+        <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase text-slate-500">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+            <span key={day}>{day}</span>
+          ))}
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {days.map((day) => {
+            const hasRepayments = day.repayments.length > 0;
+            const hasLate = day.repayments.some((repayment) => repayment.isLate);
+            const isToday = toDateKey(day.date) === todayKey;
+
+            return (
+              <div
+                key={day.date.toISOString()}
+                className={`aspect-square rounded-xl border p-1.5 text-xs ${
+                  day.isCurrentMonth
+                    ? "border-white/10 bg-white/[0.04] text-slate-200"
+                    : "border-transparent bg-transparent text-slate-700"
+                } ${isToday ? "ring-1 ring-emerald-300/70" : ""}`}
+              >
+                <span>{day.dayNumber}</span>
+                {hasRepayments ? (
+                  <span
+                    className={`mt-1 block h-1.5 w-1.5 rounded-full ${
+                      hasLate ? "bg-rose-300" : "bg-emerald-300"
+                    }`}
+                  />
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid gap-2">
+        {upcoming.length > 0 ? (
+          upcoming.map((repayment) => (
+            <div
+              key={repayment.id}
+              className={`rounded-2xl border px-3 py-2 ${
+                repayment.isLate
+                  ? "border-rose-300/20 bg-rose-300/10"
+                  : "border-white/10 bg-white/[0.04]"
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-semibold text-slate-100">
+                  {formatDateOnly(repayment.dueDate)}
+                </p>
+                <span className="text-xs font-semibold text-slate-400">
+                  {formatPhp(repayment.amountDue)}
+                </span>
+              </div>
+              <p className="mt-1 line-clamp-1 text-xs text-slate-400">
+                {repayment.context}
+              </p>
+              <p className="mt-1 text-xs font-semibold capitalize text-slate-300">
+                {formatRepaymentStatus(repayment.status)}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-slate-400">
+            No upcoming repayments this month.
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ActiveLoansTable({
+  loans,
+  hasLoans,
+  searchQuery,
+}: {
+  loans: DashboardLoan[];
+  hasLoans: boolean;
+  searchQuery: string;
+}) {
+  if (!hasLoans) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-slate-400">
+        Active loans will appear here after borrowers accept offers.
+      </div>
+    );
+  }
+
+  if (loans.length === 0) {
+    return (
+      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-slate-400">
+        No active loans match &quot;{searchQuery}&quot;.
+      </div>
+    );
+  }
+
+  return (
+    <div className="overflow-hidden rounded-2xl border border-white/10">
+      <div className="hidden grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_0.7fr] gap-3 border-b border-white/10 bg-white/[0.03] px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:grid">
+        <span>Borrower</span>
+        <span>Principal</span>
+        <span>Repayment</span>
+        <span>Outstanding</span>
+        <span>Due date</span>
+        <span>Status</span>
+      </div>
+      <div className="divide-y divide-white/10">
+        {loans.map((item) => (
+          <div
+            key={item.loan.id}
+            className="grid gap-3 px-4 py-4 text-sm lg:grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_0.7fr] lg:items-center"
+          >
+            <div>
+              <p className="font-semibold text-slate-100">{item.context}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-slate-500">
+                {item.purpose || "Accepted offer"}
+              </p>
+            </div>
+            <LoanMobileMetric label="Principal" value={formatPhp(item.loan.principalAmount)} />
+            <LoanMobileMetric label="Repayment" value={formatPhp(item.loan.repaymentAmount)} />
+            <LoanMobileMetric
+              label="Outstanding"
+              value={formatPhp(item.loan.outstandingBalance)}
+            />
+            <LoanMobileMetric label="Due date" value={formatDateOnly(item.loan.dueDate)} />
+            <div className="flex items-center justify-between gap-3 lg:block">
+              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:hidden">
+                Status
+              </span>
+              <span
+                className={`rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${
+                  item.loan.status === "overdue"
+                    ? "bg-rose-400/15 text-rose-300"
+                    : "bg-emerald-400/15 text-emerald-300"
+                }`}
+              >
+                {item.loan.status}
+              </span>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LoanMobileMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between gap-3 lg:block">
+      <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:hidden">
+        {label}
+      </span>
+      <span className="font-semibold text-slate-200">{value}</span>
+    </div>
+  );
+}
+
+function filterDashboardLoans(loans: DashboardLoan[], searchQuery: string) {
+  const query = searchQuery.trim().toLowerCase();
+
+  if (!query) {
+    return loans;
+  }
+
+  return loans.filter((item) => {
+    const repaymentDates = item.loan.schedule
+      .map((repayment) => formatDateOnly(repayment.dueDate))
+      .join(" ");
+    const haystack = [
+      item.context,
+      item.location,
+      item.purpose,
+      item.loan.status,
+      item.loan.principalAmount.toString(),
+      item.loan.repaymentAmount.toString(),
+      item.loan.outstandingBalance.toString(),
+      item.loan.dueDate,
+      formatDateOnly(item.loan.dueDate),
+      repaymentDates,
+      formatPhp(item.loan.principalAmount),
+      formatPhp(item.loan.repaymentAmount),
+      formatPhp(item.loan.outstandingBalance),
+    ]
+      .join(" ")
+      .toLowerCase();
+
+    return haystack.includes(query);
+  });
+}
+
+function sumVerifiedRevenueInRange(
+  loans: DashboardLoan[],
+  range: { start: Date; end: Date },
+) {
+  return getRepaymentsInRange(loans, range).reduce(
+    (sum, repayment) =>
+      repayment.status === "verified" ? sum + repayment.amountDue : sum,
+    0,
+  );
+}
+
+function countLoansOverlappingRange(
+  loans: DashboardLoan[],
+  range: { start: Date; end: Date },
+) {
+  return loans.filter((item) => {
+    if (item.loan.status !== "active" && item.loan.status !== "overdue") {
+      return false;
+    }
+
+    const startedAt = new Date(item.loan.startedAt);
+    const dueDate = parseDateOnly(item.loan.dueDate);
+
+    return startedAt <= range.end && dueDate >= range.start;
+  }).length;
+}
+
+function countLoanStartsInRange(loans: DashboardLoan[], start: Date, end: Date) {
+  return loans.filter((item) => {
+    const startedAt = new Date(item.loan.startedAt);
+
+    return startedAt >= start && startedAt <= end;
+  }).length;
+}
+
+function buildMonthlyRevenueTotals(
+  loans: DashboardLoan[],
+  start: Date,
+  end: Date,
+) {
+  return Array.from({ length: 6 }, (_, index) => {
+    const month = getMonthRange(
+      new Date(start.getFullYear(), start.getMonth() + index, 1),
+    );
+    const cappedEnd = month.end > end ? end : month.end;
+
+    return sumVerifiedRevenueInRange(loans, {
+      start: month.start,
+      end: cappedEnd,
+    });
+  });
+}
+
+function getRepaymentsInRange(
+  loans: DashboardLoan[],
+  range: { start: Date; end: Date },
+) {
+  return loans.flatMap((item) =>
+    item.loan.schedule.filter((repayment) => {
+      const dueDate = parseDateOnly(repayment.dueDate);
+
+      return dueDate >= range.start && dueDate <= range.end;
+    }),
+  );
+}
+
+function groupRepaymentsByDate(loans: DashboardLoan[]) {
+  const todayKey = toDateKey(new Date());
+
+  return loans.reduce((groups, item) => {
+    item.loan.schedule.forEach((repayment) => {
+      const repayments = groups.get(repayment.dueDate) ?? [];
+      groups.set(repayment.dueDate, [
+        ...repayments,
+        {
+          id: repayment.id,
+          amountDue: repayment.amountDue,
+          dueDate: repayment.dueDate,
+          status: repayment.status,
+          context: item.context,
+          isLate:
+            repayment.status === "late" ||
+            (repayment.dueDate < todayKey && repayment.status !== "verified"),
+        },
+      ]);
+    });
+
+    return groups;
+  }, new Map<string, CalendarRepayment[]>());
+}
+
+function formatPhp(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatCompactNumber(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 1,
+  }).format(value);
+}
+
+function parseDateOnly(value: string) {
+  return new Date(`${value}T00:00:00`);
+}
+
+function toDateKey(value: Date) {
+  const year = value.getFullYear();
+  const month = `${value.getMonth() + 1}`.padStart(2, "0");
+  const day = `${value.getDate()}`.padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
 }
 
 function OffersTab({
@@ -347,17 +1091,6 @@ function AccountTab({
         </button>
       </form>
     </section>
-  );
-}
-
-function SummaryCard({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white px-3 py-4 text-center shadow-sm">
-      <p className="text-2xl font-semibold">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </p>
-    </div>
   );
 }
 
