@@ -1,6 +1,7 @@
 import { AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 
 export function ProfileStatusBanner({
   onAction,
@@ -25,60 +26,52 @@ export function ProfileStatusBanner({
 
   const iconClassName =
     status.tone === "ready"
-      ? "bg-emerald-50 text-emerald-700"
+      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
       : status.tone === "attention"
-        ? "bg-amber-50 text-amber-800"
+        ? "bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400"
         : "bg-muted text-muted-foreground";
 
+  const badgeClassName =
+    status.tone === "ready"
+      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400"
+      : status.tone === "attention"
+        ? "bg-amber-50 text-amber-800 hover:bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400"
+        : "bg-muted text-muted-foreground hover:bg-muted";
+
   return (
-    <section className="grid grid-cols-[2.25rem_1fr] gap-3 rounded-2xl border border-border bg-card px-4 py-3 shadow-sm sm:grid-cols-[2.25rem_1fr_auto] sm:items-center">
-      <span
-        className={`mt-0.5 grid size-9 place-items-center self-start rounded-full ${iconClassName}`}
-      >
-        <Icon className="size-5" />
-      </span>
-      <div className="grid min-w-0 items-start gap-0">
-        <div className="flex flex-wrap items-center gap-2">
+    <Card className="rounded-2xl shadow-sm border-border bg-card">
+      <CardContent className="flex items-start gap-3 p-4">
+        <span
+          className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${iconClassName}`}
+        >
+          <Icon className="size-4" />
+        </span>
+
+        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
           <Badge
             variant="secondary"
-            className={
-              status.tone === "ready"
-                ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-                : status.tone === "attention"
-                  ? "bg-amber-50 text-amber-800 hover:bg-amber-50"
-                  : "bg-muted text-muted-foreground hover:bg-muted"
-            }
+            className={`mb-0.5 w-fit text-xs font-medium ${badgeClassName}`}
           >
             {status.label}
           </Badge>
-          <p className="text-sm font-semibold leading-5 text-card-foreground">
+          <p className="text-sm font-semibold leading-snug text-card-foreground">
             {status.title}
           </p>
+          <p className="text-xs leading-snug text-muted-foreground">
+            {status.description}
+          </p>
+          {status.actionLabel ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAction}
+              className="mt-2.5 h-8 w-fit rounded-full px-3 text-xs font-semibold"
+            >
+              {status.actionLabel}
+            </Button>
+          ) : null}
         </div>
-        <p className="mt-1 text-xs leading-5 text-muted-foreground">
-          {status.description}
-        </p>
-        {status.actionLabel ? (
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onAction}
-            className="mt-2 justify-self-start rounded-full text-xs font-semibold sm:hidden"
-          >
-            {status.actionLabel}
-          </Button>
-        ) : null}
-      </div>
-      {status.actionLabel ? (
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onAction}
-          className="hidden rounded-full text-xs font-semibold sm:inline-flex"
-        >
-          {status.actionLabel}
-        </Button>
-      ) : null}
-    </section>
+      </CardContent>
+    </Card>
   );
 }

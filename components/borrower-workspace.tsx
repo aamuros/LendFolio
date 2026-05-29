@@ -14,6 +14,8 @@ import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-applica
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { BorrowerProfileHub } from "./borrower/profile/borrower-profile-hub";
 import { ProfileSubviewHeader } from "./borrower/profile/profile-subview";
+import { User } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 import { NotificationButton } from "@/components/notification-button";
 import { type BorrowerPortfolioInput } from "@/lib/borrower-portfolio";
@@ -171,26 +173,15 @@ export function BorrowerWorkspace({
           </p>
           <div className="flex items-center gap-2">
             <NotificationButton />
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="icon"
               aria-label="Open profile"
               onClick={() => changeTab("profile")}
-              className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+              className="rounded-full shadow-sm text-foreground hover:text-primary"
             >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-5"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              >
-                <circle cx="12" cy="8" r="4" />
-                <path d="M4 21a8 8 0 0 1 16 0" />
-              </svg>
-            </button>
+              <User className="size-5" />
+            </Button>
           </div>
         </header>
       )}

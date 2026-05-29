@@ -2,6 +2,8 @@ import { BorrowerWorkspace } from "@/components/borrower-workspace";
 import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
 import { requireBorrower } from "@/lib/access-control";
 import { redirect } from "next/navigation";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -33,12 +35,10 @@ export default async function BorrowerPage({
             initialLoanApplications={initialLoanApplications}
           />
         ) : (
-          <section
-            className="rounded-md border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]"
-            role="alert"
-          >
-            {access.message}
-          </section>
+          <Alert variant="destructive" role="alert">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{access.message}</AlertDescription>
+          </Alert>
         )}
       </div>
     </main>

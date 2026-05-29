@@ -3,11 +3,14 @@
 import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useFormStatus } from "react-dom";
+import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 
 const initialState: LoginState = {
   message: "",
@@ -44,82 +47,80 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
   }
 
   return (
-    <Card className="shadow-form">
-      <CardHeader>
-        <CardTitle className="text-3xl font-semibold tracking-[-0.01em]">Sign in</CardTitle>
-        <CardDescription>Enter your email and password to access your account</CardDescription>
+    <Card>
+      <CardHeader className="text-center">
+        <CardTitle className="text-xl">Sign in</CardTitle>
+        <CardDescription>
+          Enter your email and password to access your account
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <form
           action={formAction}
-          className="grid gap-5"
           onSubmit={() => setSubmittedVersion(formVersion)}
         >
-          {showSignedOut ? (
-            <p
-              className="inline-flex w-fit items-center gap-2 rounded-full bg-[#edf5f1] px-3 py-1.5 text-sm font-medium text-[#244a3c]"
-              role="status"
-            >
-              <svg
-                aria-hidden="true"
-                viewBox="0 0 24 24"
-                className="size-4"
-                fill="none"
-                stroke="currentColor"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth="2"
-              >
-                <path d="m5 12 4 4L19 6" />
-              </svg>
-              Signed out
-            </p>
-          ) : null}
+          <FieldGroup>
+            {showSignedOut ? (
+              <Alert>
+                <CheckCircle2 />
+                <AlertDescription>Signed out successfully</AlertDescription>
+              </Alert>
+            ) : null}
 
-          <div className="grid gap-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              name="email"
-              type="email"
-              value={email}
-              onChange={(event) => {
-                setEmail(event.target.value);
-                markEdited();
-              }}
-              autoComplete="email"
-              placeholder="you@example.com"
-              required
-            />
-          </div>
+            <Field>
+              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <Input
+                id="email"
+                name="email"
+                type="email"
+                value={email}
+                onChange={(event) => {
+                  setEmail(event.target.value);
+                  markEdited();
+                }}
+                autoComplete="email"
+                placeholder="you@example.com"
+                required
+              />
+            </Field>
 
-          <div className="grid gap-2">
-            <Label htmlFor="password">Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              value={password}
-              onChange={(event) => {
-                setPassword(event.target.value);
-                markEdited();
-              }}
-              autoComplete="current-password"
-              placeholder="Enter your password"
-              required
-            />
-          </div>
+            <Field>
+              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <Input
+                id="password"
+                name="password"
+                type="password"
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  markEdited();
+                }}
+                autoComplete="current-password"
+                placeholder="Enter your password"
+                required
+              />
+            </Field>
 
-          {showError ? (
-            <p
-              className="border-l-2 border-[var(--accent)] bg-[var(--background)] px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-              role="alert"
-            >
-              {state.message}
-            </p>
-          ) : null}
+            {showError ? (
+              <Alert variant="destructive">
+                <AlertCircle />
+                <AlertDescription>{state.message}</AlertDescription>
+              </Alert>
+            ) : null}
 
-          <SubmitButton />
+            <Field>
+              <SubmitButton />
+              <FieldDescription className="text-center">
+                Don&apos;t have an account?{" "}
+                <Link
+                  href="/signup"
+                  className="underline underline-offset-4 hover:text-primary"
+                >
+                  Sign up
+                </Link>
+              </FieldDescription>
+            </Field>
+          </FieldGroup>
         </form>
       </CardContent>
     </Card>
@@ -130,7 +131,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="w-full mt-1">
+    <Button type="submit" disabled={pending} className="w-full">
       {pending ? "Signing in..." : "Sign in"}
     </Button>
   );

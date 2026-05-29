@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { ProfileSummaryRow } from "./profile-summary-row";
 import {
   formatCreditAmount,
@@ -27,23 +27,22 @@ export function BorrowingPowerDetail({
   }
 
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
-      <CardContent className="grid gap-4 p-5">
-        <div className="grid gap-1">
-          <p className="text-sm font-semibold text-muted-foreground">
-            Available to request
-          </p>
-          <p className="text-3xl font-semibold tabular-nums">
-            {creditSummary
-              ? formatCreditAmount(creditSummary.availableCredit)
-              : "Not available"}
-          </p>
-          <p className="text-sm leading-6 text-muted-foreground">
-            Based on your saved financials and any active loan balance.
-          </p>
-        </div>
-
-        <div className="grid gap-2">
+    <Card className="rounded-2xl shadow-sm border-border bg-card">
+      <CardHeader className="px-4 pt-4 pb-3">
+        <CardDescription className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Available to request
+        </CardDescription>
+        <CardTitle className="text-3xl font-bold tabular-nums">
+          {creditSummary
+            ? formatCreditAmount(creditSummary.availableCredit)
+            : "Not available"}
+        </CardTitle>
+        <CardDescription className="text-xs leading-5">
+          Based on your saved financials and any active loan balance.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 px-4 pt-0 pb-4">
+        <div>
           <ProfileSummaryRow
             label="Used credit"
             value={
@@ -104,7 +103,7 @@ export function BorrowingPowerDetail({
           />
         </div>
 
-        <p className="rounded-2xl bg-muted/40 px-4 py-3 text-sm leading-6 text-muted-foreground">
+        <p className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
           LendFolio estimates borrowing power from net monthly cash flow, time in
           operation, revenue limits, and existing active loans. Updating your
           profile refreshes this amount.
@@ -113,7 +112,7 @@ export function BorrowingPowerDetail({
         <Button
           variant="outline"
           onClick={onUpdateProfile}
-          className="rounded-full h-11 font-semibold sm:w-fit"
+          className="h-10 w-full rounded-full font-semibold text-sm"
         >
           Update profile details
         </Button>

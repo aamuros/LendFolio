@@ -1,4 +1,4 @@
-import { Briefcase, ChartColumn, HelpCircle, Lock, LogOut, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, HelpCircle, Lock, LogOut, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
@@ -11,6 +11,7 @@ import { AccountSection } from "./account-section";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import {
   businessTypeLabels,
@@ -193,7 +194,7 @@ export function BorrowerProfileHub({
   if (activeView === "support") {
     return (
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
-        <Card className="rounded-3xl shadow-sm border-border bg-card">
+        <Card className="rounded-2xl shadow-sm border-border bg-card">
           <CardContent className="grid gap-3 p-5">
             <h3 className="text-base font-semibold">Support</h3>
             <p className="text-sm leading-6 text-muted-foreground">
@@ -219,12 +220,12 @@ export function BorrowerProfileHub({
       {loadState === "loading" ? (
         <ProfileHubSkeleton />
       ) : loadState === "error" ? (
-        <section
-          className="rounded-3xl bg-card px-5 py-5 text-sm leading-6 text-muted-foreground shadow-sm border border-border"
-          role="alert"
-        >
-          {message || "Could not load your profile."}
-        </section>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {message || "Could not load your profile."}
+          </AlertDescription>
+        </Alert>
       ) : (
         <>
           <ProfileStatusBanner
@@ -239,50 +240,48 @@ export function BorrowerProfileHub({
             }}
           />
 
-          <Card className="overflow-hidden rounded-3xl shadow-sm border-border bg-card border-none">
-            <div className="border border-border rounded-3xl overflow-hidden">
-              <ProfileMenuRow
-                icon={Briefcase}
-                label="Business Profile"
-                subtitle={portfolio?.businessName || "Business basics and loan use"}
-                onClick={() => onProfileViewChange("business")}
-              />
-              <ProfileMenuRow
-                icon={ChartColumn}
-                label="Financials"
-                subtitle="Revenue, expenses, and monthly payments"
-                onClick={() => onProfileViewChange("financial")}
-              />
-              <ProfileMenuRow
-                icon={Wallet}
-                label="Borrowing Power"
-                subtitle={
-                  creditSummary
-                    ? `${formatCreditAmount(creditSummary.availableCredit)} available`
-                    : "Amount available to request"
-                }
-                onClick={() => onProfileViewChange("borrowingPower")}
-              />
-              <ProfileMenuRow
-                icon={ShieldCheck}
-                label="Verification"
-                subtitle={verificationLabel}
-                onClick={() => onProfileViewChange("verification")}
-              />
-              <ProfileMenuRow
-                icon={Lock}
-                label="Account"
-                subtitle={accountEmail || "Signed in"}
-                onClick={() => onProfileViewChange("account")}
-              />
-              <ProfileMenuRow
-                icon={HelpCircle}
-                label="Help & Support"
-                subtitle="Borrower account questions"
-                onClick={() => onProfileViewChange("support")}
-              />
-            </div>
-          </Card>
+          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+            <ProfileMenuRow
+              icon={Briefcase}
+              label="Business Profile"
+              subtitle={portfolio?.businessName || "Business basics and loan use"}
+              onClick={() => onProfileViewChange("business")}
+            />
+            <ProfileMenuRow
+              icon={ChartColumn}
+              label="Financials"
+              subtitle="Revenue, expenses, and monthly payments"
+              onClick={() => onProfileViewChange("financial")}
+            />
+            <ProfileMenuRow
+              icon={Wallet}
+              label="Borrowing Power"
+              subtitle={
+                creditSummary
+                  ? `${formatCreditAmount(creditSummary.availableCredit)} available`
+                  : "Amount available to request"
+              }
+              onClick={() => onProfileViewChange("borrowingPower")}
+            />
+            <ProfileMenuRow
+              icon={ShieldCheck}
+              label="Verification"
+              subtitle={verificationLabel}
+              onClick={() => onProfileViewChange("verification")}
+            />
+            <ProfileMenuRow
+              icon={Lock}
+              label="Account"
+              subtitle={accountEmail || "Signed in"}
+              onClick={() => onProfileViewChange("account")}
+            />
+            <ProfileMenuRow
+              icon={HelpCircle}
+              label="Help & Support"
+              subtitle="Borrower account questions"
+              onClick={() => onProfileViewChange("support")}
+            />
+          </div>
 
           <form action={signOutAction} className="pt-1">
             <Button
@@ -303,7 +302,7 @@ export function BorrowerProfileHub({
 function ProfileHubSkeleton() {
   return (
     <Card
-      className="rounded-3xl shadow-sm border-border bg-card"
+      className="rounded-2xl shadow-sm border-border bg-card"
       aria-busy="true"
       aria-label="Loading profile summary"
     >

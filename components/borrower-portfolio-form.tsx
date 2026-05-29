@@ -4,7 +4,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
 import { useForm } from "react-hook-form";
-import { useWatch } from "react-hook-form";
+import { useWatch, Controller } from "react-hook-form";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 import {
   loadBorrowerPortfolio,
   saveBorrowerPortfolio,
@@ -133,7 +135,7 @@ export function BorrowerPortfolioForm({
   }
 
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
+    <Card className="rounded-2xl shadow-sm border-border bg-card">
     <CardContent className="p-5">
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -162,20 +164,39 @@ export function BorrowerPortfolioForm({
         title="Business details"
         description="The basics lenders use to understand the business."
       >
-        <Field label="Business name" error={errors.businessName?.message}>
-          <Input {...register("businessName")} />
+        <Field label="Business name" error={errors.businessName?.message} id="businessName">
+          <Input 
+            id="businessName"
+            aria-invalid={Boolean(errors.businessName)}
+            aria-describedby={errors.businessName ? "businessName-error" : undefined}
+            {...register("businessName")} 
+          />
         </Field>
-        <Field label="Business type" error={errors.businessType?.message}>
-          <select {...register("businessType")} className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm">
-            {businessTypeOptions.map((option) => (
-              <option key={option} value={option}>
-                {businessTypeLabels[option]}
-              </option>
-            ))}
-          </select>
+        <Field label="Business type" error={errors.businessType?.message} id="businessType">
+          <Controller
+            control={control}
+            name="businessType"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger id="businessType" aria-invalid={Boolean(errors.businessType)} aria-describedby={errors.businessType ? "businessType-error" : undefined}>
+                  <SelectValue placeholder="Select business type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {businessTypeOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {businessTypeLabels[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </Field>
-        <Field label="Business location" error={errors.location?.message}>
+        <Field label="Business location" error={errors.location?.message} id="location">
           <Input
+            id="location"
+            aria-invalid={Boolean(errors.location)}
+            aria-describedby={errors.location ? "location-error" : undefined}
             {...register("location")}
             placeholder="Barangay, city or province"
           />
@@ -183,8 +204,12 @@ export function BorrowerPortfolioForm({
         <Field
           label="Years in operation"
           error={errors.yearsInOperation?.message}
+          id="yearsInOperation"
         >
           <Input
+            id="yearsInOperation"
+            aria-invalid={Boolean(errors.yearsInOperation)}
+            aria-describedby={errors.yearsInOperation ? "yearsInOperation-error" : undefined}
             type="number"
             min="0"
             max="100"
@@ -202,9 +227,12 @@ export function BorrowerPortfolioForm({
         <Field
           label="Monthly gross revenue"
           error={errors.monthlyGrossRevenue?.message}
+          id="monthlyGrossRevenue"
         >
           <CurrencyInput
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            id="monthlyGrossRevenue"
+            aria-invalid={Boolean(errors.monthlyGrossRevenue)}
+            aria-describedby={errors.monthlyGrossRevenue ? "monthlyGrossRevenue-error" : undefined}
             registration={register("monthlyGrossRevenue", {
               setValueAs: parseMoneyInput,
             })}
@@ -214,9 +242,12 @@ export function BorrowerPortfolioForm({
         <Field
           label="Monthly expenses"
           error={errors.monthlyExpenses?.message}
+          id="monthlyExpenses"
         >
           <CurrencyInput
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            id="monthlyExpenses"
+            aria-invalid={Boolean(errors.monthlyExpenses)}
+            aria-describedby={errors.monthlyExpenses ? "monthlyExpenses-error" : undefined}
             registration={register("monthlyExpenses", {
               setValueAs: parseMoneyInput,
             })}
@@ -226,9 +257,12 @@ export function BorrowerPortfolioForm({
         <Field
           label="Existing monthly loan payments"
           error={errors.existingLoanPayments?.message}
+          id="existingLoanPayments"
         >
           <CurrencyInput
-            className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
+            id="existingLoanPayments"
+            aria-invalid={Boolean(errors.existingLoanPayments)}
+            aria-describedby={errors.existingLoanPayments ? "existingLoanPayments-error" : undefined}
             registration={register("existingLoanPayments", {
               setValueAs: parseMoneyInput,
             })}
@@ -244,8 +278,12 @@ export function BorrowerPortfolioForm({
           <Field
             label="Loan purpose"
             error={errors.loanPurposeContext?.message}
+            id="loanPurposeContext"
           >
             <Textarea
+              id="loanPurposeContext"
+              aria-invalid={Boolean(errors.loanPurposeContext)}
+              aria-describedby={errors.loanPurposeContext ? "loanPurposeContext-error" : undefined}
               {...register("loanPurposeContext")}
               rows={3}
               placeholder="Inventory, equipment, repairs, working capital, or another business need."
@@ -275,7 +313,7 @@ export function BorrowerPortfolioForm({
           </p>
           {successMessage ? (
             <p
-              className="rounded-xl bg-[#edf5f1] px-3 py-2 text-sm font-medium text-[#244a3c]"
+              className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
               role="status"
             >
               {successMessage}
@@ -380,7 +418,7 @@ function BorrowerPortfolioFormSkeleton() {
       aria-busy="true"
       aria-label="Loading business profile"
     >
-      <Card className="rounded-3xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl shadow-sm border-border bg-card">
         <CardContent className="grid gap-3 p-5">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-full max-w-sm" />
@@ -388,7 +426,7 @@ function BorrowerPortfolioFormSkeleton() {
       </Card>
 
       {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index} className="rounded-3xl shadow-sm border-border bg-card">
+        <Card key={index} className="rounded-2xl shadow-sm border-border bg-card">
           <CardContent className="grid gap-4 p-5">
             <Skeleton className="h-4 w-36" />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -399,7 +437,7 @@ function BorrowerPortfolioFormSkeleton() {
         </Card>
       ))}
 
-      <Card className="rounded-3xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl shadow-sm border-border bg-card">
         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5">
           <div className="grid gap-2">
             <Skeleton className="h-4 w-48" />
@@ -416,19 +454,20 @@ function BorrowerPortfolioFormSkeleton() {
 type FieldProps = {
   label: string;
   error?: string;
+  id: string;
   children: ReactNode;
 };
 
-function Field({ label, error, children }: FieldProps) {
+function Field({ label, error, id, children }: FieldProps) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-sm font-semibold text-foreground">
+    <div className="grid gap-1.5">
+      <Label htmlFor={id} className="text-foreground">
         {label}
-      </span>
+      </Label>
       {children}
       {error ? (
-        <span className="text-sm leading-5 text-destructive">{error}</span>
+        <span id={`${id}-error`} className="text-sm leading-5 text-destructive">{error}</span>
       ) : null}
-    </label>
+    </div>
   );
 }

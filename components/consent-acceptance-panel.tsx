@@ -8,6 +8,12 @@ import {
   type ConsentScope,
   type ConsentStatus,
 } from "@/lib/consents";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 
 type ConsentAcceptancePanelProps = {
   status: ConsentStatus;
@@ -40,71 +46,79 @@ export function ConsentAcceptancePanel({
   }
 
   return (
-    <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h4 className="text-sm font-semibold">{title}</h4>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            Disclosure text is managed separately. This records your acceptance of
-            the current version.
-          </p>
+    <Card className="rounded-2xl border-border bg-muted/30 shadow-sm">
+      <CardContent className="grid gap-3 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <h4 className="text-sm font-semibold">{title}</h4>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Disclosure text is managed separately. This records your acceptance of
+              the current version.
+            </p>
+          </div>
+          <Badge variant="secondary" className="text-xs font-semibold">
+            {status.isCurrent ? "Current" : "Missing"}
+          </Badge>
         </div>
-        <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
-          {status.isCurrent ? "Current" : "Missing"}
-        </span>
-      </div>
 
-      <dl className="grid gap-2 text-sm">
-        {status.required.map((consent) => {
-          const accepted = status.accepted.find(
-            (item) =>
-              item.consentType === consent.consentType &&
-              item.version === consent.version,
-          );
+        <Separator />
 
-          return (
-            <div
-              key={`${consent.consentType}-${consent.version}`}
-              className="grid gap-1 border-t border-[var(--border)] pt-2 first:border-t-0 first:pt-0"
-            >
-              <dt className="font-semibold">{consentTypeLabels[consent.consentType]}</dt>
-              <dd className="text-xs leading-5 text-[var(--muted-foreground)]">
-                {consent.version}
-                {accepted ? ` · Accepted ${formatDateTime(accepted.acceptedAt)}` : ""}
-              </dd>
+        <dl className="grid gap-2 text-sm">
+          {status.required.map((consent) => {
+            const accepted = status.accepted.find(
+              (item) =>
+                item.consentType === consent.consentType &&
+                item.version === consent.version,
+            );
+
+            return (
+              <div
+                key={`${consent.consentType}-${consent.version}`}
+                className="grid gap-1 border-t border-border pt-2 first:border-t-0 first:pt-0"
+              >
+                <dt className="font-semibold">{consentTypeLabels[consent.consentType]}</dt>
+                <dd className="text-xs leading-5 text-muted-foreground">
+                  {consent.version}
+                  {accepted ? ` · Accepted ${formatDateTime(accepted.acceptedAt)}` : ""}
+                </dd>
+              </div>
+            );
+          })}
+        </dl>
+
+        {!status.isCurrent ? (
+          <div className="grid gap-3">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id={`consent-${scope}`}
+                checked={isChecked}
+                onCheckedChange={(checked) => setIsChecked(checked === true)}
+                className="mt-0.5"
+              />
+              <Label
+                htmlFor={`consent-${scope}`}
+                className="text-sm font-semibold leading-snug cursor-pointer"
+              >
+                I accept the required disclosures for this step.
+              </Label>
             </div>
-          );
-        })}
-      </dl>
+            <Button
+              disabled={!isChecked || isPending}
+              onClick={acceptConsents}
+              className="w-fit rounded-full h-10 px-5 font-semibold"
+            >
+              {isPending ? "Accepting..." : "Accept disclosures"}
+            </Button>
+          </div>
+        ) : null}
 
-      {!status.isCurrent ? (
-        <div className="grid gap-3">
-          <label className="flex items-start gap-3 text-sm font-semibold">
-            <input
-              type="checkbox"
-              checked={isChecked}
-              onChange={(event) => setIsChecked(event.target.checked)}
-              className="mt-1 size-4"
-            />
-            <span>I accept the required disclosures for this step.</span>
-          </label>
-          <button
-            type="button"
-            disabled={!isChecked || isPending}
-            onClick={acceptConsents}
-            className="inline-flex h-10 w-fit items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold text-white transition hover:bg-[#0b5f59] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            {isPending ? "Accepting..." : "Accept disclosures"}
-          </button>
-        </div>
-      ) : null}
-
-      {message ? (
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]" role="status">
-          {message}
-        </p>
-      ) : null}
-    </div>
+        {message ? (
+          <p className="text-sm leading-6 text-muted-foreground" role="status">
+            {message}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 

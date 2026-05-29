@@ -59,9 +59,9 @@ export function CurrencyInput({
 
   return (
     <div
-      className={`flex h-12 overflow-hidden rounded-2xl border border-[var(--border)] bg-white focus-within:border-[var(--primary)] focus-within:ring-2 focus-within:ring-[var(--primary)]/20 ${className}`}
+      className={`flex h-9 w-full min-w-0 overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 [&:has([aria-invalid=true])]:border-destructive [&:has([aria-invalid=true])]:ring-destructive/20 ${className}`}
     >
-      <span className="grid w-14 place-items-center border-r border-[var(--border)] text-sm font-semibold text-[var(--muted-foreground)]">
+      <span className="grid w-14 place-items-center border-r border-input text-sm font-semibold text-muted-foreground">
         PHP
       </span>
       <input
@@ -81,7 +81,7 @@ export function CurrencyInput({
           registration?.onChange(event);
           onChange?.(event);
         }}
-        className="min-w-0 flex-1 px-3 text-base outline-none disabled:cursor-not-allowed disabled:opacity-70"
+        className="min-w-0 flex-1 bg-transparent px-3 py-1 text-base outline-none selection:bg-primary selection:text-primary-foreground file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm"
       />
     </div>
   );

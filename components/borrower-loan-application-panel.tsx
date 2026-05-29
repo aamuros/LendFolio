@@ -4,8 +4,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormEventHandler, ReactNode } from "react";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import {
+  Controller,
   useForm,
   useWatch,
+  type Control,
   type FieldErrors,
   type UseFormRegister,
 } from "react-hook-form";
@@ -47,6 +49,30 @@ import {
 } from "@/lib/loan-application";
 import { parseMoneyInput } from "@/lib/money-input";
 import { canEditApplication } from "@/lib/workflow-rules";
+
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
 
 const defaultValues: LoanApplicationInput = {
   requestedAmount: 0,
@@ -287,7 +313,7 @@ export function BorrowerLoanApplicationPanel({
         result.mode === "missing-portfolio"
           ? "blocked"
           : result.mode === "borrower-verification" ||
-              result.mode === "consent-required"
+            result.mode === "consent-required"
             ? "ready"
             : "error",
       );
@@ -352,14 +378,14 @@ export function BorrowerLoanApplicationPanel({
         current.map((application) =>
           application.id === applicationId
             ? {
-                ...application,
-                ...result.application,
-                offers: application.offers.map((offer) =>
-                  offer.status === "pending"
-                    ? { ...offer, status: "declined" }
-                    : offer,
-                ),
-              }
+              ...application,
+              ...result.application,
+              offers: application.offers.map((offer) =>
+                offer.status === "pending"
+                  ? { ...offer, status: "declined" }
+                  : offer,
+              ),
+            }
             : application,
         ),
       );
@@ -439,11 +465,11 @@ export function BorrowerLoanApplicationPanel({
         current.map((application) =>
           application.id === applicationId
             ? {
-                ...application,
-                offers: application.offers.map((offer) =>
-                  offer.id === offerId ? { ...offer, status: "declined" } : offer,
-                ),
-              }
+              ...application,
+              offers: application.offers.map((offer) =>
+                offer.id === offerId ? { ...offer, status: "declined" } : offer,
+              ),
+            }
             : application,
         ),
       );
@@ -591,7 +617,7 @@ export function BorrowerLoanApplicationPanel({
               title="Apply"
               description="Request financing after your business profile is saved."
             />
-            <p className="text-sm font-semibold text-[var(--muted-foreground)]">
+            <p className="text-sm font-semibold text-muted-foreground">
               {applicationCountLabel}
             </p>
           </div>
@@ -613,6 +639,7 @@ export function BorrowerLoanApplicationPanel({
             />
           ) : (
             <ApplicationForm
+              control={control}
               creditSummary={creditSummary}
               errors={errors}
               isPending={isPending}
@@ -691,26 +718,26 @@ function VerificationGateCard({
     borrowerVerification?.rejectionReason;
 
   return (
-    <section
-      className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 text-sm leading-6 shadow-sm sm:px-5"
-      role="status"
-      aria-live="polite"
-    >
-      <div className="grid gap-1">
-        <p className="font-semibold text-[var(--foreground)]">
-          Borrower verification
-        </p>
-        <p className="text-[var(--muted-foreground)]">{message}</p>
-      </div>
-      {managerNote ? (
-        <div className="rounded-2xl border border-[var(--border)] px-4 py-3">
-          <p className="text-xs font-semibold uppercase text-[var(--muted-foreground)]">
-            Manager note
+    <Card className="rounded-3xl shadow-sm border-border bg-card" role="status" aria-live="polite">
+      <CardContent className="grid gap-3 p-4 sm:p-5">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-foreground">
+            Borrower verification
           </p>
-          <p className="mt-1 text-[var(--foreground)]">{managerNote}</p>
+          <p className="text-sm text-muted-foreground">{message}</p>
         </div>
-      ) : null}
-    </section>
+        {managerNote ? (
+          <Card className="rounded-2xl border-border bg-muted/30 shadow-none">
+            <CardContent className="p-4">
+              <p className="text-xs font-semibold uppercase text-muted-foreground">
+                Manager note
+              </p>
+              <p className="mt-1 text-sm text-foreground">{managerNote}</p>
+            </CardContent>
+          </Card>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -748,9 +775,9 @@ function HomeSummary({
   const dueUpcoming = getUpcomingDueItems(activeLoans);
   const usedCreditRatio = creditSummary
     ? getProgressRatio(
-        creditSummary.usedCredit,
-        creditSummary.calculatedCreditLimit,
-      )
+      creditSummary.usedCredit,
+      creditSummary.calculatedCreditLimit,
+    )
     : 0;
   const dueCapacityRatio =
     creditSummary && creditSummary.monthlyNetCashFlow > 0
@@ -769,94 +796,102 @@ function HomeSummary({
         <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">
           Home
         </h1>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        <p className="text-sm leading-6 text-muted-foreground">
           Track credit capacity, repayments, and active loans.
         </p>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.9fr)]">
-        <section className="grid gap-5 rounded-3xl bg-[#111827] px-4 py-5 text-white shadow-sm sm:px-5">
-          <div className="grid gap-1">
-            <p className="text-sm font-semibold text-white/70">
-              Financing overview
-            </p>
-            <h2 className="text-2xl leading-tight font-semibold">
-              {loadState === "loading"
-                ? "Loading your workspace..."
-                : "Your request capacity"}
-            </h2>
-          </div>
+      {loadState === "loading" ? (
+        <HomeDashboardSkeleton />
+      ) : (
+        <>
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.9fr)]">
+            <Card className="rounded-3xl border-zinc-900 bg-zinc-950 py-0 text-white shadow-sm">
+              <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+                <CardDescription className="font-semibold text-white/70">
+                  Financing overview
+                </CardDescription>
+                <CardTitle className="text-2xl leading-tight text-white">
+                  Your request capacity
+                </CardTitle>
+              </CardHeader>
 
-          <div className="grid gap-3 xl:grid-cols-3">
-            <DashboardMetricBlock title="Available to Request">
-              {creditSummary ? (
-                <>
-                  <MoneyText
-                    value={creditSummary.availableCredit}
-                    className="text-2xl font-semibold text-white"
-                  />
+              <CardContent className="grid gap-3 p-4 sm:p-5 xl:grid-cols-3">
+                <DashboardMetricBlock title="Available to Request">
+                  {creditSummary ? (
+                    <>
+                      <MoneyText
+                        value={creditSummary.availableCredit}
+                        className="text-2xl font-semibold text-white"
+                      />
+                      <p className="text-xs leading-5 text-white/65">
+                        {formatMoney(creditSummary.availableCredit)} available of{" "}
+                        {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                      </p>
+                      <DashboardProgressBar
+                        value={usedCreditRatio}
+                        trackClassName="bg-white/15"
+                        barClassName="bg-[#7dd3fc]"
+                      />
+                    </>
+                  ) : (
+                    <p className="text-sm leading-6 text-white/70">
+                      Complete your business profile to calculate your request limit.
+                    </p>
+                  )}
+                </DashboardMetricBlock>
+
+                <DashboardMetricBlock title="Due Within This Month">
+                  <div className="flex items-end justify-between gap-3">
+                    <MoneyText
+                      value={dueThisMonth.totalDue}
+                      className="text-2xl font-semibold text-white"
+                    />
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "border-white/10 bg-white/10 text-xs font-semibold hover:bg-white/10",
+                        dueCapacityStatus.className,
+                      )}
+                    >
+                      {dueCapacityStatus.label}
+                    </Badge>
+                  </div>
                   <p className="text-xs leading-5 text-white/65">
-                    {formatMoney(creditSummary.availableCredit)} available of{" "}
-                    {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                    {creditSummary && creditSummary.monthlyNetCashFlow > 0
+                      ? `Compared with ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
+                      : "No cashflow data"}
                   </p>
                   <DashboardProgressBar
-                    value={usedCreditRatio}
+                    value={dueCapacityRatio ?? 0}
                     trackClassName="bg-white/15"
-                    barClassName="bg-[#7dd3fc]"
+                    barClassName={dueCapacityStatus.barClassName}
                   />
-                </>
-              ) : (
-                <p className="text-sm leading-6 text-white/70">
-                  Complete your business profile to calculate your request limit.
-                </p>
-              )}
-            </DashboardMetricBlock>
+                </DashboardMetricBlock>
 
-            <DashboardMetricBlock title="Due Within This Month">
-              <div className="flex items-end justify-between gap-3">
-                <MoneyText
-                  value={dueThisMonth.totalDue}
-                  className="text-2xl font-semibold text-white"
-                />
-                <span className={`text-xs font-semibold ${dueCapacityStatus.className}`}>
-                  {dueCapacityStatus.label}
-                </span>
-              </div>
-              <p className="text-xs leading-5 text-white/65">
-                {creditSummary && creditSummary.monthlyNetCashFlow > 0
-                  ? `Compared with ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
-                  : "No cashflow data"}
-              </p>
-              <DashboardProgressBar
-                value={dueCapacityRatio ?? 0}
-                trackClassName="bg-white/15"
-                barClassName={dueCapacityStatus.barClassName}
-              />
-            </DashboardMetricBlock>
+                <DashboardMetricBlock title="Average Time to Pay All Debts">
+                  <p className="text-2xl font-semibold text-white">
+                    {averageDays.averageDays === null
+                      ? "No unpaid debt"
+                      : averageDays.averageDays < 0
+                        ? "Overdue avg"
+                        : `${averageDays.averageDays} days avg`}
+                  </p>
+                  <p className="text-xs leading-5 text-white/65">
+                    Based on unpaid installments
+                  </p>
+                  <DashboardProgressBar
+                    value={averageDaysRatio}
+                    trackClassName="bg-white/15"
+                    barClassName={averageUrgency.barClassName}
+                  />
+                </DashboardMetricBlock>
+              </CardContent>
+            </Card>
 
-            <DashboardMetricBlock title="Average Time to Pay All Debts">
-              <p className="text-2xl font-semibold text-white">
-                {averageDays.averageDays === null
-                  ? "No unpaid debt"
-                  : averageDays.averageDays < 0
-                    ? "Overdue avg"
-                    : `${averageDays.averageDays} days avg`}
-              </p>
-              <p className="text-xs leading-5 text-white/65">
-                Based on unpaid installments
-              </p>
-              <DashboardProgressBar
-                value={averageDaysRatio}
-                trackClassName="bg-white/15"
-                barClassName={averageUrgency.barClassName}
-              />
-            </DashboardMetricBlock>
-          </div>
-        </section>
-
-        <DashboardPanel title="Due dates">
+            <DashboardPanel title="Due dates">
           <div className="grid gap-4">
-            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-[var(--muted-foreground)]">
+            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
               {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                 <span key={day}>{day}</span>
               ))}
@@ -866,13 +901,14 @@ function HomeSummary({
                 day ? (
                   <div
                     key={day.key}
-                    className={`grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold ${
+                    className={cn(
+                      "grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold",
                       day.dueItems.length > 0
-                        ? "border-[var(--primary)] bg-[var(--primary)] text-[var(--primary-foreground)]"
+                        ? "border-primary bg-primary text-primary-foreground"
                         : day.isToday
-                          ? "border-[var(--primary)] bg-white text-[var(--foreground)]"
-                          : "border-[var(--border)] bg-[var(--muted)] text-[var(--foreground)]"
-                    }`}
+                          ? "border-primary bg-card text-foreground"
+                          : "border-border bg-muted text-foreground",
+                    )}
                     title={
                       day.dueItems.length > 0
                         ? `${day.dueItems.length} repayment due`
@@ -891,46 +927,45 @@ function HomeSummary({
               <p className="text-sm font-semibold">Upcoming</p>
               {dueUpcoming.length > 0 ? (
                 dueUpcoming.map((item) => (
-                  <div
-                    key={item.repayment.id}
-                    className="grid gap-2 rounded-2xl border border-[var(--border)] px-3 py-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center"
-                  >
-                    <div className="grid gap-1">
-                      <p className="font-semibold">
-                        Installment {item.repayment.installmentNumber}
-                      </p>
-                      <p className="text-[var(--muted-foreground)]">
-                        {formatMoney(item.repayment.amountDue)} ·{" "}
-                        {formatDateOnly(item.repayment.dueDate)}
-                      </p>
-                    </div>
-                    <RepaymentStatusPill status={item.repayment.status} />
-                  </div>
+                  <Card key={item.repayment.id} className="rounded-2xl shadow-none border-border">
+                    <CardContent className="grid gap-2 p-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
+                      <div className="grid gap-1">
+                        <p className="font-semibold">
+                          Installment {item.repayment.installmentNumber}
+                        </p>
+                        <p className="text-muted-foreground">
+                          {formatMoney(item.repayment.amountDue)} ·{" "}
+                          {formatDateOnly(item.repayment.dueDate)}
+                        </p>
+                      </div>
+                      <RepaymentStatusPill status={item.repayment.status} />
+                    </CardContent>
+                  </Card>
                 ))
               ) : (
                 <EmptyState message="No unpaid due dates this month." />
               )}
             </div>
           </div>
-        </DashboardPanel>
-      </div>
+            </DashboardPanel>
+          </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)]">
+          <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)]">
         <div className="grid gap-4">
           <DashboardPanel title="Profile completion">
             <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
               <ProgressRing value={profileCompletion.percentage} />
               <div className="grid gap-2">
-                <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+                <p className="text-sm leading-6 text-muted-foreground">
                   {profileCompletion.nextStep}
                 </p>
-                <button
-                  type="button"
+                <Button
+                  variant="outline"
                   onClick={() => onNavigate?.("profile")}
-                  className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+                  className="h-10 w-full rounded-full font-semibold sm:w-fit"
                 >
                   Open profile
-                </button>
+                </Button>
               </div>
             </div>
           </DashboardPanel>
@@ -944,7 +979,7 @@ function HomeSummary({
                       value={debtProgress.totalPaid}
                       className="text-2xl font-semibold"
                     />
-                    <p className="text-sm text-[var(--muted-foreground)]">
+                    <p className="text-sm text-muted-foreground">
                       paid of {formatMoney(debtProgress.totalDebt)}
                     </p>
                   </div>
@@ -954,7 +989,7 @@ function HomeSummary({
                 </div>
                 <DashboardProgressBar
                   value={debtProgress.percentComplete}
-                  barClassName="bg-[var(--primary)]"
+                  barClassName="bg-primary"
                 />
               </div>
             ) : (
@@ -967,13 +1002,13 @@ function HomeSummary({
           title="My Loans"
           action={
             activeLoans.length > 0 ? (
-              <button
-                type="button"
+              <Button
+                variant="link"
                 onClick={() => onNavigate?.("loans")}
-                className="text-sm font-semibold text-[var(--primary)]"
+                className="h-auto p-0 text-sm font-semibold"
               >
                 View in Loans
-              </button>
+              </Button>
             ) : null
           }
         >
@@ -990,18 +1025,42 @@ function HomeSummary({
           ) : (
             <div className="grid gap-3">
               <EmptyState message="Accepted offers will appear here as active loans." />
-              <button
-                type="button"
+              <Button
                 onClick={() => onNavigate?.("offers")}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+                className="h-11 w-full rounded-full font-semibold sm:w-fit"
               >
                 Review offers
-              </button>
+              </Button>
             </div>
           )}
         </DashboardPanel>
-      </div>
+          </div>
+        </>
+      )}
     </div>
+  );
+}
+
+function HomeDashboardSkeleton() {
+  return (
+    <Card className="rounded-3xl border-border bg-card shadow-sm">
+      <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+        <Skeleton className="h-4 w-28" />
+        <Skeleton className="h-7 w-48" />
+      </CardHeader>
+      <CardContent className="grid gap-3 p-4 sm:p-5 sm:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <Card key={item} className="rounded-2xl border-border bg-muted/30 py-0 shadow-none">
+            <CardContent className="grid gap-3 p-4">
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="h-8 w-36" />
+              <Skeleton className="h-3 w-full" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </CardContent>
+          </Card>
+        ))}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1015,20 +1074,29 @@ type DashboardDueItem = {
 function DashboardPanel({
   action = null,
   children,
+  description,
   title,
 }: {
   action?: ReactNode;
   children: ReactNode;
+  description?: string;
   title: string;
 }) {
   return (
-    <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
-      <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <Card className="rounded-3xl border-border bg-card shadow-sm">
+      <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
+        <div className="grid gap-1">
+          <CardTitle className="text-lg">{title}</CardTitle>
+          {description ? (
+            <CardDescription>{description}</CardDescription>
+          ) : null}
+        </div>
         {action}
-      </div>
-      {children}
-    </section>
+      </CardHeader>
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1040,16 +1108,18 @@ function DashboardMetricBlock({
   title: string;
 }) {
   return (
-    <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/[0.08] px-4 py-4">
-      <p className="text-sm font-semibold text-white/70">{title}</p>
-      {children}
-    </div>
+    <Card className="rounded-2xl border-white/10 bg-white/[0.08] py-0 text-white shadow-none">
+      <CardContent className="grid gap-3 p-4">
+        <p className="text-sm font-semibold text-white/70">{title}</p>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
 function DashboardProgressBar({
-  barClassName = "bg-[var(--primary)]",
-  trackClassName = "bg-[var(--muted)]",
+  barClassName = "bg-primary",
+  trackClassName = "bg-muted",
   value,
 }: {
   barClassName?: string;
@@ -1058,14 +1128,14 @@ function DashboardProgressBar({
 }) {
   return (
     <div
-      className={`h-2.5 overflow-hidden rounded-full ${trackClassName}`}
+      className={cn("h-2.5 overflow-hidden rounded-full", trackClassName)}
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={Math.round(clamp(value, 0, 1) * 100)}
     >
       <div
-        className={`h-full rounded-full ${barClassName}`}
+        className={cn("h-full rounded-full", barClassName)}
         style={{ width: `${clamp(value, 0, 1) * 100}%` }}
       />
     </div>
@@ -1086,7 +1156,7 @@ function ProgressRing({ value }: { value: number }) {
       aria-valuemax={100}
       aria-valuenow={percentage}
     >
-      <div className="grid size-24 place-items-center rounded-full bg-white">
+      <div className="grid size-24 place-items-center rounded-full bg-card">
         <span className="text-2xl font-semibold">{percentage}%</span>
       </div>
     </div>
@@ -1103,58 +1173,60 @@ function DashboardLoanCard({
   const installmentProgress = getLoanInstallmentProgress(loan);
 
   return (
-    <article className="grid gap-4 rounded-3xl border border-[var(--border)] px-4 py-4">
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-        <div className="grid gap-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold">Loan</h3>
-            <LoanStatusPill status={loan.status} />
+    <Card className="rounded-3xl shadow-none border-border">
+      <CardContent className="grid gap-4 p-4">
+        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
+          <div className="grid gap-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-base font-semibold">Loan</h3>
+              <LoanStatusPill status={loan.status} />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Final due {formatDateOnly(loan.dueDate)}
+            </p>
           </div>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            Final due {formatDateOnly(loan.dueDate)}
-          </p>
+          <Button
+            variant="outline"
+            onClick={() => onNavigate?.("loans")}
+            className="h-10 rounded-full font-semibold"
+          >
+            View in Loans
+          </Button>
         </div>
-        <button
-          type="button"
-          onClick={() => onNavigate?.("loans")}
-          className="inline-flex h-10 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          View in Loans
-        </button>
-      </div>
 
-      <dl className="grid gap-3 text-sm sm:grid-cols-2">
-        <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
-        <SummaryItem
-          label="Outstanding"
-          value={formatMoney(loan.outstandingBalance)}
-        />
-      </dl>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2">
+          <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
+          <SummaryItem
+            label="Outstanding"
+            value={formatMoney(loan.outstandingBalance)}
+          />
+        </dl>
 
-      <div className="grid gap-2">
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <p className="font-semibold">
-            {installmentProgress.completed}/{installmentProgress.total} installments
-            complete
-          </p>
-          <p className="text-[var(--muted-foreground)]">
-            {Math.round(installmentProgress.ratio * 100)}%
-          </p>
+        <div className="grid gap-2">
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <p className="font-semibold">
+              {installmentProgress.completed}/{installmentProgress.total} installments
+              complete
+            </p>
+            <p className="text-muted-foreground">
+              {Math.round(installmentProgress.ratio * 100)}%
+            </p>
+          </div>
+          <DashboardProgressBar value={installmentProgress.ratio} />
         </div>
-        <DashboardProgressBar value={installmentProgress.ratio} />
-      </div>
 
-      {installmentProgress.nextRepayment ? (
-        <div className="grid gap-1 rounded-2xl bg-[var(--muted)] px-3 py-3 text-sm">
-          <p className="font-semibold">Next unpaid installment</p>
-          <p className="text-[var(--muted-foreground)]">
-            Installment {installmentProgress.nextRepayment.installmentNumber} ·{" "}
-            {formatMoney(installmentProgress.nextRepayment.amountDue)} · Due{" "}
-            {formatDateOnly(installmentProgress.nextRepayment.dueDate)}
-          </p>
-        </div>
-      ) : null}
-    </article>
+        {installmentProgress.nextRepayment ? (
+          <div className="grid gap-1 rounded-2xl bg-muted px-3 py-3 text-sm">
+            <p className="font-semibold">Next unpaid installment</p>
+            <p className="text-muted-foreground">
+              Installment {installmentProgress.nextRepayment.installmentNumber} ·{" "}
+              {formatMoney(installmentProgress.nextRepayment.amountDue)} · Due{" "}
+              {formatDateOnly(installmentProgress.nextRepayment.dueDate)}
+            </p>
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1427,6 +1499,7 @@ function startOfLocalDay(value: Date) {
 }
 
 function ApplicationForm({
+  control,
   creditSummary,
   errors,
   isPending,
@@ -1434,6 +1507,7 @@ function ApplicationForm({
   requestedAmount,
   register,
 }: {
+  control: Control<LoanApplicationFormInput>;
   creditSummary: BorrowerCreditSummary | null;
   errors: FieldErrors<LoanApplicationFormInput>;
   isPending: boolean;
@@ -1448,82 +1522,98 @@ function ApplicationForm({
     : errors.requestedAmount?.message;
 
   return (
-    <form
-      onSubmit={onSubmit}
-      className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5"
-      aria-describedby="loan-application-state"
-    >
-      {creditSummary ? <CreditEligibilityBanner summary={creditSummary} /> : null}
+    <Card className="rounded-3xl shadow-sm border-border bg-card">
+      <CardContent className="p-4 sm:p-5">
+        <form
+          onSubmit={onSubmit}
+          className="grid gap-4"
+          aria-describedby="loan-application-state"
+        >
+          {creditSummary ? <CreditEligibilityBanner summary={creditSummary} /> : null}
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Requested amount" error={requestedAmountError}>
-          <CurrencyInput
-            className="h-11 rounded-xl"
-            aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
-            aria-describedby={
-              isOverAvailableCredit ? "requested-amount-credit-limit" : undefined
-            }
-            registration={register("requestedAmount", {
-              setValueAs: parseMoneyInput,
-            })}
-          />
-          {creditSummary && isOverAvailableCredit ? (
-            <span
-              id="requested-amount-credit-limit"
-              className="text-sm font-semibold text-[#8f1d1d]"
+          <div className="grid gap-4 sm:grid-cols-2">
+            <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
+              <CurrencyInput
+                className="h-11 rounded-xl"
+                aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
+                aria-describedby={
+                  isOverAvailableCredit ? "requested-amount-credit-limit" : undefined
+                }
+                registration={register("requestedAmount", {
+                  setValueAs: parseMoneyInput,
+                })}
+              />
+              {creditSummary && isOverAvailableCredit ? (
+                <span
+                  id="requested-amount-credit-limit"
+                  className="text-sm font-semibold text-destructive"
+                >
+                  Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
+                </span>
+              ) : null}
+            </Field>
+
+            <Field label="Preferred term" error={errors.preferredTerm?.message} id="preferredTerm">
+              <Controller
+                control={control}
+                name="preferredTerm"
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <SelectTrigger id="preferredTerm" className="h-11 rounded-xl">
+                      <SelectValue placeholder="Select term" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {preferredTermOptions.map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {preferredTermLabels[option]}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </Field>
+          </div>
+
+          <Field label="Purpose" error={errors.purpose?.message} id="purpose">
+            <Input
+              id="purpose"
+              aria-invalid={Boolean(errors.purpose)}
+              {...register("purpose")}
+              placeholder="Inventory, equipment, working capital"
+            />
+          </Field>
+
+          <Field label="Remarks" error={errors.remarks?.message} id="remarks">
+            <Textarea
+              id="remarks"
+              aria-invalid={Boolean(errors.remarks)}
+              {...register("remarks")}
+              rows={3}
+              placeholder="Optional notes for the lender."
+            />
+          </Field>
+
+          <Separator />
+
+          <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
+            <p
+              id="loan-application-state"
+              className="text-sm leading-6 text-muted-foreground"
             >
-              Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
-            </span>
-          ) : null}
-        </Field>
-
-        <Field label="Preferred term" error={errors.preferredTerm?.message}>
-          <select
-            {...register("preferredTerm")}
-            className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          >
-            {preferredTermOptions.map((option) => (
-              <option key={option} value={option}>
-                {preferredTermLabels[option]}
-              </option>
-            ))}
-          </select>
-        </Field>
-      </div>
-
-      <Field label="Purpose" error={errors.purpose?.message}>
-        <input
-          {...register("purpose")}
-          className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          placeholder="Inventory, equipment, working capital"
-        />
-      </Field>
-
-      <Field label="Remarks" error={errors.remarks?.message}>
-        <textarea
-          {...register("remarks")}
-          rows={3}
-          className="w-full resize-y rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 text-base leading-6 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          placeholder="Optional notes for the lender."
-        />
-      </Field>
-
-      <div className="grid gap-3 border-t border-[var(--border)] pt-4 sm:flex sm:items-center sm:justify-between">
-        <p
-          id="loan-application-state"
-          className="text-sm leading-6 text-[var(--muted-foreground)]"
-        >
-          Lenders will review your request and send offers here.
-        </p>
-        <button
-          type="submit"
-          disabled={isPending || isOverAvailableCredit}
-          className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
-        >
-          {isPending ? "Submitting..." : "Submit application"}
-        </button>
-      </div>
-    </form>
+              Lenders will review your request and send offers here.
+            </p>
+            <Button
+              type="submit"
+              disabled={isPending || isOverAvailableCredit}
+              className="h-12 rounded-full px-5 text-base font-semibold"
+            >
+              {isPending ? "Submitting..." : "Submit application"}
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1582,7 +1672,7 @@ function ApplicationList({
               {isExpanded ? (
                 <div
                   id={applicationDetailsId}
-                  className="border-t border-[var(--border)] px-4 py-4 sm:px-5"
+                  className="border-t border-border px-4 py-4 sm:px-5"
                 >
                   {isEditing ? (
                     <ApplicationEditForm
@@ -1608,25 +1698,25 @@ function ApplicationList({
                         />
                       </dl>
 
-                      <div className="mt-4 grid gap-2 border-t border-[var(--border)] pt-4 sm:flex sm:items-center">
-                        <button
-                          type="button"
+                      <div className="mt-4 grid gap-2 border-t border-border pt-4 sm:flex sm:items-center">
+                        <Button
+                          variant="outline"
                           disabled={!isEditable || isPending}
                           onClick={() => onEdit(application.id)}
-                          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="h-11 rounded-full font-semibold"
                         >
                           Edit application
-                        </button>
-                        <button
-                          type="button"
+                        </Button>
+                        <Button
+                          variant="ghost"
                           disabled={!isEditable || isPending}
                           onClick={() => onWithdrawApplication(application.id)}
-                          className="inline-flex h-11 items-center justify-center rounded-full px-4 text-sm font-semibold text-[var(--accent)] transition hover:bg-[var(--muted)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                          className="h-11 rounded-full font-semibold text-muted-foreground hover:text-destructive"
                         >
                           Withdraw
-                        </button>
+                        </Button>
                         {!isEditable ? (
-                          <p className="text-sm text-[var(--muted-foreground)]">
+                          <p className="text-sm text-muted-foreground">
                             Closed applications cannot be edited.
                           </p>
                         ) : null}
@@ -1744,7 +1834,7 @@ function BorrowerListCard({
   status: ReactNode;
 }) {
   return (
-    <article className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm">
+    <Card className="overflow-hidden rounded-3xl shadow-sm border-border bg-card">
       <BorrowerListCardHeader
         amount={amount}
         detailsId={detailsId}
@@ -1755,7 +1845,7 @@ function BorrowerListCard({
         status={status}
       />
       {children}
-    </article>
+    </Card>
   );
 }
 
@@ -1782,22 +1872,22 @@ function BorrowerListCardHeader({
       aria-expanded={isExpanded}
       aria-controls={detailsId}
       onClick={onToggle}
-      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[var(--primary)] sm:grid-cols-[1.25fr_1fr_auto] sm:items-center sm:px-5"
+      className="grid w-full gap-3 px-4 py-4 text-left transition hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring sm:grid-cols-[1.25fr_1fr_auto] sm:items-center sm:px-5"
     >
       <span className="grid gap-1">
-        <span className="text-sm font-semibold text-[var(--muted-foreground)]">
+        <span className="text-sm font-semibold text-muted-foreground">
           {label}
         </span>
         <MoneyText value={amount} className="text-2xl font-semibold" />
       </span>
-      <span className="grid gap-1 text-sm text-[var(--muted-foreground)]">
+      <span className="grid gap-1 text-sm text-muted-foreground">
         {metadata.slice(0, 2).map((item) => (
           <span key={item}>{item}</span>
         ))}
       </span>
       <span className="flex flex-wrap items-center gap-2 sm:justify-end">
         {status}
-        <span className="text-sm font-semibold text-[var(--primary)]">
+        <span className="text-sm font-semibold text-primary">
           {isExpanded ? "Hide" : "View details"}
         </span>
       </span>
@@ -1827,9 +1917,7 @@ function OfferCard({
   const isClosed = offer.status !== "pending";
 
   return (
-    <article
-      className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm"
-    >
+    <Card className="overflow-hidden rounded-3xl shadow-sm border-border bg-card">
       <BorrowerListCardHeader
         detailsId={offerDetailsId}
         isExpanded={isExpanded}
@@ -1844,7 +1932,7 @@ function OfferCard({
       />
 
       {isExpanded ? (
-        <div id={offerDetailsId} className="border-t border-[var(--border)] px-4 py-4 sm:px-5">
+        <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <SummaryItem label="Application" value={application.purpose} />
             <SummaryItem label="Fees" value={formatMoney(offer.fees)} />
@@ -1853,40 +1941,39 @@ function OfferCard({
           </dl>
 
           {offer.status === "accepted" && application.activeLoan ? (
-            <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+              <p className="text-sm leading-6 text-muted-foreground">
                 Linked to loan.
               </p>
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 onClick={() => onNavigate?.("loans")}
-                className="inline-flex h-11 w-full items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
+                className="h-11 w-full rounded-full font-semibold sm:w-fit"
               >
                 View loan
-              </button>
+              </Button>
             </div>
           ) : null}
 
-          <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="text-sm leading-6 text-muted-foreground">
               {offer.status === "accepted" && application.activeLoan
                 ? "Use Loans to track repayments."
                 : "Accepting an offer closes other pending offers for this application."}
             </p>
             <div className="grid gap-2 sm:flex">
-              <button
-                type="button"
+              <Button
+                variant="outline"
                 disabled={isPending || isClosed}
                 onClick={() => onDeclineOffer(application.id, offer.id)}
-                className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--accent)] hover:text-[var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-full font-semibold"
               >
                 Decline
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
                 disabled={isPending || isClosed}
                 onClick={() => onAcceptOffer(application.id, offer.id)}
-                className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+                className="h-11 rounded-full font-semibold"
               >
                 {offer.status === "accepted"
                   ? "Accepted"
@@ -1895,12 +1982,12 @@ function OfferCard({
                     : isPending
                       ? "Working..."
                       : "Accept offer"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       ) : null}
-    </article>
+    </Card>
   );
 }
 
@@ -1922,23 +2009,23 @@ function InlineFeedback({
     }
 
     return (
-      <div
-        className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
-        role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
-      >
-        {feedbackMessage}
-      </div>
+      <Alert variant={loadState === "error" ? "destructive" : "default"}>
+        <AlertDescription
+          role={loadState === "error" || loadState === "blocked" ? "alert" : "status"}
+        >
+          {feedbackMessage}
+        </AlertDescription>
+      </Alert>
     );
   }
 
   if (successMessage) {
     return (
-      <div
-        className="rounded-2xl border border-[#cdd8d2] bg-white px-4 py-3 text-sm font-medium text-[var(--accent)]"
-        role="status"
-      >
-        {successMessage}
-      </div>
+      <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+        <AlertDescription role="status">
+          {successMessage}
+        </AlertDescription>
+      </Alert>
     );
   }
 
@@ -1955,18 +2042,19 @@ function BlockedCard({
   onClick?: () => void;
 }) {
   return (
-    <div className="grid gap-3 rounded-3xl border border-dashed border-[var(--border)] bg-white px-4 py-5 text-sm leading-6 text-[var(--muted-foreground)]">
-      <p>{message}</p>
-      {onClick ? (
-        <button
-          type="button"
-          onClick={onClick}
-          className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-        >
-          {action}
-        </button>
-      ) : null}
-    </div>
+    <Card className="rounded-3xl border-dashed shadow-sm border-border bg-card">
+      <CardContent className="grid gap-3 p-4 sm:p-5">
+        <p className="text-sm leading-6 text-muted-foreground">{message}</p>
+        {onClick ? (
+          <Button
+            onClick={onClick}
+            className="h-11 w-full rounded-full font-semibold sm:w-fit"
+          >
+            {action}
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1980,7 +2068,7 @@ function SectionHeader({
   return (
     <div className="grid gap-1">
       <h2 className="text-2xl leading-tight font-semibold">{title}</h2>
-      <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+      <p className="text-sm leading-6 text-muted-foreground">
         {description}
       </p>
     </div>
@@ -2062,100 +2150,112 @@ function ActiveLoanCard({
 
   return (
     <article className="grid gap-4">
-      <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-            {isCompletedLoan ? "Completed loan" : "Current loan"}
-          </p>
-          <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
-          </p>
-        </div>
-        <LoanStatusPill status={loan.status} />
-      </div>
-
-        <div className="grid grid-cols-3 gap-3 border-y border-[var(--border)] py-4 text-sm">
-          <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
-          <SummaryItem label="Total repayment" value={formatMoney(loan.repaymentAmount)} />
-          <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
-        </div>
-
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <span className="font-semibold text-[var(--muted-foreground)]">
-              Progress
-            </span>
-            <span className="font-semibold">{progressPercent}%</span>
-          </div>
-          <div className="h-2 overflow-hidden rounded-full bg-[var(--muted)]">
-            <div
-              className="h-full rounded-full bg-[var(--primary)] transition-[width] duration-300"
-              style={{ width: `${progressPercent}%` }}
-            />
-          </div>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {formatMoney(paidAmount)} paid · {formatMoney(remainingAmount)} remaining
-          </p>
-        </div>
-
-        {nextRepayment ? (
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--border)] px-4 py-3">
+      <Card className="rounded-3xl shadow-sm border-border bg-card">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
-              <p className="text-sm font-semibold">Next repayment</p>
-              <p className="text-sm text-[var(--muted-foreground)]">
-                Due {formatDateOnly(nextRepayment.dueDate)}
+              <p className="text-sm font-semibold text-muted-foreground">
+                {isCompletedLoan ? "Completed loan" : "Current loan"}
+              </p>
+              <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
+              <p className="text-sm text-muted-foreground">
+                {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
               </p>
             </div>
-            <div className="text-left sm:text-right">
-              <MoneyText value={nextRepayment.amountDue} className="text-lg font-semibold" />
-              <div className="mt-1">
-                <RepaymentStatusPill status={nextRepayment.status} />
-              </div>
+            <LoanStatusPill status={loan.status} />
+          </div>
+
+          <Separator />
+
+          <div className="grid grid-cols-3 gap-3 text-sm">
+            <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
+            <SummaryItem label="Total repayment" value={formatMoney(loan.repaymentAmount)} />
+            <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3 text-sm">
+              <span className="font-semibold text-muted-foreground">
+                Progress
+              </span>
+              <span className="font-semibold">{progressPercent}%</span>
             </div>
-          </div>
-        ) : null}
-
-        {isCompletedLoan ? (
-          <p className="rounded-2xl border border-[#c8e6d8] bg-[#f1fbf6] px-4 py-3 text-sm font-semibold text-[#0f5f45]">
-            All repayments verified.
-          </p>
-        ) : null}
-      </section>
-
-      <section className="grid gap-2 rounded-3xl border border-[var(--border)] bg-white px-4 py-5 shadow-sm sm:px-5">
-        <div className="flex items-center justify-between gap-3">
-          <h4 className="text-base font-semibold">Repayment schedule</h4>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            {loan.schedule.length} {loan.schedule.length === 1 ? "installment" : "installments"}
-          </p>
-        </div>
-        {loan.schedule.length > 0 ? (
-          <div className="divide-y divide-[var(--border)] overflow-hidden rounded-2xl border border-[var(--border)]">
-            {loan.schedule.map((repayment) => (
-              <RepaymentScheduleItem
-                key={repayment.id}
-                isExpanded={expandedRepaymentIds.has(repayment.id)}
-                isPending={isPending}
-                repayment={repayment}
-                onSubmitProof={onSubmitProof}
-                onToggle={() => onToggleRepayment(repayment.id)}
-                proofFeedback={proofFeedback[repayment.id] ?? null}
+            <div className="h-2 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full rounded-full bg-primary transition-[width] duration-300"
+                style={{ width: `${progressPercent}%` }}
               />
-            ))}
+            </div>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {formatMoney(paidAmount)} paid · {formatMoney(remainingAmount)} remaining
+            </p>
           </div>
-        ) : (
-          <p className="rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]">
-            Your repayment schedule will appear here when it is ready.
-          </p>
-        )}
-      </section>
+
+          {nextRepayment ? (
+            <Card className="rounded-2xl shadow-none border-border">
+              <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
+                <div className="grid gap-1">
+                  <p className="text-sm font-semibold">Next repayment</p>
+                  <p className="text-sm text-muted-foreground">
+                    Due {formatDateOnly(nextRepayment.dueDate)}
+                  </p>
+                </div>
+                <div className="text-left sm:text-right">
+                  <MoneyText value={nextRepayment.amountDue} className="text-lg font-semibold" />
+                  <div className="mt-1">
+                    <RepaymentStatusPill status={nextRepayment.status} />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isCompletedLoan ? (
+            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+              <AlertDescription className="font-semibold">
+                All repayments verified.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-3xl shadow-sm border-border bg-card">
+        <CardContent className="grid gap-2 p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <h4 className="text-base font-semibold">Repayment schedule</h4>
+            <p className="text-sm text-muted-foreground">
+              {loan.schedule.length} {loan.schedule.length === 1 ? "installment" : "installments"}
+            </p>
+          </div>
+          {loan.schedule.length > 0 ? (
+            <Card className="overflow-hidden rounded-2xl shadow-none border-border">
+              <div className="divide-y divide-border">
+                {loan.schedule.map((repayment) => (
+                  <RepaymentScheduleRow
+                    key={repayment.id}
+                    isExpanded={expandedRepaymentIds.has(repayment.id)}
+                    isPending={isPending}
+                    repayment={repayment}
+                    onSubmitProof={onSubmitProof}
+                    onToggle={() => onToggleRepayment(repayment.id)}
+                    proofFeedback={proofFeedback[repayment.id] ?? null}
+                  />
+                ))}
+              </div>
+            </Card>
+          ) : (
+            <p className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Your repayment schedule will appear here when it is ready.
+            </p>
+          )}
+        </CardContent>
+      </Card>
     </article>
   );
 }
 
-function RepaymentScheduleItem({
+function RepaymentScheduleRow({
   isExpanded,
   isPending,
   onToggle,
@@ -2186,13 +2286,13 @@ function RepaymentScheduleItem({
   const statusText = getRepaymentStatusText(repayment.status, latestProof?.status);
 
   return (
-    <div className="grid gap-3 bg-white px-4 py-4">
+    <div className="grid gap-3 bg-card px-4 py-4">
       <button
         type="button"
         aria-expanded={isExpanded}
         aria-controls={repaymentDetailsId}
         onClick={onToggle}
-        className="grid gap-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:grid-cols-[1fr_auto] sm:items-center"
+        className="grid gap-3 text-left transition focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:grid-cols-[1fr_auto] sm:items-center"
       >
         <span className="grid gap-1">
           <span className="flex flex-wrap items-center gap-2">
@@ -2202,20 +2302,20 @@ function RepaymentScheduleItem({
             <RepaymentStatusPill status={repayment.status} />
             {latestProof ? <ProofStatusPill status={latestProof.status} /> : null}
           </span>
-          <span className="text-sm text-[var(--muted-foreground)]">
+          <span className="text-sm text-muted-foreground">
             Due {formatDateOnly(repayment.dueDate)} · {statusText}
           </span>
         </span>
         <span className="flex flex-wrap items-center gap-3 sm:justify-end">
           <MoneyText value={repayment.amountDue} className="text-xl font-semibold" />
-          <span className="text-sm font-semibold text-[var(--primary)]">
+          <span className="text-sm font-semibold text-primary">
             {isExpanded ? "Hide" : "Details"}
           </span>
         </span>
       </button>
 
       {isExpanded ? (
-        <div id={repaymentDetailsId} className="grid gap-3 border-t border-[var(--border)] pt-3">
+        <div id={repaymentDetailsId} className="grid gap-3 border-t border-border pt-3">
           <div className="grid gap-3 sm:grid-cols-3">
             <SummaryItem label="Repayment" value={formatRepaymentStatus(repayment.status)} />
             <SummaryItem
@@ -2280,31 +2380,33 @@ function ProofHistory({
   proofs: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number]["proofs"];
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
-      <p className="text-sm font-semibold">Proof history</p>
-      <div className="grid gap-2">
-        {proofs.map((proof) => (
-          <div
-            key={proof.id}
-            className="grid gap-1 border-t border-[var(--border)] pt-2 text-sm first:border-t-0 first:pt-0"
-          >
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <span className="break-words font-semibold">{proof.fileName}</span>
-              <ProofStatusPill status={proof.status} />
-            </div>
-            <p className="text-[var(--muted-foreground)]">
-              Submitted {formatDate(proof.submittedAt)}
-              {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
-            </p>
-            {proof.reviewNotes ? (
-              <p className="rounded-xl bg-white px-3 py-2 text-[var(--muted-foreground)]">
-                Lender note: {proof.reviewNotes}
+    <Card className="rounded-2xl shadow-none border-border bg-muted/30">
+      <CardContent className="grid gap-2 p-3">
+        <p className="text-sm font-semibold">Proof history</p>
+        <div className="grid gap-2">
+          {proofs.map((proof) => (
+            <div
+              key={proof.id}
+              className="grid gap-1 border-t border-border pt-2 text-sm first:border-t-0 first:pt-0"
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="break-words font-semibold">{proof.fileName}</span>
+                <ProofStatusPill status={proof.status} />
+              </div>
+              <p className="text-muted-foreground">
+                Submitted {formatDate(proof.submittedAt)}
+                {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
               </p>
-            ) : null}
-          </div>
-        ))}
-      </div>
-    </div>
+              {proof.reviewNotes ? (
+                <p className="rounded-xl bg-card px-3 py-2 text-muted-foreground">
+                  Lender note: {proof.reviewNotes}
+                </p>
+              ) : null}
+            </div>
+          ))}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2324,35 +2426,35 @@ function RepaymentProofForm({
   return (
     <form
       action={(formData) => onSubmitProof(repaymentId, formData)}
-      className="grid gap-3 border-t border-[var(--border)] pt-3"
+      className="grid gap-3 border-t border-border pt-3"
     >
       <div className="grid gap-1.5">
-        <label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
+        <Label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
           {isRejected ? "Upload corrected proof" : "Upload proof"}
-        </label>
+        </Label>
         <input
           id={`proof-${repaymentId}`}
           name="proofFile"
           type="file"
           accept="image/jpeg,image/png,image/webp,application/pdf"
           disabled={isPending}
-          className="w-full rounded-xl border border-[var(--border)] bg-white px-3 py-2 text-sm file:mr-3 file:rounded-full file:border-0 file:bg-[var(--muted)] file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-[var(--foreground)]"
+          className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
         />
-        <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+        <p className="text-xs leading-5 text-muted-foreground">
           JPG, PNG, WebP, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
         </p>
       </div>
-      <button
+      <Button
         type="submit"
         disabled={isPending}
-        className="inline-flex h-11 w-full items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60 sm:w-fit"
+        className="h-11 w-full rounded-full font-semibold sm:w-fit"
       >
         {isPending
           ? "Submitting..."
           : isRejected
             ? "Submit corrected proof"
             : "Upload proof"}
-      </button>
+      </Button>
       {proofFeedback ? (
         <ProofStatusMessage
           message={proofFeedback.message}
@@ -2374,10 +2476,10 @@ function ActionBanner({
 }) {
   const className =
     tone === "error"
-      ? "border-[#f3c7c7] bg-[#fff4f4] text-[#8f1d1d]"
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "success"
-        ? "border-[#c8e6d8] bg-[#f1fbf6] text-[#0f5f45]"
-        : "border-[#d8dde8] bg-[#f7f9fc] text-[var(--foreground)]";
+        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        : "border-border bg-muted/30 text-foreground";
 
   return (
     <div className={`rounded-2xl border px-3 py-3 text-sm leading-6 ${className}`}>
@@ -2396,8 +2498,8 @@ function ProofStatusMessage({
 }) {
   const className =
     tone === "error"
-      ? "border-[#f3c7c7] bg-[#fff4f4] text-[#8f1d1d]"
-      : "border-[#c8e6d8] bg-[#f1fbf6] text-[#0f5f45]";
+      ? "border-destructive/30 bg-destructive/10 text-destructive"
+      : "border-emerald-200 bg-emerald-50 text-emerald-800";
 
   return (
     <p
@@ -2423,6 +2525,7 @@ function ApplicationEditForm({
   const {
     register,
     handleSubmit,
+    control,
     formState: { errors },
   } = useForm<LoanApplicationFormInput, unknown, LoanApplicationInput>({
     resolver: zodResolver(loanApplicationSchema),
@@ -2438,7 +2541,7 @@ function ApplicationEditForm({
   return (
     <form onSubmit={handleSubmit(onSave)} className="grid gap-4">
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Requested amount" error={errors.requestedAmount?.message}>
+        <Field label="Requested amount" error={errors.requestedAmount?.message} id="edit-requestedAmount">
           <CurrencyInput
             className="h-11 rounded-xl"
             registration={register("requestedAmount", {
@@ -2447,51 +2550,62 @@ function ApplicationEditForm({
           />
         </Field>
 
-        <Field label="Preferred term" error={errors.preferredTerm?.message}>
-          <select
-            {...register("preferredTerm")}
-            className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base text-[var(--foreground)] outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
-          >
-            {preferredTermOptions.map((option) => (
-              <option key={option} value={option}>
-                {preferredTermLabels[option]}
-              </option>
-            ))}
-          </select>
+        <Field label="Preferred term" error={errors.preferredTerm?.message} id="edit-preferredTerm">
+          <Controller
+            control={control}
+            name="preferredTerm"
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger id="edit-preferredTerm" className="h-11 rounded-xl">
+                  <SelectValue placeholder="Select term" />
+                </SelectTrigger>
+                <SelectContent>
+                  {preferredTermOptions.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {preferredTermLabels[option]}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
         </Field>
       </div>
 
-      <Field label="Purpose" error={errors.purpose?.message}>
-        <input
+      <Field label="Purpose" error={errors.purpose?.message} id="edit-purpose">
+        <Input
+          id="edit-purpose"
+          aria-invalid={Boolean(errors.purpose)}
           {...register("purpose")}
-          className="h-11 w-full rounded-xl border border-[var(--border)] bg-white px-3 text-base outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
         />
       </Field>
 
-      <Field label="Remarks" error={errors.remarks?.message}>
-        <textarea
+      <Field label="Remarks" error={errors.remarks?.message} id="edit-remarks">
+        <Textarea
+          id="edit-remarks"
+          aria-invalid={Boolean(errors.remarks)}
           {...register("remarks")}
           rows={3}
-          className="w-full resize-y rounded-xl border border-[var(--border)] bg-white px-3 py-2.5 text-base leading-6 outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20"
         />
       </Field>
 
       <div className="grid gap-2 sm:flex sm:justify-end">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={onCancel}
           disabled={isPending}
-          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 rounded-full font-semibold"
         >
           Cancel editing
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           disabled={isPending}
-          className="inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-4 text-sm font-semibold text-[var(--primary-foreground)] transition hover:bg-[#0f0f0f] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-60"
+          className="h-11 rounded-full font-semibold"
         >
           {isPending ? "Saving..." : "Save changes"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -2598,13 +2712,13 @@ function getRejectedProofNextStep(reviewNotes?: string | null) {
 function LoanStatusPill({ status }: { status: string }) {
   const className =
     status === "overdue"
-      ? "bg-[#fff4f4] text-[#8f1d1d]"
-      : "bg-[#e1f5ee] text-[#0f5f45]";
+      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
+      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
       {formatLoanPillStatus(status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -2623,32 +2737,32 @@ function formatLoanPillStatus(status: string) {
 function RepaymentStatusPill({ status }: { status: string }) {
   const className =
     status === "rejected" || status === "late"
-      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
       : status === "verified"
-        ? "bg-[#e1f5ee] text-[#0f5f45]"
+        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
         : status === "submitted"
-          ? "bg-[#f7f9fc] text-[var(--foreground)]"
-          : "bg-[#fff4cf] text-[#6f4e00]";
+          ? "bg-muted text-foreground hover:bg-muted"
+          : "bg-amber-50 text-amber-800 hover:bg-amber-50";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
       {formatRepaymentStatus(status)}
-    </span>
+    </Badge>
   );
 }
 
 function ProofStatusPill({ status }: { status: string }) {
   const className =
     status === "rejected"
-      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
       : status === "verified"
-        ? "bg-[#e1f5ee] text-[#0f5f45]"
-        : "bg-[#f7f9fc] text-[var(--foreground)]";
+        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+        : "bg-muted text-foreground hover:bg-muted";
 
   return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
+    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
       {formatProofStatus(status)}
-    </span>
+    </Badge>
   );
 }
 
@@ -2810,35 +2924,38 @@ function setStoredIdCollapsed(key: string, id: string, isCollapsed: boolean) {
 
 function getOfferStatusClassName(status: string) {
   if (status === "accepted") {
-    return "bg-[#e1f5ee] text-[#0f5f45]";
+    return "bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
   }
 
   if (status === "declined") {
-    return "bg-[#f5e8df] text-[#8a3d13]";
+    return "bg-amber-100 text-amber-900 hover:bg-amber-100";
   }
 
   if (status === "pending") {
-    return "bg-[#fff4cf] text-[#6f4e00]";
+    return "bg-amber-50 text-amber-800 hover:bg-amber-50";
   }
 
-  return "bg-[var(--muted)] text-[var(--foreground)]";
+  return "bg-secondary text-secondary-foreground hover:bg-secondary";
 }
 
 function StatusBadge({ value }: { value: string }) {
   return (
-    <span
-      className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${getOfferStatusClassName(value)}`}
+    <Badge
+      variant="secondary"
+      className={`text-xs font-semibold capitalize ${getOfferStatusClassName(value)}`}
     >
       {formatApplicationStatus(value)}
-    </span>
+    </Badge>
   );
 }
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <div className="rounded-md border border-dashed border-[var(--border)] px-4 py-4 text-sm leading-6 text-[var(--muted-foreground)]">
-      {message}
-    </div>
+    <Card className="rounded-md border-dashed shadow-none border-border bg-card">
+      <CardContent className="p-4">
+        <p className="text-sm leading-6 text-muted-foreground">{message}</p>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -2869,8 +2986,8 @@ type SummaryItemProps = {
 function SummaryItem({ label, value }: SummaryItemProps) {
   return (
     <div>
-      <dt className="font-semibold text-[var(--muted-foreground)]">{label}</dt>
-      <dd className="mt-1 text-[var(--foreground)] tabular-nums">{value}</dd>
+      <dt className="font-semibold text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-foreground tabular-nums">{value}</dd>
     </div>
   );
 }
@@ -2878,19 +2995,20 @@ function SummaryItem({ label, value }: SummaryItemProps) {
 type FieldProps = {
   label: string;
   error?: string;
+  id?: string;
   children: ReactNode;
 };
 
-function Field({ label, error, children }: FieldProps) {
+function Field({ label, error, id, children }: FieldProps) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-sm font-semibold text-[var(--foreground)]">
+    <div className="grid gap-1.5">
+      <Label htmlFor={id} className="text-sm font-semibold text-foreground">
         {label}
-      </span>
+      </Label>
       {children}
       {error ? (
-        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
+        <span id={id ? `${id}-error` : undefined} className="text-sm leading-5 text-destructive">{error}</span>
       ) : null}
-    </label>
+    </div>
   );
 }
