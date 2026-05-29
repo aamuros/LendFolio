@@ -691,36 +691,102 @@ function SummaryTile({
 
 function MetricsSection() {
   return (
-    <section className="bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-8">
-        <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
-          <div>
+    <section className="bg-[#F6F5F2] px-5 py-18 sm:px-8 sm:py-22 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-[0.72fr_1.28fr] lg:items-center">
+        <div className="grid gap-6">
+          <div className="grid gap-4">
             <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
-              Product frame
+              Operating layer
             </p>
             <h2 className="max-w-3xl text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
               One operating layer for borrower, lender, and manager workflows
             </h2>
+            <p className="max-w-xl text-base leading-7 text-[#5F5F5F]">
+              LendFolio keeps borrower profiles, lender decisions, manager
+              approvals, repayment proofs, and audit logs connected in one
+              structured operating layer.
+            </p>
           </div>
-          <p className="max-w-2xl text-base leading-7 text-[#5F5F5F]">
-            LendFolio keeps the MVP focused on real workflow states: profiles,
-            applications, offers, approvals, repayment proofs, and audit logs.
-          </p>
+          <div className="hidden border border-[#D9D7D1] bg-[#FFFFFC]/72 p-5 shadow-[0_18px_60px_rgba(14,26,18,0.05)] lg:block">
+            <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
+              Connected records
+            </p>
+            <div className="mt-5 grid gap-3">
+              {["Profile", "Application", "Offer", "Proof", "Audit log"].map((item, index) => (
+                <div key={item} className="flex items-center gap-3 text-sm">
+                  <span className="flex h-7 w-7 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-xs font-semibold text-[#33423C]">
+                    {index + 1}
+                  </span>
+                  <span className="text-[#4F4F4B]">{item}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
-        <div className="grid border border-[#D9D7D1] bg-[#FFFFFC]/70 shadow-[0_22px_70px_rgba(14,26,18,0.06)] sm:grid-cols-2 lg:grid-cols-4">
-          {metrics.map((metric) => (
-            <article
-              key={metric.value}
-              className="border-b border-[#D9D7D1] p-6 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0 lg:p-8"
-            >
-              <p className="text-6xl font-semibold tracking-[-0.05em] text-[#161616] sm:text-7xl">
-                {metric.value}
-              </p>
-              <p className="mt-5 text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
-                {metric.label}
-              </p>
-            </article>
-          ))}
+        <div className="relative overflow-hidden border border-[#D9D7D1] bg-[#111612] p-4 text-white shadow-[0_30px_100px_rgba(14,26,18,0.18)] sm:p-6">
+          <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.07)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-25" />
+          <div className="relative grid gap-5">
+            <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.18em] text-[#AFA794] uppercase">
+                  Workflow map
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-white">
+                  Role lanes stay connected
+                </h3>
+              </div>
+              <span className="w-fit border border-[#E6DDCB]/25 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[#E6DDCB]">
+                Structured flow
+              </span>
+            </div>
+
+            <div className="relative grid gap-4">
+              <div className="absolute top-[4.35rem] right-6 left-6 hidden h-px bg-[#E6DDCB]/20 md:block" />
+              <div className="absolute top-[10.35rem] right-6 left-6 hidden h-px bg-[#E6DDCB]/14 md:block" />
+              {operatingLanes.map((lane) => (
+                <div
+                  key={lane.role}
+                  className="relative grid gap-3 border border-white/10 bg-[#17231A]/86 p-4 md:grid-cols-[8rem_1fr] md:items-center"
+                >
+                  <div>
+                    <p className="text-xs font-semibold tracking-[0.16em] text-[#AFA794] uppercase">
+                      {lane.role}
+                    </p>
+                    <p className="mt-2 text-sm text-[#CFC8B9]">{lane.summary}</p>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    {lane.steps.map((step, index) => (
+                      <div
+                        key={step}
+                        className="relative border border-[#E6DDCB]/18 bg-white/[0.045] p-3"
+                      >
+                        <span className="mb-3 flex h-7 w-7 items-center justify-center border border-[#E6DDCB]/24 bg-[#E6DDCB]/10 text-xs font-semibold text-[#F6F0DF]">
+                          {index + 1}
+                        </span>
+                        <p className="text-sm font-semibold text-white">{step}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {metrics.map((metric) => (
+                <article
+                  key={metric.value}
+                  className="border border-[#E6DDCB]/16 bg-[#0E1A12]/76 p-4"
+                >
+                  <p className="text-4xl font-semibold tracking-[-0.05em] text-[#F6F0DF]">
+                    {metric.value}
+                  </p>
+                  <p className="mt-3 text-[0.68rem] font-semibold tracking-[0.16em] text-[#AFA794] uppercase">
+                    {metric.label}
+                  </p>
+                </article>
+              ))}
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1016,6 +1082,24 @@ const managerStages = [
   "Offers",
   "Proofs",
   "Logs",
+];
+
+const operatingLanes = [
+  {
+    role: "Borrower",
+    summary: "Preparation",
+    steps: ["Profile", "Application", "Proof"],
+  },
+  {
+    role: "Lender",
+    summary: "Decision",
+    steps: ["Review", "Offer", "Confirm"],
+  },
+  {
+    role: "Manager",
+    summary: "Oversight",
+    steps: ["Approve", "Monitor", "Audit"],
+  },
 ];
 
 const layerCards = [
