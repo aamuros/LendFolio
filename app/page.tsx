@@ -14,9 +14,11 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
       <Header />
 
-      <section className="relative isolate flex min-h-[calc(100svh-4rem)] items-center border-b border-[#D9D7D1] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <section className="hero-depth-scene relative isolate flex min-h-[calc(100svh-4rem)] items-center overflow-hidden border-b border-[#D9D7D1] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
         <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
         <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
+        <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
+        <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(246,245,242,0)_0%,rgba(246,245,242,0.72)_82%,rgba(246,245,242,0.98)_100%)]" />
 
         <div className="mx-auto grid w-full max-w-7xl gap-12">
           {authMessage ? (
@@ -31,7 +33,7 @@ export default async function Home({ searchParams }: HomeProps) {
           <div className="relative mx-auto grid w-full max-w-6xl place-items-center gap-7 py-4 text-center sm:py-6">
             <LandingMesh />
             <FloatingFinanceCards />
-            <div className="grid max-w-5xl gap-5">
+            <div className="relative z-20 grid max-w-5xl gap-5">
               <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
                 Structured microfinance operations
               </p>
@@ -45,7 +47,7 @@ export default async function Home({ searchParams }: HomeProps) {
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="relative z-20 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/signup"
                 className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
@@ -60,7 +62,9 @@ export default async function Home({ searchParams }: HomeProps) {
               </Link>
             </div>
 
-            <HeroFinanceGrid />
+            <div className="relative z-20 w-full">
+              <HeroFinanceGrid />
+            </div>
           </div>
         </div>
       </section>
@@ -122,57 +126,39 @@ function Header() {
 function LandingMesh() {
   return (
     <div
-      className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[21rem] w-[21rem] -translate-x-1/2 -translate-y-1/2 opacity-45 sm:h-[30rem] sm:w-[30rem]"
+      className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 opacity-55 sm:h-[32rem] sm:w-[32rem]"
       aria-hidden="true"
     >
-      <div className="absolute inset-8 rounded-full border border-[#33423C]/20 bg-[radial-gradient(circle,rgba(246,245,242,0.2),rgba(51,66,60,0.06)_45%,transparent_72%)]" />
-      <svg viewBox="0 0 600 600" className="h-full w-full">
-        <defs>
-          <radialGradient id="meshGlow" cx="50%" cy="42%" r="55%">
-            <stop offset="0%" stopColor="#F6F5F2" stopOpacity="0.62" />
-            <stop offset="58%" stopColor="#33423C" stopOpacity="0.18" />
-            <stop offset="100%" stopColor="#33423C" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="300" cy="300" r="248" fill="url(#meshGlow)" />
-        {Array.from({ length: 12 }).map((_, index) => (
-          <ellipse
-            key={`ring-${index}`}
-            cx="300"
-            cy="300"
-            rx={70 + index * 15}
-            ry={210 - index * 8}
-            fill="none"
-            stroke="#33423C"
-            strokeOpacity="0.22"
-            strokeWidth="1"
-            transform={`rotate(${index * 15} 300 300)`}
+      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,252,0.86)_0%,rgba(226,218,198,0.2)_36%,rgba(51,66,60,0.1)_58%,transparent_72%)]" />
+      <div className="hero-engine absolute inset-0">
+        <div className="hero-orbit absolute inset-12 rounded-full border border-[#33423C]/16" />
+        <div className="hero-orbit hero-orbit-reverse absolute inset-20 rounded-full border border-[#33423C]/14" />
+        <div className="absolute inset-28 rounded-full border border-[#161616]/10 bg-[#FFFFFC]/20 shadow-[inset_0_0_55px_rgba(51,66,60,0.08)]" />
+        <div className="absolute top-1/2 left-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#33423C]/22 bg-[#FFFFFC]/40 shadow-[0_20px_70px_rgba(14,26,18,0.12)]" />
+        <div className="hero-flow-line absolute top-1/2 left-[21%] h-px w-[58%] origin-center bg-gradient-to-r from-transparent via-[#33423C]/34 to-transparent" />
+        <div className="hero-flow-line absolute top-[40%] left-[29%] h-px w-[42%] origin-center rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/24 to-transparent" />
+        <div className="hero-flow-line absolute top-[60%] left-[29%] h-px w-[42%] origin-center -rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/24 to-transparent" />
+        {workflowNodes.map((node) => (
+          <div
+            key={node.label}
+            className={`hero-node absolute h-2.5 w-2.5 rounded-full border border-[#33423C]/30 bg-[#FFFFFC] shadow-[0_0_18px_rgba(51,66,60,0.26)] ${node.position}`}
           />
         ))}
-        {Array.from({ length: 9 }).map((_, index) => (
-          <path
-            key={`arc-${index}`}
-            d={`M ${92 + index * 10} ${250 + index * 14} C ${190 + index * 8} ${90 + index * 12}, ${404 - index * 9} ${106 + index * 8}, ${512 - index * 12} ${286 + index * 13}`}
-            fill="none"
-            stroke="#161616"
-            strokeOpacity="0.11"
-            strokeWidth="1"
-          />
-        ))}
-      </svg>
+      </div>
     </div>
   );
 }
 
 function FloatingFinanceCards() {
   return (
-    <div className="pointer-events-none absolute inset-0 hidden xl:block" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 z-10 hidden xl:block" aria-hidden="true">
       {heroCards.map((card) => (
         <HeroFinanceCard
           key={card.label}
-          className={`absolute min-w-44 ${card.position}`}
+          className={`absolute w-52 ${card.position} ${card.depth}`}
           label={card.label}
           value={card.value}
+          status={card.status}
         />
       ))}
     </div>
@@ -183,7 +169,12 @@ function HeroFinanceGrid() {
   return (
     <div className="grid w-full max-w-xl grid-cols-2 gap-3 xl:hidden">
       {heroCards.map((card) => (
-        <HeroFinanceCard key={card.label} label={card.label} value={card.value} />
+        <HeroFinanceCard
+          key={card.label}
+          label={card.label}
+          value={card.value}
+          status={card.status}
+        />
       ))}
     </div>
   );
@@ -192,20 +183,31 @@ function HeroFinanceGrid() {
 function HeroFinanceCard({
   label,
   value,
+  status,
   className = "",
 }: {
   label: string;
   value: string;
+  status: string;
   className?: string;
 }) {
   return (
     <div
-      className={`border border-[#D9D7D1] bg-[#FFFFFC]/84 p-3 text-left shadow-[0_18px_50px_rgba(14,26,18,0.1)] backdrop-blur ${className}`}
+      className={`hero-card-3d relative overflow-hidden border border-[#FFFFFC]/75 bg-[#FFFFFC]/88 p-3 text-left shadow-[0_18px_45px_rgba(14,26,18,0.12),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md ${className}`}
     >
-      <p className="text-[0.65rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
-        {label}
+      <div className="relative flex items-start justify-between gap-3">
+        <p className="text-[0.63rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
+          {label}
+        </p>
+        <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#33423C] shadow-[0_0_12px_rgba(51,66,60,0.38)]" />
+      </div>
+      <p className="relative mt-2 text-sm font-semibold text-[#161616]">{value}</p>
+      <div className="relative mt-3 h-1 overflow-hidden rounded-full bg-[#E7E4DE]">
+        <div className="h-full w-2/3 rounded-full bg-[#33423C]" />
+      </div>
+      <p className="relative mt-2 text-[0.68rem] font-medium text-[#77736A]">
+        {status}
       </p>
-      <p className="mt-2 text-sm font-semibold text-[#161616]">{value}</p>
     </div>
   );
 }
@@ -902,23 +904,38 @@ const heroCards = [
   {
     label: "Application status",
     value: "Ready",
-    position: "top-16 left-0",
+    position: "top-12 left-0",
+    depth: "hero-card-1",
+    status: "Profile locked",
   },
   {
     label: "Credit limit",
     value: "PHP 40,000",
-    position: "top-20 right-2",
+    position: "top-14 right-0",
+    depth: "hero-card-2",
+    status: "Capacity checked",
   },
   {
     label: "Repayment proof",
     value: "Pending review",
-    position: "bottom-24 left-12",
+    position: "bottom-20 left-8",
+    depth: "hero-card-3",
+    status: "Manager queue",
   },
   {
     label: "Risk notes",
     value: "Verified profile",
-    position: "right-12 bottom-28",
+    position: "right-8 bottom-22",
+    depth: "hero-card-4",
+    status: "Lender ready",
   },
+];
+
+const workflowNodes = [
+  { label: "Borrower", position: "top-[48%] left-[22%]" },
+  { label: "Lender", position: "top-[26%] left-[50%]" },
+  { label: "Manager", position: "top-[48%] right-[22%]" },
+  { label: "Proof", position: "bottom-[24%] left-[50%]" },
 ];
 
 const workflowLabels = [

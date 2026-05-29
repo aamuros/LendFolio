@@ -37,3 +37,144 @@ a {
   color: inherit;
   text-decoration: none;
 }
+
+.hero-depth-scene {
+  perspective: 1200px;
+}
+
+.hero-engine {
+  transform-style: preserve-3d;
+  transform: rotateX(63deg) rotateZ(-18deg);
+}
+
+.hero-orbit {
+  transform-style: preserve-3d;
+  animation: hero-slow-rotate 34s linear infinite;
+}
+
+.hero-orbit-reverse {
+  animation-direction: reverse;
+  animation-duration: 46s;
+}
+
+.hero-node {
+  animation: hero-pulse 5.6s ease-in-out infinite;
+}
+
+.hero-flow-line {
+  animation: hero-flow-pulse 6.5s ease-in-out infinite;
+}
+
+.hero-card-3d {
+  transform-style: preserve-3d;
+  animation: hero-float 9s ease-in-out infinite;
+}
+
+.hero-card-3d::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 252, 0.56) 44%,
+    transparent 58%
+  );
+  opacity: 0;
+  transform: translateX(-72%);
+  animation: hero-shimmer 8s ease-in-out infinite;
+}
+
+.hero-card-1 {
+  transform: rotateX(5deg) rotateY(-9deg) scale(0.96);
+}
+
+.hero-card-2 {
+  transform: rotateX(5deg) rotateY(9deg) scale(0.96);
+  animation-delay: -1.8s;
+}
+
+.hero-card-3 {
+  transform: rotateX(-4deg) rotateY(8deg) scale(0.94);
+  animation-delay: -3.4s;
+}
+
+.hero-card-4 {
+  transform: rotateX(-4deg) rotateY(-8deg) scale(0.94);
+  animation-delay: -4.8s;
+}
+
+@keyframes hero-slow-rotate {
+  from {
+    transform: rotateZ(0deg);
+  }
+
+  to {
+    transform: rotateZ(360deg);
+  }
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes hero-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.86;
+    scale: 1.12;
+  }
+}
+
+@keyframes hero-flow-pulse {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scaleX(0.86);
+  }
+
+  50% {
+    opacity: 0.48;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes hero-shimmer {
+  0%,
+  76% {
+    opacity: 0;
+    transform: translateX(-72%);
+  }
+
+  88% {
+    opacity: 0.48;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(72%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orbit,
+  .hero-node,
+  .hero-flow-line,
+  .hero-card-3d,
+  .hero-card-3d::before {
+    animation: none;
+  }
+}
