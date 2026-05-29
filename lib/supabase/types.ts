@@ -40,6 +40,17 @@ export type BorrowerVerificationDocumentType =
   | "address_proof"
   | "business_registration"
   | "other";
+export type LenderVerificationDocumentStatus =
+  | "submitted"
+  | "accepted"
+  | "rejected"
+  | "superseded";
+export type LenderVerificationDocumentType =
+  | "business_registration"
+  | "valid_id"
+  | "authorization_letter"
+  | "proof_of_address"
+  | "other";
 export type LenderVerificationStatus = "pending" | "approved" | "rejected";
 export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 export type PreferredTerm = "1_month" | "3_months" | "6_months" | "12_months";
@@ -427,6 +438,63 @@ export type Database = {
           file_type?: string;
           file_size?: number;
           status?: BorrowerVerificationDocumentStatus;
+          uploaded_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lender_verification_documents: {
+        Row: {
+          id: string;
+          lender_profile_id: string;
+          lender_id: string;
+          storage_bucket: string;
+          storage_path: string;
+          document_type: LenderVerificationDocumentType;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status: LenderVerificationDocumentStatus;
+          uploaded_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          review_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lender_profile_id: string;
+          lender_id: string;
+          storage_bucket?: string;
+          storage_path: string;
+          document_type: LenderVerificationDocumentType;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status?: LenderVerificationDocumentStatus;
+          uploaded_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          lender_profile_id?: string;
+          lender_id?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          document_type?: LenderVerificationDocumentType;
+          file_name?: string;
+          file_type?: string;
+          file_size?: number;
+          status?: LenderVerificationDocumentStatus;
           uploaded_at?: string;
           reviewed_at?: string | null;
           reviewed_by?: string | null;
@@ -919,6 +987,17 @@ export type Database = {
         };
         Returns: Json;
       };
+      submit_lender_verification_document: {
+        Args: {
+          p_lender_profile_id: string;
+          p_storage_path: string;
+          p_document_type: LenderVerificationDocumentType;
+          p_file_name: string;
+          p_file_type: string;
+          p_file_size: number;
+        };
+        Returns: Json;
+      };
       submit_repayment_proof: {
         Args: {
           p_repayment_schedule_id: string;
@@ -975,6 +1054,8 @@ export type Database = {
       borrower_verification_status: BorrowerVerificationStatus;
       borrower_verification_document_status: BorrowerVerificationDocumentStatus;
       borrower_verification_document_type: BorrowerVerificationDocumentType;
+      lender_verification_document_status: LenderVerificationDocumentStatus;
+      lender_verification_document_type: LenderVerificationDocumentType;
       lender_verification_status: LenderVerificationStatus;
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;

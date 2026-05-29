@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/login/actions";
 import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
@@ -7,7 +8,7 @@ import {
   formatDate,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
+import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import {
   getCurrentUserProfile,
   type CurrentUserProfile,
@@ -26,22 +27,55 @@ import {
 } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
 import type { ActiveLoanSummary } from "@/lib/active-loans";
+import {
+  getLenderVerificationStatus,
+  type LenderVerificationSummary,
+} from "@/lib/lender-verification";
+import type { ConsentStatus } from "@/lib/consents";
 
 export const dynamic = "force-dynamic";
 
 type LenderPageProps = {
-  searchParams: Promise<{ message?: string; tab?: string; loanSearch?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    tab?: string;
+    profileTab?: string;
+    loanSearch?: string;
+  }>;
 };
 
+type LenderProfileTab =
+  | "index"
+  | "organization"
+  | "lending-scope"
+  | "verification"
+  | "account"
+  | "support";
+
+function resolveLenderProfileTab(value?: string): LenderProfileTab {
+  if (
+    value === "organization" ||
+    value === "lending-scope" ||
+    value === "verification" ||
+    value === "account" ||
+    value === "support"
+  ) {
+    return value;
+  }
+
+  return "index";
+}
+
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab, loanSearch = "" } = await searchParams;
+  const { message, tab, profileTab, loanSearch = "" } = await searchParams;
 
   if (message === "signed-in") {
     redirect("/lender");
   }
 
-  const activeTab = tab === "offers" || tab === "account" ? tab : "home";
   const access = await getCurrentUserProfile();
+  const approvedOperationalTab =
+    tab === "offers" || tab === "account" ? tab : "home";
 
   if (!access.ok) {
     return (
@@ -49,13 +83,21 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <div className="mx-auto grid max-w-4xl gap-5">
           <LenderHeader showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={access.message} tone="error" />
-          <LenderBottomTabs activeTab={activeTab} />
+          <LenderBottomTabs activeTab={approvedOperationalTab} />
         </div>
       </main>
     );
   }
 
   if (!isApprovedLender(access.profile)) {
+    if (access.profile.role === "lender" && tab === "account") {
+      redirect("/lender?profileTab=account");
+    }
+
+    if (access.profile.role === "lender" && tab === "offers") {
+      redirect("/lender?profileTab=verification");
+    }
+
     const lenderConsentStatus = buildConsentStatus(
       "lender_review",
       await loadUserConsents(access.supabase, access.profile.id),
@@ -63,6 +105,11 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     const {
       data: { user },
     } = await access.supabase.auth.getUser();
+    const lenderVerification =
+      access.profile.role === "lender"
+        ? await getLenderVerificationStatus(access.supabase, access.profile.id)
+        : null;
+    const lenderProfileTab = resolveLenderProfileTab(profileTab);
     const message =
       access.profile.role === "lender" &&
       access.profile.lenderProfile?.verification_status === "pending"
@@ -75,26 +122,29 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     return (
       <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
         <div className="mx-auto grid max-w-4xl gap-5">
-          <LenderHeader showAccountLink={false} showNotifications={false} />
+          <LenderHeader
+            accountHref="/lender?profileTab=account"
+            showAccountLink={access.profile.role === "lender"}
+            showNotifications={false}
+          />
           {access.profile.role === "lender" ? (
-            <LenderProfileHub
+            <LenderProfileCompletionShell
               email={user?.email ?? ""}
               access={access.profile}
-              isLimited
+              profileTab={lenderProfileTab}
+              consentStatus={lenderConsentStatus}
+              verification={lenderVerification}
             />
           ) : (
             <LenderApplicationsStatus message={message} tone="error" />
           )}
-          {access.profile.role === "lender" ? (
-            <ConsentAcceptancePanel
-              scope="lender_review"
-              status={lenderConsentStatus}
-            />
-          ) : null}
-          <LenderBottomTabs activeTab={activeTab} />
         </div>
       </main>
     );
+  }
+
+  if (profileTab) {
+    redirect("/lender?tab=account");
   }
 
   const [
@@ -114,9 +164,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   return (
     <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
       <div className="mx-auto grid max-w-6xl gap-5">
-        <LenderHeader showAccountLink={activeTab !== "account"} />
+        <LenderHeader showAccountLink={approvedOperationalTab !== "account"} />
 
-        {activeTab === "home" ? (
+        {approvedOperationalTab === "home" ? (
           <HomeTab
             applications={applications}
             offers={offers}
@@ -126,15 +176,15 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           />
         ) : null}
 
-        {activeTab === "offers" ? (
+        {approvedOperationalTab === "offers" ? (
           <OffersTab offers={offers} error={!offersResult.ok ? offersResult.message : ""} />
         ) : null}
 
-        {activeTab === "account" ? (
+        {approvedOperationalTab === "account" ? (
           <LenderProfileHub email={user?.email ?? ""} access={access.profile} />
         ) : null}
 
-        <LenderBottomTabs activeTab={activeTab} />
+        <LenderBottomTabs activeTab={approvedOperationalTab} />
       </div>
     </main>
   );
@@ -1066,28 +1116,79 @@ type LenderProfileStatus = {
   title: string;
   description: string;
   action: string | null;
+  actionHref: string | null;
   pill: string;
   tone: LenderProfileStatusTone;
 };
 
+function LenderProfileCompletionShell({
+  email,
+  access,
+  profileTab,
+  consentStatus,
+  verification,
+}: {
+  email: string;
+  access: CurrentUserProfile;
+  profileTab: LenderProfileTab;
+  consentStatus: ConsentStatus;
+  verification: LenderVerificationSummary | null;
+}) {
+  if (profileTab === "organization") {
+    return <LenderOrganizationSubview access={access} />;
+  }
+
+  if (profileTab === "lending-scope") {
+    return <LenderScopeSubview access={access} />;
+  }
+
+  if (profileTab === "verification") {
+    return (
+      <LenderVerificationSubview
+        consentStatus={consentStatus}
+        verification={verification}
+      />
+    );
+  }
+
+  if (profileTab === "account") {
+    return <LenderAccountSubview access={access} email={email} />;
+  }
+
+  if (profileTab === "support") {
+    return <LenderSupportSubview />;
+  }
+
+  return (
+    <LenderProfileHub
+      email={email}
+      access={access}
+      verification={verification}
+      isLimited
+    />
+  );
+}
+
 function LenderProfileHub({
   email,
   access,
+  verification = null,
   isLimited = false,
 }: {
   email: string;
   access: CurrentUserProfile;
+  verification?: LenderVerificationSummary | null;
   isLimited?: boolean;
 }) {
-  const status = getLenderProfileStatus(access);
+  const status = getLenderProfileStatus(access, verification);
   const lenderProfile = access.lenderProfile;
   const displayName =
     lenderProfile?.organization_name || access.display_name || "Lender profile";
-  const initials = getInitials(displayName);
+  const initials = getLenderInitials(displayName);
 
   return (
     <section className="grid gap-4">
-      <ProfileIndexHeader
+      <LenderProfileIndexHeader
         title={displayName}
         subtitle={email || "Signed in"}
         initials={initials}
@@ -1096,23 +1197,25 @@ function LenderProfileHub({
       <LenderProfileStatusBanner status={status} />
 
       <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm">
-        <ProfileMenuRow
+        <LenderProfileMenuRow
+          href="/lender?profileTab=organization"
           icon="organization"
           title="Organization Profile"
           description={
-            hasMissingRequiredLenderProfileFields(lenderProfile)
+            hasMissingRequiredLenderOrganizationFields(lenderProfile)
               ? "Complete required organization details."
               : "Organization details are on file."
           }
           status={
-            hasMissingRequiredLenderProfileFields(lenderProfile) ? (
-              <StatusPill tone="attention">Needs review</StatusPill>
+            hasMissingRequiredLenderOrganizationFields(lenderProfile) ? (
+              <LenderStatusPill tone="attention">Needs review</LenderStatusPill>
             ) : (
-              <StatusPill tone="ready">Complete</StatusPill>
+              <LenderStatusPill tone="ready">Complete</LenderStatusPill>
             )
           }
         />
-        <ProfileMenuRow
+        <LenderProfileMenuRow
+          href="/lender?profileTab=lending-scope"
           icon="scope"
           title="Lending Scope"
           description={
@@ -1122,29 +1225,36 @@ function LenderProfileHub({
           }
           status={
             hasCompleteLendingScope(lenderProfile) ? (
-              <StatusPill tone="ready">Set</StatusPill>
+              <LenderStatusPill tone="ready">Set</LenderStatusPill>
             ) : (
-              <StatusPill tone="attention">Missing</StatusPill>
+              <LenderStatusPill tone="attention">Missing</LenderStatusPill>
             )
           }
         />
-        <ProfileMenuRow
+        <LenderProfileMenuRow
+          href="/lender?profileTab=verification"
           icon="verification"
           title="Verification"
-          description={getVerificationDescription(access)}
-          status={<StatusPill tone={status.tone}>{status.pill}</StatusPill>}
+          description={getVerificationDescription(access, verification)}
+          status={
+            <LenderStatusPill tone={status.tone}>{status.pill}</LenderStatusPill>
+          }
         />
-        <ProfileMenuRow
+        <LenderProfileMenuRow
+          href="/lender?profileTab=account"
           icon="account"
           title="Account"
           description={`Role: ${formatTitleCase(access.role)}`}
           status={
-            <StatusPill tone={access.status === "active" ? "ready" : "neutral"}>
+            <LenderStatusPill
+              tone={access.status === "active" ? "ready" : "neutral"}
+            >
               {formatTitleCase(access.status)}
-            </StatusPill>
+            </LenderStatusPill>
           }
         />
-        <ProfileMenuRow
+        <LenderProfileMenuRow
+          href="/lender?profileTab=support"
           icon="support"
           title="Help & Support"
           description={
@@ -1152,7 +1262,7 @@ function LenderProfileHub({
               ? "Contact support if your lender review needs follow-up."
               : "Get help with lending activity and account updates."
           }
-          status={<StatusPill tone="neutral">Available</StatusPill>}
+          status={<LenderStatusPill tone="neutral">Available</LenderStatusPill>}
         />
       </div>
 
@@ -1168,7 +1278,7 @@ function LenderProfileHub({
   );
 }
 
-function ProfileIndexHeader({
+function LenderProfileIndexHeader({
   title,
   subtitle,
   initials,
@@ -1211,13 +1321,22 @@ function LenderProfileStatusBanner({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-lg font-semibold">{status.title}</h2>
-            <StatusPill tone={status.tone}>{status.pill}</StatusPill>
+            <LenderStatusPill tone={status.tone}>{status.pill}</LenderStatusPill>
           </div>
           <p className="mt-1 text-sm leading-6 text-current/75">
             {status.description}
           </p>
           {status.action ? (
-            <p className="mt-3 text-sm font-semibold">{status.action}</p>
+            status.actionHref ? (
+              <Link
+                href={status.actionHref}
+                className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-white/80 px-4 text-sm font-semibold text-current shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
+              >
+                {status.action}
+              </Link>
+            ) : (
+              <p className="mt-3 text-sm font-semibold">{status.action}</p>
+            )
           ) : null}
         </div>
       </div>
@@ -1225,21 +1344,26 @@ function LenderProfileStatusBanner({
   );
 }
 
-function ProfileMenuRow({
+function LenderProfileMenuRow({
+  href,
   icon,
   title,
   description,
   status,
 }: {
+  href: string;
   icon: "organization" | "scope" | "verification" | "account" | "support";
   title: string;
   description: string;
   status: ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-4 last:border-b-0 sm:px-5">
+    <Link
+      href={href}
+      className="flex items-center gap-3 border-b border-[var(--border)] px-4 py-4 transition hover:bg-[var(--muted)]/30 last:border-b-0 sm:px-5"
+    >
       <span className="inline-flex size-10 shrink-0 items-center justify-center rounded-full bg-[var(--muted)] text-[var(--foreground)]">
-        <ProfileMenuIcon icon={icon} />
+        <LenderProfileIcon icon={icon} />
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
@@ -1262,11 +1386,11 @@ function ProfileMenuRow({
       >
         <path d="m9 18 6-6-6-6" />
       </svg>
-    </div>
+    </Link>
   );
 }
 
-function StatusPill({
+function LenderStatusPill({
   tone,
   children,
 }: {
@@ -1331,7 +1455,7 @@ function StatusIcon({ tone }: { tone: LenderProfileStatusTone }) {
   );
 }
 
-function ProfileMenuIcon({
+function LenderProfileIcon({
   icon,
 }: {
   icon: "organization" | "scope" | "verification" | "account" | "support";
@@ -1382,6 +1506,249 @@ function ProfileMenuIcon({
         </>
       )}
     </svg>
+  );
+}
+
+function LenderProfileSubviewHeader({
+  title,
+  description,
+}: {
+  title: string;
+  description: string;
+}) {
+  return (
+    <div className="grid gap-3">
+      <Link
+        href="/lender?profileTab=index"
+        className="inline-flex h-10 w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+      >
+        <svg
+          aria-hidden="true"
+          viewBox="0 0 24 24"
+          className="size-4"
+          fill="none"
+          stroke="currentColor"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="2"
+        >
+          <path d="m15 18-6-6 6-6" />
+        </svg>
+        Back
+      </Link>
+      <div className="grid gap-1">
+        <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          {description}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function LenderProfileDetailCard({
+  title,
+  children,
+}: {
+  title: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
+      <h2 className="text-lg font-semibold">{title}</h2>
+      <dl className="grid gap-1">{children}</dl>
+    </section>
+  );
+}
+
+function LenderProfileSummaryRow({
+  label,
+  value,
+}: {
+  label: string;
+  value: ReactNode;
+}) {
+  return (
+    <div className="grid gap-1 border-b border-[var(--border)] py-3 last:border-0 sm:grid-cols-[12rem_1fr] sm:gap-4">
+      <dt className="text-sm font-semibold text-[var(--muted-foreground)]">
+        {label}
+      </dt>
+      <dd className="break-words text-sm font-semibold text-[var(--foreground)]">
+        {value || "Not provided"}
+      </dd>
+    </div>
+  );
+}
+
+function LenderOrganizationSubview({ access }: { access: CurrentUserProfile }) {
+  const lenderProfile = access.lenderProfile;
+
+  return (
+    <section className="grid gap-4">
+      <LenderProfileSubviewHeader
+        title="Organization Profile"
+        description="Review the organization details used for lender approval."
+      />
+      <LenderProfileDetailCard title="Organization details">
+        <LenderProfileSummaryRow
+          label="Organization name"
+          value={lenderProfile?.organization_name}
+        />
+        <LenderProfileSummaryRow
+          label="Contact person"
+          value={lenderProfile?.contact_person}
+        />
+        <LenderProfileSummaryRow
+          label="Phone number"
+          value={lenderProfile?.phone_number}
+        />
+        <LenderProfileSummaryRow
+          label="Business address"
+          value={lenderProfile?.business_address}
+        />
+        <LenderProfileSummaryRow
+          label="Registration number"
+          value={lenderProfile?.business_registration_number}
+        />
+        <LenderProfileSummaryRow
+          label="Verification status"
+          value={formatTitleCase(lenderProfile?.verification_status ?? "pending")}
+        />
+        {lenderProfile?.manager_review_notes ? (
+          <LenderProfileSummaryRow
+            label="Manager notes"
+            value={lenderProfile.manager_review_notes}
+          />
+        ) : null}
+        {lenderProfile?.rejection_reason ? (
+          <LenderProfileSummaryRow
+            label="Rejection reason"
+            value={lenderProfile.rejection_reason}
+          />
+        ) : null}
+      </LenderProfileDetailCard>
+    </section>
+  );
+}
+
+function LenderScopeSubview({ access }: { access: CurrentUserProfile }) {
+  const lenderProfile = access.lenderProfile;
+
+  return (
+    <section className="grid gap-4">
+      <LenderProfileSubviewHeader
+        title="Lending Scope"
+        description="Review the lending limits and borrower fit in your lender profile."
+      />
+      <LenderProfileDetailCard title="Scope details">
+        <LenderProfileSummaryRow
+          label="Operating area"
+          value={lenderProfile?.operating_area}
+        />
+        <LenderProfileSummaryRow
+          label="Minimum loan amount"
+          value={
+            lenderProfile ? formatPhp(lenderProfile.min_loan_amount) : undefined
+          }
+        />
+        <LenderProfileSummaryRow
+          label="Maximum loan amount"
+          value={
+            lenderProfile ? formatPhp(lenderProfile.max_loan_amount) : undefined
+          }
+        />
+        <LenderProfileSummaryRow
+          label="Repayment terms"
+          value={lenderProfile?.typical_repayment_terms}
+        />
+        <LenderProfileSummaryRow
+          label="Lender description"
+          value={lenderProfile?.lender_description}
+        />
+      </LenderProfileDetailCard>
+    </section>
+  );
+}
+
+function LenderVerificationSubview({
+  consentStatus,
+  verification,
+}: {
+  consentStatus: ConsentStatus;
+  verification: LenderVerificationSummary | null;
+}) {
+  return (
+    <section className="grid gap-4">
+      <LenderProfileSubviewHeader
+        title="Verification"
+        description="Upload and review the documents required for lender approval."
+      />
+      <LenderVerificationDocumentsPanel
+        verification={verification}
+        consentStatus={consentStatus}
+      />
+    </section>
+  );
+}
+
+function LenderAccountSubview({
+  access,
+  email,
+}: {
+  access: CurrentUserProfile;
+  email: string;
+}) {
+  const lenderProfile = access.lenderProfile;
+
+  return (
+    <section className="grid gap-4">
+      <LenderProfileSubviewHeader
+        title="Account"
+        description="Review your lender account status."
+      />
+      <LenderProfileDetailCard title="Account details">
+        <LenderProfileSummaryRow label="Role" value={formatTitleCase(access.role)} />
+        <LenderProfileSummaryRow
+          label="Account status"
+          value={formatTitleCase(access.status)}
+        />
+        <LenderProfileSummaryRow
+          label="Verification status"
+          value={formatTitleCase(lenderProfile?.verification_status ?? "pending")}
+        />
+        <LenderProfileSummaryRow
+          label="Organization"
+          value={lenderProfile?.organization_name}
+        />
+        <LenderProfileSummaryRow label="Email" value={email || "Signed in"} />
+      </LenderProfileDetailCard>
+      <form action={signOutAction}>
+        <button
+          type="submit"
+          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        >
+          Sign out
+        </button>
+      </form>
+    </section>
+  );
+}
+
+function LenderSupportSubview() {
+  return (
+    <section className="grid gap-4">
+      <LenderProfileSubviewHeader
+        title="Help & Support"
+        description="Get help with lender verification and account access."
+      />
+      <section className="grid gap-2 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
+        <h2 className="text-lg font-semibold">Lender support</h2>
+        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          For lender verification or account questions, contact the LendFolio
+          support team with your organization name and registered email.
+        </p>
+      </section>
+    </section>
   );
 }
 
@@ -1644,6 +2011,7 @@ type LenderProfile = CurrentUserProfile["lenderProfile"];
 
 export function getLenderProfileStatus(
   access: Pick<CurrentUserProfile, "lenderProfile">,
+  verification: LenderVerificationSummary | null = null,
 ): LenderProfileStatus {
   const lenderProfile = access.lenderProfile;
 
@@ -1652,6 +2020,7 @@ export function getLenderProfileStatus(
       title: "Profile needs review",
       description: "Complete your lender profile before manager review can start.",
       action: "Update profile details",
+      actionHref: "/lender?profileTab=organization",
       pill: "Needs review",
       tone: "attention",
     };
@@ -1662,6 +2031,7 @@ export function getLenderProfileStatus(
       title: "Ready to lend",
       description: "Your lender profile is approved for borrower application review.",
       action: null,
+      actionHref: null,
       pill: "Ready",
       tone: "ready",
     };
@@ -1674,26 +2044,40 @@ export function getLenderProfileStatus(
         lenderProfile.rejection_reason ||
         "Review the lender verification feedback before resubmitting.",
       action: "Review documents",
+      actionHref: "/lender?profileTab=verification",
       pill: "Needs updates",
       tone: "attention",
     };
   }
 
-  if (hasMissingRequiredLenderProfileFields(lenderProfile)) {
+  if (hasMissingRequiredLenderOrganizationFields(lenderProfile)) {
     return {
       title: "Profile needs review",
       description: "Some required lender profile details are missing.",
       action: "Update profile details",
+      actionHref: "/lender?profileTab=organization",
       pill: "Needs review",
       tone: "attention",
     };
   }
 
-  if (hasMissingRequiredLenderDocuments(lenderProfile)) {
+  if (!hasCompleteLendingScope(lenderProfile)) {
+    return {
+      title: "Lending scope needed",
+      description: "Add lending amounts, area, and repayment terms.",
+      action: "Update lending scope",
+      actionHref: "/lender?profileTab=lending-scope",
+      pill: "Missing",
+      tone: "attention",
+    };
+  }
+
+  if (hasMissingRequiredLenderDocuments(verification)) {
     return {
       title: "Verification required",
-      description: "Add your registration details so managers can review your account.",
+      description: "Upload required documents so managers can review your account.",
       action: "Upload documents",
+      actionHref: "/lender?profileTab=verification",
       pill: "Required",
       tone: "attention",
     };
@@ -1704,6 +2088,7 @@ export function getLenderProfileStatus(
       title: "Waiting for manager review",
       description: "Your lender profile is submitted and awaiting manager review.",
       action: null,
+      actionHref: null,
       pill: "Pending",
       tone: "attention",
     };
@@ -1713,12 +2098,13 @@ export function getLenderProfileStatus(
     title: "Profile unavailable",
     description: "Lender profile status is unavailable right now.",
     action: null,
+    actionHref: null,
     pill: "Unavailable",
     tone: "neutral",
   };
 }
 
-function hasMissingRequiredLenderProfileFields(lenderProfile: LenderProfile) {
+function hasMissingRequiredLenderOrganizationFields(lenderProfile: LenderProfile) {
   if (!lenderProfile) {
     return true;
   }
@@ -1727,18 +2113,23 @@ function hasMissingRequiredLenderProfileFields(lenderProfile: LenderProfile) {
     !hasText(lenderProfile.organization_name) ||
     !hasText(lenderProfile.contact_person) ||
     !hasText(lenderProfile.phone_number) ||
-    !hasText(lenderProfile.business_address) ||
-    !hasText(lenderProfile.operating_area) ||
-    !hasText(lenderProfile.typical_repayment_terms) ||
-    !hasText(lenderProfile.lender_description) ||
-    lenderProfile.min_loan_amount <= 0 ||
-    lenderProfile.max_loan_amount <= 0 ||
-    lenderProfile.max_loan_amount < lenderProfile.min_loan_amount
+    !hasText(lenderProfile.business_address)
   );
 }
 
-function hasMissingRequiredLenderDocuments(lenderProfile: LenderProfile) {
-  return !hasText(lenderProfile?.business_registration_number ?? "");
+function hasMissingRequiredLenderDocuments(
+  verification: LenderVerificationSummary | null,
+) {
+  return (
+    !verification ||
+    verification.status === "missing" ||
+    verification.documentPolicy.requiredDocumentTypes.some(
+      (documentType) =>
+        !verification.documentPolicy.submittedDocumentTypes.includes(
+          documentType,
+        ),
+    )
+  );
 }
 
 function hasCompleteLendingScope(lenderProfile: LenderProfile) {
@@ -1761,7 +2152,10 @@ function formatLendingScope(lenderProfile: LenderProfile) {
   )} in ${lenderProfile.operating_area}`;
 }
 
-function getVerificationDescription(access: CurrentUserProfile) {
+function getVerificationDescription(
+  access: CurrentUserProfile,
+  verification: LenderVerificationSummary | null,
+) {
   const lenderProfile = access.lenderProfile;
 
   if (!lenderProfile) {
@@ -1776,8 +2170,12 @@ function getVerificationDescription(access: CurrentUserProfile) {
     return "Manager feedback requires updates.";
   }
 
-  if (hasMissingRequiredLenderDocuments(lenderProfile)) {
-    return "Registration documents are required.";
+  if (hasMissingRequiredLenderDocuments(verification)) {
+    return "Required verification documents are missing.";
+  }
+
+  if (verification?.documentPolicy.readyForManagerReview) {
+    return "Documents are waiting for manager review.";
   }
 
   return "Submitted for manager review.";
@@ -1787,7 +2185,7 @@ function hasText(value: string | null | undefined) {
   return Boolean(value?.trim());
 }
 
-function getInitials(value: string) {
+function getLenderInitials(value: string) {
   const initials = value
     .split(/\s+/)
     .filter(Boolean)
