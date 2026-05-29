@@ -9,20 +9,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import {
   AccessDenied,
   AutoFilterGrid,
   EmptyState,
+  ListTable,
   ManagerDetailsLink,
   ManagerShell,
+  MobileCard,
   PersonLabel,
-  StatusMessage,
   TextFilter,
   formatDateTime,
 } from "../manager-ui";
 import { withServerTiming } from "@/lib/perf";
-
-
 
 type PageProps = {
   searchParams: Promise<{
@@ -34,6 +34,102 @@ type PageProps = {
   }>;
 };
 
+const actionLabels: Record<string, string> = {
+  lender_approved: "Lender approved",
+  lender_rejected: "Lender rejected",
+  lender_signup_submitted: "Lender signup submitted",
+  borrower_readiness_evaluated: "Borrower readiness evaluated",
+  borrower_profile_created: "Borrower profile created",
+  borrower_profile_updated: "Borrower profile updated",
+  borrower_verification_approved: "Borrower verification approved",
+  borrower_verification_rejected: "Borrower verification rejected",
+  borrower_verification_resubmit: "Borrower verification resubmit",
+  borrower_verification_submitted: "Borrower verification submitted",
+  profile_created: "Profile created",
+  profile_updated: "Profile updated",
+  application_submitted: "Application submitted",
+  application_withdrawn: "Application withdrawn",
+  application_edited: "Application edited",
+  offer_sent: "Offer sent",
+  offer_accepted: "Offer accepted",
+  offer_declined: "Offer declined",
+  offer_expired: "Offer expired",
+  loan_created: "Loan created",
+  loan_activated: "Loan activated",
+  loan_completed: "Loan completed",
+  repayment_uploaded: "Repayment uploaded",
+  repayment_verified: "Repayment verified",
+  repayment_rejected: "Repayment rejected",
+  consent_tos_accepted: "Terms of service accepted",
+  consent_privacy_accepted: "Privacy notice accepted",
+  consent_credit_authorized: "Credit review authorized",
+  consent_doc_processing_accepted: "Doc processing consent accepted",
+  notification_created: "Notification created",
+  account_provisioned: "Account provisioned",
+};
+
+const targetTableLabels: Record<string, string> = {
+  profiles: "Profile",
+  lender_profiles: "Lender profile",
+  borrower_portfolios: "Borrower portfolio",
+  loan_applications: "Loan application",
+  loans: "Loan",
+  offers: "Offer",
+  repayment_proofs: "Repayment proof",
+  repayment_schedules: "Repayment schedule",
+  borrower_verifications: "Borrower verification",
+  audit_logs: "Audit log",
+  notifications: "Notification",
+  consents: "Consent",
+};
+
+type AuditCategory =
+  | "Profile"
+  | "Borrower"
+  | "Lender"
+  | "Application"
+  | "Loan"
+  | "Repayment"
+  | "Consent"
+  | "System"
+  | "Other";
+
+const categoryStyles: Record<AuditCategory, string> = {
+  Profile: "bg-slate-100 text-slate-700 border-slate-200",
+  Borrower: "bg-blue-50 text-blue-700 border-blue-200",
+  Lender: "bg-violet-50 text-violet-700 border-violet-200",
+  Application: "bg-amber-50 text-amber-700 border-amber-200",
+  Loan: "bg-emerald-50 text-emerald-700 border-emerald-200",
+  Repayment: "bg-teal-50 text-teal-700 border-teal-200",
+  Consent: "bg-pink-50 text-pink-700 border-pink-200",
+  System: "bg-gray-100 text-gray-600 border-gray-200",
+  Other: "bg-muted text-muted-foreground",
+};
+
+function humanizeAction(action: string): string {
+  if (actionLabels[action]) return actionLabels[action];
+  return action
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function humanizeTargetTable(table: string): string {
+  return targetTableLabels[table] ?? table;
+}
+
+function getAuditCategory(action: string, targetTable: string): AuditCategory {
+  if (action.startsWith("consent_") || targetTable === "consents") return "Consent";
+  if (action.startsWith("borrower_") || targetTable === "borrower_portfolios" || targetTable === "borrower_verifications") return "Borrower";
+  if (action.startsWith("lender_") || targetTable === "lender_profiles") return "Lender";
+  if (targetTable === "loan_applications" || action.startsWith("application_")) return "Application";
+  if (targetTable === "loans" || targetTable === "repayment_schedules" || action.startsWith("loan_")) return "Loan";
+  if (targetTable === "repayment_proofs" || action.startsWith("repayment_")) return "Repayment";
+  if (targetTable === "profiles" || action.startsWith("profile_")) return "Profile";
+  if (action.startsWith("notification_") || action.startsWith("account_")) return "System";
+  return "Other";
+}
+
 export default async function ManagerAuditLogsPage({ searchParams }: PageProps) {
   const filters = await searchParams;
   const access = await getManagerAccess();
@@ -42,7 +138,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
     return (
       <ManagerShell
         title="Audit logs"
-        description="Read-only workflow event history for manager review."
+        description="Review workflow events by actor, action, target, and date."
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -91,23 +187,38 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
         </Link>
       ) : null}
 
-      <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
+      {!result.ok ? (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+          {result.message}
+        </div>
+      ) : null}
 
-      <section>
-        {result.logs.length === 0 ? (
-          <EmptyState
-            title="No audit logs found"
-            description="Audit events matching the current filters will appear here."
-          />
-        ) : null}
+      {result.ok && result.logs.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          {result.logs.length} event{result.logs.length === 1 ? "" : "s"} shown
+        </p>
+      ) : null}
 
-        {result.logs.length > 0 ? (
-          <>
-            <div className="hidden md:block">
+      {result.logs.length === 0 ? (
+        <EmptyState
+          title={hasActiveFilters ? "No audit logs match the current filters" : "No audit logs yet"}
+          description={
+            hasActiveFilters
+              ? "Try adjusting or resetting the filters above."
+              : "Workflow events will appear here after platform activity is recorded."
+          }
+        />
+      ) : null}
+
+      {result.logs.length > 0 ? (
+        <>
+          <div className="hidden md:block">
+            <ListTable>
               <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Event</TableHead>
+                    <TableHead>Category</TableHead>
                     <TableHead>Actor</TableHead>
                     <TableHead>Target</TableHead>
                     <TableHead>Created</TableHead>
@@ -115,67 +226,95 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {result.logs.map((log) => (
-                    <TableRow key={log.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {log.action}
+                  {result.logs.map((log) => {
+                    const category = getAuditCategory(log.action, log.targetTable);
+                    return (
+                      <TableRow key={log.id}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {humanizeAction(log.action)}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Event {getShortId(log.id)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant="outline"
+                            className={categoryStyles[category]}
+                          >
+                            {category}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          {log.actor ? (
+                            <PersonLabel person={log.actor} />
+                          ) : (
+                            <span className="text-sm text-muted-foreground">System</span>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <p className="text-sm">
+                            {humanizeTargetTable(log.targetTable)} · {getShortId(log.targetId)}
                           </p>
-                          <p className="text-xs text-muted-foreground">
-                            Event {getShortId(log.id)}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        {log.actor ? (
-                          <PersonLabel person={log.actor} />
-                        ) : (
-                          <span className="text-sm text-muted-foreground">System</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <p className="text-sm">
-                          {log.targetTable} · {getShortId(log.targetId)}
-                        </p>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDateTime(log.timestamp)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDateTime(log.timestamp)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
-            </div>
+            </ListTable>
+          </div>
 
-            <div className="grid gap-3 md:hidden">
-              {result.logs.map((log) => (
-                <article
-                  key={log.id}
-                  className="grid gap-2 rounded-lg border bg-card p-3"
-                >
+          <div className="grid gap-3 md:hidden">
+            {result.logs.map((log) => {
+              const category = getAuditCategory(log.action, log.targetTable);
+              return (
+                <MobileCard key={log.id}>
                   <div className="flex items-start justify-between gap-3">
-                    <h2 className="truncate text-sm font-semibold">{log.action}</h2>
-                    <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
+                    <div className="min-w-0">
+                      <h3 className="truncate text-sm font-semibold">
+                        {humanizeAction(log.action)}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Event {getShortId(log.id)}
+                      </p>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={categoryStyles[category]}
+                    >
+                      {category}
+                    </Badge>
                   </div>
-                  <p className="text-xs">
-                    {log.actor ? <PersonLabel person={log.actor} /> : "System"}
-                  </p>
-                  <p className="truncate text-xs text-muted-foreground">
-                    {log.targetTable} · {getShortId(log.targetId)}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {formatDateTime(log.timestamp)}
-                  </p>
-                </article>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </section>
+                  <div className="grid gap-1 text-xs">
+                    <p>
+                      <span className="text-muted-foreground">Actor: </span>
+                      {log.actor ? log.actor.displayName : "System"}
+                    </p>
+                    <p>
+                      <span className="text-muted-foreground">Target: </span>
+                      {humanizeTargetTable(log.targetTable)} · {getShortId(log.targetId)}
+                    </p>
+                    <p className="text-muted-foreground">
+                      {formatDateTime(log.timestamp)}
+                    </p>
+                  </div>
+                  <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
+                </MobileCard>
+              );
+            })}
+          </div>
+        </>
+      ) : null}
     </ManagerShell>
   );
 }

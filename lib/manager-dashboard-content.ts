@@ -8,7 +8,6 @@ import {
   Receipt,
   ClipboardList,
   Users,
-  Search,
   AlertTriangle,
   CheckCircle2,
   Eye,
@@ -73,15 +72,9 @@ export const managerDashboardNavItems: ManagerNavItem[] = [
   },
   {
     label: "Users",
-    href: "/manager/users",
-    icon: Users,
-    description: "User directory and account management.",
-  },
-  {
-    label: "Lookup",
     href: "/manager/lookup",
-    icon: Search,
-    description: "Search borrowers, applications, and loans.",
+    icon: Users,
+    description: "Search users, borrower records, applications, and loans.",
   },
 ];
 
@@ -409,9 +402,7 @@ export const managerDashboardCopy = {
   repaymentsCardDescription: "Payment proofs that need attention.",
   auditLogsCardDescription:
     "Recent platform events and compliance activity.",
-  usersCardDescription: "User directory and account management.",
-  lookupCardDescription:
-    "Search borrowers, applications, and loans by keyword.",
+  usersCardDescription: "Search users, borrower records, applications, loans, and repayment activity.",
 } as const;
 
 // ---------------------------------------------------------------------------

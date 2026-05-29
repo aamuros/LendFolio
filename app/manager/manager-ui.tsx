@@ -26,7 +26,7 @@ export const managerNavItems = [
   { href: "/manager/repayments", title: "Repayment proofs", description: "Monitor submitted, verified, and rejected proof." },
   { href: "/manager/audit-logs", title: "Audit logs", description: "Review workflow events across the platform." },
   { href: "/manager/applications", title: "Applications & offers", description: "Follow application and offer lifecycles." },
-  { href: "/manager/lookup", title: "Users", description: "Search users, borrower records, applications, and loans." },
+  { href: "/manager/lookup", title: "Users", description: "Search users, borrower records, applications, loans, and repayment activity." },
 ];
 
 export function ManagerShell({
@@ -194,7 +194,7 @@ export function ResetFiltersLink({ href }: { href: string }) {
 export function RoleBadge({ role }: { role: string }) {
   const variant =
     role === "manager"
-      ? "destructive"
+      ? "outline"
       : role === "lender"
         ? "default"
         : "secondary";

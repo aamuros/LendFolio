@@ -8,7 +8,7 @@ import {
   ShieldCheck,
   UserCheck,
   ClipboardList,
-  Search,
+  Users,
 } from "lucide-react";
 
 export type NavItem = {
@@ -53,9 +53,8 @@ export const managerNavGroups: NavGroup[] = [
   {
     title: "Operations",
     items: [
+      { title: "Users", href: "/manager/lookup", icon: Users },
       { title: "Audit Logs", href: "/manager/audit-logs", icon: ClipboardList },
-      { title: "Users", href: "/manager/users", icon: Search },
-      { title: "Lookup", href: "/manager/lookup", icon: Search },
     ],
   },
 ];
@@ -72,5 +71,10 @@ export function isActiveHref(pathname: string, href: string): boolean {
   if (href === "/manager" || href === "/borrower" || href === "/lender") {
     return pathname === href;
   }
+
+  if (href === "/manager/lookup") {
+    return pathname.startsWith("/manager/lookup") || pathname.startsWith("/manager/users");
+  }
+
   return pathname.startsWith(href);
 }

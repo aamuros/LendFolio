@@ -31,8 +31,8 @@ function buildMetricCards(
 ): MetricCardConfig[] {
   return [
     {
-      label: "Pending borrower verifications",
-      description: "Awaiting manager review",
+      label: "Borrower verifications",
+      description: "Awaiting your review",
       value: pendingActions.pendingBorrowerVerifications,
       href: "/manager/borrower-verifications?status=submitted",
       icon: ShieldCheck,
@@ -42,7 +42,7 @@ function buildMetricCards(
           : "secondary",
     },
     {
-      label: "Pending lender reviews",
+      label: "Lender reviews",
       description: "Signup requests to approve",
       value: pendingActions.pendingLenderReviews,
       href: "/manager/lenders?status=pending",
@@ -51,8 +51,8 @@ function buildMetricCards(
         pendingActions.pendingLenderReviews > 0 ? "destructive" : "secondary",
     },
     {
-      label: "Open loan applications",
-      description: "Submitted or open for offers",
+      label: "Loan applications",
+      description: "Open or submitted for offers",
       value: pendingActions.openApplications,
       href: "/manager/applications?status=submitted",
       icon: FileText,
@@ -60,7 +60,7 @@ function buildMetricCards(
         pendingActions.openApplications > 0 ? "default" : "secondary",
     },
     {
-      label: "Pending repayment reviews",
+      label: "Repayment proofs",
       description: "Proofs awaiting verification",
       value: pendingActions.pendingRepaymentReviews,
       href: "/manager/repayments?proofStatus=submitted",
@@ -107,7 +107,11 @@ export function ManagerMetricCards({
                   <Badge variant={card.badgeTone} className="text-[10px]">
                     Action needed
                   </Badge>
-                ) : null}
+                ) : (
+                  <Badge variant="secondary" className="text-[10px]">
+                    Clear
+                  </Badge>
+                )}
               </div>
               <p className="mt-1 text-xs text-muted-foreground">
                 {card.description}

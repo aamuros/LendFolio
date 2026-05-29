@@ -99,10 +99,14 @@ export function ManagerOperationsTable({
       </CardHeader>
       <CardContent className="px-0">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 mx-4 px-4 py-6 text-center">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 mx-4 px-4 py-8 text-center">
             <p className="text-sm font-medium">No pending items</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               All operations are up to date.
+            </p>
+            <p className="mt-2 max-w-sm text-[11px] text-muted-foreground">
+              New borrower verifications, lender reviews, applications, or
+              repayment proofs will appear here.
             </p>
           </div>
         ) : (
