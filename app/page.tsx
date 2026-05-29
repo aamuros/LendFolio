@@ -30,41 +30,46 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="relative mx-auto grid w-full max-w-6xl place-items-center gap-7 py-4 text-center sm:py-6">
-            <LandingMesh />
-            <FloatingFinanceCards />
-            <div className="relative z-20 grid max-w-5xl gap-5">
-              <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
-                Structured microfinance operations
-              </p>
-              <h1 className="text-balance text-[clamp(3rem,7vw,6.25rem)] leading-[0.98] font-semibold tracking-[-0.02em] text-[#161616]">
-                Data-driven lending workflows for modern microfinance
-              </h1>
-              <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
-                LendFolio helps borrowers prepare profiles, lenders review
-                applications, and managers oversee approvals, offers, proofs,
-                and repayments.
-              </p>
+          <div className="mx-auto grid w-full max-w-7xl gap-8 py-4 sm:py-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] xl:items-center xl:gap-8">
+            <HeroFinanceRails side="left" />
+
+            <div className="relative mx-auto grid w-full max-w-5xl place-items-center gap-7 text-center">
+              <LandingMesh />
+              <div className="relative z-10 grid max-w-5xl gap-5">
+                <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
+                  Structured microfinance operations
+                </p>
+                <h1 className="text-balance text-[clamp(3rem,7vw,6.25rem)] leading-[0.98] font-semibold tracking-[-0.02em] text-[#161616]">
+                  Data-driven lending workflows for modern microfinance
+                </h1>
+                <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
+                  LendFolio helps borrowers prepare profiles, lenders review
+                  applications, and managers oversee approvals, offers, proofs,
+                  and repayments.
+                </p>
+              </div>
+
+              <div className="relative z-10 flex flex-col gap-3 sm:flex-row">
+                <Link
+                  href="/signup"
+                  className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                >
+                  Create account
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex min-h-12 items-center justify-center border border-[#C7C4BC] bg-[#FFFFFC]/80 px-6 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                >
+                  Sign in
+                </Link>
+              </div>
+
+              <div className="relative z-10 w-full">
+                <HeroFinanceGrid />
+              </div>
             </div>
 
-            <div className="relative z-20 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/signup"
-                className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
-              >
-                Create account
-              </Link>
-              <Link
-                href="/login"
-                className="inline-flex min-h-12 items-center justify-center border border-[#C7C4BC] bg-[#FFFFFC]/80 px-6 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
-              >
-                Sign in
-              </Link>
-            </div>
-
-            <div className="relative z-20 w-full">
-              <HeroFinanceGrid />
-            </div>
+            <HeroFinanceRails side="right" />
           </div>
         </div>
       </section>
@@ -149,13 +154,20 @@ function LandingMesh() {
   );
 }
 
-function FloatingFinanceCards() {
+function HeroFinanceRails({ side }: { side: "left" | "right" }) {
+  const cards = side === "left" ? heroCards.slice(0, 2) : heroCards.slice(2);
+
   return (
-    <div className="pointer-events-none absolute inset-0 z-10 hidden xl:block" aria-hidden="true">
-      {heroCards.map((card) => (
+    <div
+      className={`pointer-events-none hidden gap-4 xl:grid ${
+        side === "left" ? "justify-self-start" : "justify-self-end"
+      }`}
+      aria-hidden="true"
+    >
+      {cards.map((card) => (
         <HeroFinanceCard
           key={card.label}
-          className={`absolute w-52 ${card.position} ${card.depth}`}
+          className={`w-[220px] ${card.depth}`}
           label={card.label}
           value={card.value}
           status={card.status}
@@ -193,7 +205,7 @@ function HeroFinanceCard({
 }) {
   return (
     <div
-      className={`hero-card-3d relative overflow-hidden border border-[#FFFFFC]/75 bg-[#FFFFFC]/88 p-3 text-left shadow-[0_18px_45px_rgba(14,26,18,0.12),inset_0_1px_0_rgba(255,255,255,0.82)] backdrop-blur-md ${className}`}
+      className={`hero-card-3d relative overflow-hidden border border-[#FFFFFC]/70 bg-[#FFFFFC]/78 p-3 text-left shadow-[0_14px_34px_rgba(14,26,18,0.09),inset_0_1px_0_rgba(255,255,255,0.76)] backdrop-blur-md ${className}`}
     >
       <div className="relative flex items-start justify-between gap-3">
         <p className="text-[0.63rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
@@ -904,28 +916,24 @@ const heroCards = [
   {
     label: "Application status",
     value: "Ready",
-    position: "top-12 left-0",
     depth: "hero-card-1",
     status: "Profile locked",
   },
   {
-    label: "Credit limit",
-    value: "PHP 40,000",
-    position: "top-14 right-0",
-    depth: "hero-card-2",
-    status: "Capacity checked",
-  },
-  {
     label: "Repayment proof",
     value: "Pending review",
-    position: "bottom-20 left-8",
-    depth: "hero-card-3",
+    depth: "hero-card-2",
     status: "Manager queue",
+  },
+  {
+    label: "Credit limit",
+    value: "PHP 40,000",
+    depth: "hero-card-3",
+    status: "Capacity checked",
   },
   {
     label: "Risk notes",
     value: "Verified profile",
-    position: "right-8 bottom-22",
     depth: "hero-card-4",
     status: "Lender ready",
   },
