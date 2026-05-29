@@ -29,10 +29,12 @@ export function LenderHeader({
   title = "LendFolio",
   showAccountLink = true,
   showNotifications = true,
+  accountHref = "/lender?tab=account",
 }: {
   title?: string;
   showAccountLink?: boolean;
   showNotifications?: boolean;
+  accountHref?: string;
 }) {
   return (
     <header className="flex min-h-10 items-center justify-between gap-4">
@@ -41,7 +43,7 @@ export function LenderHeader({
         {showNotifications ? <NotificationButton /> : null}
         {showAccountLink ? (
           <Link
-            href="/lender?tab=account"
+            href={accountHref}
             aria-label="Open account"
             className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
           >
