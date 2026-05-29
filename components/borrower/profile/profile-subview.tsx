@@ -12,22 +12,20 @@ export function ProfileSubviewHeader({
   title: string;
 }) {
   return (
-    <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-start">
+    <div className="flex items-start gap-3">
       <Button
         variant="ghost"
-        size="icon"
+        size="icon-sm"
         aria-label="Back to Profile"
         onClick={onBack}
-        className="rounded-full bg-background shadow-sm hover:text-primary"
+        className="mt-0.5 shrink-0 text-muted-foreground hover:text-foreground"
       >
-        <ArrowLeft className="size-5" />
+        <ArrowLeft className="size-4" />
       </Button>
-      <div className="grid gap-1 text-center">
-        <h2 className="text-lg font-semibold">{title}</h2>
+      <div className="grid gap-0.5">
+        <h2 className="text-lg font-semibold text-foreground">{title}</h2>
         {description ? (
-          <p className="text-sm leading-5 text-muted-foreground">
-            {description}
-          </p>
+          <p className="text-sm text-muted-foreground">{description}</p>
         ) : null}
       </div>
     </div>
@@ -44,7 +42,7 @@ export function ProfileSubview({
   title: string;
 }) {
   return (
-    <section className="grid gap-4">
+    <section className="grid gap-6">
       <ProfileSubviewHeader title={title} onBack={onBack} />
       {children}
     </section>

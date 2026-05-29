@@ -1,6 +1,6 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 
 export function ProfileIndexHeader({
   displayName,
@@ -25,39 +25,41 @@ export function ProfileIndexHeader({
   }
 
   return (
-    <section className="grid gap-4 bg-background">
-      <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center">
+    <section className="grid gap-6">
+      <div className="flex items-center justify-between">
         <Button
           variant="ghost"
-          size="icon"
+          size="sm"
           aria-label="Back to Home"
           onClick={onBack}
-          className="rounded-full bg-background shadow-sm hover:text-primary"
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
         >
-          <ArrowLeft className="size-5" />
+          <ArrowLeft className="size-4" />
+          <span className="text-sm">Home</span>
         </Button>
-        <h2 className="text-center text-lg font-semibold">Profile</h2>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onEditProfile}
+          className="gap-1.5 text-muted-foreground hover:text-foreground"
+        >
+          <Pencil className="size-3.5" />
+          <span className="text-sm">Edit</span>
+        </Button>
       </div>
 
-      <div className="grid justify-items-center gap-2 text-center">
-        <Avatar className="size-20 shadow-sm text-xl font-semibold">
+      <div className="flex items-center gap-4">
+        <Avatar className="size-14 text-base font-semibold">
           <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
         </Avatar>
-        <div className="grid max-w-full gap-1">
-          <h3 className="max-w-full truncate text-lg font-semibold">
+        <div className="grid min-w-0 gap-0.5">
+          <h2 className="truncate text-lg font-semibold text-foreground">
             {displayName}
-          </h3>
-          <p className="max-w-full truncate text-sm text-muted-foreground">
-            {email || "Signed in"}
-          </p>
+          </h2>
+          {email ? (
+            <p className="truncate text-sm text-muted-foreground">{email}</p>
+          ) : null}
         </div>
-        <Button
-          variant="default"
-          onClick={onEditProfile}
-          className="mt-0.5 min-w-40 rounded-full font-semibold"
-        >
-          Edit Profile
-        </Button>
       </div>
     </section>
   );

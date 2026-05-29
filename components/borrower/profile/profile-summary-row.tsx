@@ -6,9 +6,9 @@ export function ProfileSummaryRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border py-2.5 last:border-0">
-      <p className="text-sm text-muted-foreground shrink-0">{label}</p>
-      <p className="text-sm font-medium text-right break-words max-w-[55%]">
+    <div className="flex items-start justify-between gap-4 border-b border-border/40 py-3 last:border-b-0">
+      <p className="shrink-0 text-sm text-muted-foreground">{label}</p>
+      <p className="max-w-[55%] break-words text-right text-sm font-medium text-foreground">
         {value}
       </p>
     </div>

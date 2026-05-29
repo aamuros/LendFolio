@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ProfileSummaryRow } from "./profile-summary-row";
 import {
   formatCreditAmount,
@@ -27,22 +27,22 @@ export function BorrowingPowerDetail({
   }
 
   return (
-    <Card className="rounded-2xl shadow-sm border-border bg-card">
-      <CardHeader className="px-4 pt-4 pb-3">
-        <CardDescription className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+    <Card className="rounded-2xl shadow-none">
+      <div className="px-5 pt-5 pb-4">
+        <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Available to request
-        </CardDescription>
-        <CardTitle className="text-3xl font-bold tabular-nums">
+        </p>
+        <p className="mt-1 text-3xl font-bold tabular-nums tracking-tight text-foreground">
           {creditSummary
             ? formatCreditAmount(creditSummary.availableCredit)
             : "Not available"}
-        </CardTitle>
-        <CardDescription className="text-xs leading-5">
+        </p>
+        <p className="mt-1 text-sm text-muted-foreground">
           Based on your saved financials and any active loan balance.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 px-4 pt-0 pb-4">
-        <div>
+        </p>
+      </div>
+      <div className="grid gap-4 px-5 pb-5">
+        <div className="rounded-xl bg-muted/50 px-4 py-1">
           <ProfileSummaryRow
             label="Used credit"
             value={
@@ -103,7 +103,7 @@ export function BorrowingPowerDetail({
           />
         </div>
 
-        <p className="rounded-xl bg-muted/40 px-3 py-2.5 text-xs leading-5 text-muted-foreground">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           LendFolio estimates borrowing power from net monthly cash flow, time in
           operation, revenue limits, and existing active loans. Updating your
           profile refreshes this amount.
@@ -111,12 +111,13 @@ export function BorrowingPowerDetail({
 
         <Button
           variant="outline"
+          size="sm"
           onClick={onUpdateProfile}
-          className="h-10 w-full rounded-full font-semibold text-sm"
+          className="w-full rounded-lg text-sm font-medium"
         >
           Update profile details
         </Button>
-      </CardContent>
+      </div>
     </Card>
   );
 }

@@ -23,11 +23,18 @@ import {
 } from "@/lib/borrower-verification";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ToneBadge } from "@/components/borrower-status-badge";
 
 type BorrowerVerificationDocumentsPanelProps = {
   verification: BorrowerVerificationSummary | null;
@@ -44,6 +51,9 @@ export function BorrowerVerificationDocumentsPanel({
   const formRef = useRef<HTMLFormElement>(null);
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentMessage, setConsentMessage] = useState("");
+  const [documentType, setDocumentType] = useState<string>(
+    borrowerVerificationDocumentTypes[0],
+  );
   const [isConsentPending, startConsentTransition] = useTransition();
   const [state, formAction, isUploadPending] = useActionState(
     submitBorrowerVerificationDocument,
@@ -95,9 +105,9 @@ export function BorrowerVerificationDocumentsPanel({
           <div className="grid gap-1.5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <h3 className="text-base font-semibold">Borrower verification</h3>
-              <StatusBadge tone={getVerificationTone(verification.status)}>
+              <ToneBadge tone={getVerificationTone(verification.status)}>
                 {getVerificationLabel(verification)}
-              </StatusBadge>
+              </ToneBadge>
             </div>
             <p className="text-sm leading-6 text-muted-foreground">
               {getVerificationDescription(verification)}
@@ -133,9 +143,9 @@ export function BorrowerVerificationDocumentsPanel({
                         : "Not accepted"
                     }
                     badge={
-                      <StatusBadge tone={accepted ? "success" : "attention"}>
+                      <ToneBadge tone={accepted ? "success" : "attention"}>
                         {accepted ? "Accepted" : "Missing"}
-                      </StatusBadge>
+                      </ToneBadge>
                     }
                   />
                 );
@@ -188,11 +198,11 @@ export function BorrowerVerificationDocumentsPanel({
                   : "Accept Terms, Privacy Notice, and Document Processing Consent."
               }
               badge={
-                <StatusBadge
+                <ToneBadge
                   tone={consentStatus?.isCurrent ? "success" : "attention"}
                 >
                   {consentStatus?.isCurrent ? "Done" : "Pending"}
-                </StatusBadge>
+                </ToneBadge>
               }
             />
             {verification.documentPolicy.requiredDocumentTypes.map((documentType) => {
@@ -204,7 +214,7 @@ export function BorrowerVerificationDocumentsPanel({
                   label={borrowerVerificationDocumentTypeLabels[documentType]}
                   detail={status.detail}
                   badge={
-                    <StatusBadge tone={status.tone}>{status.label}</StatusBadge>
+                    <ToneBadge tone={status.tone}>{status.label}</ToneBadge>
                   }
                 />
               );
@@ -219,11 +229,11 @@ export function BorrowerVerificationDocumentsPanel({
                     : "Complete required documents first."
               }
               badge={
-                <StatusBadge
+                <ToneBadge
                   tone={verification.status === "approved" ? "success" : "neutral"}
                 >
                   {verification.status === "approved" ? "Done" : "Pending"}
-                </StatusBadge>
+                </ToneBadge>
               }
             />
             <CompactRow
@@ -235,7 +245,7 @@ export function BorrowerVerificationDocumentsPanel({
                   : "Loan submission opens after verification approval."
               }
               badge={
-                <StatusBadge
+                <ToneBadge
                   tone={
                     verification.status === "approved" &&
                     verification.documentPolicy.documentsAccepted
@@ -247,7 +257,7 @@ export function BorrowerVerificationDocumentsPanel({
                   verification.documentPolicy.documentsAccepted
                     ? "Ready"
                     : "Locked"}
-                </StatusBadge>
+                </ToneBadge>
               }
             />
           </div>
@@ -267,9 +277,9 @@ export function BorrowerVerificationDocumentsPanel({
                   detail={`${borrowerVerificationDocumentTypeLabels[document.documentType]} - ${formatFileSize(document.fileSize)}`}
                   note={document.reviewNotes}
                   badge={
-                    <StatusBadge tone={getDocumentTone(document.status)}>
+                    <ToneBadge tone={getDocumentTone(document.status)}>
                       {borrowerVerificationDocumentStatusLabels[document.status]}
-                    </StatusBadge>
+                    </ToneBadge>
                   }
                 />
               ))}
@@ -286,18 +296,19 @@ export function BorrowerVerificationDocumentsPanel({
                 <Label htmlFor="documentType" className="text-sm font-semibold">
                   Document type
                 </Label>
-                <select
-                  id="documentType"
-                  name="documentType"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 md:text-sm"
-                  required
-                >
-                  {borrowerVerificationDocumentTypes.map((type) => (
-                    <option key={type} value={type}>
-                      {borrowerVerificationDocumentTypeLabels[type]}
-                    </option>
-                  ))}
-                </select>
+                <input type="hidden" name="documentType" value={documentType} />
+                <Select value={documentType} onValueChange={setDocumentType}>
+                  <SelectTrigger id="documentType">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {borrowerVerificationDocumentTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {borrowerVerificationDocumentTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="documentFile" className="text-sm font-semibold">
@@ -396,32 +407,6 @@ function CompactRow({
       </div>
       <div className="pt-0.5">{badge}</div>
     </div>
-  );
-}
-
-function StatusBadge({
-  children,
-  tone,
-}: {
-  children: ReactNode;
-  tone: "attention" | "danger" | "neutral" | "success";
-}) {
-  const className =
-    tone === "success"
-      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-      : tone === "attention"
-        ? "bg-amber-50 text-amber-800 hover:bg-amber-50"
-        : tone === "danger"
-          ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
-          : "bg-secondary text-secondary-foreground hover:bg-secondary";
-
-  return (
-    <Badge
-      variant="secondary"
-      className={`min-w-16 justify-center text-xs font-semibold ${className}`}
-    >
-      {children}
-    </Badge>
   );
 }
 

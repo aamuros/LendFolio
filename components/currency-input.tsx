@@ -2,6 +2,7 @@
 
 import type { FocusEvent, InputHTMLAttributes } from "react";
 import type { UseFormRegisterReturn } from "react-hook-form";
+import { cn } from "@/lib/utils";
 
 type CurrencyInputProps = {
   registration?: UseFormRegisterReturn;
@@ -59,7 +60,11 @@ export function CurrencyInput({
 
   return (
     <div
-      className={`flex h-9 w-full min-w-0 overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 [&:has([aria-invalid=true])]:border-destructive [&:has([aria-invalid=true])]:ring-destructive/20 ${className}`}
+      className={cn(
+        "flex w-full min-w-0 overflow-hidden rounded-md border border-input bg-transparent shadow-xs transition-[color,box-shadow] focus-within:border-ring focus-within:ring-[3px] focus-within:ring-ring/50 [&:has([aria-invalid=true])]:border-destructive [&:has([aria-invalid=true])]:ring-destructive/20",
+        "h-9",
+        className,
+      )}
     >
       <span className="grid w-14 place-items-center border-r border-input text-sm font-semibold text-muted-foreground">
         PHP

@@ -24,9 +24,6 @@ import {
 } from "@/app/borrower/actions";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { CurrencyInput } from "@/components/currency-input";
-import {
-  CreditEligibilityBanner,
-} from "@/components/borrower-credit-summary";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import {
   canSubmitLoanApplicationForVerification,
@@ -64,6 +61,16 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -73,6 +80,7 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { toneBadgeClassName } from "@/components/borrower-status-badge";
 
 const defaultValues: LoanApplicationInput = {
   requestedAmount: 0,
@@ -167,6 +175,9 @@ export function BorrowerLoanApplicationPanel({
   const [proofFeedback, setProofFeedback] = useState<
     Record<string, ProofFeedback>
   >({});
+  const [pendingWithdrawId, setPendingWithdrawId] = useState<string | null>(
+    null,
+  );
 
   const {
     register,
@@ -358,10 +369,17 @@ export function BorrowerLoanApplicationPanel({
   }
 
   function onWithdrawApplication(applicationId: string) {
-    if (!window.confirm("Withdraw this application?")) {
+    setPendingWithdrawId(applicationId);
+  }
+
+  function confirmWithdraw() {
+    const applicationId = pendingWithdrawId;
+
+    if (!applicationId) {
       return;
     }
 
+    setPendingWithdrawId(null);
     setMessage("Withdrawing application...");
     setSuccessMessage("");
 
@@ -590,119 +608,151 @@ export function BorrowerLoanApplicationPanel({
   );
 
   return (
-    <section className="grid gap-5">
-      <InlineFeedback
-        loadState={loadState}
-        message={message}
-        successMessage={successMessage}
-      />
-
-      {view === "home" ? (
-        <HomeSummary
-          applications={applications}
-          borrowerVerification={borrowerVerification}
-          consentStatuses={consentStatuses}
-          creditSummary={creditSummary}
-          hasPortfolio={hasPortfolio}
+    <>
+      <section className="grid gap-5">
+        <InlineFeedback
           loadState={loadState}
-          onNavigate={onNavigate}
-          readiness={readiness}
+          message={message}
+          successMessage={successMessage}
         />
-      ) : null}
 
-      {view === "apply" ? (
-        <>
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-            <SectionHeader
-              title="Apply"
-              description="Request financing after your business profile is saved."
-            />
-            <p className="text-sm font-semibold text-muted-foreground">
-              {applicationCountLabel}
-            </p>
-          </div>
+        {view === "home" ? (
+          <HomeSummary
+            applications={applications}
+            borrowerVerification={borrowerVerification}
+            consentStatuses={consentStatuses}
+            creditSummary={creditSummary}
+            hasPortfolio={hasPortfolio}
+            loadState={loadState}
+            onNavigate={onNavigate}
+            readiness={readiness}
+          />
+        ) : null}
 
-          {!hasPortfolio ? (
-            <BlockedCard
-              message="Save your business profile before applying."
-              onClick={() => onNavigate?.("profile")}
-            />
-          ) : !canSubmitApplication ? (
-            <VerificationGateCard
-              borrowerVerification={borrowerVerification}
-              message={borrowerVerificationMessage}
-            />
-          ) : loanConsentStatus && !loanConsentStatus.isCurrent ? (
-            <ConsentAcceptancePanel
-              scope="borrower_loan_application"
-              status={loanConsentStatus}
-            />
-          ) : (
-            <ApplicationForm
-              control={control}
-              creditSummary={creditSummary}
-              errors={errors}
+        {view === "apply" ? (
+          <>
+            <div className="grid gap-1">
+              <div className="flex items-center justify-between gap-3">
+                <h2 className="text-2xl leading-tight font-semibold">Apply</h2>
+                <span className="text-xs text-muted-foreground">
+                  {applicationCountLabel}
+                </span>
+              </div>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Request financing after your business profile is saved.
+              </p>
+            </div>
+
+            {!hasPortfolio ? (
+              <BlockedCard
+                message="Save your business profile before applying."
+                onClick={() => onNavigate?.("profile")}
+              />
+            ) : !canSubmitApplication ? (
+              <VerificationGateCard
+                borrowerVerification={borrowerVerification}
+                message={borrowerVerificationMessage}
+              />
+            ) : loanConsentStatus && !loanConsentStatus.isCurrent ? (
+              <ConsentAcceptancePanel
+                scope="borrower_loan_application"
+                status={loanConsentStatus}
+              />
+            ) : (
+              <ApplicationForm
+                control={control}
+                creditSummary={creditSummary}
+                errors={errors}
+                isPending={isPending}
+                requestedAmount={requestedAmount}
+                register={register}
+                onSubmit={handleSubmit(onSubmit)}
+              />
+            )}
+
+            <ApplicationList
+              applications={applications}
+              editingApplicationId={editingApplicationId}
+              expandedApplicationIds={expandedApplicationIds}
               isPending={isPending}
-              requestedAmount={requestedAmount}
-              register={register}
-              onSubmit={handleSubmit(onSubmit)}
+              onCancelEditing={onCancelEditing}
+              onEdit={(applicationId) => {
+                setSuccessMessage("");
+                setEditingApplicationId(applicationId);
+              }}
+              onSaveApplication={onSaveApplication}
+              onToggleApplication={toggleApplication}
+              onWithdrawApplication={onWithdrawApplication}
             />
-          )}
+          </>
+        ) : null}
 
-          <ApplicationList
-            applications={applications}
-            editingApplicationId={editingApplicationId}
-            expandedApplicationIds={expandedApplicationIds}
-            isPending={isPending}
-            onCancelEditing={onCancelEditing}
-            onEdit={(applicationId) => {
-              setSuccessMessage("");
-              setEditingApplicationId(applicationId);
-            }}
-            onSaveApplication={onSaveApplication}
-            onToggleApplication={toggleApplication}
-            onWithdrawApplication={onWithdrawApplication}
-          />
-        </>
-      ) : null}
+        {view === "offers" ? (
+          <>
+            <SectionHeader
+              title="Offers"
+              description="Compare lender offers and accept the one that fits."
+            />
+            <OfferList
+              closedOffers={closedOffers}
+              expandedOfferIds={expandedOfferIds}
+              isPending={isPending}
+              onAcceptOffer={onAcceptOffer}
+              onDeclineOffer={onDeclineOffer}
+              onNavigate={onNavigate}
+              onToggleOffer={toggleOffer}
+              pendingOffers={pendingOffers}
+            />
+          </>
+        ) : null}
 
-      {view === "offers" ? (
-        <>
-          <SectionHeader
-            title="Offers"
-            description="Compare lender offers and accept the one that fits."
-          />
-          <OfferList
-            closedOffers={closedOffers}
-            expandedOfferIds={expandedOfferIds}
-            isPending={isPending}
-            onAcceptOffer={onAcceptOffer}
-            onDeclineOffer={onDeclineOffer}
-            onNavigate={onNavigate}
-            onToggleOffer={toggleOffer}
-            pendingOffers={pendingOffers}
-          />
-        </>
-      ) : null}
+        {view === "loans" ? (
+          <>
+            <SectionHeader
+              title="Loans"
+              description="Track active loans, repayment schedules, and payment proof."
+            />
+            <BorrowerLoansPanel
+              applications={applications}
+              expandedRepaymentIds={expandedRepaymentIds}
+              isPending={isPending}
+              onNavigate={onNavigate}
+              onSubmitProof={onSubmitProof}
+              onToggleRepayment={toggleRepayment}
+              proofFeedback={proofFeedback}
+            />
+          </>
+        ) : null}
+      </section>
 
-      {view === "loans" ? (
-        <>
-          <SectionHeader
-            title="Loans"
-            description="Track active loans, repayment schedules, and payment proof."
-          />
-          <BorrowerLoansPanel
-            applications={applications}
-            expandedRepaymentIds={expandedRepaymentIds}
-            isPending={isPending}
-            onNavigate={onNavigate}
-            onSubmitProof={onSubmitProof}
-            onToggleRepayment={toggleRepayment}
-            proofFeedback={proofFeedback}
-          />
-        </>
-      ) : null}
-    </section>
+      <AlertDialog
+        open={pendingWithdrawId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingWithdrawId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Withdraw application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will withdraw your loan application. Pending offers for this
+              application will be declined.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmWithdraw}
+            >
+              Withdraw
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
@@ -718,8 +768,8 @@ function VerificationGateCard({
     borrowerVerification?.rejectionReason;
 
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card" role="status" aria-live="polite">
-      <CardContent className="grid gap-3 p-4 sm:p-5">
+    <Card className="rounded-3xl border-border/50 bg-card shadow-sm" role="status" aria-live="polite">
+      <CardContent className="grid gap-3 p-5">
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-foreground">
             Borrower verification
@@ -727,7 +777,7 @@ function VerificationGateCard({
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
         {managerNote ? (
-          <Card className="rounded-2xl border-border bg-muted/30 shadow-none">
+          <Card className="rounded-2xl border-border/50 bg-muted/30 shadow-none">
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase text-muted-foreground">
                 Manager note
@@ -831,7 +881,7 @@ function HomeSummary({
                       <DashboardProgressBar
                         value={usedCreditRatio}
                         trackClassName="bg-white/15"
-                        barClassName="bg-[#7dd3fc]"
+                        barClassName="bg-sky-300"
                       />
                     </>
                   ) : (
@@ -1419,23 +1469,23 @@ function getDueCapacityStatus(ratio: number | null) {
 
   if (ratio > 0.7) {
     return {
-      barClassName: "bg-[#f87171]",
-      className: "text-[#fecaca]",
+      barClassName: "bg-red-400",
+      className: "text-red-200",
       label: "Danger",
     };
   }
 
   if (ratio > 0.4) {
     return {
-      barClassName: "bg-[#facc15]",
-      className: "text-[#fde68a]",
+      barClassName: "bg-yellow-400",
+      className: "text-yellow-200",
       label: "Caution",
     };
   }
 
   return {
-    barClassName: "bg-[#34d399]",
-    className: "text-[#bbf7d0]",
+    barClassName: "bg-emerald-400",
+    className: "text-emerald-200",
     label: "Safe",
   };
 }
@@ -1446,14 +1496,14 @@ function getAverageDaysUrgency(averageDays: number | null) {
   }
 
   if (averageDays <= 7) {
-    return { barClassName: "bg-[#f87171]" };
+    return { barClassName: "bg-red-400" };
   }
 
   if (averageDays <= 14) {
-    return { barClassName: "bg-[#facc15]" };
+    return { barClassName: "bg-yellow-400" };
   }
 
-  return { barClassName: "bg-[#34d399]" };
+  return { barClassName: "bg-emerald-400" };
 }
 
 function isRepaymentVerified(repayment: RepaymentScheduleItem) {
@@ -1522,14 +1572,26 @@ function ApplicationForm({
     : errors.requestedAmount?.message;
 
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
-      <CardContent className="p-4 sm:p-5">
+    <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+      <CardContent className="p-5">
         <form
           onSubmit={onSubmit}
           className="grid gap-4"
           aria-describedby="loan-application-state"
         >
-          {creditSummary ? <CreditEligibilityBanner summary={creditSummary} /> : null}
+          {creditSummary ? (
+            <div className="rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Available to request
+              </p>
+              <p className="mt-1 text-xl font-semibold tabular-nums">
+                {formatCreditAmount(creditSummary.availableCredit)}
+              </p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Based on your current credit profile.
+              </p>
+            </div>
+          ) : null}
 
           <div className="grid gap-4 sm:grid-cols-2">
             <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
@@ -1578,6 +1640,7 @@ function ApplicationForm({
           <Field label="Purpose" error={errors.purpose?.message} id="purpose">
             <Input
               id="purpose"
+              className="h-11 rounded-xl"
               aria-invalid={Boolean(errors.purpose)}
               {...register("purpose")}
               placeholder="Inventory, equipment, working capital"
@@ -1587,6 +1650,7 @@ function ApplicationForm({
           <Field label="Remarks" error={errors.remarks?.message} id="remarks">
             <Textarea
               id="remarks"
+              className="rounded-xl"
               aria-invalid={Boolean(errors.remarks)}
               {...register("remarks")}
               rows={3}
@@ -2021,8 +2085,8 @@ function InlineFeedback({
 
   if (successMessage) {
     return (
-      <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
-        <AlertDescription role="status">
+      <Alert>
+        <AlertDescription role="status" className="text-foreground font-semibold">
           {successMessage}
         </AlertDescription>
       </Alert>
@@ -2042,8 +2106,8 @@ function BlockedCard({
   onClick?: () => void;
 }) {
   return (
-    <Card className="rounded-3xl border-dashed shadow-sm border-border bg-card">
-      <CardContent className="grid gap-3 p-4 sm:p-5">
+    <Card className="rounded-3xl border-dashed border-border/50 bg-card shadow-sm">
+      <CardContent className="grid gap-3 p-5">
         <p className="text-sm leading-6 text-muted-foreground">{message}</p>
         {onClick ? (
           <Button
@@ -2211,7 +2275,7 @@ function ActiveLoanCard({
           ) : null}
 
           {isCompletedLoan ? (
-            <Alert className="border-emerald-200 bg-emerald-50 text-emerald-800">
+            <Alert>
               <AlertDescription className="font-semibold">
                 All repayments verified.
               </AlertDescription>
@@ -2478,7 +2542,7 @@ function ActionBanner({
     tone === "error"
       ? "border-destructive/30 bg-destructive/10 text-destructive"
       : tone === "success"
-        ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+        ? "border-border bg-muted text-foreground"
         : "border-border bg-muted/30 text-foreground";
 
   return (
@@ -2499,7 +2563,7 @@ function ProofStatusMessage({
   const className =
     tone === "error"
       ? "border-destructive/30 bg-destructive/10 text-destructive"
-      : "border-emerald-200 bg-emerald-50 text-emerald-800";
+      : "border-border bg-muted text-foreground";
 
   return (
     <p
@@ -2710,13 +2774,13 @@ function getRejectedProofNextStep(reviewNotes?: string | null) {
 }
 
 function LoanStatusPill({ status }: { status: string }) {
-  const className =
-    status === "overdue"
-      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
-      : "bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+  const tone = status === "overdue" ? "danger" : "success";
 
   return (
-    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
+    <Badge
+      variant="secondary"
+      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
+    >
       {formatLoanPillStatus(status)}
     </Badge>
   );
@@ -2735,32 +2799,38 @@ function formatLoanPillStatus(status: string) {
 }
 
 function RepaymentStatusPill({ status }: { status: string }) {
-  const className =
+  const tone =
     status === "rejected" || status === "late"
-      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
+      ? "danger"
       : status === "verified"
-        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+        ? "success"
         : status === "submitted"
-          ? "bg-muted text-foreground hover:bg-muted"
-          : "bg-amber-50 text-amber-800 hover:bg-amber-50";
+          ? "neutral"
+          : "attention";
 
   return (
-    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
+    <Badge
+      variant="secondary"
+      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
+    >
       {formatRepaymentStatus(status)}
     </Badge>
   );
 }
 
 function ProofStatusPill({ status }: { status: string }) {
-  const className =
+  const tone =
     status === "rejected"
-      ? "bg-destructive/10 text-destructive hover:bg-destructive/10"
+      ? "danger"
       : status === "verified"
-        ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-        : "bg-muted text-foreground hover:bg-muted";
+        ? "success"
+        : "neutral";
 
   return (
-    <Badge variant="secondary" className={`text-xs font-semibold ${className}`}>
+    <Badge
+      variant="secondary"
+      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
+    >
       {formatProofStatus(status)}
     </Badge>
   );
@@ -2922,27 +2992,30 @@ function setStoredIdCollapsed(key: string, id: string, isCollapsed: boolean) {
   writeStoredIdSet(key, ids);
 }
 
-function getOfferStatusClassName(status: string) {
+function getOfferStatusTone(status: string) {
   if (status === "accepted") {
-    return "bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+    return "success" as const;
   }
 
   if (status === "declined") {
-    return "bg-amber-100 text-amber-900 hover:bg-amber-100";
+    return "attention" as const;
   }
 
   if (status === "pending") {
-    return "bg-amber-50 text-amber-800 hover:bg-amber-50";
+    return "attention" as const;
   }
 
-  return "bg-secondary text-secondary-foreground hover:bg-secondary";
+  return "neutral" as const;
 }
 
 function StatusBadge({ value }: { value: string }) {
   return (
     <Badge
       variant="secondary"
-      className={`text-xs font-semibold capitalize ${getOfferStatusClassName(value)}`}
+      className={cn(
+        "text-xs font-semibold capitalize",
+        toneBadgeClassName(getOfferStatusTone(value)),
+      )}
     >
       {formatApplicationStatus(value)}
     </Badge>

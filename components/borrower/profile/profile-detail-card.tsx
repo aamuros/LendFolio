@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Pencil } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 
 export function ProfileDetailCard({
   actionLabel,
@@ -13,21 +13,21 @@ export function ProfileDetailCard({
   onAction: () => void;
 }) {
   return (
-    <Card className="rounded-2xl shadow-sm overflow-hidden border-border bg-card">
-      <div className="flex items-center justify-end px-4 pt-4 pb-0">
+    <Card className="rounded-2xl shadow-none">
+      <div className="flex items-center justify-end px-5 pt-4">
         <Button
           variant="ghost"
-          size="sm"
+          size="xs"
           onClick={onAction}
-          className="h-8 gap-1.5 rounded-full px-3 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          className="gap-1 text-muted-foreground hover:text-foreground"
         >
           <Pencil className="size-3" />
           {actionLabel}
         </Button>
       </div>
-      <CardContent className="grid gap-0 px-4 pt-2 pb-4">
+      <div className="grid gap-0 px-5 pt-1 pb-4">
         {children}
-      </CardContent>
+      </div>
     </Card>
   );
 }

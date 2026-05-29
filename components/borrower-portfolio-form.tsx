@@ -305,19 +305,18 @@ export function BorrowerPortfolioForm({
         <div className="grid gap-2">
           <p
             id="portfolio-save-state"
-            className="text-sm leading-6 text-[var(--muted-foreground)]"
+            className="text-sm leading-6 text-muted-foreground"
             aria-live="polite"
           >
             {statusMessage}
             {isDirty ? " Save changes when ready." : ""}
           </p>
           {successMessage ? (
-            <p
-              className="rounded-xl bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-700"
-              role="status"
-            >
-              {successMessage}
-            </p>
+            <Alert role="status">
+              <AlertDescription className="font-semibold">
+                {successMessage}
+              </AlertDescription>
+            </Alert>
           ) : null}
         </div>
         <Button

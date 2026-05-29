@@ -1,7 +1,8 @@
-import { AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 
 export function ProfileStatusBanner({
   onAction,
@@ -22,51 +23,37 @@ export function ProfileStatusBanner({
       ? CheckCircle2
       : status.tone === "attention"
         ? AlertCircle
-        : ShieldAlert;
-
-  const iconClassName =
-    status.tone === "ready"
-      ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400"
-      : status.tone === "attention"
-        ? "bg-amber-50 text-amber-800 dark:bg-amber-500/10 dark:text-amber-400"
-        : "bg-muted text-muted-foreground";
-
-  const badgeClassName =
-    status.tone === "ready"
-      ? "bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:bg-emerald-500/10 dark:text-emerald-400"
-      : status.tone === "attention"
-        ? "bg-amber-50 text-amber-800 hover:bg-amber-50 dark:bg-amber-500/10 dark:text-amber-400"
-        : "bg-muted text-muted-foreground hover:bg-muted";
+        : Clock;
 
   return (
-    <Card className="rounded-2xl shadow-sm border-border bg-card">
-      <CardContent className="flex items-start gap-3 p-4">
-        <span
-          className={`mt-0.5 grid size-8 shrink-0 place-items-center rounded-full ${iconClassName}`}
-        >
+    <Card
+      className={cn(
+        "rounded-2xl border-border/50 shadow-sm",
+        status.tone === "attention" && "bg-muted/40",
+        status.tone === "ready" && "bg-muted/40",
+        status.tone === "neutral" && "bg-muted",
+      )}
+    >
+      <CardContent className="flex items-start gap-3.5 px-5 py-4">
+        <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-full bg-muted text-muted-foreground">
           <Icon className="size-4" />
         </span>
 
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <Badge
             variant="secondary"
-            className={`mb-0.5 w-fit text-xs font-medium ${badgeClassName}`}
+            className="w-fit text-[10px] font-medium uppercase tracking-wider"
           >
             {status.label}
           </Badge>
-          <p className="text-sm font-semibold leading-snug text-card-foreground">
+          <p className="text-sm font-medium text-foreground leading-snug">
             {status.title}
           </p>
-          <p className="text-xs leading-snug text-muted-foreground">
+          <p className="text-sm leading-relaxed text-muted-foreground">
             {status.description}
           </p>
           {status.actionLabel ? (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onAction}
-              className="mt-2.5 h-8 w-fit rounded-full px-3 text-xs font-semibold"
-            >
+            <Button size="sm" onClick={onAction} className="mt-1 w-fit">
               {status.actionLabel}
             </Button>
           ) : null}

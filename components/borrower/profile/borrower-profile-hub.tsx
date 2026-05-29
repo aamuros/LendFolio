@@ -8,10 +8,9 @@ import { ProfileStatusBanner } from "./profile-status-banner";
 import { ProfileMenuRow } from "./profile-menu-row";
 import { BorrowingPowerDetail } from "./borrowing-power-detail";
 import { AccountSection } from "./account-section";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 
 import {
   businessTypeLabels,
@@ -74,7 +73,7 @@ export function BorrowerProfileHub({
       ? borrowerVerificationStatusLabels[verification.status]
       : "Not started";
   const displayName =
-    portfolio?.businessName.trim() || accountEmail || "Borrower profile";
+    portfolio?.businessName.trim() || "Borrower profile";
 
   if (activeView === "business") {
     return (
@@ -151,7 +150,7 @@ export function BorrowerProfileHub({
           />
         </ProfileDetailCard>
         {readiness?.nextActions.length ? (
-          <p className="rounded-2xl bg-card px-4 py-3 text-sm leading-6 text-muted-foreground border border-border shadow-sm">
+          <p className="rounded-xl bg-muted px-4 py-3 text-xs leading-5 text-muted-foreground">
             {readiness.nextActions[0]}
           </p>
         ) : null}
@@ -194,22 +193,20 @@ export function BorrowerProfileHub({
   if (activeView === "support") {
     return (
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
-        <Card className="rounded-2xl shadow-sm border-border bg-card">
-          <CardContent className="grid gap-3 p-5">
-            <h3 className="text-base font-semibold">Support</h3>
-            <p className="text-sm leading-6 text-muted-foreground">
-              For questions about your borrower profile, verification, or loan
-              applications, contact LendFolio support through your registered
-              account email.
-            </p>
-          </CardContent>
+        <Card className="rounded-2xl px-5 py-4 shadow-none">
+          <h3 className="text-sm font-medium text-foreground">Support</h3>
+          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+            For questions about your borrower profile, verification, or loan
+            applications, contact LendFolio support through your registered
+            account email.
+          </p>
         </Card>
       </ProfileSubview>
     );
   }
 
   return (
-    <div className="grid gap-5">
+    <div className="grid gap-6">
       <ProfileIndexHeader
         email={accountEmail}
         displayName={displayName}
@@ -220,12 +217,15 @@ export function BorrowerProfileHub({
       {loadState === "loading" ? (
         <ProfileHubSkeleton />
       ) : loadState === "error" ? (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+        <Card className="rounded-2xl border-destructive/20 bg-destructive/5 px-5 py-4 shadow-none">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="size-4 text-destructive" />
+            <p className="text-sm font-medium text-destructive">Error</p>
+          </div>
+          <p className="mt-1 text-sm text-destructive/80">
             {message || "Could not load your profile."}
-          </AlertDescription>
-        </Alert>
+          </p>
+        </Card>
       ) : (
         <>
           <ProfileStatusBanner
@@ -240,7 +240,7 @@ export function BorrowerProfileHub({
             }}
           />
 
-          <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
+          <div className="rounded-3xl border border-border/50 bg-card shadow-sm overflow-hidden divide-y divide-border/50">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -283,11 +283,11 @@ export function BorrowerProfileHub({
             />
           </div>
 
-          <form action={signOutAction} className="pt-1">
+          <form action={signOutAction}>
             <Button
               type="submit"
-              variant="outline"
-              className="w-full rounded-full h-11 gap-2 font-semibold shadow-sm hover:border-red-200 hover:bg-red-50 hover:text-red-700 text-muted-foreground"
+              variant="ghost"
+              className="w-full gap-2 text-sm font-normal text-muted-foreground hover:text-foreground"
             >
               <LogOut className="size-4" />
               Log out
@@ -301,17 +301,21 @@ export function BorrowerProfileHub({
 
 function ProfileHubSkeleton() {
   return (
-    <Card
-      className="rounded-2xl shadow-sm border-border bg-card"
-      aria-busy="true"
-      aria-label="Loading profile summary"
-    >
-      <CardContent className="grid gap-3 p-5">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-4 w-full max-w-sm" />
-        <Skeleton className="h-4 w-2/3" />
-      </CardContent>
-    </Card>
+    <div className="grid gap-6">
+      <div className="flex items-center gap-4">
+        <Skeleton className="size-14 rounded-full" />
+        <div className="grid gap-2">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="h-4 w-48" />
+        </div>
+      </div>
+      <Skeleton className="h-24 w-full rounded-2xl" />
+      <div className="rounded-3xl border border-border/50 bg-card shadow-sm overflow-hidden p-1">
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="mt-1 h-14 w-full rounded-2xl" />
+        <Skeleton className="mt-1 h-14 w-full rounded-2xl" />
+      </div>
+    </div>
   );
 }
 

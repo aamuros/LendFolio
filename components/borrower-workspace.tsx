@@ -16,6 +16,7 @@ import { BorrowerProfileHub } from "./borrower/profile/borrower-profile-hub";
 import { ProfileSubviewHeader } from "./borrower/profile/profile-subview";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 import { NotificationButton } from "@/components/notification-button";
 import { type BorrowerPortfolioInput } from "@/lib/borrower-portfolio";
@@ -38,6 +39,13 @@ type BorrowerWorkspaceProps = {
   accountEmail?: string;
   initialLoanApplications?: LoanApplicationsLoadResult | null;
 };
+
+const desktopTabs: { id: BorrowerTab; label: string }[] = [
+  { id: "home", label: "Home" },
+  { id: "apply", label: "Apply" },
+  { id: "offers", label: "Offers" },
+  { id: "loans", label: "Loans" },
+];
 
 export function BorrowerWorkspace({
   accountEmail = "",
@@ -164,32 +172,54 @@ export function BorrowerWorkspace({
     setProfileMode(editReturnMode);
   }
 
+  const showProfile = activeTab === "profile";
+
   return (
-    <div className="grid gap-5 pb-28 sm:pb-32">
-      {activeTab === "profile" ? null : (
-        <header className="flex min-h-10 items-center justify-between gap-4">
-          <p className="text-sm font-semibold text-[var(--foreground)]">
+    <div className="grid gap-8 pb-32 sm:pb-12">
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex items-center gap-6">
+          <p className="text-base font-semibold tracking-tight text-foreground">
             LendFolio
           </p>
-          <div className="flex items-center gap-2">
-            <NotificationButton />
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Open profile"
-              onClick={() => changeTab("profile")}
-              className="rounded-full shadow-sm text-foreground hover:text-primary"
-            >
-              <User className="size-5" />
-            </Button>
-          </div>
-        </header>
-      )}
+          <nav className="hidden items-center gap-1 sm:flex">
+            {desktopTabs.map((tab) => (
+              <Button
+                key={tab.id}
+                variant="ghost"
+                size="sm"
+                onClick={() => changeTab(tab.id)}
+                className={cn(
+                  "rounded-lg px-3 py-1.5 text-sm font-medium",
+                  activeTab === tab.id && !showProfile
+                    ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                    : "text-muted-foreground",
+                )}
+              >
+                {tab.label}
+              </Button>
+            ))}
+          </nav>
+        </div>
+        <div className="flex items-center gap-2">
+          <NotificationButton />
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Open profile"
+            onClick={() => changeTab("profile")}
+            className={`rounded-full text-muted-foreground hover:text-foreground ${
+              showProfile ? "bg-muted text-foreground" : ""
+            }`}
+          >
+            <User className="size-5" />
+          </Button>
+        </div>
+      </header>
 
-      {activeTab === "profile" ? (
-        <section className="grid gap-4">
+      {showProfile ? (
+        <section>
           {profileMode === "edit" ? (
-            <div id="business-profile-edit">
+            <div id="business-profile-edit" className="grid gap-6">
               <ProfileSubviewHeader
                 title="Edit Profile"
                 description="Keep your business and loan-use details current."
@@ -224,8 +254,9 @@ export function BorrowerWorkspace({
         />
       )}
 
-      <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
+      <div className="sm:hidden">
+        <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
+      </div>
     </div>
   );
 }
-

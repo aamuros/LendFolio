@@ -191,14 +191,14 @@ export function AppBottomTabs<T extends string>({
         {floatingMenu}
       </div>
       <div
-        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-[var(--border)] bg-white/95 p-2 shadow-[0_18px_45px_rgba(22,22,22,0.16)] backdrop-blur"
+        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-border/50 bg-background/95 p-2 shadow-lg backdrop-blur"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] ${
+          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
             isActive
-              ? "bg-[var(--primary)] !text-white shadow-sm"
-              : "text-[var(--muted-foreground)] hover:bg-[var(--muted)]/70 hover:text-[var(--foreground)]"
+              ? "bg-primary text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
           }`;
           const content = (
             <>

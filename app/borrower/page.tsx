@@ -27,8 +27,8 @@ export default async function BorrowerPage({
     : null;
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
-      <div className="mx-auto grid max-w-4xl gap-5">
+    <main className="min-h-svh bg-background">
+      <div className="mx-auto max-w-3xl px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
         {access.ok ? (
           <BorrowerWorkspace
             accountEmail={user?.email ?? ""}
