@@ -41,7 +41,7 @@ export function ManagerShell({
 }) {
   return (
     <>
-      <div className="sticky top-0 z-30 flex items-center bg-background px-4 py-2">
+      <div className="sticky top-0 z-30 flex h-12 shrink-0 items-center bg-background px-4">
         <SidebarTrigger />
       </div>
       <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">

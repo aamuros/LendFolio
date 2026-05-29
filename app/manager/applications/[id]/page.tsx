@@ -129,7 +129,7 @@ export default async function ManagerApplicationDetailPage({
             <h1 className="truncate text-2xl leading-tight font-semibold">
               Application {getShortId(application.id)}
             </h1>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+            <p className="mt-1 text-sm text-muted-foreground">
               {application.borrower.displayName} ·{" "}
               {formatDateTime(application.submittedAt)}
             </p>
@@ -138,7 +138,7 @@ export default async function ManagerApplicationDetailPage({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+      <section className="grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-2">
           <DetailSection title="Overview">
             <DetailItem label="Application ID" value={application.id} />
@@ -254,13 +254,13 @@ export default async function ManagerApplicationDetailPage({
               {application.offers.map((offer) => (
                 <article
                   key={offer.id}
-                  className="grid gap-2 rounded-xl border border-[var(--border)] bg-[var(--muted)]/20 px-3 py-2 sm:grid-cols-[minmax(0,1.3fr)_0.9fr_0.9fr_0.9fr_0.7fr] sm:items-center sm:gap-3"
+                  className="grid gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2 sm:grid-cols-[minmax(0,1.3fr)_0.9fr_0.9fr_0.9fr_0.7fr] sm:items-center sm:gap-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
                       {offer.lender_name}
                     </p>
-                    <p className="text-xs text-[var(--muted-foreground)]">
+                    <p className="text-xs text-muted-foreground">
                       Offer {getShortId(offer.id)}
                     </p>
                   </div>
@@ -268,7 +268,7 @@ export default async function ManagerApplicationDetailPage({
                   <p className="text-sm">
                     {formatCurrency(offer.repayment_amount)}
                   </p>
-                  <p className="text-sm text-[var(--muted-foreground)]">
+                  <p className="text-sm text-muted-foreground">
                     {formatDateOnly(offer.due_date)}
                   </p>
                   <StatusBadge status={offer.status} />
@@ -291,13 +291,13 @@ function ManagerApplicationErrorState({
 }) {
   return (
     <section
-      className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm"
+      className="grid gap-3 rounded-3xl border border-border bg-card px-5 py-5 shadow-sm"
       role="alert"
     >
       <BackLink href="/manager/applications" label="Back to applications" />
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold">{title}</h1>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        <p className="text-sm leading-6 text-muted-foreground">
           {message}
         </p>
       </div>

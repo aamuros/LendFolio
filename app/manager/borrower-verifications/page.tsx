@@ -539,7 +539,65 @@ function SelectedBorrowerDetail({
 }) {
   const hasNotes =
     verification.rejectionReason || verification.managerReviewNotes;
-  const isApproved = verification.verificationStatus === "approved";
+  const hasAction =
+    verification.verificationStatus === "submitted" ||
+    verification.verificationStatus === "under_review" ||
+    verification.verificationStatus === "needs_resubmission" ||
+    verification.verificationStatus === "pending_documents" ||
+    verification.verificationStatus === "rejected";
+
+  const mainContent = (
+    <div className="min-w-0 space-y-6">
+      <RequiredDocumentsSection verification={verification} />
+
+      <Separator />
+
+      <ReadinessSummaryCard verification={verification} />
+
+      <Separator />
+
+      <Collapsible defaultOpen={false}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheckIcon className="size-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                Consents &amp; disclosures
+              </h3>
+            </div>
+            <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              Show
+              <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <ConsentSection
+              documentUpload={
+                verification.documentUploadConsentStatus
+              }
+              loanApplication={
+                verification.loanApplicationConsentStatus
+              }
+            />
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      <Separator />
+
+      <EvidenceHistorySection documents={verification.documents} />
+
+      {hasNotes ? (
+        <>
+          <Separator />
+          <ExistingNotesSection
+            rejectionReason={verification.rejectionReason}
+            managerReviewNotes={verification.managerReviewNotes}
+          />
+        </>
+      ) : null}
+    </div>
+  );
 
   return (
     <Card>
@@ -597,66 +655,16 @@ function SelectedBorrowerDetail({
       </CardHeader>
 
       <CardContent>
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-          <div className="min-w-0 space-y-6">
-            <RequiredDocumentsSection verification={verification} />
-
-            <Separator />
-
-            <ReadinessSummaryCard verification={verification} />
-
-            <Separator />
-
-            <Collapsible defaultOpen={false}>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <ShieldCheckIcon className="size-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">
-                      Consents &amp; disclosures
-                    </h3>
-                  </div>
-                  <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-                    Show
-                    <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
-                  </CollapsibleTrigger>
-                </div>
-                <CollapsibleContent>
-                  <ConsentSection
-                    documentUpload={
-                      verification.documentUploadConsentStatus
-                    }
-                    loanApplication={
-                      verification.loanApplicationConsentStatus
-                    }
-                  />
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-
-            <Separator />
-
-            <EvidenceHistorySection documents={verification.documents} />
-
-            {hasNotes ? (
-              <>
-                <Separator />
-                <ExistingNotesSection
-                  rejectionReason={verification.rejectionReason}
-                  managerReviewNotes={verification.managerReviewNotes}
-                />
-              </>
-            ) : null}
-          </div>
-
-          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-            {isApproved ? (
-              <ApprovedStatusCard verification={verification} />
-            ) : (
+        {hasAction ? (
+          <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+            {mainContent}
+            <div className="space-y-4 lg:sticky lg:top-16 lg:self-start">
               <ManagerDecisionPanel verification={verification} />
-            )}
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="grid gap-6">{mainContent}</div>
+        )}
       </CardContent>
     </Card>
   );
@@ -1180,39 +1188,6 @@ function ReadinessSummaryCard({
           <span className="text-muted-foreground">Status</span>
           <StatusBadge status={verification.verificationStatus} />
         </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ApprovedStatusCard({
-  verification,
-}: {
-  verification: ManagerBorrowerVerificationRow;
-}) {
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-sm">Review status</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2">
-        <div className="flex items-center gap-2">
-          <CheckCircle2Icon className="size-4 text-emerald-600" />
-          <span className="text-sm font-medium">Borrower approved</span>
-        </div>
-        {verification.reviewedAt ? (
-          <p className="text-xs text-muted-foreground">
-            Reviewed {formatDateTime(verification.reviewedAt)}
-            {verification.reviewedBy
-              ? ` by ${verification.reviewedBy.displayName}`
-              : ""}
-          </p>
-        ) : null}
-        {verification.managerReviewNotes ? (
-          <p className="text-xs text-muted-foreground">
-            Note: {verification.managerReviewNotes}
-          </p>
-        ) : null}
       </CardContent>
     </Card>
   );

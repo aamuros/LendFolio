@@ -15,7 +15,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarSeparator,
 } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/layout/user-menu";
 import { getNavConfigForRole, isActiveHref } from "@/components/layout/dashboard-nav-data";
@@ -64,9 +63,8 @@ export function AppSidebar({
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-      <SidebarSeparator />
       <SidebarContent>
-        {navGroups.map((group, groupIndex) => (
+        {navGroups.map((group) => (
           <SidebarGroup key={group.title}>
             <SidebarGroupLabel>{group.title}</SidebarGroupLabel>
             <SidebarGroupContent>
@@ -87,12 +85,10 @@ export function AppSidebar({
                 ))}
               </SidebarMenu>
             </SidebarGroupContent>
-            {groupIndex < navGroups.length - 1 ? <SidebarSeparator /> : null}
           </SidebarGroup>
         ))}
       </SidebarContent>
-      <SidebarSeparator />
-      <SidebarFooter>
+      <SidebarFooter className="p-2 pb-3">
         <UserMenu
           userEmail={userEmail}
           roleLabel={roleLabel}

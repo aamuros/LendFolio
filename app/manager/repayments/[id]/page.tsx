@@ -62,7 +62,7 @@ export default async function ManagerRepaymentProofDetailPage({
             <h1 className="truncate text-2xl leading-tight font-semibold">
               {proof.fileName}
             </h1>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
+            <p className="mt-1 text-sm text-muted-foreground">
               Loan {getShortId(proof.activeLoanId)} · Installment{" "}
               {proof.installmentNumber}
             </p>
@@ -71,7 +71,7 @@ export default async function ManagerRepaymentProofDetailPage({
         </div>
       </section>
 
-      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+      <section className="grid gap-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-2">
           <DetailSection title="Overview">
             <DetailItem label="File name" value={proof.fileName} />

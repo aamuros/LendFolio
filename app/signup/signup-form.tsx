@@ -30,23 +30,19 @@ export function SignupForm() {
     <Card className="rounded-2xl p-6">
       <CardHeader className="p-0 text-center">
         <CardTitle className="text-xl">Create account</CardTitle>
-        <CardDescription>
-          Get started with LendFolio
-        </CardDescription>
+        <CardDescription>Get started with LendFolio</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <form action={formAction}>
-          <FieldGroup className="gap-4">
+          <FieldGroup className="gap-5">
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">
-                Account type
-              </legend>
+              <legend className="text-sm font-medium">Account type</legend>
               <RadioGroup
                 defaultValue="borrower"
                 value={role}
                 onValueChange={(val) => setRole(val as SignupRole)}
                 name="role"
-                className="grid grid-cols-2 gap-2"
+                className="grid grid-cols-2 gap-4"
               >
                 <RoleCard
                   value="borrower"
@@ -121,36 +117,38 @@ export function SignupForm() {
               <FieldErrorHelper messages={state.fieldErrors?.confirmPassword} />
             </Field>
 
-            <fieldset className="grid gap-2 rounded-2xl border border-border/50 bg-muted/30 p-4">
+            <fieldset className="rounded-lg border bg-muted/30 p-3">
               <legend className="sr-only">Required disclosures</legend>
-              <ConsentCheckbox
-                name="termsAccepted"
-                id="termsAccepted"
-                label={
-                  <>
-                    I agree to the{" "}
-                    <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
-                      Terms of Service
-                    </Link>
-                    .
-                  </>
-                }
-                error={state.fieldErrors?.termsAccepted}
-              />
-              <ConsentCheckbox
-                name="privacyAccepted"
-                id="privacyAccepted"
-                label={
-                  <>
-                    I acknowledge the{" "}
-                    <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
-                      Privacy Notice
-                    </Link>
-                    .
-                  </>
-                }
-                error={state.fieldErrors?.privacyAccepted}
-              />
+              <div className="grid gap-2.5">
+                <ConsentCheckbox
+                  name="termsAccepted"
+                  id="termsAccepted"
+                  label={
+                    <>
+                      I agree to the{" "}
+                      <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+                        Terms of Service
+                      </Link>
+                      .
+                    </>
+                  }
+                  error={state.fieldErrors?.termsAccepted}
+                />
+                <ConsentCheckbox
+                  name="privacyAccepted"
+                  id="privacyAccepted"
+                  label={
+                    <>
+                      I acknowledge the{" "}
+                      <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+                        Privacy Notice
+                      </Link>
+                      .
+                    </>
+                  }
+                  error={state.fieldErrors?.privacyAccepted}
+                />
+              </div>
             </fieldset>
 
             {state.message ? (
@@ -166,7 +164,7 @@ export function SignupForm() {
           </FieldGroup>
         </form>
 
-        <div className="mt-3 space-y-1.5 text-center text-sm text-muted-foreground">
+        <div className="mt-4 text-center text-sm text-muted-foreground">
           <p>
             Already have an account?{" "}
             <Link
@@ -175,9 +173,6 @@ export function SignupForm() {
             >
               Log in
             </Link>
-          </p>
-          <p className="text-[0.7rem] leading-relaxed text-muted-foreground/70">
-            Are you a platform manager? Manager access is by invitation only.
           </p>
         </div>
       </CardContent>
@@ -204,8 +199,8 @@ function RoleCard({
       <Label
         htmlFor={id}
         className={cn(
-          "flex flex-1 flex-col gap-2 cursor-pointer rounded-2xl border border-border/50 bg-muted/30 p-3.5 transition-all shadow-none",
-          "hover:border-primary/50 hover:bg-muted/40",
+          "flex h-full w-full flex-col gap-2 cursor-pointer rounded-xl border bg-card p-3 transition-all",
+          "hover:bg-muted/50",
           "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
         )}

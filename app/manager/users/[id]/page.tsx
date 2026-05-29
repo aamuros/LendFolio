@@ -24,8 +24,12 @@ import {
   formatDateTime,
   BackLink,
 } from "../../manager-ui";
-
-
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -40,7 +44,6 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="User detail"
         description="Read-only user record."
-        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -54,7 +57,6 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Invalid user link"
         description="This user link is not valid."
-        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -70,7 +72,6 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="User not found"
         description="This user record could not be found."
-        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -86,7 +87,6 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load user"
         description="This user record could not be loaded."
-        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -102,7 +102,6 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load user"
         description="This user record could not be loaded."
-        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -119,32 +118,33 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
     <ManagerShell
       title={user.profile.displayName}
       description="Read-only manager view of this user and related activity."
-      
       showHeading={false}
     >
-      <section className="grid gap-3">
-        <BackLink href="/manager/lookup" label="Back to users" />
+      <div className="grid gap-4 md:gap-6">
+        <section className="grid gap-3">
+          <BackLink href="/manager/lookup" label="Back to users" />
 
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h1 className="truncate text-2xl leading-tight font-semibold">
-              {user.profile.displayName}
-            </h1>
-            <p className="mt-1 text-sm text-[var(--muted-foreground)]">
-              User {getShortId(user.profile.id)} · {user.role}
-            </p>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="truncate text-2xl leading-tight font-semibold">
+                {user.profile.displayName}
+              </h1>
+              <p className="mt-1 text-sm text-muted-foreground">
+                User {getShortId(user.profile.id)} · {user.role}
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-1.5">
+              <RoleBadge role={user.role} />
+              <StatusBadge status={user.status} />
+            </div>
           </div>
+        </section>
 
-          <div className="flex flex-wrap items-center gap-1.5">
-            <RoleBadge role={user.role} />
-            <StatusBadge status={user.status} />
-          </div>
-        </div>
-      </section>
+        {!result.ok ? <StatusMessage message={result.message} tone="error" /> : null}
 
-      {!result.ok ? <StatusMessage message={result.message} tone="error" /> : null}
+        <UserSummaryCard user={user} />
 
-      <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
         <div className="grid gap-4 lg:grid-cols-2">
           <DetailSection title="Account">
             <DetailItem
@@ -228,11 +228,9 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
             ) : null}
           </DetailSection>
         </div>
-      </section>
 
-      {user.role === "borrower" ? (
-        <>
-          <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+        {user.role === "borrower" ? (
+          <>
             <div className="grid gap-4 lg:grid-cols-2">
               <DetailSection title="Borrower profile">
                 <DetailItem
@@ -284,23 +282,29 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
                 />
               </DetailSection>
             </div>
-          </section>
 
-          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold">Applications</h2>
-            <ApplicationList applications={user.applications} />
-          </section>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Applications</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ApplicationList applications={user.applications} />
+              </CardContent>
+            </Card>
 
-          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold">Active loans</h2>
-            <LoanList loans={user.activeLoans} />
-          </section>
-        </>
-      ) : null}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Active loans</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LoanList loans={user.activeLoans} />
+              </CardContent>
+            </Card>
+          </>
+        ) : null}
 
-      {user.role === "lender" ? (
-        <>
-          <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
+        {user.role === "lender" ? (
+          <>
             <div className="grid gap-4 lg:grid-cols-2">
               <DetailSection title="Lender organization">
                 <DetailItem
@@ -352,20 +356,91 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
                 />
               </DetailSection>
             </div>
-          </section>
 
-          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold">Active loans</h2>
-            <LoanList loans={user.activeLoans} />
-          </section>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Active loans</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <LoanList loans={user.activeLoans} />
+              </CardContent>
+            </Card>
 
-          <section className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-            <h2 className="text-sm font-semibold">Proof review workload</h2>
-            <ProofList proofs={user.submittedProofs} />
-          </section>
-        </>
-      ) : null}
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Proof review workload</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <ProofList proofs={user.submittedProofs} />
+              </CardContent>
+            </Card>
+          </>
+        ) : null}
+      </div>
     </ManagerShell>
+  );
+}
+
+function UserSummaryCard({
+  user,
+}: {
+  user: import("@/lib/manager-operations").ManagerUserDetail;
+}) {
+  return (
+    <Card>
+      <CardContent>
+        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryField label="Role" value={<RoleBadge role={user.role} />} />
+          <SummaryField label="Status" value={<StatusBadge status={user.status} />} />
+          <SummaryField label="Short ID" value={getShortId(user.profile.id)} />
+          {user.role === "borrower" ? (
+            <>
+              <SummaryField label="Applications" value={user.applications.length} />
+              <SummaryField label="Active loans" value={user.activeLoans.length} />
+              <SummaryField
+                label="Latest application"
+                value={
+                  user.latestApplicationStatus ? (
+                    <StatusBadge status={user.latestApplicationStatus} />
+                  ) : (
+                    "None"
+                  )
+                }
+              />
+            </>
+          ) : null}
+          {user.role === "lender" ? (
+            <>
+              <SummaryField
+                label="Organization"
+                value={user.lenderProfile?.organization_name ?? "Not provided"}
+              />
+              <SummaryField label="Offers" value={user.offers.length} />
+              <SummaryField label="Active loans" value={user.activeLoans.length} />
+              <SummaryField
+                label="Proofs to review"
+                value={user.submittedProofs.length}
+              />
+            </>
+          ) : null}
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SummaryField({
+  label,
+  value,
+}: {
+  label: string;
+  value: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-0.5">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="text-sm font-medium">{value}</dd>
+    </div>
   );
 }
 
@@ -377,15 +452,17 @@ function ManagerUserErrorState({
   message: string;
 }) {
   return (
-    <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-      <BackLink href="/manager/lookup" label="Back to users" />
-      <div className="grid gap-1">
-        <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          {message}
-        </p>
-      </div>
-    </section>
+    <Card>
+      <CardContent className="space-y-3">
+        <BackLink href="/manager/lookup" label="Back to users" />
+        <div className="grid gap-1">
+          <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {message}
+          </p>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -408,7 +485,7 @@ function ApplicationList({
       {applications.map((application) => (
         <article
           key={application.id}
-          className="grid gap-3 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">
@@ -469,7 +546,7 @@ function LoanList({
       {loans.map((loan) => (
         <article
           key={loan.id}
-          className="grid gap-3 border-b border-[var(--border)] pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Loan {getShortId(loan.id)}</h3>
@@ -512,10 +589,10 @@ function ProofList({
         <Link
           key={proof.id}
           href={`/manager/repayments/${proof.id}`}
-          className="grid gap-2 border-b border-[var(--border)] pb-3 text-sm transition last:border-b-0 last:pb-0 hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+          className="grid gap-2 border-b border-border pb-3 text-sm transition last:border-b-0 last:pb-0 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <span className="font-semibold">{proof.fileName}</span>
-          <span className="text-xs text-[var(--muted-foreground)]">
+          <span className="text-xs text-muted-foreground">
             Loan {getShortId(proof.activeLoanId)} · Installment{" "}
             {proof.installmentNumber} · {formatCurrency(proof.amountDue)}
           </span>
