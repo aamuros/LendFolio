@@ -134,6 +134,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
               profileTab={lenderProfileTab}
               consentStatus={lenderConsentStatus}
               verification={lenderVerification}
+              profileBaseHref="/lender"
+              indexHref="/lender?profileTab=index"
+              isLimited
             />
           ) : (
             <LenderApplicationsStatus message={message} tone="error" />
@@ -143,23 +146,31 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     );
   }
 
-  if (profileTab) {
-    redirect("/lender?tab=account");
-  }
-
   const [
     applicationsResult,
     offersResult,
     {
       data: { user },
     },
+    lenderConsentRecords,
+    lenderVerification,
   ] = await Promise.all([
     loadOpenLenderApplications(access),
     loadLenderOffers(access),
     access.supabase.auth.getUser(),
+    loadUserConsents(access.supabase, access.profile.id),
+    getLenderVerificationStatus(access.supabase, access.profile.id),
   ]);
   const applications = applicationsResult.ok ? applicationsResult.applications : [];
   const offers = offersResult.ok ? offersResult.offers : [];
+  const lenderConsentStatus = buildConsentStatus(
+    "lender_review",
+    lenderConsentRecords,
+  );
+  const approvedProfileTab =
+    approvedOperationalTab === "account"
+      ? resolveLenderProfileTab(profileTab)
+      : "index";
 
   return (
     <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
@@ -181,7 +192,16 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         ) : null}
 
         {approvedOperationalTab === "account" ? (
-          <LenderProfileHub email={user?.email ?? ""} access={access.profile} />
+          <LenderProfileCompletionShell
+            email={user?.email ?? ""}
+            access={access.profile}
+            profileTab={approvedProfileTab}
+            consentStatus={lenderConsentStatus}
+            verification={lenderVerification}
+            profileBaseHref="/lender?tab=account"
+            indexHref="/lender?tab=account"
+            isLimited={false}
+          />
         ) : null}
 
         <LenderBottomTabs activeTab={approvedOperationalTab} />
@@ -1116,10 +1136,20 @@ type LenderProfileStatus = {
   title: string;
   description: string;
   action: string | null;
-  actionHref: string | null;
+  actionProfileTab: LenderProfileTab | null;
   pill: string;
   tone: LenderProfileStatusTone;
 };
+
+function buildLenderProfileHref(
+  baseHref: string,
+  profileTab: LenderProfileTab,
+) {
+  if (profileTab === "index") return baseHref;
+
+  const separator = baseHref.includes("?") ? "&" : "?";
+  return `${baseHref}${separator}profileTab=${profileTab}`;
+}
 
 function LenderProfileCompletionShell({
   email,
@@ -1127,19 +1157,25 @@ function LenderProfileCompletionShell({
   profileTab,
   consentStatus,
   verification,
+  profileBaseHref,
+  indexHref,
+  isLimited,
 }: {
   email: string;
   access: CurrentUserProfile;
   profileTab: LenderProfileTab;
   consentStatus: ConsentStatus;
   verification: LenderVerificationSummary | null;
+  profileBaseHref: string;
+  indexHref: string;
+  isLimited: boolean;
 }) {
   if (profileTab === "organization") {
-    return <LenderOrganizationSubview access={access} />;
+    return <LenderOrganizationSubview access={access} backHref={indexHref} />;
   }
 
   if (profileTab === "lending-scope") {
-    return <LenderScopeSubview access={access} />;
+    return <LenderScopeSubview access={access} backHref={indexHref} />;
   }
 
   if (profileTab === "verification") {
@@ -1147,16 +1183,17 @@ function LenderProfileCompletionShell({
       <LenderVerificationSubview
         consentStatus={consentStatus}
         verification={verification}
+        backHref={indexHref}
       />
     );
   }
 
   if (profileTab === "account") {
-    return <LenderAccountSubview access={access} email={email} />;
+    return <LenderAccountSubview access={access} email={email} backHref={indexHref} />;
   }
 
   if (profileTab === "support") {
-    return <LenderSupportSubview />;
+    return <LenderSupportSubview backHref={indexHref} />;
   }
 
   return (
@@ -1164,7 +1201,8 @@ function LenderProfileCompletionShell({
       email={email}
       access={access}
       verification={verification}
-      isLimited
+      profileBaseHref={profileBaseHref}
+      isLimited={isLimited}
     />
   );
 }
@@ -1173,11 +1211,13 @@ function LenderProfileHub({
   email,
   access,
   verification = null,
+  profileBaseHref,
   isLimited = false,
 }: {
   email: string;
   access: CurrentUserProfile;
   verification?: LenderVerificationSummary | null;
+  profileBaseHref: string;
   isLimited?: boolean;
 }) {
   const status = getLenderProfileStatus(access, verification);
@@ -1194,11 +1234,16 @@ function LenderProfileHub({
         initials={initials}
       />
 
-      <LenderProfileStatusBanner status={status} />
+      <LenderProfileStatusBanner
+        status={status}
+        buildProfileHref={(targetTab) =>
+          buildLenderProfileHref(profileBaseHref, targetTab)
+        }
+      />
 
       <div className="overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-sm">
         <LenderProfileMenuRow
-          href="/lender?profileTab=organization"
+          href={buildLenderProfileHref(profileBaseHref, "organization")}
           icon="organization"
           title="Organization Profile"
           description={
@@ -1215,7 +1260,7 @@ function LenderProfileHub({
           }
         />
         <LenderProfileMenuRow
-          href="/lender?profileTab=lending-scope"
+          href={buildLenderProfileHref(profileBaseHref, "lending-scope")}
           icon="scope"
           title="Lending Scope"
           description={
@@ -1232,7 +1277,7 @@ function LenderProfileHub({
           }
         />
         <LenderProfileMenuRow
-          href="/lender?profileTab=verification"
+          href={buildLenderProfileHref(profileBaseHref, "verification")}
           icon="verification"
           title="Verification"
           description={getVerificationDescription(access, verification)}
@@ -1241,7 +1286,7 @@ function LenderProfileHub({
           }
         />
         <LenderProfileMenuRow
-          href="/lender?profileTab=account"
+          href={buildLenderProfileHref(profileBaseHref, "account")}
           icon="account"
           title="Account"
           description={`Role: ${formatTitleCase(access.role)}`}
@@ -1254,7 +1299,7 @@ function LenderProfileHub({
           }
         />
         <LenderProfileMenuRow
-          href="/lender?profileTab=support"
+          href={buildLenderProfileHref(profileBaseHref, "support")}
           icon="support"
           title="Help & Support"
           description={
@@ -1304,8 +1349,10 @@ function LenderProfileIndexHeader({
 
 function LenderProfileStatusBanner({
   status,
+  buildProfileHref,
 }: {
   status: LenderProfileStatus;
+  buildProfileHref: (profileTab: LenderProfileTab) => string;
 }) {
   const toneClassName =
     status.tone === "ready"
@@ -1327,9 +1374,9 @@ function LenderProfileStatusBanner({
             {status.description}
           </p>
           {status.action ? (
-            status.actionHref ? (
+            status.actionProfileTab ? (
               <Link
-                href={status.actionHref}
+                href={buildProfileHref(status.actionProfileTab)}
                 className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-white/80 px-4 text-sm font-semibold text-current shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
               >
                 {status.action}
@@ -1512,14 +1559,16 @@ function LenderProfileIcon({
 function LenderProfileSubviewHeader({
   title,
   description,
+  backHref,
 }: {
   title: string;
   description: string;
+  backHref: string;
 }) {
   return (
     <div className="grid gap-3">
       <Link
-        href="/lender?profileTab=index"
+        href={backHref}
         className="inline-flex h-10 w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
       >
         <svg
@@ -1580,7 +1629,13 @@ function LenderProfileSummaryRow({
   );
 }
 
-function LenderOrganizationSubview({ access }: { access: CurrentUserProfile }) {
+function LenderOrganizationSubview({
+  access,
+  backHref,
+}: {
+  access: CurrentUserProfile;
+  backHref: string;
+}) {
   const lenderProfile = access.lenderProfile;
 
   return (
@@ -1588,6 +1643,7 @@ function LenderOrganizationSubview({ access }: { access: CurrentUserProfile }) {
       <LenderProfileSubviewHeader
         title="Organization Profile"
         description="Review the organization details used for lender approval."
+        backHref={backHref}
       />
       <LenderProfileDetailCard title="Organization details">
         <LenderProfileSummaryRow
@@ -1631,7 +1687,13 @@ function LenderOrganizationSubview({ access }: { access: CurrentUserProfile }) {
   );
 }
 
-function LenderScopeSubview({ access }: { access: CurrentUserProfile }) {
+function LenderScopeSubview({
+  access,
+  backHref,
+}: {
+  access: CurrentUserProfile;
+  backHref: string;
+}) {
   const lenderProfile = access.lenderProfile;
 
   return (
@@ -1639,6 +1701,7 @@ function LenderScopeSubview({ access }: { access: CurrentUserProfile }) {
       <LenderProfileSubviewHeader
         title="Lending Scope"
         description="Review the lending limits and borrower fit in your lender profile."
+        backHref={backHref}
       />
       <LenderProfileDetailCard title="Scope details">
         <LenderProfileSummaryRow
@@ -1673,15 +1736,18 @@ function LenderScopeSubview({ access }: { access: CurrentUserProfile }) {
 function LenderVerificationSubview({
   consentStatus,
   verification,
+  backHref,
 }: {
   consentStatus: ConsentStatus;
   verification: LenderVerificationSummary | null;
+  backHref: string;
 }) {
   return (
     <section className="grid gap-4">
       <LenderProfileSubviewHeader
         title="Verification"
         description="Upload and review the documents required for lender approval."
+        backHref={backHref}
       />
       <LenderVerificationDocumentsPanel
         verification={verification}
@@ -1694,9 +1760,11 @@ function LenderVerificationSubview({
 function LenderAccountSubview({
   access,
   email,
+  backHref,
 }: {
   access: CurrentUserProfile;
   email: string;
+  backHref: string;
 }) {
   const lenderProfile = access.lenderProfile;
 
@@ -1705,6 +1773,7 @@ function LenderAccountSubview({
       <LenderProfileSubviewHeader
         title="Account"
         description="Review your lender account status."
+        backHref={backHref}
       />
       <LenderProfileDetailCard title="Account details">
         <LenderProfileSummaryRow label="Role" value={formatTitleCase(access.role)} />
@@ -1734,12 +1803,13 @@ function LenderAccountSubview({
   );
 }
 
-function LenderSupportSubview() {
+function LenderSupportSubview({ backHref }: { backHref: string }) {
   return (
     <section className="grid gap-4">
       <LenderProfileSubviewHeader
         title="Help & Support"
         description="Get help with lender verification and account access."
+        backHref={backHref}
       />
       <section className="grid gap-2 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
         <h2 className="text-lg font-semibold">Lender support</h2>
@@ -2020,7 +2090,7 @@ export function getLenderProfileStatus(
       title: "Profile needs review",
       description: "Complete your lender profile before manager review can start.",
       action: "Update profile details",
-      actionHref: "/lender?profileTab=organization",
+      actionProfileTab: "organization",
       pill: "Needs review",
       tone: "attention",
     };
@@ -2031,7 +2101,7 @@ export function getLenderProfileStatus(
       title: "Ready to lend",
       description: "Your lender profile is approved for borrower application review.",
       action: null,
-      actionHref: null,
+      actionProfileTab: null,
       pill: "Ready",
       tone: "ready",
     };
@@ -2044,7 +2114,7 @@ export function getLenderProfileStatus(
         lenderProfile.rejection_reason ||
         "Review the lender verification feedback before resubmitting.",
       action: "Review documents",
-      actionHref: "/lender?profileTab=verification",
+      actionProfileTab: "verification",
       pill: "Needs updates",
       tone: "attention",
     };
@@ -2055,7 +2125,7 @@ export function getLenderProfileStatus(
       title: "Profile needs review",
       description: "Some required lender profile details are missing.",
       action: "Update profile details",
-      actionHref: "/lender?profileTab=organization",
+      actionProfileTab: "organization",
       pill: "Needs review",
       tone: "attention",
     };
@@ -2066,7 +2136,7 @@ export function getLenderProfileStatus(
       title: "Lending scope needed",
       description: "Add lending amounts, area, and repayment terms.",
       action: "Update lending scope",
-      actionHref: "/lender?profileTab=lending-scope",
+      actionProfileTab: "lending-scope",
       pill: "Missing",
       tone: "attention",
     };
@@ -2077,7 +2147,7 @@ export function getLenderProfileStatus(
       title: "Verification required",
       description: "Upload required documents so managers can review your account.",
       action: "Upload documents",
-      actionHref: "/lender?profileTab=verification",
+      actionProfileTab: "verification",
       pill: "Required",
       tone: "attention",
     };
@@ -2088,7 +2158,7 @@ export function getLenderProfileStatus(
       title: "Waiting for manager review",
       description: "Your lender profile is submitted and awaiting manager review.",
       action: null,
-      actionHref: null,
+      actionProfileTab: null,
       pill: "Pending",
       tone: "attention",
     };
@@ -2098,7 +2168,7 @@ export function getLenderProfileStatus(
     title: "Profile unavailable",
     description: "Lender profile status is unavailable right now.",
     action: null,
-    actionHref: null,
+    actionProfileTab: null,
     pill: "Unavailable",
     tone: "neutral",
   };
