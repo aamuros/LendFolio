@@ -30,16 +30,16 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="mx-auto grid w-full max-w-[1180px] gap-8 py-4 sm:py-6 xl:grid-cols-[230px_minmax(0,1fr)_230px] xl:items-center xl:gap-6">
+          <div className="mx-auto grid w-full max-w-[1180px] gap-7 py-4 sm:py-6 xl:grid-cols-[190px_minmax(0,1fr)_190px] xl:items-end xl:gap-5">
             <HeroFinanceRails side="left" />
 
-            <div className="relative mx-auto grid w-full max-w-5xl place-items-center gap-7 text-center">
+            <div className="relative mx-auto grid w-full max-w-4xl place-items-center gap-7 text-center">
               <LandingMesh />
-              <div className="relative z-10 grid max-w-5xl gap-5">
+              <div className="relative z-10 grid max-w-4xl gap-5">
                 <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
                   Structured microfinance operations
                 </p>
-                <h1 className="text-balance text-[clamp(3rem,5.8vw,5.4rem)] leading-[1.01] font-semibold tracking-[-0.02em] text-[#161616]">
+                <h1 className="text-balance text-[clamp(3rem,5.5vw,5.25rem)] leading-[1.01] font-semibold tracking-[-0.02em] text-[#161616]">
                   Data-driven lending workflows for modern microfinance
                 </h1>
                 <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
@@ -65,7 +65,7 @@ export default async function Home({ searchParams }: HomeProps) {
               </div>
 
               <div className="relative z-10 w-full">
-                <HeroFinanceGrid />
+                <HeroCommandCenter />
               </div>
             </div>
 
@@ -131,7 +131,7 @@ function Header() {
 function LandingMesh() {
   return (
     <div
-      className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[24rem] w-[24rem] -translate-x-1/2 -translate-y-1/2 opacity-75 sm:h-[34rem] sm:w-[34rem]"
+      className="pointer-events-none absolute top-[42%] left-1/2 z-0 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 opacity-55 sm:h-[30rem] sm:w-[30rem]"
       aria-hidden="true"
     >
       <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,252,0.94)_0%,rgba(226,218,198,0.28)_34%,rgba(51,66,60,0.14)_58%,transparent_74%)]" />
@@ -172,7 +172,7 @@ function HeroFinanceRails({ side }: { side: "left" | "right" }) {
       {cards.map((card, index) => (
         <HeroFinanceCard
           key={card.label}
-          className={`w-[224px] ${card.depth} ${
+          className={`w-[184px] ${card.depth} ${
             index === 0 ? "translate-y-[-0.65rem]" : "translate-y-[0.65rem]"
           }`}
           label={card.label}
@@ -186,19 +186,93 @@ function HeroFinanceRails({ side }: { side: "left" | "right" }) {
   );
 }
 
-function HeroFinanceGrid() {
+function HeroCommandCenter() {
   return (
-    <div className="grid w-full max-w-xl grid-cols-2 gap-3 xl:hidden">
-      {heroCards.map((card) => (
-        <HeroFinanceCard
-          key={card.label}
-          label={card.label}
-          value={card.value}
-          status={card.status}
-          marker={card.marker}
-          progress={card.progress}
-        />
-      ))}
+    <div className="hero-command-center relative mx-auto w-full max-w-3xl text-left">
+      <div className="absolute inset-x-8 top-10 -z-10 h-40 rounded-full bg-[#33423C]/12 blur-3xl" />
+      <div className="hero-command-shell relative overflow-hidden border border-[#2C332F]/18 bg-[#FFFFFC]/88 p-3 shadow-[0_32px_90px_rgba(14,26,18,0.18),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md sm:p-4">
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
+        <div className="flex items-center justify-between gap-4 border-b border-[#D9D7D1]/80 pb-3">
+          <div>
+            <p className="text-[0.62rem] font-semibold tracking-[0.18em] text-[#77736A] uppercase">
+              Lending command center
+            </p>
+            <p className="mt-1 text-sm font-semibold text-[#161616]">
+              Applications, offers, and proofs in one workflow
+            </p>
+          </div>
+          <span className="hidden border border-[#33423C]/18 bg-[#EFF3EA] px-2.5 py-1 text-[0.65rem] font-semibold text-[#33423C] sm:inline-flex">
+            Live queue
+          </span>
+        </div>
+
+        <div className="relative mt-4 grid gap-3 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="grid gap-2">
+            {commandRows.map((row) => (
+              <div
+                key={row.name}
+                className="relative grid gap-3 border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
+              >
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${row.dot}`} />
+                    <p className="text-sm font-semibold text-[#1D1D1B]">
+                      {row.name}
+                    </p>
+                  </div>
+                  <p className="mt-1 text-xs text-[#68645E]">{row.detail}</p>
+                </div>
+                <div className="grid gap-1 sm:min-w-28">
+                  <span className="w-fit border border-[#D0CBC0] bg-[#FFFFFC] px-2 py-1 text-[0.65rem] font-semibold text-[#55534F]">
+                    {row.status}
+                  </span>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[#E5E1D8]">
+                    <div className={`h-full rounded-full bg-[#33423C] ${row.progress}`} />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid gap-3">
+            <div className="border border-[#CFCAC0] bg-[#101A13] p-3 text-white shadow-[0_18px_45px_rgba(14,26,18,0.16)]">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[0.62rem] tracking-[0.16em] text-[#BDB6A8] uppercase">
+                    Lender offer
+                  </p>
+                  <p className="mt-2 text-xl font-semibold">PHP 40,000</p>
+                </div>
+                <span className="border border-[#E6DDCB]/20 px-2 py-1 text-[0.65rem] text-[#E6DDCB]">
+                  Pending
+                </span>
+              </div>
+              <div className="mt-4 grid grid-cols-2 gap-2 text-xs text-[#CFC8B9]">
+                <span>Term: 6 months</span>
+                <span>Rate: Reviewed</span>
+              </div>
+            </div>
+
+            <div className="grid gap-2 border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold text-[#1D1D1B]">
+                  Manager approval
+                </p>
+                <span className="h-2 w-2 rounded-full bg-[#33423C] shadow-[0_0_14px_rgba(51,66,60,0.42)]" />
+              </div>
+              <div className="hero-workflow-line relative h-px bg-[#CFCAC0]">
+                <span className="hero-workflow-dot absolute top-1/2 left-0 h-1.5 w-1.5 -translate-y-1/2 rounded-full bg-[#33423C]" />
+              </div>
+              <p className="text-xs text-[#68645E]">
+                Proof review and audit trail ready
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="pointer-events-none absolute top-[52%] left-[45%] hidden h-20 w-28 -translate-y-1/2 border-t border-l border-[#33423C]/18 lg:block" />
+        <div className="pointer-events-none absolute right-[27%] bottom-16 hidden h-px w-24 bg-gradient-to-r from-[#33423C]/24 to-transparent lg:block" />
+      </div>
     </div>
   );
 }
@@ -932,6 +1006,30 @@ function DataCard({ title, value, detail, status, dark = false }: DataCardProps)
 }
 
 const navLinks = ["Product", "Borrowers", "Lenders", "Managers", "Security"];
+
+const commandRows = [
+  {
+    name: "Sari-sari store expansion",
+    detail: "Borrower profile complete",
+    status: "Submitted",
+    progress: "w-4/5",
+    dot: "bg-[#33423C]",
+  },
+  {
+    name: "Food stall equipment",
+    detail: "Offer terms under review",
+    status: "Offer sent",
+    progress: "w-2/3",
+    dot: "bg-[#9A8F78]",
+  },
+  {
+    name: "Repayment proof upload",
+    detail: "Manager verification queue",
+    status: "Proof check",
+    progress: "w-1/2",
+    dot: "bg-[#C6BFAF]",
+  },
+];
 
 const heroCards = [
   {

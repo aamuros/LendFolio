@@ -69,6 +69,34 @@ a {
   animation: hero-core-pulse 4.8s ease-in-out infinite;
 }
 
+.hero-command-center {
+  perspective: 1200px;
+}
+
+.hero-command-shell {
+  transform: rotateX(3deg);
+  transform-style: preserve-3d;
+  animation: hero-command-float 10s ease-in-out infinite;
+}
+
+.hero-workflow-line {
+  overflow: hidden;
+}
+
+.hero-workflow-line::after {
+  position: absolute;
+  inset-block: 0;
+  left: -35%;
+  width: 35%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(51, 66, 60, 0.52));
+  animation: hero-line-scan 4.8s ease-in-out infinite;
+}
+
+.hero-workflow-dot {
+  animation: hero-dot-travel 4.8s ease-in-out infinite;
+}
+
 .hero-rail::before,
 .hero-rail::after {
   position: absolute;
@@ -114,6 +142,7 @@ a {
 .hero-card-3d {
   transform-style: preserve-3d;
   animation: hero-float 9s ease-in-out infinite;
+  opacity: 0.82;
 }
 
 .hero-card-3d::before {
@@ -172,6 +201,17 @@ a {
   }
 }
 
+@keyframes hero-command-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -6px;
+  }
+}
+
 @keyframes hero-pulse {
   0%,
   100% {
@@ -182,6 +222,36 @@ a {
   50% {
     opacity: 0.86;
     scale: 1.12;
+  }
+}
+
+@keyframes hero-line-scan {
+  0%,
+  28% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+
+  52% {
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateX(390%);
+    opacity: 0;
+  }
+}
+
+@keyframes hero-dot-travel {
+  0%,
+  100% {
+    left: 0;
+    opacity: 0.45;
+  }
+
+  50% {
+    left: calc(100% - 0.375rem);
+    opacity: 1;
   }
 }
 
@@ -232,9 +302,16 @@ a {
   .hero-orbit,
   .hero-node,
   .hero-core,
+  .hero-command-shell,
+  .hero-workflow-line::after,
+  .hero-workflow-dot,
   .hero-flow-line,
   .hero-card-3d,
   .hero-card-3d::before {
     animation: none;
+  }
+
+  .hero-command-shell {
+    transform: none;
   }
 }
