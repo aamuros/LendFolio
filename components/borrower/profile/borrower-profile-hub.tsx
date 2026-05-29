@@ -1,4 +1,4 @@
-import { AlertCircle, Briefcase, ChartColumn, HelpCircle, Lock, LogOut, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, HelpCircle, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
@@ -10,7 +10,6 @@ import { BorrowingPowerDetail } from "./borrowing-power-detail";
 import { AccountSection } from "./account-section";
 import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Button } from "@/components/ui/button";
 
 import {
   businessTypeLabels,
@@ -23,7 +22,6 @@ import {
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 import { type LoanApplicationsLoadResult } from "@/app/borrower/actions";
-import { signOutAction } from "@/app/login/actions";
 
 type ProfileMode =
   | "index"
@@ -194,12 +192,14 @@ export function BorrowerProfileHub({
     return (
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
         <BorrowerCard>
-          <h3 className="text-sm font-medium text-foreground">Support</h3>
-          <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
-            For questions about your borrower profile, verification, or loan
-            applications, contact LendFolio support through your registered
-            account email.
-          </p>
+          <div className="px-5 pt-5 pb-4">
+            <h3 className="text-sm font-medium text-foreground">Support</h3>
+            <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
+              For questions about your borrower profile, verification, or loan
+              applications, contact LendFolio support through your registered
+              account email.
+            </p>
+          </div>
         </BorrowerCard>
       </ProfileSubview>
     );
@@ -282,17 +282,6 @@ export function BorrowerProfileHub({
               onClick={() => onProfileViewChange("support")}
             />
           </div>
-
-          <form action={signOutAction}>
-            <Button
-              type="submit"
-              variant="ghost"
-              className="w-full gap-2 text-sm font-normal text-muted-foreground hover:text-foreground"
-            >
-              <LogOut className="size-4" />
-              Log out
-            </Button>
-          </form>
         </>
       )}
     </div>
@@ -302,18 +291,14 @@ export function BorrowerProfileHub({
 function ProfileHubSkeleton() {
   return (
     <div className="grid gap-6">
-      <div className="flex items-center gap-4">
-        <Skeleton className="size-14 rounded-full" />
-        <div className="grid gap-2">
-          <Skeleton className="h-5 w-32" />
-          <Skeleton className="h-4 w-48" />
-        </div>
-      </div>
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 p-1">
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="mt-1 h-14 w-full rounded-2xl" />
-        <Skeleton className="mt-1 h-14 w-full rounded-2xl" />
+      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+        <Skeleton className="h-14 w-full rounded-none" />
+        <Skeleton className="h-14 w-full rounded-none" />
+        <Skeleton className="h-14 w-full rounded-none" />
+        <Skeleton className="h-14 w-full rounded-none" />
+        <Skeleton className="h-14 w-full rounded-none" />
+        <Skeleton className="h-14 w-full rounded-none" />
       </div>
     </div>
   );
