@@ -112,8 +112,16 @@ export type ManagerBorrowerPerformanceRow = {
   href: string;
 };
 
+export type ManagerPendingActionCounts = {
+  pendingBorrowerVerifications: number;
+  pendingLenderReviews: number;
+  openApplications: number;
+  pendingRepaymentReviews: number;
+};
+
 export type ManagerDashboardOverview = {
   kpis: ManagerDashboardKpi[];
+  pendingActions: ManagerPendingActionCounts;
   monthlyHeadcount: ManagerMonthlyUserHeadcount[];
   statusDistribution: ManagerUserStatusDistribution[];
   lenderPerformance: ManagerLenderPerformanceRow[];
@@ -146,6 +154,8 @@ export async function loadManagerDashboardOverview(
     borrowerPortfolios,
     repaymentSchedules,
     repaymentProofs,
+    pendingVerificationCount,
+    pendingLenderReviewCount,
   ] = await Promise.all([
     countActiveLoans(supabase),
     countProfilesByRole(supabase, "lender"),
@@ -158,6 +168,8 @@ export async function loadManagerDashboardOverview(
     loadBorrowerPortfolios(supabase),
     loadRepaymentSchedules(supabase),
     loadRepaymentProofs(supabase),
+    countPendingBorrowerVerifications(supabase),
+    countPendingLenderReviews(supabase),
   ]);
   const results = [
     activeLoanCount,
@@ -171,6 +183,8 @@ export async function loadManagerDashboardOverview(
     borrowerPortfolios,
     repaymentSchedules,
     repaymentProofs,
+    pendingVerificationCount,
+    pendingLenderReviewCount,
   ];
 
   return {
@@ -209,6 +223,16 @@ export async function loadManagerDashboardOverview(
           accent: "rose",
         },
       ],
+      pendingActions: {
+        pendingBorrowerVerifications: pendingVerificationCount.count,
+        pendingLenderReviews: pendingLenderReviewCount.count,
+        openApplications: applications.data.filter(
+          (app) => app.status === "submitted" || app.status === "open",
+        ).length,
+        pendingRepaymentReviews: repaymentProofs.data.filter(
+          (proof) => proof.status === "submitted",
+        ).length,
+      },
       monthlyHeadcount: buildMonthlyHeadcount(profiles.data),
       statusDistribution: buildStatusDistribution(profiles.data),
       lenderPerformance: buildLenderPerformance(
@@ -382,6 +406,36 @@ async function loadRepaymentProofs(
 
 function failedCount(): CountResult {
   return { ok: false, count: 0 };
+}
+
+async function countPendingBorrowerVerifications(
+  supabase: SupabaseServerClient,
+): Promise<CountResult> {
+  try {
+    const { count, error } = await supabase
+      .from("borrower_verifications")
+      .select("id", { count: "exact", head: true })
+      .in("verification_status", ["submitted", "under_review"]);
+
+    return { ok: !error, count: count ?? 0 };
+  } catch {
+    return failedCount();
+  }
+}
+
+async function countPendingLenderReviews(
+  supabase: SupabaseServerClient,
+): Promise<CountResult> {
+  try {
+    const { count, error } = await supabase
+      .from("lender_profiles")
+      .select("id", { count: "exact", head: true })
+      .eq("verification_status", "pending");
+
+    return { ok: !error, count: count ?? 0 };
+  } catch {
+    return failedCount();
+  }
 }
 
 function failedQuery<T>(): QueryResult<T> {

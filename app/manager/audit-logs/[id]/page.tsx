@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../../manager-access";
 import { getShortId, loadManagerAuditLogDetail } from "@/lib/manager-operations";
 import {
   AccessDenied,
@@ -10,7 +10,7 @@ import {
   BackLink,
 } from "../../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -18,7 +18,7 @@ type PageProps = {
 
 export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (

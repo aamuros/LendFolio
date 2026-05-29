@@ -67,12 +67,12 @@ export function NotificationButton() {
     };
   }, [isOpen]);
 
-  function openPanel() {
+  const openPanel = useCallback(() => {
     setIsOpen((current) => !current);
     loadNotifications();
-  }
+  }, [loadNotifications]);
 
-  async function markAllRead() {
+  const markAllRead = useCallback(() => {
     startTransition(() => {
       void markAllNotificationsReadAction().then((result) => {
         if (!result.ok) {
@@ -91,9 +91,9 @@ export function NotificationButton() {
         );
       });
     });
-  }
+  }, []);
 
-  async function openNotification(notification: AppNotification) {
+  const openNotification = useCallback(async (notification: AppNotification) => {
     setActiveNotificationId(notification.id);
 
     if (!notification.readAt) {
@@ -126,7 +126,7 @@ export function NotificationButton() {
     if (notification.href) {
       router.push(notification.href);
     }
-  }
+  }, [router]);
 
   return (
     <div ref={panelRef} className="relative">

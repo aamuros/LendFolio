@@ -1,5 +1,4 @@
-import Link from "next/link";
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../manager-access";
 import {
   getShortId,
   loadManagerLookup,
@@ -17,8 +16,11 @@ import {
   AccessDenied,
   AutoFilterGrid,
   EmptyState,
+  ListTable,
   ManagerDetailsLink,
   ManagerShell,
+  MobileCard,
+  ResetFiltersLink,
   RoleBadge,
   SelectFilter,
   StatusBadge,
@@ -26,7 +28,7 @@ import {
   TextFilter,
 } from "../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   searchParams: Promise<{ q?: string; role?: string; status?: string }>;
@@ -62,7 +64,7 @@ function getManagerUserHref(id: string) {
 export default async function ManagerLookupPage({ searchParams }: PageProps) {
   const filters = await searchParams;
   const { q } = filters;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (
@@ -112,14 +114,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
         />
       </AutoFilterGrid>
 
-      {hasActiveFilters ? (
-        <Link
-          href="/manager/lookup"
-          className="w-fit text-xs font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          Reset filters
-        </Link>
-      ) : null}
+      {hasActiveFilters ? <ResetFiltersLink href="/manager/lookup" /> : null}
 
       <StatusMessage
         message={directoryResult.message}
@@ -137,53 +132,52 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
         {directoryResult.users.length > 0 ? (
           <>
             <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User</TableHead>
-                    <TableHead>Role</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Summary</TableHead>
-                    <TableHead className="text-right">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {directoryResult.users.map((user) => (
-                    <TableRow key={user.profile.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            {user.profile.displayName}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {getShortId(user.profile.id)}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <RoleBadge role={user.role} />
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={user.status} />
-                      </TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {getUserSummary(user)}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
-                      </TableCell>
+              <ListTable>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Summary</TableHead>
+                      <TableHead className="text-right">Details</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {directoryResult.users.map((user) => (
+                      <TableRow key={user.profile.id}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {user.profile.displayName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {getShortId(user.profile.id)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <RoleBadge role={user.role} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={user.status} />
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {getUserSummary(user)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ListTable>
             </div>
 
             <div className="grid gap-3 md:hidden">
               {directoryResult.users.map((user) => (
-                <article
-                  key={user.profile.id}
-                  className="grid gap-2 rounded-lg border bg-card p-3"
-                >
+                <MobileCard key={user.profile.id}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <h2 className="truncate text-sm font-semibold">
@@ -202,7 +196,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                   <p className="truncate text-xs text-muted-foreground">
                     {getUserSummary(user)}
                   </p>
-                </article>
+                </MobileCard>
               ))}
             </div>
           </>
@@ -228,66 +222,65 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
           {borrowerLookupResult.results.length > 0 ? (
             <>
               <div className="hidden md:block">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Borrower</TableHead>
-                      <TableHead>Location</TableHead>
-                      <TableHead>Applications</TableHead>
-                      <TableHead>Latest record</TableHead>
-                      <TableHead className="text-right">Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {borrowerLookupResult.results.map((resultItem) => (
-                      <TableRow key={resultItem.borrower.id}>
-                        <TableCell>
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {resultItem.borrower.displayName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {getShortId(resultItem.borrower.id)}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {resultItem.portfolio?.location ?? "No portfolio location"}
-                        </TableCell>
-                        <TableCell className="text-xs font-medium">
-                          {resultItem.applications.length}
-                        </TableCell>
-                        <TableCell>
-                          {resultItem.applications[0] ? (
-                            <div className="flex items-center gap-1.5">
-                              <StatusBadge status={resultItem.applications[0].status} />
-                              <span className="text-xs text-muted-foreground">
-                                {getShortId(resultItem.applications[0].id)}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              No applications
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <ManagerDetailsLink
-                            href={getManagerUserHref(resultItem.borrower.id)}
-                          />
-                        </TableCell>
+                <ListTable>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Borrower</TableHead>
+                        <TableHead>Location</TableHead>
+                        <TableHead>Applications</TableHead>
+                        <TableHead>Latest record</TableHead>
+                        <TableHead className="text-right">Details</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {borrowerLookupResult.results.map((resultItem) => (
+                        <TableRow key={resultItem.borrower.id}>
+                          <TableCell>
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {resultItem.borrower.displayName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {getShortId(resultItem.borrower.id)}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {resultItem.portfolio?.location ?? "No portfolio location"}
+                          </TableCell>
+                          <TableCell className="text-xs font-medium">
+                            {resultItem.applications.length}
+                          </TableCell>
+                          <TableCell>
+                            {resultItem.applications[0] ? (
+                              <div className="flex items-center gap-1.5">
+                                <StatusBadge status={resultItem.applications[0].status} />
+                                <span className="text-xs text-muted-foreground">
+                                  {getShortId(resultItem.applications[0].id)}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">
+                                No applications
+                              </span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">
+                            <ManagerDetailsLink
+                              href={getManagerUserHref(resultItem.borrower.id)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ListTable>
               </div>
 
               <div className="grid gap-3 md:hidden">
                 {borrowerLookupResult.results.map((resultItem) => (
-                  <article
-                    key={resultItem.borrower.id}
-                    className="grid gap-2 rounded-lg border bg-card p-3"
-                  >
+                  <MobileCard key={resultItem.borrower.id}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
                         <h2 className="truncate text-sm font-semibold">
@@ -312,7 +305,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                         <StatusBadge status={resultItem.applications[0].status} />
                       ) : null}
                     </div>
-                  </article>
+                  </MobileCard>
                 ))}
               </div>
             </>

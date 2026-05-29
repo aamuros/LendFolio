@@ -19,6 +19,7 @@ import type {
   ManagerMonthlyUserHeadcount,
   ManagerUserStatusDistribution,
 } from "@/lib/manager-dashboard";
+import { useMemo } from "react";
 
 const headcountChartConfig = {
   active: {
@@ -96,7 +97,7 @@ export function UserStatusPieChart({
   data: ManagerUserStatusDistribution[];
   total: number;
 }) {
-  const chartData = data.filter((item) => item.count > 0);
+  const chartData = useMemo(() => data.filter((item) => item.count > 0), [data]);
 
   return (
     <div className="relative mx-auto w-full max-w-[220px]">

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 
 export type ManagerTab =
@@ -48,35 +48,40 @@ export function ManagerBottomTabs({ activeTab }: { activeTab: ManagerTab | null 
       ? "others"
       : activeTab;
 
+  const closeOthers = useCallback(() => setIsOthersOpen(false), []);
+
+  const handleTabChange = useCallback((tab: ManagerVisibleTab) => {
+    if (tab === "others") {
+      setIsOthersOpen((isOpen) => !isOpen);
+      return;
+    }
+    setIsOthersOpen(false);
+  }, []);
+
+  const handleAnyTabPress = useCallback((tab: ManagerVisibleTab) => {
+    if (tab !== "others") {
+      setIsOthersOpen(false);
+    }
+  }, []);
+
   return (
     <AppBottomTabs
       tabs={tabs}
       activeTab={visibleActiveTab}
       ariaLabel="Manager sections"
-      onTabChange={(tab) => {
-        if (tab === "others") {
-          setIsOthersOpen((isOpen) => !isOpen);
-          return;
-        }
-
-        setIsOthersOpen(false);
-      }}
-      onAnyTabPress={(tab) => {
-        if (tab !== "others") {
-          setIsOthersOpen(false);
-        }
-      }}
-      floatingMenu={<ManagerFloatingMenu onClose={() => setIsOthersOpen(false)} />}
+      onTabChange={handleTabChange}
+      onAnyTabPress={handleAnyTabPress}
+      floatingMenu={<ManagerFloatingMenu onClose={closeOthers} />}
       isFloatingMenuOpen={isOthersOpen}
-      onFloatingMenuClose={() => setIsOthersOpen(false)}
+      onFloatingMenuClose={closeOthers}
     />
   );
 }
 
-function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
-  const baseBubbleClass =
-    "grid size-16 origin-bottom transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.65rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition-all duration-300 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] active:scale-95 motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
+const BASE_BUBBLE_CLASS =
+  "grid size-16 origin-bottom transform-gpu place-items-center rounded-full border border-[var(--border)] bg-white text-center text-[0.65rem] font-semibold text-[var(--foreground)] shadow-[0_14px_32px_rgba(22,22,22,0.16)] transition-all duration-300 ease-out hover:border-[var(--primary)] hover:text-[var(--primary)] active:scale-95 motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)] sm:size-20 sm:text-xs";
 
+function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
   return (
     <div
       role="group"
@@ -95,7 +100,7 @@ function ManagerFloatingMenu({ onClose }: { onClose: () => void }) {
             href={link.href}
             aria-label={link.ariaLabel}
             onClick={onClose}
-            className={`${baseBubbleClass} ${positionClass}`}
+            className={`${BASE_BUBBLE_CLASS} ${positionClass}`}
             style={{ transitionDelay: `${index * 45}ms` }}
           >
             <FloatingMenuIcon name={link.icon} />

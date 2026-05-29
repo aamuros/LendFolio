@@ -14,8 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AutoFilterForm } from "./auto-filter-form";
-import { ManagerTopBar } from "./manager-layout-shell";
-import { AlertCircleIcon, ArrowLeftIcon } from "lucide-react";
+import { DashboardTopBar } from "@/components/layout/dashboard-shell";
+import { AlertCircleIcon, ArrowLeftIcon, InfoIcon } from "lucide-react";
+
+export { SelectFilter } from "./auto-filter-form";
 
 export { formatDateOnly, formatDateTime } from "@/lib/manager-date-format";
 
@@ -40,7 +42,7 @@ export function ManagerShell({
 }) {
   return (
     <>
-      <ManagerTopBar title={title} description={description} />
+      <DashboardTopBar title={title} description={description} />
       <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
         <div className="mx-auto w-full max-w-[1600px]">
           {showHeading ? (
@@ -75,6 +77,7 @@ export function StatusMessage({
 }) {
   return (
     <Alert variant={tone === "error" ? "destructive" : "default"}>
+      {tone === "error" ? <AlertCircleIcon /> : <InfoIcon />}
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   );
@@ -143,40 +146,6 @@ export function TextFilter({
   );
 }
 
-export function SelectFilter({
-  label,
-  name,
-  defaultValue,
-  options,
-  emptyLabel = "Any",
-}: {
-  label: string;
-  name: string;
-  defaultValue?: string;
-  options: Array<{ value: string; label: string }>;
-  emptyLabel?: string;
-}) {
-  return (
-    <div className="grid gap-1.5">
-      <Label htmlFor={name} className="text-xs font-medium">
-        {label}
-      </Label>
-      <select
-        name={name}
-        defaultValue={defaultValue ?? ""}
-        className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
-      >
-        <option value="">{emptyLabel}</option>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-    </div>
-  );
-}
-
 export function ManagerRecordList({ children }: { children: React.ReactNode }) {
   return <Card>{children}</Card>;
 }
@@ -210,6 +179,14 @@ export function ManagerDetailsLink({
   return (
     <Button variant="outline" size="sm" asChild>
       <Link href={href}>{label}</Link>
+    </Button>
+  );
+}
+
+export function ResetFiltersLink({ href }: { href: string }) {
+  return (
+    <Button variant="ghost" size="sm" className="w-fit" asChild>
+      <Link href={href}>Reset filters</Link>
     </Button>
   );
 }
@@ -288,25 +265,25 @@ export function DetailItem({
   );
 }
 
-export function StatusBadge({ status }: { status: string }) {
-  const positive = ["verified", "paid", "accepted", "active", "approved"];
-  const warning = ["submitted", "pending", "due", "open"];
-  const danger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
-  const muted = ["closed", "withdrawn", "expired"];
+const statusPositive = ["verified", "paid", "accepted", "active", "approved"];
+const statusWarning = ["submitted", "pending", "due", "open"];
+const statusDanger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
+const statusMuted = ["closed", "withdrawn", "expired"];
 
-  const variant = positive.includes(status)
+export function StatusBadge({ status }: { status: string }) {
+  const variant = statusPositive.includes(status)
     ? "default"
-    : warning.includes(status)
+    : statusWarning.includes(status)
       ? "secondary"
-      : danger.includes(status)
+      : statusDanger.includes(status)
         ? "destructive"
-        : muted.includes(status)
+        : statusMuted.includes(status)
           ? "outline"
           : "secondary";
 
-  const className = positive.includes(status)
+  const className = statusPositive.includes(status)
     ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-    : warning.includes(status)
+    : statusWarning.includes(status)
       ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
       : undefined;
 
@@ -325,21 +302,35 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <Card className="border-dashed">
-      <CardContent className="py-8 text-center">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <Card className="border-dashed bg-muted/50">
+      <CardContent className="flex flex-col items-center gap-1 py-8 text-center">
+        <h3 className="text-sm font-medium">{title}</h3>
+        <p className="text-xs text-muted-foreground">{description}</p>
       </CardContent>
     </Card>
   );
 }
 
+export function ListTable({ children }: { children: React.ReactNode }) {
+  return <Card className="py-0">{children}</Card>;
+}
+
+export function MobileCard({ children }: { children: React.ReactNode }) {
+  return (
+    <Card size="sm">
+      <CardContent className="grid gap-2">{children}</CardContent>
+    </Card>
+  );
+}
+
+const currencyFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
+  maximumFractionDigits: 0,
+});
+
 export function formatCurrency(value: number) {
-  return new Intl.NumberFormat("en-PH", {
-    style: "currency",
-    currency: "PHP",
-    maximumFractionDigits: 0,
-  }).format(value);
+  return currencyFormatter.format(value);
 }
 
 export function PersonLabel({

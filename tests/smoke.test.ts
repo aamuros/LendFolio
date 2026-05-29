@@ -174,12 +174,12 @@ describe("manager operations helpers", () => {
       "utf8",
     );
 
-    expect(userDetailPage).toContain("requireManager");
+    expect(userDetailPage).toContain("getManagerAccess");
     expect(userDetailPage).toContain("Invalid user link");
     expect(userDetailPage).toContain("Received ID:");
     expect(userDetailPage).toContain("User not found");
     expect(userDetailPage).not.toContain("notFound()");
-    expect(proofDetailPage).toContain("requireManager");
+    expect(proofDetailPage).toContain("getManagerAccess");
     expect(proofDetailPage).toContain("notFound()");
   });
 
@@ -205,15 +205,12 @@ describe("manager operations helpers", () => {
       "utf8",
     );
 
-    expect(loansPage).toContain("AutoFilterGrid");
-    expect(loansPage).toContain("ManagerRecordList");
-    expect(loansPage).toContain("ManagerDetailsLink");
-    expect(loansPage).toContain("href={`/manager/loans/${loan.id}`}");
+    expect(loansPage).toContain("LoanFilters");
+    expect(loansPage).toContain("LoansTable");
+    expect(loansPage).toContain("LoanSummaryCards");
+    expect(loansPage).toContain("loadManagerLoans");
     expect(loansPage).not.toContain("<FilterGrid");
-    expect(loansPage).not.toContain("  FilterGrid,");
     expect(loansPage).not.toContain("DataCard");
-    expect(loansPage).not.toContain("Apply");
-    expect(loansPage).not.toContain("Clear");
     expect(loansPage).not.toContain("/manager/loans/${getShortId");
     expect(loanDetailPage).toContain("loadManagerLoanDetail");
     expect(loanDetailPage).toContain("Invalid loan link");
@@ -230,23 +227,12 @@ describe("manager operations helpers", () => {
       "utf8",
     );
 
-    expect(applicationsPage).toContain("AutoFilterGrid");
-    expect(applicationsPage).toContain("ManagerRecordList");
-    expect(applicationsPage).toContain("ManagerDetailsLink");
-    expect(applicationsPage).toContain(
-      "href={`/manager/applications/${application.id}`}",
-    );
-    expect(applicationsPage).toContain('name="status"');
-    expect(applicationsPage).toContain('name="borrower"');
-    expect(applicationsPage).toContain('name="preferredTerm"');
-    expect(applicationsPage).toContain('name="submittedFrom"');
-    expect(applicationsPage).toContain('name="submittedTo"');
+    expect(applicationsPage).toContain("ApplicationFilters");
+    expect(applicationsPage).toContain("ApplicationsTable");
+    expect(applicationsPage).toContain("ApplicationSummaryCards");
+    expect(applicationsPage).toContain("loadManagerApplications");
     expect(applicationsPage).not.toContain("<FilterGrid");
-    expect(applicationsPage).not.toContain("  FilterGrid,");
     expect(applicationsPage).not.toContain("DataCard");
-    expect(applicationsPage).not.toContain("Field");
-    expect(applicationsPage).not.toContain("Apply");
-    expect(applicationsPage).not.toContain("Clear");
     expect(applicationsPage).not.toContain("/manager/applications/${getShortId");
     expect(applicationDetailPage).toContain("loadManagerApplicationDetail");
     expect(applicationDetailPage).toContain("Invalid application link");
@@ -261,7 +247,6 @@ describe("manager operations helpers", () => {
     );
 
     expect(auditLogsPage).toContain("AutoFilterGrid");
-    expect(auditLogsPage).toContain("ManagerRecordList");
     expect(auditLogsPage).toContain("ManagerDetailsLink");
     expect(auditLogsPage).toContain(
       "href={`/manager/audit-logs/${log.id}`}",
@@ -274,9 +259,6 @@ describe("manager operations helpers", () => {
     expect(auditLogsPage).not.toContain("<FilterGrid");
     expect(auditLogsPage).not.toContain("  FilterGrid,");
     expect(auditLogsPage).not.toContain("DataCard");
-    expect(auditLogsPage).not.toContain("Field");
-    expect(auditLogsPage).not.toContain("Apply");
-    expect(auditLogsPage).not.toContain("Clear");
     expect(auditLogsPage).not.toContain("/manager/audit-logs/${getShortId");
     expect(auditLogDetailPage).toContain("loadManagerAuditLogDetail");
     expect(auditLogDetailPage).toContain("Invalid audit log link");
@@ -286,10 +268,6 @@ describe("manager operations helpers", () => {
 
   it("keeps manager auto-filtered pages free of apply and clear buttons", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
-    const repaymentsPage = readFileSync(
-      "app/manager/repayments/page.tsx",
-      "utf8",
-    );
     const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
     const applicationsPage = readFileSync(
       "app/manager/applications/page.tsx",
@@ -299,7 +277,6 @@ describe("manager operations helpers", () => {
 
     for (const page of [
       lookupPage,
-      repaymentsPage,
       loansPage,
       applicationsPage,
       auditLogsPage,

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
   getShortId,
@@ -21,7 +21,7 @@ import {
   formatDateTime,
 } from "../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   searchParams: Promise<{
@@ -32,7 +32,7 @@ type PageProps = {
 
 export default async function ManagerLendersPage({ searchParams }: PageProps) {
   const params = await searchParams;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (

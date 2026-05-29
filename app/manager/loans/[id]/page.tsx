@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../../manager-access";
 import {
   getShortId,
   loadManagerLoanDetail,
@@ -18,7 +18,7 @@ import {
   formatDateTime,
 } from "../../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -26,7 +26,7 @@ type PageProps = {
 
 export default async function ManagerLoanDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (

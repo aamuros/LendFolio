@@ -1,33 +1,18 @@
-import { requireManager } from "@/lib/access-control";
-import Link from "next/link";
-import {
-  getShortId,
-  loadManagerApplications,
-  managerPreferredTermLabels,
-} from "@/lib/manager-operations";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { getManagerAccess } from "../manager-access";
+import { loadManagerApplications } from "@/lib/manager-operations";
+import { RefreshCw, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import {
   AccessDenied,
-  AutoFilterGrid,
-  EmptyState,
-  ManagerDetailsLink,
   ManagerShell,
-  PersonLabel,
-  SelectFilter,
-  StatusBadge,
   StatusMessage,
-  TextFilter,
-  formatCurrency,
 } from "../manager-ui";
+import { ApplicationSummaryCards } from "@/components/manager/applications/application-summary-cards";
+import { ApplicationFilters } from "@/components/manager/applications/application-filters";
+import { ApplicationsTable } from "@/components/manager/applications/applications-table";
+import { withServerTiming } from "@/lib/perf";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   searchParams: Promise<{
@@ -41,174 +26,71 @@ type PageProps = {
 
 export default async function ManagerApplicationsPage({ searchParams }: PageProps) {
   const filters = await searchParams;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (
       <ManagerShell
         title="Applications & offers"
-        description="Read-only application and offer lifecycle visibility."
+        description="Track borrower requests, preferred terms, offer counts, and accepted terms."
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
     );
   }
 
-  const result = await loadManagerApplications(access.supabase, filters);
+  const { result } = await withServerTiming(
+    "loadManagerApplications",
+    () => loadManagerApplications(access.supabase, filters),
+  );
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
   return (
     <ManagerShell
       title="Applications & offers"
       description="Track borrower requests, preferred terms, offer counts, and accepted terms."
+      showHeading={false}
     >
-      <AutoFilterGrid>
-        <SelectFilter
-          label="Application status"
-          name="status"
-          defaultValue={filters.status}
-          options={[
-            { value: "submitted", label: "Submitted" },
-            { value: "open", label: "Open" },
-            { value: "accepted", label: "Accepted" },
-            { value: "declined", label: "Declined" },
-            { value: "withdrawn", label: "Withdrawn" },
-          ]}
-        />
-        <TextFilter
-          label="Borrower"
-          name="borrower"
-          defaultValue={filters.borrower}
-        />
-        <SelectFilter
-          label="Preferred term"
-          name="preferredTerm"
-          defaultValue={filters.preferredTerm}
-          options={[
-            { value: "1_month", label: "1 month" },
-            { value: "3_months", label: "3 months" },
-            { value: "6_months", label: "6 months" },
-            { value: "12_months", label: "12 months" },
-          ]}
-        />
-        <TextFilter
-          label="Submitted from"
-          name="submittedFrom"
-          type="date"
-          defaultValue={filters.submittedFrom}
-        />
-        <TextFilter
-          label="Submitted to"
-          name="submittedTo"
-          type="date"
-          defaultValue={filters.submittedTo}
-        />
-      </AutoFilterGrid>
+      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h1 className="text-xl font-semibold tracking-tight">
+            Applications & offers
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Track borrower requests, preferred terms, offer counts, and accepted
+            terms.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" disabled>
+            <RefreshCw className="size-3.5" />
+            Refresh
+          </Button>
+          <Button variant="outline" size="sm" disabled>
+            <Download className="size-3.5" />
+            Export CSV
+          </Button>
+        </div>
+      </div>
 
-      {hasActiveFilters ? (
-        <Link
-          href="/manager/applications"
-          className="w-fit text-xs font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          Reset filters
-        </Link>
-      ) : null}
+      <div className="space-y-6">
+        <ApplicationSummaryCards applications={result.applications} />
 
-      <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
+        <ApplicationFilters
+          filters={filters}
+          hasActiveFilters={hasActiveFilters}
+        />
 
-      <section>
-        {result.applications.length === 0 ? (
-          <EmptyState
-            title="No applications found"
-            description="Applications matching the current filters will appear here."
-          />
-        ) : null}
+        <StatusMessage
+          message={result.message}
+          tone={result.ok ? "neutral" : "error"}
+        />
 
-        {result.applications.length > 0 ? (
-          <>
-            <div className="hidden md:block">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Application</TableHead>
-                    <TableHead>Borrower</TableHead>
-                    <TableHead>Requested</TableHead>
-                    <TableHead>Term</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="text-right">Details</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {result.applications.map((application) => (
-                    <TableRow key={application.id}>
-                      <TableCell>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium">
-                            Application {getShortId(application.id)}
-                          </p>
-                          <p className="truncate text-xs text-muted-foreground">
-                            {application.purpose}
-                          </p>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <PersonLabel person={application.borrower} />
-                      </TableCell>
-                      <TableCell className="font-medium">
-                        {formatCurrency(application.requestedAmount)}
-                      </TableCell>
-                      <TableCell>
-                        {managerPreferredTermLabels[application.preferredTerm]}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={application.status} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <ManagerDetailsLink
-                          href={`/manager/applications/${application.id}`}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="grid gap-3 md:hidden">
-              {result.applications.map((application) => (
-                <article
-                  key={application.id}
-                  className="grid gap-2 rounded-lg border bg-card p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <h2 className="truncate text-sm font-semibold">
-                      Application {getShortId(application.id)}
-                    </h2>
-                    <ManagerDetailsLink
-                      href={`/manager/applications/${application.id}`}
-                    />
-                  </div>
-                  <p className="truncate text-sm text-muted-foreground">
-                    {application.purpose}
-                  </p>
-                  <p className="text-xs">
-                    <PersonLabel person={application.borrower} />
-                  </p>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                    <span className="text-sm font-semibold">
-                      {formatCurrency(application.requestedAmount)}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {managerPreferredTermLabels[application.preferredTerm]}
-                    </span>
-                    <StatusBadge status={application.status} />
-                  </div>
-                </article>
-              ))}
-            </div>
-          </>
-        ) : null}
-      </section>
+        <ApplicationsTable
+          applications={result.applications}
+          hasActiveFilters={hasActiveFilters}
+        />
+      </div>
     </ManagerShell>
   );
 }

@@ -101,8 +101,6 @@ export function AppBottomTabs<T extends string>({
     lastScrollYRef.current = window.scrollY;
     window.addEventListener("scroll", onScroll, { passive: true });
     window.addEventListener("pointerdown", showTabs, { passive: true });
-    window.addEventListener("click", showTabs, { passive: true });
-    window.addEventListener("touchstart", showTabs, { passive: true });
 
     return () => {
       if (animationFrameRef.current !== null) {
@@ -111,8 +109,6 @@ export function AppBottomTabs<T extends string>({
 
       window.removeEventListener("scroll", onScroll);
       window.removeEventListener("pointerdown", showTabs);
-      window.removeEventListener("click", showTabs);
-      window.removeEventListener("touchstart", showTabs);
     };
   }, []);
 

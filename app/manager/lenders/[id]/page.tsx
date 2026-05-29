@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { reviewLenderAction } from "@/app/manager/actions";
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
   getShortId,
@@ -20,7 +20,7 @@ import {
   formatDateTime,
 } from "../../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   params: Promise<{
@@ -36,7 +36,7 @@ export default async function ManagerLenderDetailPage({
   searchParams,
 }: PageProps) {
   const [{ id }, query] = await Promise.all([params, searchParams]);
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../../manager-access";
 import {
   getShortId,
   loadManagerUserDetail,
@@ -25,7 +25,7 @@ import {
   BackLink,
 } from "../../manager-ui";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   params: Promise<{ id: string }>;
@@ -33,7 +33,7 @@ type PageProps = {
 
 export default async function ManagerUserDetailPage({ params }: PageProps) {
   const { id } = await params;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (

@@ -1,4 +1,4 @@
-import { requireManager } from "@/lib/access-control";
+import { getManagerAccess } from "../manager-access";
 import Link from "next/link";
 import { getShortId, loadManagerAuditLogs } from "@/lib/manager-operations";
 import {
@@ -20,8 +20,9 @@ import {
   TextFilter,
   formatDateTime,
 } from "../manager-ui";
+import { withServerTiming } from "@/lib/perf";
 
-export const dynamic = "force-dynamic";
+
 
 type PageProps = {
   searchParams: Promise<{
@@ -35,7 +36,7 @@ type PageProps = {
 
 export default async function ManagerAuditLogsPage({ searchParams }: PageProps) {
   const filters = await searchParams;
-  const access = await requireManager();
+  const access = await getManagerAccess();
 
   if (!access.ok) {
     return (
@@ -48,7 +49,10 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
     );
   }
 
-  const result = await loadManagerAuditLogs(access.supabase, filters);
+  const { result } = await withServerTiming(
+    "loadManagerAuditLogs",
+    () => loadManagerAuditLogs(access.supabase, filters),
+  );
   const hasActiveFilters = Object.values(filters).some(Boolean);
 
   return (
