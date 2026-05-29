@@ -229,7 +229,7 @@ function DarkIntelligenceSection() {
   return (
     <section
       id="product"
-      className="relative overflow-hidden bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-20 relative overflow-hidden bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
     >
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.08)_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-35" />
       <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(226,218,198,0.2),transparent_58%)]" />
@@ -296,80 +296,305 @@ function DarkIntelligenceSection() {
 
 function ProductWorkflowSections() {
   return (
-    <div id="borrowers" className="bg-[#F6F5F2]">
-      {workflowSections.map((section, index) => {
-        const isDark = section.tone === "dark";
+    <>
+      <BorrowerDossierSection />
+      <LenderCockpitSection />
+      <RepaymentTimelineSection />
+    </>
+  );
+}
 
-        return (
-          <section
-            key={section.title}
-            id={index === 1 ? "lenders" : index === 2 ? "security" : undefined}
-            className={`px-5 py-18 sm:px-8 sm:py-24 lg:px-10 ${
-              isDark ? "bg-[#111612] text-white" : "bg-[#F6F5F2] text-[#161616]"
-            }`}
-          >
-            <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
-              <div className="grid gap-5">
-                <p
-                  className={`text-xs font-semibold tracking-[0.2em] uppercase ${
-                    isDark ? "text-[#C6BFAF]" : "text-[#77736A]"
-                  }`}
-                >
-                  {section.eyebrow}
+function BorrowerDossierSection() {
+  return (
+    <section
+      id="borrowers"
+      className="scroll-mt-20 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+    >
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
+        <SectionIntro
+          eyebrow="Borrower profile dossier"
+          title="A complete borrower file before review begins"
+          description="Business context, documents, credit readiness, verification notes, and application status sit together like a prepared lending file."
+        />
+        <div className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-4 shadow-[0_28px_90px_rgba(14,26,18,0.08)] sm:p-6">
+          <div className="flex flex-col gap-4 border-b border-[#D9D7D1] pb-5 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
+                Business profile
+              </p>
+              <h3 className="mt-3 text-2xl font-semibold text-[#161616]">
+                Sari-sari store expansion
+              </h3>
+              <p className="mt-2 text-sm leading-6 text-[#5F5F5F]">
+                Quezon City · Retail · 4 years operating
+              </p>
+            </div>
+            <div className="border border-[#C7C4BC] bg-[#F6F5F2] px-4 py-3">
+              <p className="text-xs text-[#77736A]">Profile completion</p>
+              <p className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-[#161616]">
+                92%
+              </p>
+            </div>
+          </div>
+          <div className="grid gap-3 py-5 sm:grid-cols-2">
+            {dossierRows.map((row) => (
+              <div key={row.label} className="border border-[#E2DFD7] bg-[#F6F5F2]/70 p-4">
+                <p className="text-xs font-semibold tracking-[0.15em] text-[#77736A] uppercase">
+                  {row.label}
                 </p>
-                <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
-                  {section.title}
-                </h2>
-                <p
-                  className={`max-w-xl text-base leading-7 ${
-                    isDark ? "text-[#CFC8B9]" : "text-[#5F5F5F]"
-                  }`}
-                >
-                  {section.description}
+                <p className="mt-2 text-sm font-semibold text-[#161616]">{row.value}</p>
+                <p className="mt-1 text-sm leading-6 text-[#5F5F5F]">{row.detail}</p>
+              </div>
+            ))}
+          </div>
+          <div className="grid gap-3 border-t border-[#D9D7D1] pt-5">
+            {documentChecklist.map((item) => (
+              <div key={item} className="flex items-center justify-between gap-4 text-sm">
+                <span className="text-[#4F4F4B]">{item}</span>
+                <span className="border border-[#33423C]/20 bg-[#E7E4DE] px-2 py-1 text-xs font-medium text-[#33423C]">
+                  Attached
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function LenderCockpitSection() {
+  return (
+    <section
+      id="lenders"
+      className="scroll-mt-20 bg-[#111612] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
+    >
+      <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+        <SectionIntro
+          eyebrow="Lender review cockpit"
+          title="Turn each request into a clear lending decision"
+          description="Approved lenders see the request, borrower readiness, notes, and offer terms in a single review surface."
+          dark
+        />
+        <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
+          <div className="border border-white/15 bg-white/[0.04] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
+            <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                  Application review
+                </p>
+                <h3 className="mt-3 text-2xl font-semibold text-white">PHP 40,000</h3>
+                <p className="mt-2 text-sm leading-6 text-[#CFC8B9]">
+                  Inventory expansion · Preferred term: 6 months
                 </p>
               </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                {section.cards.map((card) => (
-                  <DataCard key={card.title} {...card} dark={isDark} />
-                ))}
+              <span className="w-fit border border-[#E6DDCB]/25 px-3 py-1 text-xs text-[#E6DDCB]">
+                Profile verified
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3">
+              {reviewRows.map((row) => (
+                <div key={row.label} className="grid gap-2 border border-white/10 bg-[#16231A] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                  <div>
+                    <p className="text-sm font-semibold text-white">{row.label}</p>
+                    <p className="mt-1 text-sm text-[#AFA794]">{row.detail}</p>
+                  </div>
+                  <p className="text-sm font-semibold text-[#F6F0DF]">{row.value}</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex flex-wrap gap-3">
+              {["Review", "Offer", "Decline"].map((action, index) => (
+                <span
+                  key={action}
+                  className={`border px-4 py-2 text-sm font-semibold ${
+                    index === 1
+                      ? "border-[#E6DDCB] bg-[#E6DDCB] text-[#0E1A12]"
+                      : "border-white/15 text-[#E6DDCB]"
+                  }`}
+                >
+                  {action}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4">
+            <div className="border border-white/15 bg-[#17231A] p-5">
+              <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                Offer terms
+              </p>
+              <p className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-white">
+                3.2%
+              </p>
+              <p className="mt-2 text-sm leading-6 text-[#CFC8B9]">
+                Monthly rate proposal with clear borrower response state.
+              </p>
+            </div>
+            <div className="border border-white/15 bg-white/[0.04] p-5">
+              <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                Decision notes
+              </p>
+              <div className="mt-4 grid gap-3 text-sm text-[#CFC8B9]">
+                <p>Profile complete before submission.</p>
+                <p>Documents attached for manager review.</p>
+                <p>Offer remains pending borrower decision.</p>
               </div>
             </div>
-          </section>
-        );
-      })}
-    </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function RepaymentTimelineSection() {
+  return (
+    <section
+      id="security"
+      className="scroll-mt-20 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+    >
+      <div className="mx-auto grid max-w-7xl gap-10">
+        <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
+          <SectionIntro
+            eyebrow="Repayment operations timeline"
+            title="Track due dates, proof review, and remaining balance"
+            description="Repayment work becomes a ledger of due amounts, uploaded proofs, manager review, lender confirmation, and balance movement."
+          />
+          <div className="grid gap-4 sm:grid-cols-2">
+            <SummaryTile label="Amount due" value="PHP 6,800" detail="Next scheduled payment" />
+            <SummaryTile label="Remaining balance" value="PHP 27,200" detail="After confirmed repayment" />
+          </div>
+        </div>
+        <div className="grid gap-5 lg:grid-cols-[1fr_0.42fr]">
+          <div className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_24px_80px_rgba(14,26,18,0.07)]">
+            <div className="grid gap-4">
+              {repaymentTimeline.map((item, index) => (
+                <div key={item.label} className="grid gap-3 border-b border-[#E2DFD7] pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[auto_1fr_auto] sm:items-center">
+                  <span className="flex h-8 w-8 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <p className="font-semibold text-[#161616]">{item.label}</p>
+                    <p className="mt-1 text-sm text-[#5F5F5F]">{item.detail}</p>
+                  </div>
+                  <span className="w-fit border border-[#C7C4BC] px-3 py-1 text-xs font-medium text-[#55534F]">
+                    {item.status}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4">
+            <div className="border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+              <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                Proof review
+              </p>
+              <p className="mt-4 text-xl font-semibold">Receipt uploaded</p>
+              <p className="mt-2 text-sm leading-6 text-[#CFC8B9]">
+                Awaiting manager review before lender confirmation.
+              </p>
+            </div>
+            <div className="border border-[#D9D7D1] bg-[#FFFFFC]/80 p-5">
+              <p className="text-xs tracking-[0.18em] text-[#77736A] uppercase">
+                Ledger state
+              </p>
+              <div className="mt-4 grid gap-3 text-sm">
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#5F5F5F]">Due date</span>
+                  <span className="font-semibold text-[#161616]">Jun 15</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#5F5F5F]">Manager review</span>
+                  <span className="font-semibold text-[#161616]">Queued</span>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <span className="text-[#5F5F5F]">Lender confirmation</span>
+                  <span className="font-semibold text-[#161616]">Pending</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
 function LayerSection() {
   return (
-    <section id="managers" className="border-y border-[#D9D7D1] px-5 py-20 sm:px-8 sm:py-24 lg:px-10">
-      <div className="mx-auto grid max-w-7xl gap-10">
+    <section
+      id="managers"
+      className="scroll-mt-20 border-y border-[#D9D7D1] bg-[#EFEDE7] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+    >
+      <div className="mx-auto grid max-w-7xl gap-12">
         <div className="mx-auto grid max-w-3xl gap-4 text-center">
           <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
-            Operating layers
+            Manager operations
           </p>
           <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
-            Built for every layer of modern lending
+            Coordinate users, approvals, offers, loans, proofs, and logs
           </h2>
+          <p className="text-base leading-7 text-[#5F5F5F]">
+            Manager views stay minimal, but the operating model connects each
+            role to a trackable review path.
+          </p>
         </div>
-        <div className="grid gap-4 lg:grid-cols-3">
-          {layerCards.map((card) => (
-            <article
-              key={card.title}
-              className="border border-[#D9D7D1] bg-[#FFFFFC]/70 p-6 shadow-[0_22px_60px_rgba(14,26,18,0.06)]"
-            >
-              <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
-                {card.label}
+        <div className="grid gap-5 lg:grid-cols-[0.85fr_1.3fr_0.85fr] lg:items-center">
+          <div className="grid gap-4">
+            {layerCards.slice(0, 2).map((card, index) => (
+              <RolePanel key={card.title} {...card} step={index + 1} />
+            ))}
+          </div>
+          <div className="relative border border-[#D9D7D1] bg-[#FFFFFC]/82 p-5 shadow-[0_28px_90px_rgba(14,26,18,0.08)]">
+            <div className="absolute top-1/2 left-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
+            <div className="absolute top-1/2 right-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
+            <div className="flex flex-col gap-4 border-b border-[#D9D7D1] pb-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
+                  Operations board
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-[#161616]">
+                  Platform manager overview
+                </h3>
+              </div>
+              <span className="w-fit border border-[#33423C]/20 bg-[#E7E4DE] px-3 py-1 text-xs font-semibold text-[#33423C]">
+                Review queue
+              </span>
+            </div>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              {managerBoardItems.map((item) => (
+                <div key={item.label} className="border border-[#E2DFD7] bg-[#F6F5F2]/75 p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <p className="text-sm font-semibold text-[#161616]">{item.label}</p>
+                    <span className="text-lg font-semibold tracking-[-0.03em] text-[#33423C]">
+                      {item.count}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-[#5F5F5F]">{item.detail}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="grid gap-4">
+            {layerCards.slice(2).map((card, index) => (
+              <RolePanel key={card.title} {...card} step={index + 3} />
+            ))}
+            <div className="border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+              <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                Audit trail
               </p>
-              <h3 className="mt-5 text-2xl font-semibold text-[#161616]">
-                {card.title}
-              </h3>
-              <p className="mt-4 text-sm leading-6 text-[#5F5F5F]">
-                {card.description}
+              <p className="mt-3 text-sm leading-6 text-[#CFC8B9]">
+                Workflow decisions remain attached to applications, offers,
+                proofs, and user records.
               </p>
-            </article>
+            </div>
+          </div>
+        </div>
+        <div className="hidden grid-cols-6 border border-[#D9D7D1] bg-[#FFFFFC]/60 text-center text-xs font-semibold tracking-[0.14em] text-[#77736A] uppercase md:grid">
+          {managerStages.map((stage) => (
+            <span key={stage} className="border-r border-[#D9D7D1] px-3 py-4 last:border-r-0">
+              {stage}
+            </span>
           ))}
         </div>
       </div>
@@ -377,28 +602,121 @@ function LayerSection() {
   );
 }
 
+function RolePanel({
+  label,
+  title,
+  description,
+  step,
+}: {
+  label: string;
+  title: string;
+  description: string;
+  step: number;
+}) {
+  return (
+    <article className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+      <div className="flex items-center gap-3">
+        <span className="flex h-8 w-8 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+          {step}
+        </span>
+        <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
+          {label}
+        </p>
+      </div>
+      <h3 className="mt-5 text-2xl font-semibold text-[#161616]">{title}</h3>
+      <p className="mt-4 text-sm leading-6 text-[#5F5F5F]">{description}</p>
+    </article>
+  );
+}
+
+function SectionIntro({
+  eyebrow,
+  title,
+  description,
+  dark = false,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  dark?: boolean;
+}) {
+  return (
+    <div className="grid gap-5">
+      <p
+        className={`text-xs font-semibold tracking-[0.2em] uppercase ${
+          dark ? "text-[#C6BFAF]" : "text-[#77736A]"
+        }`}
+      >
+        {eyebrow}
+      </p>
+      <h2
+        className={`text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl ${
+          dark ? "text-white" : "text-[#161616]"
+        }`}
+      >
+        {title}
+      </h2>
+      <p
+        className={`max-w-xl text-base leading-7 ${
+          dark ? "text-[#CFC8B9]" : "text-[#5F5F5F]"
+        }`}
+      >
+        {description}
+      </p>
+    </div>
+  );
+}
+
+function SummaryTile({
+  label,
+  value,
+  detail,
+}: {
+  label: string;
+  value: string;
+  detail: string;
+}) {
+  return (
+    <article className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+      <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
+        {label}
+      </p>
+      <p className="mt-4 text-3xl font-semibold tracking-[-0.03em] text-[#161616]">
+        {value}
+      </p>
+      <p className="mt-2 text-sm text-[#5F5F5F]">{detail}</p>
+    </article>
+  );
+}
+
 function MetricsSection() {
   return (
     <section className="bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10">
       <div className="mx-auto grid max-w-7xl gap-8">
-        <div className="grid gap-3">
-          <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
-            Product frame
+        <div className="grid gap-3 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div>
+            <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
+              Product frame
+            </p>
+            <h2 className="max-w-3xl text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
+              One operating layer for borrower, lender, and manager workflows
+            </h2>
+          </div>
+          <p className="max-w-2xl text-base leading-7 text-[#5F5F5F]">
+            LendFolio keeps the MVP focused on real workflow states: profiles,
+            applications, offers, approvals, repayment proofs, and audit logs.
           </p>
-          <h2 className="max-w-3xl text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
-            A focused workflow without inflated claims
-          </h2>
         </div>
-        <div className="grid border border-[#D9D7D1] bg-[#FFFFFC]/60 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid border border-[#D9D7D1] bg-[#FFFFFC]/70 shadow-[0_22px_70px_rgba(14,26,18,0.06)] sm:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric) => (
             <article
               key={metric.value}
-              className="border-b border-[#D9D7D1] p-6 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0"
+              className="border-b border-[#D9D7D1] p-6 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0 lg:p-8"
             >
-              <p className="text-5xl font-semibold tracking-[-0.04em] text-[#161616] sm:text-6xl">
+              <p className="text-6xl font-semibold tracking-[-0.05em] text-[#161616] sm:text-7xl">
                 {metric.value}
               </p>
-              <p className="mt-4 text-sm font-medium text-[#5F5F5F]">
+              <p className="mt-5 text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
                 {metric.label}
               </p>
             </article>
@@ -582,106 +900,122 @@ const intelligenceCards = [
   },
 ];
 
-const workflowSections = [
+const dossierRows = [
   {
-    eyebrow: "Borrower profile",
-    title: "Make every borrower profile reviewable",
-    description:
-      "Capture business context, readiness signals, documents, and application status before a financing request moves forward.",
-    tone: "light",
-    cards: [
-      {
-        title: "Business details",
-        value: "Complete",
-        detail: "Trading history, monthly revenue, and business category.",
-        status: "Profile",
-      },
-      {
-        title: "Documents",
-        value: "Attached",
-        detail: "Verification files stay connected to the borrower record.",
-        status: "Review",
-      },
-      {
-        title: "Credit readiness",
-        value: "Prepared",
-        detail: "Credit limit context is visible before application review.",
-        status: "Ready",
-      },
-      {
-        title: "Application",
-        value: "Submitted",
-        detail: "Borrowers move from profile setup into a clear request.",
-        status: "Open",
-      },
-    ],
+    label: "Credit readiness",
+    value: "Prepared",
+    detail: "Limit context and cash flow notes are available before review.",
   },
   {
-    eyebrow: "Lender review",
-    title: "Connect every request to lender review",
-    description:
-      "Give approved lenders a structured view of requested amount, purpose, preferred term, decision status, and offer context.",
-    tone: "dark",
-    cards: [
-      {
-        title: "Requested amount",
-        value: "PHP 32,000",
-        detail: "Funding need and business purpose sit in one review surface.",
-        status: "Request",
-      },
-      {
-        title: "Preferred term",
-        value: "6 months",
-        detail: "Terms are evaluated before the lender creates an offer.",
-        status: "Term",
-      },
-      {
-        title: "Decision",
-        value: "Reviewing",
-        detail: "Lender decisions remain tied to the application record.",
-        status: "Queue",
-      },
-      {
-        title: "Offer status",
-        value: "Pending",
-        detail: "Borrowers can review structured offers before accepting.",
-        status: "Offer",
-      },
-    ],
+    label: "Application ready",
+    value: "Submitted",
+    detail: "Requested amount, purpose, and term are linked to the profile.",
   },
   {
-    eyebrow: "Repayment operations",
-    title: "Build intelligence on every repayment",
-    description:
-      "Use repayment proof, balances, due dates, and manager review states as the foundation for a clearer loan servicing workflow.",
-    tone: "light",
-    cards: [
-      {
-        title: "Due this month",
-        value: "PHP 6,800",
-        detail: "Upcoming repayment context is visible to the workspace.",
-        status: "Due",
-      },
-      {
-        title: "Repayment proof",
-        value: "Uploaded",
-        detail: "Proofs can be reviewed without losing application context.",
-        status: "Proof",
-      },
-      {
-        title: "Balance",
-        value: "Remaining",
-        detail: "Loan records can carry the next operational checkpoint.",
-        status: "Loan",
-      },
-      {
-        title: "Manager review",
-        value: "Queued",
-        detail: "Oversight stays connected to users, offers, and logs.",
-        status: "Review",
-      },
-    ],
+    label: "Verification notes",
+    value: "Reviewable",
+    detail: "Manager and lender checks can stay attached to the file.",
   },
+  {
+    label: "Documents attached",
+    value: "Complete",
+    detail: "Proof files remain connected to the borrower record.",
+  },
+];
+
+const documentChecklist = [
+  "Business permit",
+  "Valid ID",
+  "Proof of revenue",
+  "Application remarks",
+];
+
+const reviewRows = [
+  {
+    label: "Borrower profile",
+    detail: "Business profile saved before submission",
+    value: "Complete",
+  },
+  {
+    label: "Requested purpose",
+    detail: "Additional sari-sari store inventory",
+    value: "Expansion",
+  },
+  {
+    label: "Offer status",
+    detail: "Borrower can accept one pending offer",
+    value: "Pending",
+  },
+];
+
+const repaymentTimeline = [
+  {
+    label: "Due date",
+    detail: "Payment scheduled against the active loan record.",
+    status: "Jun 15",
+  },
+  {
+    label: "Amount due",
+    detail: "Borrower sees the next repayment amount clearly.",
+    status: "PHP 6,800",
+  },
+  {
+    label: "Proof uploaded",
+    detail: "Receipt is attached for manager and lender review.",
+    status: "Uploaded",
+  },
+  {
+    label: "Manager review",
+    detail: "Operations can verify proof before confirmation.",
+    status: "Queued",
+  },
+  {
+    label: "Lender confirmation",
+    detail: "Confirmation closes the repayment checkpoint.",
+    status: "Pending",
+  },
+];
+
+const managerBoardItems = [
+  {
+    label: "Lender submissions",
+    count: "3",
+    detail: "Organizations waiting for approval or verification.",
+  },
+  {
+    label: "Borrower applications",
+    count: "8",
+    detail: "Submitted requests moving through review.",
+  },
+  {
+    label: "Offers",
+    count: "5",
+    detail: "Pending, accepted, and closed offer records.",
+  },
+  {
+    label: "Loans",
+    count: "2",
+    detail: "Accepted offers ready for servicing workflows.",
+  },
+  {
+    label: "Repayment proofs",
+    count: "4",
+    detail: "Uploads queued for manager and lender checks.",
+  },
+  {
+    label: "Logs",
+    count: "12",
+    detail: "Workflow transitions kept in the audit trail.",
+  },
+];
+
+const managerStages = [
+  "Users",
+  "Lenders",
+  "Applications",
+  "Offers",
+  "Proofs",
+  "Logs",
 ];
 
 const layerCards = [
