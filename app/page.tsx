@@ -14,13 +14,13 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
       <Header />
 
-      <section className="hero-depth-scene relative isolate flex min-h-[calc(100svh-4rem)] items-center overflow-hidden border-b border-[#D9D7D1] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+      <section className="hero-depth-scene relative isolate flex min-h-[calc(100svh-4rem)] items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-10 pb-14 sm:px-8 sm:pt-12 sm:pb-16 lg:px-10 lg:pt-14 lg:pb-20">
         <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
         <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(246,245,242,0)_0%,rgba(246,245,242,0.72)_82%,rgba(246,245,242,0.98)_100%)]" />
 
-        <div className="mx-auto grid w-full max-w-[1180px] gap-12">
+        <div className="mx-auto grid w-full max-w-[1180px] gap-7">
           {authMessage ? (
             <p
               className="mx-auto max-w-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
@@ -30,10 +30,10 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="mx-auto grid w-full max-w-[1180px] gap-7 py-4 sm:py-6 xl:grid-cols-[190px_minmax(0,1fr)_190px] xl:items-end xl:gap-5">
+          <div className="mx-auto grid w-full max-w-[1180px] gap-6 xl:grid-cols-[190px_minmax(0,1fr)_190px] xl:items-end xl:gap-5">
             <HeroFinanceRails side="left" />
 
-            <div className="relative mx-auto grid w-full max-w-4xl place-items-center gap-7 text-center">
+            <div className="relative mx-auto grid w-full max-w-4xl place-items-center gap-5 text-center sm:gap-6">
               <LandingMesh />
               <div className="relative z-10 grid max-w-4xl gap-5">
                 <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
@@ -64,7 +64,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 </Link>
               </div>
 
-              <div className="relative z-10 w-full">
+              <div className="relative z-10 mt-1 w-full sm:mt-2">
                 <HeroCommandCenter />
               </div>
             </div>
