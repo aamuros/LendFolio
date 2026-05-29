@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
 import { Pencil } from "lucide-react";
 
 export function ProfileDetailCard({
@@ -13,7 +13,7 @@ export function ProfileDetailCard({
   onAction: () => void;
 }) {
   return (
-    <Card className="rounded-2xl">
+    <BorrowerCard>
       <div className="flex items-center justify-end px-5 pt-4">
         <Button
           variant="ghost"
@@ -28,6 +28,6 @@ export function ProfileDetailCard({
       <div className="grid gap-0 px-5 pt-1 pb-4">
         {children}
       </div>
-    </Card>
+    </BorrowerCard>
   );
 }

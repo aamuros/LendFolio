@@ -1,6 +1,7 @@
 import { CheckCircle2, AlertCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Card, CardContent } from "@/components/ui/card";
+import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
+import { CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
@@ -26,9 +27,8 @@ export function ProfileStatusBanner({
         : Clock;
 
   return (
-    <Card
+    <BorrowerCard
       className={cn(
-        "rounded-2xl",
         status.tone === "attention" && "bg-muted/40",
         status.tone === "ready" && "bg-muted/40",
         status.tone === "neutral" && "bg-muted",
@@ -59,6 +59,6 @@ export function ProfileStatusBanner({
           ) : null}
         </div>
       </CardContent>
-    </Card>
+    </BorrowerCard>
   );
 }

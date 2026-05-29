@@ -3,12 +3,12 @@ import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verifi
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
 import { ProfileDetailCard } from "./profile-detail-card";
-import { ProfileSummaryRow } from "./profile-summary-row";
+import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import { ProfileStatusBanner } from "./profile-status-banner";
 import { ProfileMenuRow } from "./profile-menu-row";
 import { BorrowingPowerDetail } from "./borrowing-power-detail";
 import { AccountSection } from "./account-section";
-import { Card } from "@/components/ui/card";
+import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 
@@ -82,21 +82,21 @@ export function BorrowerProfileHub({
           actionLabel={portfolio ? "Edit" : "Add details"}
           onAction={() => onEditProfile("business")}
         >
-          <ProfileSummaryRow
+          <SummaryRow
             label="Business name"
             value={portfolio?.businessName || "Not provided"}
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Business type"
             value={
               portfolio ? businessTypeLabels[portfolio.businessType] : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Business location"
             value={portfolio?.location || "Not provided"}
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Years in operation"
             value={
               portfolio
@@ -104,7 +104,7 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Loan use"
             value={portfolio?.loanPurposeContext || "Not provided"}
           />
@@ -120,7 +120,7 @@ export function BorrowerProfileHub({
           actionLabel={portfolio ? "Edit" : "Add details"}
           onAction={() => onEditProfile("financial")}
         >
-          <ProfileSummaryRow
+          <SummaryRow
             label="Monthly gross revenue"
             value={
               portfolio
@@ -128,7 +128,7 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Monthly expenses"
             value={
               portfolio
@@ -136,7 +136,7 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Existing monthly loan payments"
             value={
               portfolio
@@ -144,7 +144,7 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Profile readiness"
             value={readiness ? formatReadinessStatus(readiness.readinessStatus) : "Not available"}
           />
@@ -193,14 +193,14 @@ export function BorrowerProfileHub({
   if (activeView === "support") {
     return (
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
-        <Card className="rounded-2xl">
+        <BorrowerCard>
           <h3 className="text-sm font-medium text-foreground">Support</h3>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             For questions about your borrower profile, verification, or loan
             applications, contact LendFolio support through your registered
             account email.
           </p>
-        </Card>
+        </BorrowerCard>
       </ProfileSubview>
     );
   }
@@ -217,7 +217,7 @@ export function BorrowerProfileHub({
       {loadState === "loading" ? (
         <ProfileHubSkeleton />
       ) : loadState === "error" ? (
-        <Card className="rounded-2xl border-destructive/20 bg-destructive/5">
+        <BorrowerCard className="border-destructive/20 bg-destructive/5">
           <div className="flex items-center gap-2">
             <AlertCircle className="size-4 text-destructive" />
             <p className="text-sm font-medium text-destructive">Error</p>
@@ -225,7 +225,7 @@ export function BorrowerProfileHub({
           <p className="mt-1 text-sm text-destructive/80">
             {message || "Could not load your profile."}
           </p>
-        </Card>
+        </BorrowerCard>
       ) : (
         <>
           <ProfileStatusBanner

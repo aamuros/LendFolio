@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { ProfileSummaryRow } from "./profile-summary-row";
+import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
+import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import {
   formatCreditAmount,
   type BorrowerCreditSummary,
@@ -27,7 +27,7 @@ export function BorrowingPowerDetail({
   }
 
   return (
-    <Card className="rounded-2xl">
+    <BorrowerCard>
       <div className="px-5 pt-5 pb-4">
         <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Available to request
@@ -43,7 +43,7 @@ export function BorrowingPowerDetail({
       </div>
       <div className="grid gap-4 px-5 pb-5">
         <div className="rounded-xl bg-muted/50 px-4 py-1">
-          <ProfileSummaryRow
+          <SummaryRow
             label="Used credit"
             value={
               creditSummary
@@ -51,7 +51,7 @@ export function BorrowingPowerDetail({
                 : "Not available"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Max eligible amount"
             value={
               creditSummary
@@ -59,7 +59,7 @@ export function BorrowingPowerDetail({
                 : "Not available"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Monthly revenue"
             value={
               portfolio
@@ -67,7 +67,7 @@ export function BorrowingPowerDetail({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Monthly expenses"
             value={
               portfolio
@@ -75,7 +75,7 @@ export function BorrowingPowerDetail({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Existing loan payments"
             value={
               portfolio
@@ -83,7 +83,7 @@ export function BorrowingPowerDetail({
                 : "Not provided"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Net monthly cash flow"
             value={
               creditSummary
@@ -93,7 +93,7 @@ export function BorrowingPowerDetail({
                   : "Not available"
             }
           />
-          <ProfileSummaryRow
+          <SummaryRow
             label="Readiness"
             value={
               readiness
@@ -118,6 +118,6 @@ export function BorrowingPowerDetail({
           Update profile details
         </Button>
       </div>
-    </Card>
+    </BorrowerCard>
   );
 }

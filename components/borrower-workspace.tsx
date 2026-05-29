@@ -17,6 +17,7 @@ import { ProfileSubviewHeader } from "./borrower/profile/profile-subview";
 import { User } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { borrowerPageBottomPadding } from "@/components/borrower/ui";
 
 import { NotificationButton } from "@/components/notification-button";
 import { type BorrowerPortfolioInput } from "@/lib/borrower-portfolio";
@@ -175,7 +176,7 @@ export function BorrowerWorkspace({
   const showProfile = activeTab === "profile";
 
   return (
-    <div className="grid gap-8 pb-32 sm:pb-12">
+    <div className={cn("grid gap-8", borrowerPageBottomPadding)}>
       <header className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-6">
           <p className="text-base font-semibold tracking-tight text-foreground">

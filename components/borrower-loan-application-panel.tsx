@@ -82,6 +82,15 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
+import {
+  ActionBanner,
+  EmptyState,
+  InlineStatus,
+  PageHeader,
+  StatusPill,
+  SummaryItem,
+  borrowerPageBottomPadding,
+} from "@/components/borrower/ui";
 
 const defaultValues: LoanApplicationInput = {
   requestedAmount: 0,
@@ -631,23 +640,21 @@ export function BorrowerLoanApplicationPanel({
         ) : null}
 
         {view === "apply" ? (
-          <div className="grid gap-5 pb-24 sm:pb-0">
-            <div className="grid gap-1">
-              <div className="flex items-center gap-2">
-                <h2 className="text-2xl leading-tight font-semibold">Apply</h2>
-                <Badge variant="secondary" className="text-xs font-semibold">
-                  {applicationCountLabel}
-                </Badge>
-              </div>
-              <p className="text-sm leading-6 text-muted-foreground">
-                Request financing after your business profile is saved.
-              </p>
-            </div>
+          <div className={cn("grid gap-5", borrowerPageBottomPadding)}>
+            <PageHeader
+              title="Apply"
+              description="Request financing after your business profile is saved."
+            >
+              <Badge variant="secondary" className="text-xs font-semibold">
+                {applicationCountLabel}
+              </Badge>
+            </PageHeader>
 
             {!hasPortfolio ? (
-              <BlockedCard
+              <EmptyState
                 message="Save your business profile before applying."
-                onClick={() => onNavigate?.("profile")}
+                action="Go to Profile"
+                onAction={() => onNavigate?.("profile")}
               />
             ) : !canSubmitApplication ? (
               <VerificationGateCard
@@ -690,7 +697,7 @@ export function BorrowerLoanApplicationPanel({
 
         {view === "offers" ? (
           <>
-            <SectionHeader
+            <PageHeader
               title="Offers"
               description="Compare lender offers and accept the one that fits."
             />
@@ -709,7 +716,7 @@ export function BorrowerLoanApplicationPanel({
 
         {view === "loans" ? (
           <>
-            <SectionHeader
+            <PageHeader
               title="Loans"
               description="Track active loans, repayment schedules, and payment proof."
             />
@@ -848,13 +855,11 @@ function HomeSummary({
     readiness,
   });
 
-  const isProfileReady = profileCompletion.percentage >= 100;
-  const profileSectionTitle = isProfileReady && borrowerVerification && borrowerVerification.status !== "approved"
-    ? "Profile readiness"
-    : "Profile completion";
+  const isProfileComplete = profileCompletion.percentage >= 100;
+  const needsVerification = isProfileComplete && borrowerVerification && borrowerVerification.status !== "approved";
 
   return (
-    <div className="grid gap-4 pb-28 sm:gap-5 sm:pb-8">
+    <div className={cn("grid gap-4 sm:gap-5", borrowerPageBottomPadding)}>
       <div className="grid gap-1">
         <h1 className="text-xl leading-tight font-semibold sm:text-2xl">
           Home
@@ -1016,20 +1021,20 @@ function HomeSummary({
             <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
                 <CardTitle className="text-sm font-semibold">
-                  {profileSectionTitle}
+                  Profile completion
                 </CardTitle>
-                {isProfileReady ? (
+                {isProfileComplete ? (
                   <Badge
                     variant="secondary"
                     className={cn(
                       "text-[11px] font-semibold",
-                      borrowerVerification && borrowerVerification.status !== "approved"
+                      needsVerification
                         ? toneBadgeClassName("attention")
                         : toneBadgeClassName("success"),
                     )}
                   >
-                    {borrowerVerification && borrowerVerification.status !== "approved"
-                      ? "Needs review"
+                    {needsVerification
+                      ? "Verification needed"
                       : "Ready"}
                   </Badge>
                 ) : (
@@ -1042,7 +1047,7 @@ function HomeSummary({
                 <Progress
                   value={profileCompletion.percentage}
                   className="h-2"
-                  aria-label={profileSectionTitle}
+                  aria-label="Profile completion"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={profileCompletion.percentage}
@@ -1886,10 +1891,10 @@ function OfferList({
 }) {
   if (pendingOffers.length === 0 && closedOffers.length === 0) {
     return (
-      <BlockedCard
+      <EmptyState
         message="Offers from lenders will appear after you submit an application."
-        onClick={() => onNavigate?.("apply")}
         action="Go to Apply"
+        onAction={() => onNavigate?.("apply")}
       />
     );
   }
@@ -2164,49 +2169,6 @@ function InlineFeedback({
   return null;
 }
 
-function BlockedCard({
-  action = "Go to Profile",
-  message,
-  onClick,
-}: {
-  action?: string;
-  message: string;
-  onClick?: () => void;
-}) {
-  return (
-    <Card className="rounded-2xl border-dashed">
-      <CardContent className="grid gap-3 p-5">
-        <p className="text-sm leading-6 text-muted-foreground">{message}</p>
-        {onClick ? (
-          <Button
-            onClick={onClick}
-            className="h-11 w-full rounded-full font-semibold sm:w-fit"
-          >
-            {action}
-          </Button>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
-function SectionHeader({
-  title,
-  description,
-}: {
-  title: string;
-  description: string;
-}) {
-  return (
-    <div className="grid gap-1">
-      <h2 className="text-2xl leading-tight font-semibold">{title}</h2>
-      <p className="text-sm leading-6 text-muted-foreground">
-        {description}
-      </p>
-    </div>
-  );
-}
-
 function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
@@ -2230,10 +2192,10 @@ function BorrowerLoansPanel({
 
   if (activeLoans.length === 0) {
     return (
-      <BlockedCard
+      <EmptyState
         message="When you accept an offer, the active loan and repayment schedule will appear here."
         action="Review offers"
-        onClick={() => onNavigate?.("offers")}
+        onAction={() => onNavigate?.("offers")}
       />
     );
   }
@@ -2588,58 +2550,12 @@ function RepaymentProofForm({
             : "Upload proof"}
       </Button>
       {proofFeedback ? (
-        <ProofStatusMessage
+        <InlineStatus
           message={proofFeedback.message}
           tone={proofFeedback.tone}
         />
       ) : null}
     </form>
-  );
-}
-
-function ActionBanner({
-  message,
-  title,
-  tone,
-}: {
-  message: string;
-  title: string;
-  tone: "error" | "info" | "success";
-}) {
-  const className =
-    tone === "error"
-      ? "border-destructive/30 bg-destructive/10 text-destructive"
-      : tone === "success"
-        ? "border-border bg-muted text-foreground"
-        : "border-border bg-muted/30 text-foreground";
-
-  return (
-    <div className={`rounded-xl border px-3 py-3 text-sm leading-6 ${className}`}>
-      <p className="font-semibold">{title}</p>
-      {message ? <p>{message}</p> : null}
-    </div>
-  );
-}
-
-function ProofStatusMessage({
-  message,
-  tone = "success",
-}: {
-  message: string;
-  tone?: "success" | "error";
-}) {
-  const className =
-    tone === "error"
-      ? "border-destructive/30 bg-destructive/10 text-destructive"
-      : "border-border bg-muted text-foreground";
-
-  return (
-    <p
-      className={`rounded-xl border px-3 py-2 text-sm leading-6 ${className}`}
-      role="status"
-    >
-      {message}
-    </p>
   );
 }
 
@@ -2845,12 +2761,7 @@ function LoanStatusPill({ status }: { status: string }) {
   const tone = status === "overdue" ? "danger" : "success";
 
   return (
-    <Badge
-      variant="secondary"
-      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
-    >
-      {formatLoanPillStatus(status)}
-    </Badge>
+    <StatusPill tone={tone}>{formatLoanPillStatus(status)}</StatusPill>
   );
 }
 
@@ -2877,12 +2788,7 @@ function RepaymentStatusPill({ status }: { status: string }) {
           : "attention";
 
   return (
-    <Badge
-      variant="secondary"
-      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
-    >
-      {formatRepaymentStatus(status)}
-    </Badge>
+    <StatusPill tone={tone}>{formatRepaymentStatus(status)}</StatusPill>
   );
 }
 
@@ -2895,12 +2801,7 @@ function ProofStatusPill({ status }: { status: string }) {
         : "neutral";
 
   return (
-    <Badge
-      variant="secondary"
-      className={cn("text-xs font-semibold", toneBadgeClassName(tone))}
-    >
-      {formatProofStatus(status)}
-    </Badge>
+    <StatusPill tone={tone}>{formatProofStatus(status)}</StatusPill>
   );
 }
 
@@ -3078,25 +2979,9 @@ function getOfferStatusTone(status: string) {
 
 function StatusBadge({ value }: { value: string }) {
   return (
-    <Badge
-      variant="secondary"
-      className={cn(
-        "text-xs font-semibold capitalize",
-        toneBadgeClassName(getOfferStatusTone(value)),
-      )}
-    >
+    <StatusPill tone={getOfferStatusTone(value)}>
       {formatApplicationStatus(value)}
-    </Badge>
-  );
-}
-
-function EmptyState({ message }: { message: string }) {
-  return (
-    <Card className="rounded-xl border-dashed">
-      <CardContent className="p-4">
-        <p className="text-sm leading-6 text-muted-foreground">{message}</p>
-      </CardContent>
-    </Card>
+    </StatusPill>
   );
 }
 
@@ -3117,20 +3002,6 @@ function formatDateOnly(value: string) {
   return new Intl.DateTimeFormat("en-PH", {
     dateStyle: "medium",
   }).format(new Date(`${value}T00:00:00`));
-}
-
-type SummaryItemProps = {
-  label: string;
-  value: string;
-};
-
-function SummaryItem({ label, value }: SummaryItemProps) {
-  return (
-    <div>
-      <dt className="font-semibold text-muted-foreground">{label}</dt>
-      <dd className="mt-1 text-foreground tabular-nums">{value}</dd>
-    </div>
-  );
 }
 
 type FieldProps = {

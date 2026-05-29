@@ -1,12 +1,12 @@
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
 import { Separator } from "@/components/ui/separator";
 import { signOutAction } from "@/app/login/actions";
 import { LogOut } from "lucide-react";
 
 export function AccountSection({ email }: { email: string }) {
   return (
-    <Card className="rounded-2xl">
+    <BorrowerCard>
       <div className="px-5 pt-5 pb-4">
         <h3 className="text-sm font-medium text-foreground">Account</h3>
         <p className="mt-0.5 break-words text-sm text-muted-foreground">
@@ -26,6 +26,6 @@ export function AccountSection({ email }: { email: string }) {
           </Button>
         </form>
       </div>
-    </Card>
+    </BorrowerCard>
   );
 }
