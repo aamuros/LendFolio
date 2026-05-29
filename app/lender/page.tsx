@@ -183,20 +183,20 @@ function HomeTab({
 
   return (
     <section className="grid gap-4">
-      <div className="overflow-hidden rounded-[2rem] border border-white/10 bg-[#080d12] p-3 text-white shadow-2xl shadow-black/20 sm:p-4">
+      <div className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[#f7f8f5] p-3 text-[var(--foreground)] shadow-2xl shadow-black/5 sm:p-4">
         <div className="grid gap-3">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-3xl border border-[var(--border)] bg-white px-4 py-3 shadow-sm">
             <div>
               <h1 className="text-xl font-semibold tracking-normal">Lender dashboard</h1>
-              <p className="mt-1 text-sm text-slate-400">
+              <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                 Active portfolio, repayments, and borrower follow-ups.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2 text-xs font-semibold text-slate-300">
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+            <div className="flex flex-wrap gap-2 text-xs font-semibold text-[var(--muted-foreground)]">
+              <span className="rounded-full border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-1.5">
                 {needsReviewCount} new
               </span>
-              <span className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5">
+              <span className="rounded-full border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-1.5">
                 {repaymentProofsNeedingReview} proofs
               </span>
             </div>
@@ -230,18 +230,18 @@ function HomeTab({
                   <p className="text-3xl font-semibold">
                     {formatPhp(metrics.totalVerifiedRevenue)}
                   </p>
-                  <p className="mt-1 text-sm text-slate-400">
+                  <p className="mt-1 text-sm text-[var(--muted-foreground)]">
                     Verified repayments across loaded active loans.
                   </p>
                 </div>
                 <div>
-                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                  <div className="h-2 overflow-hidden rounded-full bg-[var(--muted)]/50">
                     <div
                       className="h-full rounded-full bg-emerald-400"
                       style={{ width: `${progressPercent}%` }}
                     />
                   </div>
-                  <p className="mt-2 text-xs font-medium text-slate-400">
+                  <p className="mt-2 text-xs font-medium text-[var(--muted-foreground)]">
                     {formatPhp(metrics.currentMonthRevenue)} of{" "}
                     {formatPhp(metrics.averageMonthlyRevenue)} average monthly revenue
                   </p>
@@ -272,7 +272,7 @@ function HomeTab({
                   type="search"
                   defaultValue={loanSearch}
                   placeholder="Search loans"
-                  className="h-10 w-full rounded-full border border-white/10 bg-white/[0.04] px-4 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-emerald-300/60"
+                  className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm text-[var(--foreground)] outline-none transition placeholder:text-[var(--subtle-foreground)] focus:border-emerald-300/60"
                 />
               </form>
             }
@@ -535,19 +535,19 @@ function DashboardKpiCard({
   const isNegative = percentChange < 0;
 
   return (
-    <div className="relative min-h-36 rounded-3xl border border-white/10 bg-[#111821] px-4 py-4 shadow-lg shadow-black/10">
-      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+    <div className="relative min-h-36 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm">
+      <p className="text-xs font-semibold uppercase tracking-[0.12em] text-[var(--subtle-foreground)]">
         {label}
       </p>
       <p className="mt-5 text-3xl font-semibold tracking-normal">{value}</p>
-      <p className="mt-2 text-sm text-slate-400">{helper}</p>
+      <p className="mt-2 text-sm text-[var(--muted-foreground)]">{helper}</p>
       <span
         className={`absolute right-4 bottom-4 rounded-full px-2.5 py-1 text-xs font-semibold ${
           isPositive
             ? "bg-emerald-400/15 text-emerald-300"
             : isNegative
               ? "bg-rose-400/15 text-rose-300"
-              : "bg-white/10 text-slate-300"
+              : "bg-[var(--muted)]/50 text-[var(--muted-foreground)]"
         }`}
       >
         {formatPercentChange(percentChange)}
@@ -566,9 +566,9 @@ function DashboardPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-white/10 bg-[#111821] p-4 shadow-lg shadow-black/10">
+    <section className="rounded-3xl border border-[var(--border)] bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h2 className="text-sm font-semibold text-slate-200">{title}</h2>
+        <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
         {action}
       </div>
       {children}
@@ -583,7 +583,7 @@ function RatingTrendChart({ trend }: { trend: RatingTrendPoint[] }) {
 
   if (points.length === 0) {
     return (
-      <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 text-center text-sm leading-6 text-slate-400">
+      <div className="flex min-h-48 items-center justify-center rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 text-center text-sm leading-6 text-[var(--muted-foreground)]">
         No repayment history yet.
       </div>
     );
@@ -613,9 +613,9 @@ function RatingTrendChart({ trend }: { trend: RatingTrendPoint[] }) {
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="text-3xl font-semibold">{latestRating.toFixed(1)}</p>
-          <p className="text-sm text-slate-400">Latest repayment-based score</p>
+          <p className="text-sm text-[var(--muted-foreground)]">Latest repayment-based score</p>
         </div>
-        <p className="text-xs font-semibold text-slate-500">Out of 5.0</p>
+        <p className="text-xs font-semibold text-[var(--subtle-foreground)]">Out of 5.0</p>
       </div>
       <svg
         viewBox={`0 0 ${width} ${height}`}
@@ -636,7 +636,7 @@ function RatingTrendChart({ trend }: { trend: RatingTrendPoint[] }) {
             x2={width - padding}
             y1={getY(line)}
             y2={getY(line)}
-            stroke="rgba(148, 163, 184, 0.16)"
+            stroke="rgba(95, 95, 95, 0.16)"
           />
         ))}
         {areaPath ? <path d={areaPath} fill="url(#ratingArea)" /> : null}
@@ -657,12 +657,12 @@ function RatingTrendChart({ trend }: { trend: RatingTrendPoint[] }) {
             cy={getY(point.rating ?? 0)}
             r="4"
             fill="#34d399"
-            stroke="#111821"
+            stroke="#f7f8f5"
             strokeWidth="2"
           />
         ))}
       </svg>
-      <div className="grid grid-cols-6 gap-1 text-center text-[0.68rem] font-semibold text-slate-500">
+      <div className="grid grid-cols-6 gap-1 text-center text-[0.68rem] font-semibold text-[var(--subtle-foreground)]">
         {trend.map((point) => (
           <span key={point.monthLabel}>{point.monthLabel}</span>
         ))}
@@ -684,7 +684,7 @@ function RepaymentCalendar({ days }: { days: CalendarDay[] }) {
   return (
     <div className="grid gap-4 lg:grid-cols-[1fr_1.05fr] xl:grid-cols-1">
       <div>
-        <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase text-slate-500">
+        <div className="mb-2 grid grid-cols-7 gap-1 text-center text-[0.65rem] font-semibold uppercase text-[var(--subtle-foreground)]">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
             <span key={day}>{day}</span>
           ))}
@@ -700,8 +700,8 @@ function RepaymentCalendar({ days }: { days: CalendarDay[] }) {
                 key={day.date.toISOString()}
                 className={`aspect-square rounded-xl border p-1.5 text-xs ${
                   day.isCurrentMonth
-                    ? "border-white/10 bg-white/[0.04] text-slate-200"
-                    : "border-transparent bg-transparent text-slate-700"
+                    ? "border-[var(--border)] bg-white text-[var(--foreground)]"
+                    : "border-transparent bg-transparent text-[var(--subtle-foreground)] opacity-50"
                 } ${isToday ? "ring-1 ring-emerald-300/70" : ""}`}
               >
                 <span>{day.dayNumber}</span>
@@ -726,27 +726,27 @@ function RepaymentCalendar({ days }: { days: CalendarDay[] }) {
               className={`rounded-2xl border px-3 py-2 ${
                 repayment.isLate
                   ? "border-rose-300/20 bg-rose-300/10"
-                  : "border-white/10 bg-white/[0.04]"
+                  : "border-[var(--border)] bg-[var(--muted)]/20"
               }`}
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-sm font-semibold text-slate-100">
+                <p className="text-sm font-semibold text-[var(--foreground)]">
                   {formatDateOnly(repayment.dueDate)}
                 </p>
-                <span className="text-xs font-semibold text-slate-400">
+                <span className="text-xs font-semibold text-[var(--muted-foreground)]">
                   {formatPhp(repayment.amountDue)}
                 </span>
               </div>
-              <p className="mt-1 line-clamp-1 text-xs text-slate-400">
+              <p className="mt-1 line-clamp-1 text-xs text-[var(--muted-foreground)]">
                 {repayment.context}
               </p>
-              <p className="mt-1 text-xs font-semibold capitalize text-slate-300">
+              <p className="mt-1 text-xs font-semibold capitalize text-[var(--subtle-foreground)]">
                 {formatRepaymentStatus(repayment.status)}
               </p>
             </div>
           ))
         ) : (
-          <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-5 text-center text-sm text-slate-400">
+          <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 py-5 text-center text-sm text-[var(--muted-foreground)]">
             No upcoming repayments this month.
           </div>
         )}
@@ -766,7 +766,7 @@ function ActiveLoansTable({
 }) {
   if (!hasLoans) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-slate-400">
+      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
         Active loans will appear here after borrowers accept offers.
       </div>
     );
@@ -774,15 +774,15 @@ function ActiveLoansTable({
 
   if (loans.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-white/10 bg-white/[0.03] px-4 py-8 text-center text-sm text-slate-400">
+      <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 py-8 text-center text-sm text-[var(--muted-foreground)]">
         No active loans match &quot;{searchQuery}&quot;.
       </div>
     );
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-white/10">
-      <div className="hidden grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_0.7fr] gap-3 border-b border-white/10 bg-white/[0.03] px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:grid">
+    <div className="overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--muted)]/20">
+      <div className="hidden grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_0.7fr] gap-3 border-b border-[var(--border)] bg-white px-4 py-3 text-xs font-semibold uppercase tracking-[0.1em] text-[var(--subtle-foreground)] lg:grid">
         <span>Borrower</span>
         <span>Principal</span>
         <span>Repayment</span>
@@ -790,15 +790,15 @@ function ActiveLoansTable({
         <span>Due date</span>
         <span>Status</span>
       </div>
-      <div className="divide-y divide-white/10">
+      <div className="divide-y divide-[var(--border)]">
         {loans.map((item) => (
           <div
             key={item.loan.id}
             className="grid gap-3 px-4 py-4 text-sm lg:grid-cols-[1.5fr_0.8fr_0.8fr_0.8fr_0.8fr_0.7fr] lg:items-center"
           >
             <div>
-              <p className="font-semibold text-slate-100">{item.context}</p>
-              <p className="mt-1 line-clamp-1 text-xs text-slate-500">
+              <p className="font-semibold text-[var(--foreground)]">{item.context}</p>
+              <p className="mt-1 line-clamp-1 text-xs text-[var(--subtle-foreground)]">
                 {item.purpose || "Accepted offer"}
               </p>
             </div>
@@ -810,7 +810,7 @@ function ActiveLoansTable({
             />
             <LoanMobileMetric label="Due date" value={formatDateOnly(item.loan.dueDate)} />
             <div className="flex items-center justify-between gap-3 lg:block">
-              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:hidden">
+              <span className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--subtle-foreground)] lg:hidden">
                 Status
               </span>
               <span
@@ -833,10 +833,10 @@ function ActiveLoansTable({
 function LoanMobileMetric({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center justify-between gap-3 lg:block">
-      <span className="text-xs font-semibold uppercase tracking-[0.1em] text-slate-500 lg:hidden">
+      <span className="text-xs font-semibold uppercase tracking-[0.1em] text-[var(--subtle-foreground)] lg:hidden">
         {label}
       </span>
-      <span className="font-semibold text-slate-200">{value}</span>
+      <span className="font-semibold text-[var(--foreground)]">{value}</span>
     </div>
   );
 }
