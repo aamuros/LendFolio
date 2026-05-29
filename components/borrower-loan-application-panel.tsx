@@ -630,13 +630,13 @@ export function BorrowerLoanApplicationPanel({
         ) : null}
 
         {view === "apply" ? (
-          <>
+          <div className="grid gap-5 pb-24 sm:pb-0">
             <div className="grid gap-1">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
                 <h2 className="text-2xl leading-tight font-semibold">Apply</h2>
-                <span className="text-xs text-muted-foreground">
+                <Badge variant="secondary" className="text-xs font-semibold">
                   {applicationCountLabel}
-                </span>
+                </Badge>
               </div>
               <p className="text-sm leading-6 text-muted-foreground">
                 Request financing after your business profile is saved.
@@ -684,7 +684,7 @@ export function BorrowerLoanApplicationPanel({
               onToggleApplication={toggleApplication}
               onWithdrawApplication={onWithdrawApplication}
             />
-          </>
+          </div>
         ) : null}
 
         {view === "offers" ? (
@@ -840,8 +840,15 @@ function HomeSummary({
       : clamp(averageDays.averageDays / getDaysInCurrentMonth(), 0, 1);
   const averageUrgency = getAverageDaysUrgency(averageDays.averageDays);
 
+  const profileWarning = getProfileWarning({
+    borrowerVerification,
+    hasPortfolio,
+    loadState,
+    readiness,
+  });
+
   return (
-    <div className="grid gap-4 sm:gap-5">
+    <div className="grid gap-4 pb-24 sm:gap-5 sm:pb-8">
       <div className="grid gap-1">
         <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">
           Home
@@ -855,236 +862,275 @@ function HomeSummary({
         <HomeDashboardSkeleton />
       ) : (
         <>
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,1.8fr)_minmax(320px,0.9fr)]">
-            <Card className="rounded-3xl border-zinc-900 bg-zinc-950 py-0 text-white shadow-sm">
-              <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-                <CardDescription className="font-semibold text-white/70">
-                  Financing overview
-                </CardDescription>
-                <CardTitle className="text-2xl leading-tight text-white">
-                  Your request capacity
-                </CardTitle>
-              </CardHeader>
+          {profileWarning ? (
+            <Alert
+              variant="destructive"
+              className="rounded-2xl border-destructive/20 bg-destructive/5"
+            >
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+                <span>{profileWarning.message}</span>
+                {profileWarning.showAction ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigate?.("profile")}
+                    className="rounded-full font-semibold"
+                  >
+                    Review profile
+                  </Button>
+                ) : null}
+              </AlertDescription>
+            </Alert>
+          ) : null}
 
-              <CardContent className="grid gap-3 p-4 sm:p-5 xl:grid-cols-3">
-                <DashboardMetricBlock title="Available to Request">
-                  {creditSummary ? (
-                    <>
-                      <MoneyText
-                        value={creditSummary.availableCredit}
-                        className="text-2xl font-semibold text-white"
-                      />
-                      <p className="text-xs leading-5 text-white/65">
-                        {formatMoney(creditSummary.availableCredit)} available of{" "}
-                        {formatMoney(creditSummary.calculatedCreditLimit)} limit
-                      </p>
-                      <DashboardProgressBar
-                        value={usedCreditRatio}
-                        trackClassName="bg-white/15"
-                        barClassName="bg-sky-300"
-                      />
-                    </>
-                  ) : (
-                    <p className="text-sm leading-6 text-white/70">
-                      Complete your business profile to calculate your request limit.
-                    </p>
+          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+            <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+              <CardDescription className="font-semibold text-muted-foreground">
+                Financing overview
+              </CardDescription>
+              <CardTitle className="text-xl leading-tight sm:text-2xl">
+                Available to request
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              {creditSummary ? (
+                <>
+                  <MoneyText
+                    value={creditSummary.availableCredit}
+                    className="text-3xl font-semibold"
+                  />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {formatMoney(creditSummary.availableCredit)} available of{" "}
+                    {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                  </p>
+                  <DashboardProgressBar value={usedCreditRatio} />
+                </>
+              ) : (
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Complete your business profile to calculate your request limit.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+              <CardContent className="grid gap-2 p-4">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Due this month
+                </p>
+                <MoneyText
+                  value={dueThisMonth.totalDue}
+                  className="text-xl font-semibold sm:text-2xl"
+                />
+                <Badge
+                  variant="secondary"
+                  className={cn(
+                    "w-fit text-xs font-semibold",
+                    dueCapacityStatus.badgeClassName,
                   )}
-                </DashboardMetricBlock>
-
-                <DashboardMetricBlock title="Due Within This Month">
-                  <div className="flex items-end justify-between gap-3">
-                    <MoneyText
-                      value={dueThisMonth.totalDue}
-                      className="text-2xl font-semibold text-white"
-                    />
-                    <Badge
-                      variant="secondary"
-                      className={cn(
-                        "border-white/10 bg-white/10 text-xs font-semibold hover:bg-white/10",
-                        dueCapacityStatus.className,
-                      )}
-                    >
-                      {dueCapacityStatus.label}
-                    </Badge>
-                  </div>
-                  <p className="text-xs leading-5 text-white/65">
-                    {creditSummary && creditSummary.monthlyNetCashFlow > 0
-                      ? `Compared with ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
-                      : "No cashflow data"}
-                  </p>
-                  <DashboardProgressBar
-                    value={dueCapacityRatio ?? 0}
-                    trackClassName="bg-white/15"
-                    barClassName={dueCapacityStatus.barClassName}
-                  />
-                </DashboardMetricBlock>
-
-                <DashboardMetricBlock title="Average Time to Pay All Debts">
-                  <p className="text-2xl font-semibold text-white">
-                    {averageDays.averageDays === null
-                      ? "No unpaid debt"
-                      : averageDays.averageDays < 0
-                        ? "Overdue avg"
-                        : `${averageDays.averageDays} days avg`}
-                  </p>
-                  <p className="text-xs leading-5 text-white/65">
-                    Based on unpaid installments
-                  </p>
-                  <DashboardProgressBar
-                    value={averageDaysRatio}
-                    trackClassName="bg-white/15"
-                    barClassName={averageUrgency.barClassName}
-                  />
-                </DashboardMetricBlock>
+                >
+                  {dueCapacityStatus.label}
+                </Badge>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {creditSummary && creditSummary.monthlyNetCashFlow > 0
+                    ? `Of ${formatMoney(creditSummary.monthlyNetCashFlow)} cashflow`
+                    : "No cashflow data"}
+                </p>
+                <DashboardProgressBar
+                  value={dueCapacityRatio ?? 0}
+                  barClassName={dueCapacityStatus.barClassName}
+                />
               </CardContent>
             </Card>
 
-            <DashboardPanel title="Due dates">
-          <div className="grid gap-4">
-            <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
-              {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                <span key={day}>{day}</span>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1">
-              {calendarDays.map((day, index) =>
-                day ? (
-                  <div
-                    key={day.key}
-                    className={cn(
-                      "grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold",
-                      day.dueItems.length > 0
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : day.isToday
-                          ? "border-primary bg-card text-foreground"
-                          : "border-border bg-muted text-foreground",
-                    )}
-                    title={
-                      day.dueItems.length > 0
-                        ? `${day.dueItems.length} repayment due`
-                        : undefined
-                    }
-                  >
-                    {day.day}
-                  </div>
-                ) : (
-                  <div key={`empty-${index}`} className="aspect-square min-h-10" />
-                ),
-              )}
-            </div>
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+              <CardContent className="grid gap-2 p-4">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Avg. days to pay
+                </p>
+                <p className="text-xl font-semibold sm:text-2xl">
+                  {averageDays.averageDays === null
+                    ? "—"
+                    : averageDays.averageDays < 0
+                      ? "Overdue"
+                      : `${averageDays.averageDays} days`}
+                </p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Based on unpaid installments
+                </p>
+                <DashboardProgressBar
+                  value={averageDaysRatio}
+                  barClassName={averageUrgency.barClassName}
+                />
+              </CardContent>
+            </Card>
+          </div>
 
-            <div className="grid gap-2">
-              <p className="text-sm font-semibold">Upcoming</p>
-              {dueUpcoming.length > 0 ? (
-                dueUpcoming.map((item) => (
-                  <Card key={item.repayment.id} className="rounded-2xl shadow-none border-border">
-                    <CardContent className="grid gap-2 p-3 text-sm sm:grid-cols-[1fr_auto] sm:items-center">
-                      <div className="grid gap-1">
-                        <p className="font-semibold">
-                          Installment {item.repayment.installmentNumber}
-                        </p>
-                        <p className="text-muted-foreground">
-                          {formatMoney(item.repayment.amountDue)} ·{" "}
-                          {formatDateOnly(item.repayment.dueDate)}
+          {dueUpcoming.length > 0 ? (
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+              <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+                <CardTitle className="text-base">Upcoming repayments</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 p-4 pt-2 sm:p-5 sm:pt-2">
+                {dueUpcoming.map((item) => (
+                  <div
+                    key={item.repayment.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/30 px-3 py-3 text-sm"
+                  >
+                    <div className="grid gap-1">
+                      <p className="font-semibold">
+                        Installment {item.repayment.installmentNumber}
+                      </p>
+                      <p className="text-muted-foreground">
+                        {formatDateOnly(item.repayment.dueDate)}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <MoneyText
+                        value={item.repayment.amountDue}
+                        className="font-semibold"
+                      />
+                      <RepaymentStatusPill status={item.repayment.status} />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
+                <CardTitle className="text-base">Profile completion</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-4 sm:p-5">
+                <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
+                  <ProgressRing value={profileCompletion.percentage} />
+                  <div className="grid gap-2">
+                    <p className="text-sm leading-6 text-muted-foreground">
+                      {profileCompletion.nextStep}
+                    </p>
+                    <Button
+                      variant="outline"
+                      onClick={() => onNavigate?.("profile")}
+                      className="h-10 w-full rounded-full font-semibold sm:w-fit"
+                    >
+                      Open profile
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+              <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
+                <CardTitle className="text-base">Debt payment progress</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-4 p-4 sm:p-5">
+                {debtProgress.totalDebt > 0 ? (
+                  <div className="grid gap-3">
+                    <div className="flex items-end justify-between gap-3">
+                      <div>
+                        <MoneyText
+                          value={debtProgress.totalPaid}
+                          className="text-2xl font-semibold"
+                        />
+                        <p className="text-sm text-muted-foreground">
+                          paid of {formatMoney(debtProgress.totalDebt)}
                         </p>
                       </div>
-                      <RepaymentStatusPill status={item.repayment.status} />
-                    </CardContent>
-                  </Card>
-                ))
-              ) : (
-                <EmptyState message="No unpaid due dates this month." />
-              )}
-            </div>
-          </div>
-            </DashboardPanel>
-          </div>
-
-          <div className="grid gap-4 lg:grid-cols-[minmax(280px,0.85fr)_minmax(0,1.45fr)]">
-        <div className="grid gap-4">
-          <DashboardPanel title="Profile completion">
-            <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
-              <ProgressRing value={profileCompletion.percentage} />
-              <div className="grid gap-2">
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {profileCompletion.nextStep}
-                </p>
-                <Button
-                  variant="outline"
-                  onClick={() => onNavigate?.("profile")}
-                  className="h-10 w-full rounded-full font-semibold sm:w-fit"
-                >
-                  Open profile
-                </Button>
-              </div>
-            </div>
-          </DashboardPanel>
-
-          <DashboardPanel title="Debt payment progress">
-            {debtProgress.totalDebt > 0 ? (
-              <div className="grid gap-4">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <MoneyText
-                      value={debtProgress.totalPaid}
-                      className="text-2xl font-semibold"
+                      <p className="text-sm font-semibold text-muted-foreground">
+                        {Math.round(debtProgress.percentComplete * 100)}%
+                      </p>
+                    </div>
+                    <DashboardProgressBar
+                      value={debtProgress.percentComplete}
                     />
-                    <p className="text-sm text-muted-foreground">
-                      paid of {formatMoney(debtProgress.totalDebt)}
-                    </p>
                   </div>
-                  <p className="text-lg font-semibold">
-                    {Math.round(debtProgress.percentComplete * 100)}% complete
-                  </p>
-                </div>
-                <DashboardProgressBar
-                  value={debtProgress.percentComplete}
-                  barClassName="bg-primary"
-                />
-              </div>
-            ) : (
-              <EmptyState message="Active loan progress will appear here." />
-            )}
-          </DashboardPanel>
-        </div>
-
-        <DashboardPanel
-          title="My Loans"
-          action={
-            activeLoans.length > 0 ? (
-              <Button
-                variant="link"
-                onClick={() => onNavigate?.("loans")}
-                className="h-auto p-0 text-sm font-semibold"
-              >
-                View in Loans
-              </Button>
-            ) : null
-          }
-        >
-          {activeLoans.length > 0 ? (
-            <div className="grid gap-3">
-              {activeLoans.map((loan) => (
-                <DashboardLoanCard
-                  key={loan.id}
-                  loan={loan}
-                  onNavigate={onNavigate}
-                />
-              ))}
-            </div>
-          ) : (
-            <div className="grid gap-3">
-              <EmptyState message="Accepted offers will appear here as active loans." />
-              <Button
-                onClick={() => onNavigate?.("offers")}
-                className="h-11 w-full rounded-full font-semibold sm:w-fit"
-              >
-                Review offers
-              </Button>
-            </div>
-          )}
-        </DashboardPanel>
+                ) : (
+                  <EmptyState message="Active loan progress will appear here." />
+                )}
+              </CardContent>
+            </Card>
           </div>
+
+          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+            <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
+              <CardTitle className="text-base">My Loans</CardTitle>
+              {activeLoans.length > 0 ? (
+                <Button
+                  variant="link"
+                  onClick={() => onNavigate?.("loans")}
+                  className="h-auto p-0 text-sm font-semibold"
+                >
+                  View in Loans
+                </Button>
+              ) : null}
+            </CardHeader>
+            <CardContent className="grid gap-4 p-4 sm:p-5">
+              {activeLoans.length > 0 ? (
+                <div className="grid gap-3">
+                  {activeLoans.map((loan) => (
+                    <DashboardLoanCard
+                      key={loan.id}
+                      loan={loan}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-3">
+                  <EmptyState message="Accepted offers will appear here as active loans." />
+                  <Button
+                    onClick={() => onNavigate?.("offers")}
+                    className="h-11 w-full rounded-full font-semibold sm:w-fit"
+                  >
+                    Review offers
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+            <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+              <CardTitle className="text-base">Due dates</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4 p-4 sm:p-5">
+              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
+                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+                  <span key={day}>{day}</span>
+                ))}
+              </div>
+              <div className="grid grid-cols-7 gap-1">
+                {calendarDays.map((day, index) =>
+                  day ? (
+                    <div
+                      key={day.key}
+                      className={cn(
+                        "grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold",
+                        day.dueItems.length > 0
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : day.isToday
+                            ? "border-primary bg-card text-foreground"
+                            : "border-border/50 bg-muted/30 text-foreground",
+                      )}
+                      title={
+                        day.dueItems.length > 0
+                          ? `${day.dueItems.length} repayment due`
+                          : undefined
+                      }
+                    >
+                      {day.day}
+                    </div>
+                  ) : (
+                    <div key={`empty-${index}`} className="aspect-square min-h-10" />
+                  ),
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </>
       )}
     </div>
@@ -1093,24 +1139,32 @@ function HomeSummary({
 
 function HomeDashboardSkeleton() {
   return (
-    <Card className="rounded-3xl border-border bg-card shadow-sm">
-      <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-        <Skeleton className="h-4 w-28" />
-        <Skeleton className="h-7 w-48" />
-      </CardHeader>
-      <CardContent className="grid gap-3 p-4 sm:p-5 sm:grid-cols-3">
-        {[0, 1, 2].map((item) => (
-          <Card key={item} className="rounded-2xl border-border bg-muted/30 py-0 shadow-none">
-            <CardContent className="grid gap-3 p-4">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-8 w-36" />
+    <div className="grid gap-4">
+      <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+        <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-6 w-44" />
+        </CardHeader>
+        <CardContent className="grid gap-3 p-4 sm:p-5">
+          <Skeleton className="h-8 w-36" />
+          <Skeleton className="h-3 w-48" />
+          <Skeleton className="h-2 w-full rounded-full" />
+        </CardContent>
+      </Card>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        {[0, 1].map((item) => (
+          <Card key={item} className="rounded-3xl border-border/50 bg-card shadow-sm">
+            <CardContent className="grid gap-2 p-4">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-6 w-28" />
+              <Skeleton className="h-5 w-16" />
               <Skeleton className="h-3 w-full" />
               <Skeleton className="h-2 w-full rounded-full" />
             </CardContent>
           </Card>
         ))}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -1120,52 +1174,6 @@ type DashboardDueItem = {
   loan: ActiveLoan;
   repayment: RepaymentScheduleItem;
 };
-
-function DashboardPanel({
-  action = null,
-  children,
-  description,
-  title,
-}: {
-  action?: ReactNode;
-  children: ReactNode;
-  description?: string;
-  title: string;
-}) {
-  return (
-    <Card className="rounded-3xl border-border bg-card shadow-sm">
-      <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
-        <div className="grid gap-1">
-          <CardTitle className="text-lg">{title}</CardTitle>
-          {description ? (
-            <CardDescription>{description}</CardDescription>
-          ) : null}
-        </div>
-        {action}
-      </CardHeader>
-      <CardContent className="grid gap-4 p-4 sm:p-5">
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
-
-function DashboardMetricBlock({
-  children,
-  title,
-}: {
-  children: ReactNode;
-  title: string;
-}) {
-  return (
-    <Card className="rounded-2xl border-white/10 bg-white/[0.08] py-0 text-white shadow-none">
-      <CardContent className="grid gap-3 p-4">
-        <p className="text-sm font-semibold text-white/70">{title}</p>
-        {children}
-      </CardContent>
-    </Card>
-  );
-}
 
 function DashboardProgressBar({
   barClassName = "bg-primary",
@@ -1178,7 +1186,7 @@ function DashboardProgressBar({
 }) {
   return (
     <div
-      className={cn("h-2.5 overflow-hidden rounded-full", trackClassName)}
+      className={cn("h-2 overflow-hidden rounded-full", trackClassName)}
       role="progressbar"
       aria-valuemin={0}
       aria-valuemax={100}
@@ -1403,6 +1411,39 @@ function getProfileCompletion({
   };
 }
 
+function getProfileWarning({
+  borrowerVerification,
+  hasPortfolio,
+  loadState,
+  readiness,
+}: {
+  borrowerVerification: BorrowerVerificationSummary | null;
+  hasPortfolio: boolean;
+  loadState: LoadState;
+  readiness: BorrowerReadinessResult | null;
+}): { message: string; showAction: boolean } | null {
+  if (loadState !== "ready" && loadState !== "blocked") {
+    return null;
+  }
+
+  if (!hasPortfolio) {
+    return {
+      message: "Save your business profile to unlock financing.",
+      showAction: true,
+    };
+  }
+
+  if (borrowerVerification && borrowerVerification.status !== "approved") {
+    return {
+      message:
+        readiness?.nextActions[0] ?? "Complete borrower verification before applying.",
+      showAction: true,
+    };
+  }
+
+  return null;
+}
+
 function getCalendarDaysWithDueDates(activeLoans: ActiveLoan[]) {
   const today = new Date();
   const year = today.getFullYear();
@@ -1461,49 +1502,49 @@ function getUpcomingDueItems(activeLoans: ActiveLoan[]) {
 function getDueCapacityStatus(ratio: number | null) {
   if (ratio === null) {
     return {
-      barClassName: "bg-white/35",
-      className: "text-white/65",
-      label: "No cashflow data",
+      barClassName: "bg-muted",
+      badgeClassName: toneBadgeClassName("neutral"),
+      label: "No data",
     };
   }
 
   if (ratio > 0.7) {
     return {
-      barClassName: "bg-red-400",
-      className: "text-red-200",
+      barClassName: "bg-destructive",
+      badgeClassName: toneBadgeClassName("danger"),
       label: "Danger",
     };
   }
 
   if (ratio > 0.4) {
     return {
-      barClassName: "bg-yellow-400",
-      className: "text-yellow-200",
+      barClassName: "bg-amber-500",
+      badgeClassName: toneBadgeClassName("attention"),
       label: "Caution",
     };
   }
 
   return {
-    barClassName: "bg-emerald-400",
-    className: "text-emerald-200",
+    barClassName: "bg-emerald-500",
+    badgeClassName: toneBadgeClassName("success"),
     label: "Safe",
   };
 }
 
 function getAverageDaysUrgency(averageDays: number | null) {
   if (averageDays === null) {
-    return { barClassName: "bg-white/35" };
+    return { barClassName: "bg-muted" };
   }
 
   if (averageDays <= 7) {
-    return { barClassName: "bg-red-400" };
+    return { barClassName: "bg-destructive" };
   }
 
   if (averageDays <= 14) {
-    return { barClassName: "bg-yellow-400" };
+    return { barClassName: "bg-amber-500" };
   }
 
-  return { barClassName: "bg-emerald-400" };
+  return { barClassName: "bg-emerald-500" };
 }
 
 function isRepaymentVerified(repayment: RepaymentScheduleItem) {
@@ -1576,71 +1617,76 @@ function ApplicationForm({
       <CardContent className="p-5">
         <form
           onSubmit={onSubmit}
-          className="grid gap-4"
+          className="grid gap-5"
           aria-describedby="loan-application-state"
         >
           {creditSummary ? (
-            <div className="rounded-2xl border border-border/50 bg-muted/30 px-4 py-3">
-              <p className="text-xs font-medium text-muted-foreground">
-                Available to request
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
+            <div className="flex items-baseline justify-between gap-3 rounded-2xl border border-border/50 bg-muted/30 p-4 shadow-none">
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Available to request
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Based on your credit profile
+                </p>
+              </div>
+              <p className="text-lg font-semibold tabular-nums whitespace-nowrap">
                 {formatCreditAmount(creditSummary.availableCredit)}
-              </p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                Based on your current credit profile.
               </p>
             </div>
           ) : null}
 
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
-              <CurrencyInput
-                className="h-11 rounded-xl"
-                aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
-                aria-describedby={
-                  isOverAvailableCredit ? "requested-amount-credit-limit" : undefined
-                }
-                registration={register("requestedAmount", {
-                  setValueAs: parseMoneyInput,
-                })}
-              />
-              {creditSummary && isOverAvailableCredit ? (
-                <span
-                  id="requested-amount-credit-limit"
-                  className="text-sm font-semibold text-destructive"
-                >
-                  Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
-                </span>
-              ) : null}
-            </Field>
+          <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
+            <CurrencyInput
+              className="h-12 rounded-xl"
+              aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
+              aria-describedby={
+                isOverAvailableCredit ? "requested-amount-credit-limit" : undefined
+              }
+              registration={register("requestedAmount", {
+                setValueAs: parseMoneyInput,
+              })}
+            />
+            {creditSummary && isOverAvailableCredit ? (
+              <span
+                id="requested-amount-credit-limit"
+                className="text-sm font-semibold text-destructive"
+              >
+                Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
+              </span>
+            ) : null}
+          </Field>
 
-            <Field label="Preferred term" error={errors.preferredTerm?.message} id="preferredTerm">
-              <Controller
-                control={control}
-                name="preferredTerm"
-                render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <SelectTrigger id="preferredTerm" className="h-11 rounded-xl">
-                      <SelectValue placeholder="Select term" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {preferredTermOptions.map((option) => (
-                        <SelectItem key={option} value={option}>
-                          {preferredTermLabels[option]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </Field>
-          </div>
+          <Field label="Preferred term" error={errors.preferredTerm?.message} id="preferredTerm">
+            <Controller
+              control={control}
+              name="preferredTerm"
+              render={({ field }) => (
+                <div
+                  role="radiogroup"
+                  id="preferredTerm"
+                  className="grid grid-cols-2 gap-2"
+                >
+                  {preferredTermOptions.map((option) => (
+                    <Button
+                      key={option}
+                      type="button"
+                      variant={field.value === option ? "default" : "outline"}
+                      onClick={() => field.onChange(option)}
+                      className="h-11 rounded-xl text-sm font-semibold"
+                    >
+                      {preferredTermLabels[option]}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            />
+          </Field>
 
           <Field label="Purpose" error={errors.purpose?.message} id="purpose">
             <Input
               id="purpose"
-              className="h-11 rounded-xl"
+              className="h-12 rounded-xl"
               aria-invalid={Boolean(errors.purpose)}
               {...register("purpose")}
               placeholder="Inventory, equipment, working capital"
@@ -1670,7 +1716,7 @@ function ApplicationForm({
             <Button
               type="submit"
               disabled={isPending || isOverAvailableCredit}
-              className="h-12 rounded-full px-5 text-base font-semibold"
+              className="h-12 w-full rounded-full px-5 text-base font-semibold sm:w-auto"
             >
               {isPending ? "Submitting..." : "Submit application"}
             </Button>

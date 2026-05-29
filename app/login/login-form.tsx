@@ -47,14 +47,14 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
   }
 
   return (
-    <Card>
-      <CardHeader className="text-center">
+    <Card className="rounded-3xl border-border/50 p-6 shadow-sm">
+      <CardHeader className="p-0 text-center">
         <CardTitle className="text-xl">Sign in</CardTitle>
         <CardDescription>
           Enter your email and password to access your account
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <form
           action={formAction}
           onSubmit={() => setSubmittedVersion(formVersion)}
@@ -80,6 +80,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 }}
                 autoComplete="email"
                 placeholder="you@example.com"
+                className="h-12 rounded-xl bg-background"
                 required
               />
             </Field>
@@ -105,6 +106,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 }}
                 autoComplete="current-password"
                 placeholder="Enter your password"
+                className="h-12 rounded-xl bg-background"
                 required
               />
             </Field>
@@ -142,7 +144,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="w-full">
+    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
       {pending ? "Signing in..." : "Sign in"}
     </Button>
   );

@@ -27,14 +27,14 @@ export function SignupForm() {
   const isSuccess = state.status === "success";
 
   return (
-    <Card>
-      <CardHeader className="text-center">
+    <Card className="rounded-3xl border-border/50 p-6 shadow-sm">
+      <CardHeader className="p-0 text-center">
         <CardTitle className="text-xl">Create account</CardTitle>
         <CardDescription>
           Get started with LendFolio
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <form action={formAction}>
           <FieldGroup className="gap-4">
             <fieldset className="grid gap-2">
@@ -73,6 +73,7 @@ export function SignupForm() {
                 name="displayName"
                 autoComplete="name"
                 placeholder="Juan dela Cruz"
+                className="h-12 rounded-xl bg-background"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.displayName} />
@@ -86,6 +87,7 @@ export function SignupForm() {
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
+                className="h-12 rounded-xl bg-background"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.email} />
@@ -99,6 +101,7 @@ export function SignupForm() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
+                className="h-12 rounded-xl bg-background"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.password} />
@@ -112,12 +115,13 @@ export function SignupForm() {
                 type="password"
                 autoComplete="new-password"
                 placeholder="Re-enter your password"
+                className="h-12 rounded-xl bg-background"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.confirmPassword} />
             </Field>
 
-            <fieldset className="grid gap-2">
+            <fieldset className="grid gap-2 rounded-2xl border border-border/50 bg-muted/30 p-4">
               <legend className="sr-only">Required disclosures</legend>
               <ConsentCheckbox
                 name="termsAccepted"
@@ -200,7 +204,7 @@ function RoleCard({
       <Label
         htmlFor={id}
         className={cn(
-          "flex flex-1 flex-col gap-2 cursor-pointer rounded-lg border border-border bg-card p-3.5 transition-all",
+          "flex flex-1 flex-col gap-2 cursor-pointer rounded-2xl border border-border/50 bg-muted/30 p-3.5 transition-all shadow-none",
           "hover:border-primary/50 hover:bg-muted/40",
           "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
@@ -254,7 +258,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="w-full">
+    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
       {pending ? "Creating account..." : "Create account"}
     </Button>
   );
