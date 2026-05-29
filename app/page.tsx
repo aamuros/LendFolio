@@ -14,9 +14,9 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
       <Header />
 
-      <section className="relative isolate border-b border-[#D9D7D1] px-5 pt-14 pb-10 sm:px-8 sm:pt-20 lg:px-10 lg:pt-24">
-        <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.05)_1px,transparent_1px)] bg-[size:4.5rem_4.5rem]" />
-        <div className="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.18),transparent_62%)]" />
+      <section className="relative isolate flex min-h-[calc(100svh-4rem)] items-center border-b border-[#D9D7D1] px-5 py-10 sm:px-8 sm:py-14 lg:px-10 lg:py-16">
+        <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
+        <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
 
         <div className="mx-auto grid w-full max-w-7xl gap-12">
           {authMessage ? (
@@ -28,14 +28,14 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="relative mx-auto grid w-full max-w-6xl place-items-center gap-9 py-6 text-center sm:py-10">
+          <div className="relative mx-auto grid w-full max-w-6xl place-items-center gap-7 py-4 text-center sm:py-6">
             <LandingMesh />
             <FloatingFinanceCards />
-            <div className="grid max-w-5xl gap-6">
-              <p className="text-xs font-semibold tracking-[0.22em] text-[#6A6863] uppercase">
+            <div className="grid max-w-5xl gap-5">
+              <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
                 Structured microfinance operations
               </p>
-              <h1 className="text-balance text-5xl leading-[0.95] font-semibold tracking-[-0.02em] text-[#161616] sm:text-7xl lg:text-8xl">
+              <h1 className="text-balance text-[clamp(3rem,7vw,6.25rem)] leading-[0.98] font-semibold tracking-[-0.02em] text-[#161616]">
                 Data-driven lending workflows for modern microfinance
               </h1>
               <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
@@ -48,7 +48,7 @@ export default async function Home({ searchParams }: HomeProps) {
             <div className="flex flex-col gap-3 sm:flex-row">
               <Link
                 href="/signup"
-                className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
               >
                 Create account
               </Link>
@@ -59,6 +59,8 @@ export default async function Home({ searchParams }: HomeProps) {
                 Sign in
               </Link>
             </div>
+
+            <HeroFinanceGrid />
           </div>
         </div>
       </section>
@@ -107,7 +109,7 @@ function Header() {
           </Link>
           <Link
             href="/signup"
-            className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
           >
             Create account
           </Link>
@@ -120,7 +122,7 @@ function Header() {
 function LandingMesh() {
   return (
     <div
-      className="pointer-events-none absolute top-2 left-1/2 -z-10 h-[22rem] w-[22rem] -translate-x-1/2 opacity-70 sm:h-[34rem] sm:w-[34rem]"
+      className="pointer-events-none absolute top-1/2 left-1/2 -z-10 h-[21rem] w-[21rem] -translate-x-1/2 -translate-y-1/2 opacity-45 sm:h-[30rem] sm:w-[30rem]"
       aria-hidden="true"
     >
       <div className="absolute inset-8 rounded-full border border-[#33423C]/20 bg-[radial-gradient(circle,rgba(246,245,242,0.2),rgba(51,66,60,0.06)_45%,transparent_72%)]" />
@@ -164,20 +166,46 @@ function LandingMesh() {
 
 function FloatingFinanceCards() {
   return (
-    <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden="true">
+    <div className="pointer-events-none absolute inset-0 hidden xl:block" aria-hidden="true">
       {heroCards.map((card) => (
-        <div
+        <HeroFinanceCard
           key={card.label}
-          className={`absolute min-w-44 border border-[#D9D7D1] bg-[#FFFFFC]/82 p-3 text-left shadow-[0_22px_60px_rgba(14,26,18,0.12)] backdrop-blur ${card.position}`}
-        >
-          <p className="text-[0.65rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
-            {card.label}
-          </p>
-          <p className="mt-2 text-sm font-semibold text-[#161616]">
-            {card.value}
-          </p>
-        </div>
+          className={`absolute min-w-44 ${card.position}`}
+          label={card.label}
+          value={card.value}
+        />
       ))}
+    </div>
+  );
+}
+
+function HeroFinanceGrid() {
+  return (
+    <div className="grid w-full max-w-xl grid-cols-2 gap-3 xl:hidden">
+      {heroCards.map((card) => (
+        <HeroFinanceCard key={card.label} label={card.label} value={card.value} />
+      ))}
+    </div>
+  );
+}
+
+function HeroFinanceCard({
+  label,
+  value,
+  className = "",
+}: {
+  label: string;
+  value: string;
+  className?: string;
+}) {
+  return (
+    <div
+      className={`border border-[#D9D7D1] bg-[#FFFFFC]/84 p-3 text-left shadow-[0_18px_50px_rgba(14,26,18,0.1)] backdrop-blur ${className}`}
+    >
+      <p className="text-[0.65rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
+        {label}
+      </p>
+      <p className="mt-2 text-sm font-semibold text-[#161616]">{value}</p>
     </div>
   );
 }
@@ -394,7 +422,7 @@ function FinalCta() {
         </p>
         <Link
           href="/signup"
-          className="inline-flex min-h-12 items-center justify-center border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
+          className="inline-flex min-h-12 items-center justify-center border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold !text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
         >
           Create account
         </Link>
@@ -490,22 +518,22 @@ const heroCards = [
   {
     label: "Application status",
     value: "Ready",
-    position: "top-8 left-2 lg:left-14",
+    position: "top-16 left-0",
   },
   {
     label: "Credit limit",
     value: "PHP 40,000",
-    position: "top-10 right-4 lg:right-16",
+    position: "top-20 right-2",
   },
   {
     label: "Repayment proof",
     value: "Pending review",
-    position: "bottom-4 left-8 lg:left-24",
+    position: "bottom-24 left-12",
   },
   {
     label: "Risk notes",
     value: "Verified profile",
-    position: "right-1 bottom-7 lg:right-16",
+    position: "right-12 bottom-28",
   },
 ];
 
