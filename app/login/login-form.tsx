@@ -8,7 +8,7 @@ import { loginAction, type LoginState } from "@/app/login/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 
@@ -59,7 +59,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
           action={formAction}
           onSubmit={() => setSubmittedVersion(formVersion)}
         >
-          <FieldGroup>
+          <FieldGroup className="gap-4">
             {showSignedOut ? (
               <Alert>
                 <CheckCircle2 />
@@ -85,7 +85,15 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <div className="flex items-center justify-between">
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Link
+                  href="/forgot-password"
+                  className="text-xs text-muted-foreground underline underline-offset-4 hover:text-primary"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 name="password"
@@ -110,18 +118,21 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
 
             <Field>
               <SubmitButton />
-              <FieldDescription className="text-center">
-                Don&apos;t have an account?{" "}
-                <Link
-                  href="/signup"
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  Sign up
-                </Link>
-              </FieldDescription>
             </Field>
           </FieldGroup>
         </form>
+
+        <div className="mt-3 text-center text-sm text-muted-foreground">
+          <p>
+            Don&apos;t have an account?{" "}
+            <Link
+              href="/signup"
+              className="underline underline-offset-4 hover:text-primary"
+            >
+              Sign up
+            </Link>
+          </p>
+        </div>
       </CardContent>
     </Card>
   );

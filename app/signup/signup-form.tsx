@@ -9,13 +9,12 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, HandCoins, Landmark } from "lucide-react";
 
 const initialState: SignupState = {
   message: "",
@@ -32,52 +31,40 @@ export function SignupForm() {
       <CardHeader className="text-center">
         <CardTitle className="text-xl">Create account</CardTitle>
         <CardDescription>
-          Borrowers can start a profile. Lenders enter review before workspace access.
+          Get started with LendFolio
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form action={formAction}>
-          <FieldGroup>
-            <Field>
-              <fieldset className="grid gap-3">
-                <legend className="text-sm font-medium">
-                  Account type
-                </legend>
-                <RadioGroup
-                  defaultValue="borrower"
-                  value={role}
-                  onValueChange={(val) => setRole(val as SignupRole)}
-                  name="role"
-                  className="grid grid-cols-2 gap-2"
-                >
-                  <div>
-                    <RadioGroupItem value="borrower" id="role-borrower" className="peer sr-only" />
-                    <Label
-                      htmlFor="role-borrower"
-                      className={cn(
-                        "flex h-10 cursor-pointer items-center justify-center rounded-md border border-input bg-background text-sm font-semibold transition-all",
-                        "hover:border-primary peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground"
-                      )}
-                    >
-                      Borrower
-                    </Label>
-                  </div>
-                  <div>
-                    <RadioGroupItem value="lender" id="role-lender" className="peer sr-only" />
-                    <Label
-                      htmlFor="role-lender"
-                      className={cn(
-                        "flex h-10 cursor-pointer items-center justify-center rounded-md border border-input bg-background text-sm font-semibold transition-all",
-                        "hover:border-primary peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary peer-data-[state=checked]:text-primary-foreground"
-                      )}
-                    >
-                      Lender
-                    </Label>
-                  </div>
-                </RadioGroup>
-                <FieldErrorHelper messages={state.fieldErrors?.role} />
-              </fieldset>
-            </Field>
+          <FieldGroup className="gap-4">
+            <fieldset className="grid gap-2">
+              <legend className="text-sm font-medium">
+                Account type
+              </legend>
+              <RadioGroup
+                defaultValue="borrower"
+                value={role}
+                onValueChange={(val) => setRole(val as SignupRole)}
+                name="role"
+                className="grid grid-cols-2 gap-2"
+              >
+                <RoleCard
+                  value="borrower"
+                  id="role-borrower"
+                  icon={HandCoins}
+                  label="Borrower"
+                  description="Apply for loans and track repayments."
+                />
+                <RoleCard
+                  value="lender"
+                  id="role-lender"
+                  icon={Landmark}
+                  label="Lender"
+                  description="Review applications, send offers, and verify repayments."
+                />
+              </RadioGroup>
+              <FieldErrorHelper messages={state.fieldErrors?.role} />
+            </fieldset>
 
             <Field>
               <FieldLabel htmlFor="displayName">Full name</FieldLabel>
@@ -85,135 +72,11 @@ export function SignupForm() {
                 id="displayName"
                 name="displayName"
                 autoComplete="name"
+                placeholder="Juan dela Cruz"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.displayName} />
             </Field>
-
-            {role === "lender" ? (
-              <div className="grid gap-4 rounded-md border border-border bg-muted/30 px-4 py-4">
-                <div className="grid gap-1">
-                  <h2 className="text-sm font-semibold text-foreground">
-                    Lender review profile
-                  </h2>
-                  <p className="text-xs leading-relaxed text-muted-foreground">
-                    Managers use this information to review lender access.
-                  </p>
-                </div>
-
-                <Field>
-                  <FieldLabel htmlFor="organizationName">Organization</FieldLabel>
-                  <Input
-                    id="organizationName"
-                    name="organizationName"
-                    autoComplete="organization"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.organizationName} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="contactPerson">Contact person</FieldLabel>
-                  <Input
-                    id="contactPerson"
-                    name="contactPerson"
-                    autoComplete="name"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.contactPerson} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="phoneNumber">Phone number</FieldLabel>
-                  <Input
-                    id="phoneNumber"
-                    name="phoneNumber"
-                    type="tel"
-                    autoComplete="tel"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.phoneNumber} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="businessAddress">Business address</FieldLabel>
-                  <Input
-                    id="businessAddress"
-                    name="businessAddress"
-                    autoComplete="street-address"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.businessAddress} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="operatingArea">Operating area</FieldLabel>
-                  <Input
-                    id="operatingArea"
-                    name="operatingArea"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.operatingArea} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="businessRegistrationNumber">Business registration number</FieldLabel>
-                  <Input
-                    id="businessRegistrationNumber"
-                    name="businessRegistrationNumber"
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.businessRegistrationNumber} />
-                </Field>
-
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <Field>
-                    <FieldLabel htmlFor="minLoanAmount">Minimum loan amount</FieldLabel>
-                    <Input
-                      id="minLoanAmount"
-                      name="minLoanAmount"
-                      type="number"
-                      min="1"
-                      step="1"
-                      required
-                    />
-                    <FieldErrorHelper messages={state.fieldErrors?.minLoanAmount} />
-                  </Field>
-                  <Field>
-                    <FieldLabel htmlFor="maxLoanAmount">Maximum loan amount</FieldLabel>
-                    <Input
-                      id="maxLoanAmount"
-                      name="maxLoanAmount"
-                      type="number"
-                      min="1"
-                      step="1"
-                      required
-                    />
-                    <FieldErrorHelper messages={state.fieldErrors?.maxLoanAmount} />
-                  </Field>
-                </div>
-
-                <Field>
-                  <FieldLabel htmlFor="typicalRepaymentTerms">Typical repayment terms</FieldLabel>
-                  <Input
-                    id="typicalRepaymentTerms"
-                    name="typicalRepaymentTerms"
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.typicalRepaymentTerms} />
-                </Field>
-
-                <Field>
-                  <FieldLabel htmlFor="lenderDescription">Lender description</FieldLabel>
-                  <Textarea
-                    id="lenderDescription"
-                    name="lenderDescription"
-                    rows={4}
-                    required
-                  />
-                  <FieldErrorHelper messages={state.fieldErrors?.lenderDescription} />
-                </Field>
-              </div>
-            ) : null}
 
             <Field>
               <FieldLabel htmlFor="email">Email</FieldLabel>
@@ -222,6 +85,7 @@ export function SignupForm() {
                 name="email"
                 type="email"
                 autoComplete="email"
+                placeholder="you@example.com"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.email} />
@@ -234,6 +98,7 @@ export function SignupForm() {
                 name="password"
                 type="password"
                 autoComplete="new-password"
+                placeholder="At least 8 characters"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.password} />
@@ -246,6 +111,7 @@ export function SignupForm() {
                 name="confirmPassword"
                 type="password"
                 autoComplete="new-password"
+                placeholder="Re-enter your password"
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.confirmPassword} />
@@ -256,13 +122,29 @@ export function SignupForm() {
               <ConsentCheckbox
                 name="termsAccepted"
                 id="termsAccepted"
-                label="I agree to the LendFolio Terms of Service."
+                label={
+                  <>
+                    I agree to the{" "}
+                    <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+                      Terms of Service
+                    </Link>
+                    .
+                  </>
+                }
                 error={state.fieldErrors?.termsAccepted}
               />
               <ConsentCheckbox
                 name="privacyAccepted"
                 id="privacyAccepted"
-                label="I acknowledge the LendFolio Privacy Notice."
+                label={
+                  <>
+                    I acknowledge the{" "}
+                    <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+                      Privacy Notice
+                    </Link>
+                    .
+                  </>
+                }
                 error={state.fieldErrors?.privacyAccepted}
               />
             </fieldset>
@@ -276,20 +158,63 @@ export function SignupForm() {
 
             <Field>
               <SubmitButton />
-              <FieldDescription className="text-center">
-                Already have an account?{" "}
-                <Link
-                  href="/login"
-                  className="underline underline-offset-4 hover:text-primary"
-                >
-                  Sign in
-                </Link>
-              </FieldDescription>
             </Field>
           </FieldGroup>
         </form>
+
+        <div className="mt-3 space-y-1.5 text-center text-sm text-muted-foreground">
+          <p>
+            Already have an account?{" "}
+            <Link
+              href="/login"
+              className="underline underline-offset-4 hover:text-primary"
+            >
+              Log in
+            </Link>
+          </p>
+          <p className="text-[0.7rem] leading-relaxed text-muted-foreground/70">
+            Are you a platform manager? Manager access is by invitation only.
+          </p>
+        </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RoleCard({
+  value,
+  id,
+  icon: Icon,
+  label,
+  description,
+}: {
+  value: string;
+  id: string;
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  description: string;
+}) {
+  return (
+    <div className="flex">
+      <RadioGroupItem value={value} id={id} className="peer sr-only" />
+      <Label
+        htmlFor={id}
+        className={cn(
+          "flex flex-1 flex-col gap-2 cursor-pointer rounded-lg border border-border bg-card p-3.5 transition-all",
+          "hover:border-primary/50 hover:bg-muted/40",
+          "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
+          "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
+        )}
+      >
+        <div className="flex items-center gap-2">
+          <Icon className="size-4 shrink-0 text-muted-foreground peer-data-[state=checked]:text-primary" />
+          <span className="text-sm font-semibold leading-none">{label}</span>
+        </div>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          {description}
+        </p>
+      </Label>
+    </div>
   );
 }
 
@@ -301,14 +226,14 @@ function ConsentCheckbox({
 }: {
   name: string;
   id: string;
-  label: string;
+  label: React.ReactNode;
   error?: string[];
 }) {
   return (
     <div className="grid gap-1">
-      <div className="flex items-center space-x-2">
-        <Checkbox id={id} name={name} value="on" required />
-        <Label htmlFor={id} className="text-sm font-normal leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+      <div className="flex items-start gap-2.5">
+        <Checkbox id={id} name={name} value="on" className="mt-0.5" required />
+        <Label htmlFor={id} className="text-sm font-normal leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label}
         </Label>
       </div>
@@ -322,11 +247,7 @@ function FieldErrorHelper({ messages }: { messages?: string[] }) {
     return null;
   }
 
-  return (
-    <p className="text-sm text-destructive" role="alert">
-      {messages[0]}
-    </p>
-  );
+  return <FieldError>{messages[0]}</FieldError>;
 }
 
 function SubmitButton() {

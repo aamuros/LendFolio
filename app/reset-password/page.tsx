@@ -1,28 +1,30 @@
 import Link from "next/link";
-import { LoginForm } from "@/app/login/login-form";
+import { ResetPasswordForm } from "@/app/reset-password/reset-password-form";
 import { ArrowLeft } from "lucide-react";
 
-type LoginPageProps = {
+type ResetPasswordPageProps = {
   searchParams?: Promise<{
-    message?: string;
+    code?: string;
   }>;
 };
 
-export default async function LoginPage({ searchParams }: LoginPageProps) {
+export default async function ResetPasswordPage({
+  searchParams,
+}: ResetPasswordPageProps) {
   const params = await searchParams;
-  const signedOut = params?.message === "signed-out";
+  const code = params?.code ?? "";
 
   return (
     <div className="flex min-h-svh flex-col items-center justify-center bg-background p-6 md:p-10">
-      <div className="flex w-full max-w-[26rem] flex-col gap-4">
+      <div className="flex w-full max-w-sm flex-col gap-4">
         <Link
-          href="/"
+          href="/login"
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
         >
           <ArrowLeft className="size-4" />
-          Back to home
+          Back to login
         </Link>
-        <LoginForm signedOut={signedOut} />
+        <ResetPasswordForm code={code} />
       </div>
     </div>
   );

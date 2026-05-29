@@ -10,16 +10,6 @@ type SignupFieldErrors = Partial<
   Record<
     | "role"
     | "displayName"
-    | "organizationName"
-    | "contactPerson"
-    | "phoneNumber"
-    | "businessAddress"
-    | "operatingArea"
-    | "businessRegistrationNumber"
-    | "minLoanAmount"
-    | "maxLoanAmount"
-    | "typicalRepaymentTerms"
-    | "lenderDescription"
     | "email"
     | "password"
     | "confirmPassword"
@@ -42,16 +32,6 @@ export async function signupAction(
   const parsed = signupSchema.safeParse({
     role: formData.get("role"),
     displayName: formData.get("displayName"),
-    organizationName: formData.get("organizationName"),
-    contactPerson: formData.get("contactPerson"),
-    phoneNumber: formData.get("phoneNumber"),
-    businessAddress: formData.get("businessAddress"),
-    operatingArea: formData.get("operatingArea"),
-    businessRegistrationNumber: formData.get("businessRegistrationNumber"),
-    minLoanAmount: formData.get("minLoanAmount"),
-    maxLoanAmount: formData.get("maxLoanAmount"),
-    typicalRepaymentTerms: formData.get("typicalRepaymentTerms"),
-    lenderDescription: formData.get("lenderDescription"),
     email: formData.get("email"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
@@ -88,26 +68,6 @@ export async function signupAction(
         data: {
           lendfolio_role: input.role,
           display_name: input.displayName,
-          organization_name:
-            input.role === "lender" ? input.organizationName : undefined,
-          contact_person: input.role === "lender" ? input.contactPerson : undefined,
-          phone_number: input.role === "lender" ? input.phoneNumber : undefined,
-          business_address:
-            input.role === "lender" ? input.businessAddress : undefined,
-          operating_area:
-            input.role === "lender" ? input.operatingArea : undefined,
-          business_registration_number:
-            input.role === "lender"
-              ? input.businessRegistrationNumber
-              : undefined,
-          min_loan_amount:
-            input.role === "lender" ? input.minLoanAmount : undefined,
-          max_loan_amount:
-            input.role === "lender" ? input.maxLoanAmount : undefined,
-          typical_repayment_terms:
-            input.role === "lender" ? input.typicalRepaymentTerms : undefined,
-          lender_description:
-            input.role === "lender" ? input.lenderDescription : undefined,
         },
       },
     });

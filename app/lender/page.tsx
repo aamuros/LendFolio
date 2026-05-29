@@ -311,7 +311,7 @@ function AccountTab({
     role: string;
     status: string;
     lenderProfile: {
-      organization_name: string;
+      organization_name: string | null;
       verification_status: string;
     } | null;
   };
