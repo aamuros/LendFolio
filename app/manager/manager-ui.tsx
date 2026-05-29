@@ -41,11 +41,11 @@ export function ManagerShell({
   return (
     <>
       <ManagerTopBar title={title} description={description} />
-      <div className="flex flex-1 flex-col gap-4 p-4 md:p-6 lg:p-8">
+      <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
         <div className="mx-auto w-full max-w-[1600px]">
           {showHeading ? (
             <div className="mb-4">
-              <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
+              <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
               <p className="text-sm text-muted-foreground">{description}</p>
             </div>
           ) : null}

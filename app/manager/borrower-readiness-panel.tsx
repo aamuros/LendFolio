@@ -23,7 +23,10 @@ import type { ManagerBorrowerPerformanceRow } from "@/lib/manager-dashboard";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRightIcon } from "lucide-react";
 
-const statusVariantMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
+const statusVariantMap: Record<
+  string,
+  "default" | "secondary" | "destructive" | "outline"
+> = {
   active: "default",
   paid: "default",
   verified: "default",
@@ -69,7 +72,8 @@ export function BorrowerReadinessPanel({
       <CardHeader>
         <CardTitle>Borrower readiness</CardTitle>
         <CardDescription>
-          Credit scoring is planned; this preview uses current repayment and application activity.
+          Credit scoring is planned; this preview uses current repayment and
+          application activity.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -110,7 +114,9 @@ export function BorrowerReadinessPanel({
                               {row.shortId}
                             </span>
                             <Badge
-                              variant={statusVariantMap[row.status] ?? "secondary"}
+                              variant={
+                                statusVariantMap[row.status] ?? "secondary"
+                              }
                               className="text-[10px]"
                             >
                               {row.status}
@@ -119,18 +125,24 @@ export function BorrowerReadinessPanel({
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
-                        <span className="inline-flex size-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 text-sm font-semibold text-emerald-700">
+                        <span className="inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold tabular-nums text-primary">
                           {row.previewScore}
                         </span>
                       </TableCell>
-                      <TableCell className="text-right text-sm">
+                      <TableCell className="text-right text-sm tabular-nums">
                         {row.acceptedApplicationCount}
                       </TableCell>
-                      <TableCell className="text-right text-sm">
+                      <TableCell className="text-right text-sm tabular-nums">
                         {row.verifiedRepaymentCount}
                       </TableCell>
                       <TableCell className="text-right text-sm">
-                        <span className={row.riskFlagCount > 0 ? "text-destructive font-medium" : ""}>
+                        <span
+                          className={
+                            row.riskFlagCount > 0
+                              ? "font-medium text-destructive"
+                              : "tabular-nums"
+                          }
+                        >
                           {row.riskFlagCount}
                         </span>
                       </TableCell>
@@ -138,7 +150,9 @@ export function BorrowerReadinessPanel({
                         <Button variant="ghost" size="icon-xs" asChild>
                           <Link href={row.href}>
                             <ArrowUpRightIcon className="size-3" />
-                            <span className="sr-only">View {row.displayName}</span>
+                            <span className="sr-only">
+                              View {row.displayName}
+                            </span>
                           </Link>
                         </Button>
                       </TableCell>
@@ -172,9 +186,9 @@ function DashboardEmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }

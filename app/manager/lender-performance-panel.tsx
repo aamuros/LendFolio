@@ -19,8 +19,13 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowUpRightIcon,
-} from "lucide-react";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { ArrowUpRightIcon } from "lucide-react";
 import type {
   BusinessType,
   ManagerLenderPerformanceRow,
@@ -73,24 +78,30 @@ export function LenderPerformancePanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <CardTitle>Lender performance</CardTitle>
-            <CardDescription>Top lenders by completed applications</CardDescription>
+            <CardDescription>
+              Top lenders by completed applications
+            </CardDescription>
           </div>
         </div>
         <div className="pt-2">
-          <select
+          <Select
             value={selectedBusinessType}
-            onChange={(event) =>
-              setSelectedBusinessType(event.target.value as SelectedBusinessType)
+            onValueChange={(value) =>
+              setSelectedBusinessType(value as SelectedBusinessType)
             }
-            className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
-            <option value="all">All business types</option>
-            {businessTypeOptions.map((businessType) => (
-              <option key={businessType} value={businessType}>
-                {businessTypeLabels[businessType]}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="All business types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All business types</SelectItem>
+              {businessTypeOptions.map((businessType) => (
+                <SelectItem key={businessType} value={businessType}>
+                  {businessTypeLabels[businessType]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </CardHeader>
       <CardContent>
@@ -124,21 +135,25 @@ export function LenderPerformancePanel({
                       </div>
                     </TableCell>
                     <TableCell className="text-center">
-                      <span className="inline-flex items-center justify-center rounded-lg bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700">
-                        {numberFormatter.format(row.completedApplicationCount)}
+                      <span className="inline-flex items-center justify-center rounded-md bg-primary/10 px-2 py-0.5 text-sm font-semibold tabular-nums text-primary">
+                        {numberFormatter.format(
+                          row.completedApplicationCount,
+                        )}
                       </span>
                     </TableCell>
-                    <TableCell className="text-right text-sm">
+                    <TableCell className="text-right text-sm tabular-nums">
                       {row.acceptedOfferCount}
                     </TableCell>
-                    <TableCell className="text-right text-sm">
+                    <TableCell className="text-right text-sm tabular-nums">
                       {row.activeLoanCount}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon-xs" asChild>
                         <Link href={row.href}>
                           <ArrowUpRightIcon className="size-3" />
-                          <span className="sr-only">View {row.displayName}</span>
+                          <span className="sr-only">
+                            View {row.displayName}
+                          </span>
                         </Link>
                       </Button>
                     </TableCell>
@@ -224,9 +239,9 @@ function DashboardEmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
-      <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-center">
+      <p className="text-sm font-medium">{title}</p>
+      <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
     </div>
   );
 }
