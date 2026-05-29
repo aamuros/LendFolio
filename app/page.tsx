@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: HomeProps) {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(246,245,242,0)_0%,rgba(246,245,242,0.72)_82%,rgba(246,245,242,0.98)_100%)]" />
 
-        <div className="mx-auto grid w-full max-w-7xl gap-12">
+        <div className="mx-auto grid w-full max-w-[1180px] gap-12">
           {authMessage ? (
             <p
               className="mx-auto max-w-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
@@ -30,7 +30,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="mx-auto grid w-full max-w-7xl gap-8 py-4 sm:py-6 xl:grid-cols-[220px_minmax(0,1fr)_220px] xl:items-center xl:gap-8">
+          <div className="mx-auto grid w-full max-w-[1180px] gap-8 py-4 sm:py-6 xl:grid-cols-[230px_minmax(0,1fr)_230px] xl:items-center xl:gap-6">
             <HeroFinanceRails side="left" />
 
             <div className="relative mx-auto grid w-full max-w-5xl place-items-center gap-7 text-center">
@@ -39,7 +39,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
                   Structured microfinance operations
                 </p>
-                <h1 className="text-balance text-[clamp(3rem,7vw,6.25rem)] leading-[0.98] font-semibold tracking-[-0.02em] text-[#161616]">
+                <h1 className="text-balance text-[clamp(3rem,5.8vw,5.4rem)] leading-[1.01] font-semibold tracking-[-0.02em] text-[#161616]">
                   Data-driven lending workflows for modern microfinance
                 </h1>
                 <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
@@ -131,18 +131,21 @@ function Header() {
 function LandingMesh() {
   return (
     <div
-      className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[22rem] w-[22rem] -translate-x-1/2 -translate-y-1/2 opacity-55 sm:h-[32rem] sm:w-[32rem]"
+      className="pointer-events-none absolute top-1/2 left-1/2 z-0 h-[24rem] w-[24rem] -translate-x-1/2 -translate-y-1/2 opacity-75 sm:h-[34rem] sm:w-[34rem]"
       aria-hidden="true"
     >
-      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,252,0.86)_0%,rgba(226,218,198,0.2)_36%,rgba(51,66,60,0.1)_58%,transparent_72%)]" />
+      <div className="absolute inset-0 rounded-full bg-[radial-gradient(circle,rgba(255,255,252,0.94)_0%,rgba(226,218,198,0.28)_34%,rgba(51,66,60,0.14)_58%,transparent_74%)]" />
       <div className="hero-engine absolute inset-0">
-        <div className="hero-orbit absolute inset-12 rounded-full border border-[#33423C]/16" />
-        <div className="hero-orbit hero-orbit-reverse absolute inset-20 rounded-full border border-[#33423C]/14" />
-        <div className="absolute inset-28 rounded-full border border-[#161616]/10 bg-[#FFFFFC]/20 shadow-[inset_0_0_55px_rgba(51,66,60,0.08)]" />
-        <div className="absolute top-1/2 left-1/2 h-20 w-20 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#33423C]/22 bg-[#FFFFFC]/40 shadow-[0_20px_70px_rgba(14,26,18,0.12)]" />
-        <div className="hero-flow-line absolute top-1/2 left-[21%] h-px w-[58%] origin-center bg-gradient-to-r from-transparent via-[#33423C]/34 to-transparent" />
-        <div className="hero-flow-line absolute top-[40%] left-[29%] h-px w-[42%] origin-center rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/24 to-transparent" />
-        <div className="hero-flow-line absolute top-[60%] left-[29%] h-px w-[42%] origin-center -rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/24 to-transparent" />
+        <div className="hero-orbit absolute inset-10 rounded-full border border-[#33423C]/24" />
+        <div className="hero-orbit hero-orbit-reverse absolute inset-[4.5rem] rounded-full border border-[#33423C]/20" />
+        <div className="hero-orbit absolute inset-28 rounded-full border border-dashed border-[#33423C]/18" />
+        <div className="absolute inset-28 rounded-full border border-[#161616]/12 bg-[#FFFFFC]/26 shadow-[inset_0_0_65px_rgba(51,66,60,0.12)]" />
+        <div className="hero-core absolute top-1/2 left-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-[#33423C]/30 bg-[#FFFFFC]/55 shadow-[0_20px_80px_rgba(14,26,18,0.16)]" />
+        <div className="hero-flow-line absolute top-1/2 left-[19%] h-px w-[62%] origin-center bg-gradient-to-r from-transparent via-[#33423C]/44 to-transparent" />
+        <div className="hero-flow-line absolute top-[39%] left-[27%] h-px w-[46%] origin-center rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/34 to-transparent" />
+        <div className="hero-flow-line absolute top-[61%] left-[27%] h-px w-[46%] origin-center -rotate-[34deg] bg-gradient-to-r from-transparent via-[#33423C]/34 to-transparent" />
+        <div className="absolute top-[34%] left-[18%] h-px w-[64%] origin-center rotate-[10deg] bg-gradient-to-r from-transparent via-[#C6BFAF]/34 to-transparent" />
+        <div className="absolute top-[66%] left-[18%] h-px w-[64%] origin-center -rotate-[10deg] bg-gradient-to-r from-transparent via-[#C6BFAF]/34 to-transparent" />
         {workflowNodes.map((node) => (
           <div
             key={node.label}
@@ -159,18 +162,24 @@ function HeroFinanceRails({ side }: { side: "left" | "right" }) {
 
   return (
     <div
-      className={`pointer-events-none hidden gap-4 xl:grid ${
-        side === "left" ? "justify-self-start" : "justify-self-end"
+      className={`hero-rail pointer-events-none relative hidden gap-4 xl:grid ${
+        side === "left"
+          ? "hero-rail-left justify-self-end"
+          : "hero-rail-right justify-self-start"
       }`}
       aria-hidden="true"
     >
-      {cards.map((card) => (
+      {cards.map((card, index) => (
         <HeroFinanceCard
           key={card.label}
-          className={`w-[220px] ${card.depth}`}
+          className={`w-[224px] ${card.depth} ${
+            index === 0 ? "translate-y-[-0.65rem]" : "translate-y-[0.65rem]"
+          }`}
           label={card.label}
           value={card.value}
           status={card.status}
+          marker={card.marker}
+          progress={card.progress}
         />
       ))}
     </div>
@@ -186,6 +195,8 @@ function HeroFinanceGrid() {
           label={card.label}
           value={card.value}
           status={card.status}
+          marker={card.marker}
+          progress={card.progress}
         />
       ))}
     </div>
@@ -196,26 +207,36 @@ function HeroFinanceCard({
   label,
   value,
   status,
+  marker,
+  progress,
   className = "",
 }: {
   label: string;
   value: string;
   status: string;
+  marker: string;
+  progress: string;
   className?: string;
 }) {
   return (
     <div
-      className={`hero-card-3d relative overflow-hidden border border-[#FFFFFC]/70 bg-[#FFFFFC]/78 p-3 text-left shadow-[0_14px_34px_rgba(14,26,18,0.09),inset_0_1px_0_rgba(255,255,255,0.76)] backdrop-blur-md ${className}`}
+      className={`hero-card-3d relative overflow-hidden border border-[#CFCAC0]/72 bg-[#FFFFFC]/82 p-3 text-left shadow-[0_16px_36px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md ${className}`}
     >
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
       <div className="relative flex items-start justify-between gap-3">
-        <p className="text-[0.63rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
-          {label}
-        </p>
-        <span className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-[#33423C] shadow-[0_0_12px_rgba(51,66,60,0.38)]" />
+        <div className="flex items-center gap-2">
+          <span className="grid h-6 w-6 shrink-0 place-items-center border border-[#D9D7D1] bg-[#F6F5F2] text-[0.63rem] font-semibold text-[#33423C]">
+            {marker}
+          </span>
+          <p className="text-[0.62rem] font-semibold tracking-[0.13em] text-[#77736A] uppercase">
+            {label}
+          </p>
+        </div>
+        <span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-[#33423C] shadow-[0_0_12px_rgba(51,66,60,0.38)]" />
       </div>
       <p className="relative mt-2 text-sm font-semibold text-[#161616]">{value}</p>
-      <div className="relative mt-3 h-1 overflow-hidden rounded-full bg-[#E7E4DE]">
-        <div className="h-full w-2/3 rounded-full bg-[#33423C]" />
+      <div className="relative mt-2.5 h-1.5 overflow-hidden rounded-full bg-[#E5E1D8]">
+        <div className={`h-full rounded-full bg-[#33423C] ${progress}`} />
       </div>
       <p className="relative mt-2 text-[0.68rem] font-medium text-[#77736A]">
         {status}
@@ -917,24 +938,32 @@ const heroCards = [
     label: "Application status",
     value: "Ready",
     depth: "hero-card-1",
+    marker: "A",
+    progress: "w-3/4",
     status: "Profile locked",
   },
   {
     label: "Repayment proof",
     value: "Pending review",
     depth: "hero-card-2",
+    marker: "P",
+    progress: "w-1/2",
     status: "Manager queue",
   },
   {
     label: "Credit limit",
     value: "PHP 40,000",
     depth: "hero-card-3",
+    marker: "C",
+    progress: "w-4/5",
     status: "Capacity checked",
   },
   {
     label: "Risk notes",
     value: "Verified profile",
     depth: "hero-card-4",
+    marker: "R",
+    progress: "w-2/3",
     status: "Lender ready",
   },
 ];

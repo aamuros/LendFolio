@@ -65,6 +65,52 @@ a {
   animation: hero-flow-pulse 6.5s ease-in-out infinite;
 }
 
+.hero-core {
+  animation: hero-core-pulse 4.8s ease-in-out infinite;
+}
+
+.hero-rail::before,
+.hero-rail::after {
+  position: absolute;
+  top: 50%;
+  width: 4.5rem;
+  height: 1px;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(51, 66, 60, 0.22),
+    transparent
+  );
+}
+
+.hero-rail::before {
+  transform: translateY(-3.9rem) rotate(-10deg);
+}
+
+.hero-rail::after {
+  transform: translateY(3.6rem) rotate(10deg);
+}
+
+.hero-rail-left::before,
+.hero-rail-left::after {
+  right: -5rem;
+}
+
+.hero-rail-right::before,
+.hero-rail-right::after {
+  left: -5rem;
+}
+
+.hero-rail-right::before {
+  transform: translateY(-3.9rem) rotate(10deg);
+}
+
+.hero-rail-right::after {
+  transform: translateY(3.6rem) rotate(-10deg);
+}
+
 .hero-card-3d {
   transform-style: preserve-3d;
   animation: hero-float 9s ease-in-out infinite;
@@ -139,6 +185,19 @@ a {
   }
 }
 
+@keyframes hero-core-pulse {
+  0%,
+  100% {
+    opacity: 0.68;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.95;
+    scale: 1.06;
+  }
+}
+
 @keyframes hero-flow-pulse {
   0%,
   100% {
@@ -172,6 +231,7 @@ a {
 @media (prefers-reduced-motion: reduce) {
   .hero-orbit,
   .hero-node,
+  .hero-core,
   .hero-flow-line,
   .hero-card-3d,
   .hero-card-3d::before {
