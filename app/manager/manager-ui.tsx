@@ -13,11 +13,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AutoFilterForm } from "./auto-filter-form";
-import { DashboardTopBar } from "@/components/layout/dashboard-shell";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 import { AlertCircleIcon, ArrowLeftIcon, InfoIcon } from "lucide-react";
 
-export { SelectFilter } from "./auto-filter-form";
+export { SelectFilter, FilterForm } from "./auto-filter-form";
 
 export { formatDateOnly, formatDateTime } from "@/lib/manager-date-format";
 
@@ -42,7 +41,9 @@ export function ManagerShell({
 }) {
   return (
     <>
-      <DashboardTopBar title={title} description={description} />
+      <div className="sticky top-0 z-30 flex items-center bg-background px-4 py-2">
+        <SidebarTrigger />
+      </div>
       <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
         <div className="mx-auto w-full max-w-[1600px]">
           {showHeading ? (
@@ -80,43 +81,6 @@ export function StatusMessage({
       {tone === "error" ? <AlertCircleIcon /> : <InfoIcon />}
       <AlertDescription>{message}</AlertDescription>
     </Alert>
-  );
-}
-
-export function FilterGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardContent>
-        <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {children}
-          <div className="flex items-end gap-2">
-            <Button type="submit" className="flex-1 sm:flex-none">
-              Apply
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 sm:flex-none"
-              asChild
-            >
-              <Link href="?">Clear</Link>
-            </Button>
-          </div>
-        </form>
-      </CardContent>
-    </Card>
-  );
-}
-
-export function AutoFilterGrid({ children }: { children: React.ReactNode }) {
-  return (
-    <Card>
-      <CardContent>
-        <AutoFilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {children}
-        </AutoFilterForm>
-      </CardContent>
-    </Card>
   );
 }
 

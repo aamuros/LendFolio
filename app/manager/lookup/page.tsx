@@ -18,16 +18,12 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { SlidersHorizontal } from "lucide-react";
-import { AutoFilterForm } from "../auto-filter-form";
 import {
   AccessDenied,
   EmptyState,
+  FilterForm,
   ListTable,
   ManagerDetailsLink,
   ManagerShell,
@@ -105,50 +101,46 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       description="Search users, borrower records, applications, loans, and repayment activity."
     >
       <Card>
-        <CardHeader>
-          <div className="flex items-center gap-2">
-            <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-              <SlidersHorizontal className="size-4" />
-            </div>
-            <div>
-              <CardTitle className="text-sm">Filters</CardTitle>
-              <CardDescription className="text-xs">
-                Search by name or ID, and narrow by role or status.
-              </CardDescription>
-            </div>
-          </div>
-        </CardHeader>
         <CardContent>
-          <AutoFilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_auto] items-end">
-            <TextFilter label="Search users" name="q" defaultValue={q} />
-            <SelectFilter
-              label="Role"
-              name="role"
-              defaultValue={filters.role}
-              emptyLabel="All roles"
-              options={[
-                { value: "borrower", label: "Borrower" },
-                { value: "lender", label: "Lender" },
-                { value: "manager", label: "Manager" },
-              ]}
-            />
-            <SelectFilter
-              label="Status"
-              name="status"
-              defaultValue={filters.status}
-              emptyLabel="Any status"
-              options={[
-                { value: "active", label: "Active" },
-                { value: "pending", label: "Pending" },
-                { value: "suspended", label: "Suspended" },
-              ]}
-            />
-            {hasActiveFilters ? (
-              <Button variant="ghost" size="sm" className="w-fit" asChild>
-                <Link href="/manager/lookup">Reset</Link>
-              </Button>
-            ) : null}
-          </AutoFilterForm>
+          <FilterForm className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[140px] flex-1">
+              <TextFilter label="Search users" name="q" defaultValue={q} />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <SelectFilter
+                label="Role"
+                name="role"
+                defaultValue={filters.role}
+                emptyLabel="All roles"
+                options={[
+                  { value: "borrower", label: "Borrower" },
+                  { value: "lender", label: "Lender" },
+                  { value: "manager", label: "Manager" },
+                ]}
+              />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <SelectFilter
+                label="Status"
+                name="status"
+                defaultValue={filters.status}
+                emptyLabel="Any status"
+                options={[
+                  { value: "active", label: "Active" },
+                  { value: "pending", label: "Pending" },
+                  { value: "suspended", label: "Suspended" },
+                ]}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Apply</Button>
+              {hasActiveFilters ? (
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/manager/lookup">Clear</Link>
+                </Button>
+              ) : null}
+            </div>
+          </FilterForm>
         </CardContent>
       </Card>
 
@@ -222,7 +214,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
             {hasActiveFilters ? (
               <div className="flex justify-center">
                 <Button variant="outline" size="sm" asChild>
-                  <Link href="/manager/lookup">Reset filters</Link>
+                  <Link href="/manager/lookup">Clear filters</Link>
                 </Button>
               </div>
             ) : null}

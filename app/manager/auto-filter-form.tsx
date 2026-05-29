@@ -133,3 +133,38 @@ export function AutoFilterForm({
     </form>
   );
 }
+
+export function FilterForm({
+  className,
+  children,
+}: {
+  className: string;
+  children: React.ReactNode;
+}) {
+  const handleSubmit = useCallback((event: React.FormEvent<HTMLFormElement>) => {
+    const form = event.currentTarget;
+    const disabledFields: Array<HTMLInputElement | HTMLSelectElement> = [];
+    const fields = form.querySelectorAll<HTMLInputElement | HTMLSelectElement>(
+      "input[name], select[name]",
+    );
+
+    fields.forEach((field) => {
+      if (field.value.trim() === "") {
+        field.disabled = true;
+        disabledFields.push(field);
+      }
+    });
+
+    window.requestAnimationFrame(() => {
+      disabledFields.forEach((field) => {
+        field.disabled = false;
+      });
+    });
+  }, []);
+
+  return (
+    <form className={className} onSubmit={handleSubmit}>
+      {children}
+    </form>
+  );
+}

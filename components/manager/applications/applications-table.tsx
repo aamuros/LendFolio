@@ -77,7 +77,9 @@ function EmptyTableState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
           <div>
             <p className="text-sm font-medium">No applications found</p>
             <p className="text-xs text-muted-foreground">
-              Applications matching the current filters will appear here.
+              {hasActiveFilters
+                ? "Applications matching the current filters will appear here."
+                : "Submitted applications will appear here when borrowers apply."}
             </p>
           </div>
           {hasActiveFilters ? (
@@ -101,7 +103,9 @@ function MobileEmptyState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
         <div>
           <p className="text-sm font-medium">No applications found</p>
           <p className="text-xs text-muted-foreground">
-            Applications matching the current filters will appear here.
+            {hasActiveFilters
+              ? "Applications matching the current filters will appear here."
+              : "Submitted applications will appear here when borrowers apply."}
           </p>
         </div>
         {hasActiveFilters ? (

@@ -81,10 +81,9 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
           hasActiveFilters={hasActiveFilters}
         />
 
-        <StatusMessage
-          message={result.message}
-          tone={result.ok ? "neutral" : "error"}
-        />
+        {!result.ok ? (
+          <StatusMessage message={result.message} tone="error" />
+        ) : null}
 
         <ApplicationsTable
           applications={result.applications}

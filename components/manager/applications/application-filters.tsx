@@ -1,15 +1,8 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { SlidersHorizontal } from "lucide-react";
-import { AutoFilterForm } from "@/app/manager/auto-filter-form";
-import { SelectFilter, TextFilter } from "@/app/manager/manager-ui";
+import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { FilterForm, SelectFilter, TextFilter } from "@/app/manager/manager-ui";
 
 type ApplicationFiltersProps = {
   filters: {
@@ -28,78 +21,72 @@ export function ApplicationFilters({
 }: ApplicationFiltersProps) {
   return (
     <Card>
-      <CardHeader>
-        <div className="flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <SlidersHorizontal className="size-4" />
-          </div>
-          <div>
-            <CardTitle className="text-sm">Filters</CardTitle>
-            <CardDescription className="text-xs">
-              Narrow applications by status, borrower, preferred term, or
-              submission date.
-            </CardDescription>
-          </div>
-        </div>
-      </CardHeader>
       <CardContent>
-        <AutoFilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SelectFilter
-            label="Application status"
-            name="status"
-            defaultValue={filters.status}
-            options={[
-              { value: "submitted", label: "Submitted" },
-              { value: "open", label: "Open" },
-              { value: "accepted", label: "Accepted" },
-              { value: "declined", label: "Declined" },
-              { value: "withdrawn", label: "Withdrawn" },
-            ]}
-          />
-          <TextFilter
-            label="Borrower"
-            name="borrower"
-            defaultValue={filters.borrower}
-          />
-          <SelectFilter
-            label="Preferred term"
-            name="preferredTerm"
-            defaultValue={filters.preferredTerm}
-            options={[
-              { value: "1_month", label: "1 month" },
-              { value: "3_months", label: "3 months" },
-              { value: "6_months", label: "6 months" },
-              { value: "12_months", label: "12 months" },
-            ]}
-          />
-          <TextFilter
-            label="Submitted from"
-            name="submittedFrom"
-            type="date"
-            defaultValue={filters.submittedFrom}
-          />
-          <TextFilter
-            label="Submitted to"
-            name="submittedTo"
-            type="date"
-            defaultValue={filters.submittedTo}
-          />
-          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
-            <Button type="submit" className="flex-1 sm:flex-none">
-              Apply filters
-            </Button>
+        <FilterForm className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Status"
+              name="status"
+              defaultValue={filters.status}
+              options={[
+                { value: "submitted", label: "Submitted" },
+                { value: "open", label: "Open" },
+                { value: "accepted", label: "Accepted" },
+                { value: "declined", label: "Declined" },
+                { value: "withdrawn", label: "Withdrawn" },
+              ]}
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <TextFilter
+              label="Borrower"
+              name="borrower"
+              defaultValue={filters.borrower}
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Term"
+              name="preferredTerm"
+              defaultValue={filters.preferredTerm}
+              options={[
+                { value: "1_month", label: "1 month" },
+                { value: "3_months", label: "3 months" },
+                { value: "6_months", label: "6 months" },
+                { value: "12_months", label: "12 months" },
+              ]}
+            />
+          </div>
+          <div className="min-w-[200px] flex-1">
+            <div className="grid gap-1.5">
+              <span className="text-xs font-medium">Submitted date</span>
+              <div className="flex gap-2">
+                <Input
+                  name="submittedFrom"
+                  type="date"
+                  defaultValue={filters.submittedFrom ?? ""}
+                  className="flex-1"
+                  aria-label="Submitted from"
+                />
+                <Input
+                  name="submittedTo"
+                  type="date"
+                  defaultValue={filters.submittedTo ?? ""}
+                  className="flex-1"
+                  aria-label="Submitted to"
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit">Apply</Button>
             {hasActiveFilters ? (
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1 sm:flex-none"
-                asChild
-              >
-                <Link href="/manager/applications">Clear filters</Link>
+              <Button type="button" variant="outline" asChild>
+                <Link href="/manager/applications">Clear</Link>
               </Button>
             ) : null}
           </div>
-        </AutoFilterForm>
+        </FilterForm>
       </CardContent>
     </Card>
   );

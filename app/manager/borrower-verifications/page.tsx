@@ -1,3 +1,4 @@
+import Link from "next/link";
 import {
   reviewBorrowerVerificationAction,
   reviewBorrowerVerificationDocumentAction,
@@ -14,6 +15,7 @@ import {
 import {
   AccessDenied,
   EmptyState,
+  FilterForm,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -34,6 +36,14 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -46,6 +56,7 @@ import {
   AlertCircleIcon,
   CheckCircle2Icon,
   ChevronDownIcon,
+  ChevronLeftIcon,
   FileTextIcon,
   ShieldCheckIcon,
   ClipboardListIcon,
@@ -64,6 +75,7 @@ type PageProps = {
     borrower?: string;
     review?: string;
     documentReview?: string;
+    selected?: string;
   }>;
 };
 
@@ -90,12 +102,27 @@ export default async function ManagerBorrowerVerificationsPage({
     borrower: params.borrower,
   });
 
+  const selectedVerification = params.selected
+    ? result.verifications.find((v) => v.id === params.selected)
+    : undefined;
+
   const submittedCount = result.verifications.filter(
     (v) => v.verificationStatus === "submitted",
   ).length;
   const underReviewCount = result.verifications.filter(
     (v) => v.verificationStatus === "under_review",
   ).length;
+  const approvedCount = result.verifications.filter(
+    (v) => v.verificationStatus === "approved",
+  ).length;
+
+  const filterParams = new URLSearchParams();
+  if (params.status) filterParams.set("status", params.status);
+  if (params.documentStatus)
+    filterParams.set("documentStatus", params.documentStatus);
+  if (params.borrower) filterParams.set("borrower", params.borrower);
+  const filterQueryString = filterParams.toString();
+  const backHref = filterQueryString ? `?${filterQueryString}` : "?";
 
   return (
     <ManagerShell
@@ -114,7 +141,7 @@ export default async function ManagerBorrowerVerificationsPage({
             </p>
           </div>
           {result.verifications.length > 0 ? (
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               {submittedCount > 0 ? (
                 <Badge variant="secondary" className="gap-1">
                   <CircleDotIcon className="size-3" />
@@ -127,11 +154,23 @@ export default async function ManagerBorrowerVerificationsPage({
                   {underReviewCount} under review
                 </Badge>
               ) : null}
+              {approvedCount > 0 ? (
+                <Badge
+                  variant="default"
+                  className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <CheckCircle2Icon className="size-3" />
+                  {approvedCount} approved
+                </Badge>
+              ) : null}
             </div>
           ) : null}
         </div>
 
-        <ReviewStatus review={params.review} documentReview={params.documentReview} />
+        <ReviewStatus
+          review={params.review}
+          documentReview={params.documentReview}
+        />
 
         {!result.ok ? (
           <StatusMessage message={result.message} tone="error" />
@@ -143,20 +182,26 @@ export default async function ManagerBorrowerVerificationsPage({
           borrower={params.borrower}
         />
 
+        {selectedVerification ? (
+          <SelectedBorrowerDetail
+            verification={selectedVerification}
+            backHref={backHref}
+          />
+        ) : null}
+
         <section className="space-y-4">
           {result.verifications.length === 0 ? (
             <EmptyState
               title="No borrower verifications found"
               description="Borrower verification records and evidence will appear here."
             />
-          ) : null}
-
-          {result.verifications.map((verification) => (
-            <BorrowerReviewCard
-              key={verification.id}
-              verification={verification}
+          ) : (
+            <BorrowerQueueTable
+              verifications={result.verifications}
+              selectedId={params.selected}
+              filterQueryString={filterQueryString}
             />
-          ))}
+          )}
         </section>
       </div>
     </ManagerShell>
@@ -172,10 +217,12 @@ function BorrowerReviewFilters({
   documentStatus?: string;
   borrower?: string;
 }) {
+  const hasFilters = Boolean(status || documentStatus || borrower);
+
   return (
     <Card>
       <CardContent>
-        <form className="flex flex-wrap items-end gap-3">
+        <FilterForm className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1">
             <SelectFilter
               label="Status"
@@ -204,15 +251,21 @@ function BorrowerReviewFilters({
             />
           </div>
           <div className="min-w-[140px] flex-1">
-            <TextFilter label="Borrower" name="borrower" defaultValue={borrower} />
+            <TextFilter
+              label="Borrower"
+              name="borrower"
+              defaultValue={borrower}
+            />
           </div>
           <div className="flex items-end gap-2">
             <Button type="submit">Apply</Button>
-            <Button type="button" variant="outline" asChild>
-              <a href="?">Clear</a>
-            </Button>
+            {hasFilters ? (
+              <Button type="button" variant="outline" asChild>
+                <Link href="?">Clear</Link>
+              </Button>
+            ) : null}
           </div>
-        </form>
+        </FilterForm>
       </CardContent>
     </Card>
   );
@@ -234,7 +287,9 @@ function ReviewStatus({
   }
 
   if (review === "pending") {
-    return <StatusMessage message="Borrower verification returned to pending." />;
+    return (
+      <StatusMessage message="Borrower verification returned to pending." />
+    );
   }
 
   if (review === "needs-resubmission") {
@@ -254,7 +309,10 @@ function ReviewStatus({
 
   if (review === "error") {
     return (
-      <StatusMessage message="Could not update borrower verification." tone="error" />
+      <StatusMessage
+        message="Could not update borrower verification."
+        tone="error"
+      />
     );
   }
 
@@ -268,25 +326,237 @@ function ReviewStatus({
 
   if (documentReview === "error") {
     return (
-      <StatusMessage message="Could not update verification document." tone="error" />
+      <StatusMessage
+        message="Could not update verification document."
+        tone="error"
+      />
     );
   }
 
   return null;
 }
 
-function BorrowerReviewCard({
+function BorrowerQueueTable({
+  verifications,
+  selectedId,
+  filterQueryString,
+}: {
+  verifications: ManagerBorrowerVerificationRow[];
+  selectedId?: string;
+  filterQueryString: string;
+}) {
+  return (
+    <>
+      <div className="hidden sm:block">
+        <Card className="py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Borrower</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Documents</TableHead>
+                <TableHead>Consents</TableHead>
+                <TableHead>Submitted</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {verifications.map((v) => (
+                <BorrowerQueueRow
+                  key={v.id}
+                  verification={v}
+                  isSelected={v.id === selectedId}
+                  filterQueryString={filterQueryString}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+
+      <div className="space-y-3 sm:hidden">
+        {verifications.map((v) => (
+          <BorrowerQueueMobileCard
+            key={v.id}
+            verification={v}
+            isSelected={v.id === selectedId}
+            filterQueryString={filterQueryString}
+          />
+        ))}
+      </div>
+    </>
+  );
+}
+
+function getQueueDocumentProgress(verification: ManagerBorrowerVerificationRow) {
+  const { documentPolicy } = verification;
+  const acceptedRequired = documentPolicy.requiredDocumentTypes.filter((dt) =>
+    documentPolicy.acceptedDocumentTypes.includes(dt),
+  ).length;
+  const totalRequired = documentPolicy.requiredDocumentTypes.length;
+  return { acceptedRequired, totalRequired };
+}
+
+function getQueueConsentStatus(verification: ManagerBorrowerVerificationRow) {
+  return (
+    verification.documentUploadConsentStatus.isCurrent &&
+    verification.loanApplicationConsentStatus.isCurrent
+  );
+}
+
+function buildQueueHref(
+  filterQueryString: string,
+  verificationId: string,
+) {
+  const params = new URLSearchParams(filterQueryString);
+  params.set("selected", verificationId);
+  return `?${params.toString()}`;
+}
+
+function BorrowerQueueRow({
   verification,
+  isSelected,
+  filterQueryString,
 }: {
   verification: ManagerBorrowerVerificationRow;
+  isSelected: boolean;
+  filterQueryString: string;
 }) {
-  const hasNotes = verification.rejectionReason || verification.managerReviewNotes;
+  const { acceptedRequired, totalRequired } =
+    getQueueDocumentProgress(verification);
+  const consentsCurrent = getQueueConsentStatus(verification);
+
+  return (
+    <TableRow className={isSelected ? "bg-muted/50" : undefined}>
+      <TableCell>
+        <PersonLabel person={verification.borrower} />
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={verification.verificationStatus} />
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {acceptedRequired}/{totalRequired} accepted
+      </TableCell>
+      <TableCell>
+        {consentsCurrent ? (
+          <Badge
+            variant="default"
+            className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+          >
+            <CheckCircle2Icon className="size-3" />
+            Complete
+          </Badge>
+        ) : (
+          <Badge variant="destructive" className="gap-1">
+            <XCircleIcon className="size-3" />
+            Missing
+          </Badge>
+        )}
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {verification.submittedAt
+          ? formatDateTime(verification.submittedAt)
+          : "\u2014"}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          variant={isSelected ? "secondary" : "outline"}
+          size="sm"
+          asChild
+        >
+          <Link
+            href={buildQueueHref(filterQueryString, verification.id)}
+          >
+            {isSelected ? "Selected" : "Review"}
+          </Link>
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function BorrowerQueueMobileCard({
+  verification,
+  isSelected,
+  filterQueryString,
+}: {
+  verification: ManagerBorrowerVerificationRow;
+  isSelected: boolean;
+  filterQueryString: string;
+}) {
+  const { acceptedRequired, totalRequired } =
+    getQueueDocumentProgress(verification);
+  const consentsCurrent = getQueueConsentStatus(verification);
+
+  return (
+    <Card size="sm" className={isSelected ? "border-primary" : undefined}>
+      <CardContent className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <PersonLabel person={verification.borrower} />
+          </div>
+          <StatusBadge status={verification.verificationStatus} />
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            Docs: {acceptedRequired}/{totalRequired} accepted
+          </span>
+          <span>
+            Consents:{" "}
+            {consentsCurrent ? (
+              <span className="font-medium text-emerald-700">Complete</span>
+            ) : (
+              <span className="font-medium text-destructive">Missing</span>
+            )}
+          </span>
+          {verification.submittedAt ? (
+            <span>Submitted: {formatDateTime(verification.submittedAt)}</span>
+          ) : null}
+        </div>
+        <Button
+          variant={isSelected ? "secondary" : "outline"}
+          size="sm"
+          className="w-full"
+          asChild
+        >
+          <Link
+            href={buildQueueHref(filterQueryString, verification.id)}
+          >
+            {isSelected ? "Selected" : "Review"}
+          </Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SelectedBorrowerDetail({
+  verification,
+  backHref,
+}: {
+  verification: ManagerBorrowerVerificationRow;
+  backHref: string;
+}) {
+  const hasNotes =
+    verification.rejectionReason || verification.managerReviewNotes;
+  const isApproved = verification.verificationStatus === "approved";
 
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mb-2 -ml-2 gap-1"
+              asChild
+            >
+              <Link href={backHref}>
+                <ChevronLeftIcon className="size-4" />
+                Back to queue
+              </Link>
+            </Button>
             <CardTitle className="text-base">
               <PersonLabel person={verification.borrower} />
             </CardTitle>
@@ -297,8 +567,18 @@ function BorrowerReviewCard({
           <StatusBadge status={verification.verificationStatus} />
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-          <MetaField label="Submitted" value={formatDateTime(verification.submittedAt)} />
-          <MetaField label="Created" value={formatDateTime(verification.createdAt)} />
+          <MetaField
+            label="Submitted"
+            value={
+              verification.submittedAt
+                ? formatDateTime(verification.submittedAt)
+                : "\u2014"
+            }
+          />
+          <MetaField
+            label="Created"
+            value={formatDateTime(verification.createdAt)}
+          />
           <MetaField
             label="Reviewed"
             value={
@@ -319,14 +599,40 @@ function BorrowerReviewCard({
       <CardContent>
         <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
           <div className="min-w-0 space-y-6">
-            <ConsentSection
-              documentUpload={verification.documentUploadConsentStatus}
-              loanApplication={verification.loanApplicationConsentStatus}
-            />
+            <RequiredDocumentsSection verification={verification} />
 
             <Separator />
 
-            <RequiredDocumentsSection verification={verification} />
+            <ReadinessSummaryCard verification={verification} />
+
+            <Separator />
+
+            <Collapsible defaultOpen={false}>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheckIcon className="size-4 text-muted-foreground" />
+                    <h3 className="text-sm font-semibold">
+                      Consents &amp; disclosures
+                    </h3>
+                  </div>
+                  <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+                    Show
+                    <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+                  </CollapsibleTrigger>
+                </div>
+                <CollapsibleContent>
+                  <ConsentSection
+                    documentUpload={
+                      verification.documentUploadConsentStatus
+                    }
+                    loanApplication={
+                      verification.loanApplicationConsentStatus
+                    }
+                  />
+                </CollapsibleContent>
+              </div>
+            </Collapsible>
 
             <Separator />
 
@@ -344,8 +650,11 @@ function BorrowerReviewCard({
           </div>
 
           <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-            <ReadinessSummaryCard verification={verification} />
-            <ManagerDecisionPanel verification={verification} />
+            {isApproved ? (
+              <ApprovedStatusCard verification={verification} />
+            ) : (
+              <ManagerDecisionPanel verification={verification} />
+            )}
           </div>
         </div>
       </CardContent>
@@ -370,15 +679,9 @@ function ConsentSection({
   loanApplication: ConsentStatus;
 }) {
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <ShieldCheckIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Consents &amp; disclosures</h3>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2">
-        <DisclosureCard title="Document upload" status={documentUpload} />
-        <DisclosureCard title="Loan application" status={loanApplication} />
-      </div>
+    <div className="grid gap-3 sm:grid-cols-2">
+      <DisclosureCard title="Document upload" status={documentUpload} />
+      <DisclosureCard title="Loan application" status={loanApplication} />
     </div>
   );
 }
@@ -510,7 +813,9 @@ function RequiredDocumentsSection({
                         </span>
                       </span>
                     ) : (
-                      "Not uploaded"
+                      <span className="text-muted-foreground">
+                        Not uploaded
+                      </span>
                     )}
                   </td>
                   <td className="px-3 py-2.5 text-muted-foreground">
@@ -567,7 +872,9 @@ function RequiredDocumentsSection({
                     {formatDateTime(latest.uploadedAt)}
                   </p>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Not uploaded</p>
+                  <p className="text-xs text-muted-foreground">
+                    Not uploaded
+                  </p>
                 )}
                 <DocumentActions document={latest} isAccepted={isAccepted} />
               </CardContent>
@@ -652,7 +959,9 @@ function DocumentActions({
           </a>
         </Button>
       ) : (
-        <span className="text-xs text-muted-foreground">File unavailable</span>
+        <span className="text-xs text-muted-foreground">
+          File unavailable
+        </span>
       )}
 
       {canReview ? (
@@ -708,7 +1017,8 @@ function EvidenceHistorySection({
             <HistoryIcon className="size-4 text-muted-foreground" />
             <h3 className="text-sm font-semibold">Evidence history</h3>
             <span className="text-xs text-muted-foreground">
-              {documents.length} document{documents.length !== 1 ? "s" : ""}
+              {documents.length} document
+              {documents.length !== 1 ? "s" : ""}
             </span>
           </div>
           <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
@@ -725,9 +1035,15 @@ function EvidenceHistorySection({
               >
                 <FileTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground sm:mt-0" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">{doc.fileName}</p>
+                  <p className="truncate text-xs font-medium">
+                    {doc.fileName}
+                  </p>
                   <p className="text-xs text-muted-foreground">
-                    {borrowerVerificationDocumentTypeLabels[doc.documentType]}
+                    {
+                      borrowerVerificationDocumentTypeLabels[
+                        doc.documentType
+                      ]
+                    }
                     {" \u00b7 "}
                     {formatFileSize(doc.fileSize)}
                     {" \u00b7 "}
@@ -869,6 +1185,39 @@ function ReadinessSummaryCard({
   );
 }
 
+function ApprovedStatusCard({
+  verification,
+}: {
+  verification: ManagerBorrowerVerificationRow;
+}) {
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Review status</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        <div className="flex items-center gap-2">
+          <CheckCircle2Icon className="size-4 text-emerald-600" />
+          <span className="text-sm font-medium">Borrower approved</span>
+        </div>
+        {verification.reviewedAt ? (
+          <p className="text-xs text-muted-foreground">
+            Reviewed {formatDateTime(verification.reviewedAt)}
+            {verification.reviewedBy
+              ? ` by ${verification.reviewedBy.displayName}`
+              : ""}
+          </p>
+        ) : null}
+        {verification.managerReviewNotes ? (
+          <p className="text-xs text-muted-foreground">
+            Note: {verification.managerReviewNotes}
+          </p>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function ManagerDecisionPanel({
   verification,
 }: {
@@ -881,9 +1230,16 @@ function ManagerDecisionPanel({
       </CardHeader>
       <CardContent>
         <form action={reviewBorrowerVerificationAction} className="grid gap-3">
-          <input type="hidden" name="borrowerId" value={verification.borrower.id} />
+          <input
+            type="hidden"
+            name="borrowerId"
+            value={verification.borrower.id}
+          />
           <div className="grid gap-1.5">
-            <Label htmlFor={`notes-${verification.id}`} className="text-xs font-medium">
+            <Label
+              htmlFor={`notes-${verification.id}`}
+              className="text-xs font-medium"
+            >
               Manager note
             </Label>
             <Textarea
@@ -895,7 +1251,10 @@ function ManagerDecisionPanel({
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor={`reason-${verification.id}`} className="text-xs font-medium">
+            <Label
+              htmlFor={`reason-${verification.id}`}
+              className="text-xs font-medium"
+            >
               Rejection reason
             </Label>
             <Textarea
@@ -907,7 +1266,12 @@ function ManagerDecisionPanel({
             />
           </div>
           <div className="grid gap-2">
-            <Button type="submit" name="decision" value="approve" className="w-full">
+            <Button
+              type="submit"
+              name="decision"
+              value="approve"
+              className="w-full"
+            >
               <CheckCircle2Icon className="size-4" />
               Approve
             </Button>

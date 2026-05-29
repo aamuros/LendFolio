@@ -9,6 +9,7 @@ import {
 import {
   AccessDenied,
   EmptyState,
+  FilterForm,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -175,10 +176,12 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
 }
 
 function LenderFilters({ status }: { status?: string }) {
+  const hasActiveFilters = Boolean(status);
+
   return (
     <Card>
       <CardContent>
-        <form className="flex flex-wrap items-end gap-3">
+        <FilterForm className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1">
             <SelectFilter
               label="Status"
@@ -193,11 +196,13 @@ function LenderFilters({ status }: { status?: string }) {
           </div>
           <div className="flex items-end gap-2">
             <Button type="submit">Apply</Button>
-            <Button type="button" variant="outline" asChild>
-              <Link href="?">Clear</Link>
-            </Button>
+            {hasActiveFilters ? (
+              <Button type="button" variant="outline" asChild>
+                <Link href="?">Clear</Link>
+              </Button>
+            ) : null}
           </div>
-        </form>
+        </FilterForm>
       </CardContent>
     </Card>
   );

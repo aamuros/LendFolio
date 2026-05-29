@@ -12,8 +12,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import {
   AccessDenied,
-  AutoFilterGrid,
   EmptyState,
+  FilterForm,
   ListTable,
   ManagerDetailsLink,
   ManagerShell,
@@ -22,6 +22,8 @@ import {
   TextFilter,
   formatDateTime,
 } from "../manager-ui";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { withServerTiming } from "@/lib/perf";
 
 type PageProps = {
@@ -156,36 +158,49 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       title="Audit logs"
       description="Review workflow events by actor, action, target, and date."
     >
-      <AutoFilterGrid>
-        <TextFilter label="Action" name="action" defaultValue={filters.action} />
-        <TextFilter
-          label="Target table"
-          name="targetTable"
-          defaultValue={filters.targetTable}
-        />
-        <TextFilter label="Actor" name="actor" defaultValue={filters.actor} />
-        <TextFilter
-          label="Created from"
-          name="createdFrom"
-          type="date"
-          defaultValue={filters.createdFrom}
-        />
-        <TextFilter
-          label="Created to"
-          name="createdTo"
-          type="date"
-          defaultValue={filters.createdTo}
-        />
-      </AutoFilterGrid>
-
-      {hasActiveFilters ? (
-        <Link
-          href="/manager/audit-logs"
-          className="w-fit text-xs font-medium text-muted-foreground transition hover:text-foreground"
-        >
-          Reset filters
-        </Link>
-      ) : null}
+      <Card>
+        <CardContent>
+          <FilterForm className="flex flex-wrap items-end gap-3">
+            <div className="min-w-[140px] flex-1">
+              <TextFilter label="Action" name="action" defaultValue={filters.action} />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <TextFilter
+                label="Target table"
+                name="targetTable"
+                defaultValue={filters.targetTable}
+              />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <TextFilter label="Actor" name="actor" defaultValue={filters.actor} />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <TextFilter
+                label="Created from"
+                name="createdFrom"
+                type="date"
+                defaultValue={filters.createdFrom}
+              />
+            </div>
+            <div className="min-w-[140px] flex-1">
+              <TextFilter
+                label="Created to"
+                name="createdTo"
+                type="date"
+                defaultValue={filters.createdTo}
+              />
+            </div>
+            <div className="flex items-end gap-2">
+              <Button type="submit">Apply</Button>
+              {hasActiveFilters ? (
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/manager/audit-logs">Clear</Link>
+                </Button>
+              ) : null}
+            </div>
+          </FilterForm>
+        </CardContent>
+      </Card>
 
       {!result.ok ? (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
