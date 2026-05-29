@@ -11,105 +11,677 @@ export default async function Home({ searchParams }: HomeProps) {
   const authMessage = getAuthMessage(params?.auth);
 
   return (
-    <main className="min-h-svh bg-[#F6F5F2] text-[#161616]">
-      <section className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-5 py-5 sm:px-8 lg:px-10">
-        <header className="flex min-h-12 items-center justify-between gap-4 border-b border-[#D9D7D1]">
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#1F1F1F] uppercase">
-            LENDFOLIO
-          </p>
-          <div className="flex items-center gap-4">
-            <Link
-              href="/signup"
-              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-            >
-              Create account
-            </Link>
-            <Link
-              href="/login"
-              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-            >
-              Sign in
-            </Link>
-          </div>
-        </header>
+    <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
+      <Header />
 
-        <div className="flex flex-1 flex-col justify-center gap-10 py-10 sm:py-12 lg:gap-12 lg:py-14">
-          <div className="grid max-w-4xl gap-8 lg:pt-4">
-            {authMessage ? (
-              <p
-                className="max-w-xl border-l-2 border-[#1F1F1F] bg-white/70 px-4 py-3 text-sm leading-6 text-[#5F5F5F]"
-                role="status"
-              >
-                {authMessage}
+      <section className="relative isolate border-b border-[#D9D7D1] px-5 pt-14 pb-10 sm:px-8 sm:pt-20 lg:px-10 lg:pt-24">
+        <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.06)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.05)_1px,transparent_1px)] bg-[size:4.5rem_4.5rem]" />
+        <div className="absolute inset-x-0 top-0 -z-10 h-72 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.18),transparent_62%)]" />
+
+        <div className="mx-auto grid w-full max-w-7xl gap-12">
+          {authMessage ? (
+            <p
+              className="mx-auto max-w-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
+              role="status"
+            >
+              {authMessage}
+            </p>
+          ) : null}
+
+          <div className="relative mx-auto grid w-full max-w-6xl place-items-center gap-9 py-6 text-center sm:py-10">
+            <LandingMesh />
+            <FloatingFinanceCards />
+            <div className="grid max-w-5xl gap-6">
+              <p className="text-xs font-semibold tracking-[0.22em] text-[#6A6863] uppercase">
+                Structured microfinance operations
               </p>
-            ) : null}
-            <div className="grid gap-5">
-              <p className="text-xs font-semibold tracking-[0.16em] text-[#6A6863] uppercase">
-                MICRO-BUSINESS LENDING
-              </p>
-              <h1 className="max-w-4xl text-4xl leading-[1.04] font-semibold tracking-[-0.01em] text-balance text-[#161616] sm:text-5xl lg:text-6xl">
-                Simple financing workflows for micro-business lending.
+              <h1 className="text-balance text-5xl leading-[0.95] font-semibold tracking-[-0.02em] text-[#161616] sm:text-7xl lg:text-8xl">
+                Data-driven lending workflows for modern microfinance
               </h1>
-              <p className="max-w-2xl text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
-                LendFolio helps borrowers submit business profiles, lenders
-                review applications, and teams manage offer decisions.
+              <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
+                LendFolio helps borrowers prepare profiles, lenders review
+                applications, and managers oversee approvals, offers, proofs,
+                and repayments.
               </p>
             </div>
-            <div>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/signup"
-                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#1F1F1F] px-6 text-sm font-semibold !text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#0F0F0F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-                >
-                  Create account
-                </Link>
-                <Link
-                  href="/login"
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#D9D7D1] bg-white/70 px-6 text-sm font-semibold text-[#1F1F1F] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-                >
-                  Sign in
-                </Link>
-              </div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/signup"
+                className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+              >
+                Create account
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex min-h-12 items-center justify-center border border-[#C7C4BC] bg-[#FFFFFC]/80 px-6 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+              >
+                Sign in
+              </Link>
             </div>
           </div>
-
-          <section
-            aria-label="Core workflow"
-            className="grid overflow-hidden rounded-lg border border-[#D9D7D1] bg-white/45 sm:grid-cols-3 sm:divide-x sm:divide-[#D9D7D1]"
-          >
-            {features.map((feature) => (
-              <article
-                key={feature.title}
-                className="grid gap-3 border-b border-[#D9D7D1] p-5 last:border-b-0 sm:border-b-0 sm:p-6"
-              >
-                <h2 className="text-sm font-semibold text-[#1F1F1F]">
-                  {feature.title}
-                </h2>
-                <p className="max-w-xs text-sm leading-6 text-[#5F5F5F]">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
-          </section>
         </div>
       </section>
+
+      <WorkflowStrip />
+      <DarkIntelligenceSection />
+      <ProductWorkflowSections />
+      <LayerSection />
+      <MetricsSection />
+      <FinalCta />
+      <Footer />
     </main>
   );
 }
 
-const features = [
+function Header() {
+  return (
+    <header className="sticky top-0 z-50 border-b border-[#D9D7D1] bg-[#F6F5F2]/90 px-5 backdrop-blur sm:px-8 lg:px-10">
+      <nav
+        className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4"
+        aria-label="Main navigation"
+      >
+        <Link
+          href="/"
+          className="text-sm font-semibold tracking-[0.18em] uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+        >
+          LendFolio
+        </Link>
+        <div className="hidden items-center gap-7 text-sm text-[#55534F] lg:flex">
+          {navLinks.map((link) => (
+            <a
+              key={link}
+              href={`#${link.toLowerCase()}`}
+              className="transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            >
+              {link}
+            </a>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Link
+            href="/login"
+            className="hidden px-2 py-2 text-sm font-medium text-[#1F1F1F] transition-colors hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:inline-flex"
+          >
+            Sign in
+          </Link>
+          <Link
+            href="/signup"
+            className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+          >
+            Create account
+          </Link>
+        </div>
+      </nav>
+    </header>
+  );
+}
+
+function LandingMesh() {
+  return (
+    <div
+      className="pointer-events-none absolute top-2 left-1/2 -z-10 h-[22rem] w-[22rem] -translate-x-1/2 opacity-70 sm:h-[34rem] sm:w-[34rem]"
+      aria-hidden="true"
+    >
+      <div className="absolute inset-8 rounded-full border border-[#33423C]/20 bg-[radial-gradient(circle,rgba(246,245,242,0.2),rgba(51,66,60,0.06)_45%,transparent_72%)]" />
+      <svg viewBox="0 0 600 600" className="h-full w-full">
+        <defs>
+          <radialGradient id="meshGlow" cx="50%" cy="42%" r="55%">
+            <stop offset="0%" stopColor="#F6F5F2" stopOpacity="0.62" />
+            <stop offset="58%" stopColor="#33423C" stopOpacity="0.18" />
+            <stop offset="100%" stopColor="#33423C" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="300" cy="300" r="248" fill="url(#meshGlow)" />
+        {Array.from({ length: 12 }).map((_, index) => (
+          <ellipse
+            key={`ring-${index}`}
+            cx="300"
+            cy="300"
+            rx={70 + index * 15}
+            ry={210 - index * 8}
+            fill="none"
+            stroke="#33423C"
+            strokeOpacity="0.22"
+            strokeWidth="1"
+            transform={`rotate(${index * 15} 300 300)`}
+          />
+        ))}
+        {Array.from({ length: 9 }).map((_, index) => (
+          <path
+            key={`arc-${index}`}
+            d={`M ${92 + index * 10} ${250 + index * 14} C ${190 + index * 8} ${90 + index * 12}, ${404 - index * 9} ${106 + index * 8}, ${512 - index * 12} ${286 + index * 13}`}
+            fill="none"
+            stroke="#161616"
+            strokeOpacity="0.11"
+            strokeWidth="1"
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+function FloatingFinanceCards() {
+  return (
+    <div className="pointer-events-none absolute inset-0 hidden sm:block" aria-hidden="true">
+      {heroCards.map((card) => (
+        <div
+          key={card.label}
+          className={`absolute min-w-44 border border-[#D9D7D1] bg-[#FFFFFC]/82 p-3 text-left shadow-[0_22px_60px_rgba(14,26,18,0.12)] backdrop-blur ${card.position}`}
+        >
+          <p className="text-[0.65rem] font-semibold tracking-[0.14em] text-[#77736A] uppercase">
+            {card.label}
+          </p>
+          <p className="mt-2 text-sm font-semibold text-[#161616]">
+            {card.value}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function WorkflowStrip() {
+  return (
+    <section
+      className="border-b border-[#D9D7D1] bg-[#EFEDE7] px-5 py-5 sm:px-8 lg:px-10"
+      aria-label="Lending workflow"
+    >
+      <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-center gap-x-8 gap-y-3 text-center text-xs font-semibold tracking-[0.16em] text-[#68645E] uppercase">
+        {workflowLabels.map((label) => (
+          <span key={label}>{label}</span>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function DarkIntelligenceSection() {
+  return (
+    <section
+      id="product"
+      className="relative overflow-hidden bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
+    >
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.08)_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-35" />
+      <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(226,218,198,0.2),transparent_58%)]" />
+      <div className="relative mx-auto grid max-w-7xl gap-12">
+        <div className="mx-auto grid max-w-3xl gap-5 text-center">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#C6BFAF] uppercase">
+            Decision intelligence
+          </p>
+          <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-6xl">
+            Bring structure to every lending decision
+          </h2>
+          <p className="text-balance text-base leading-7 text-[#CFC8B9] sm:text-lg">
+            Turn borrower profiles, application data, lender offers, approvals,
+            and repayment proofs into a clear workflow your team can review.
+          </p>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="border border-white/15 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-6">
+            <div className="mb-6 flex items-center justify-between gap-4">
+              <div>
+                <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
+                  Review queue
+                </p>
+                <h3 className="mt-2 text-xl font-semibold">
+                  Applications by stage
+                </h3>
+              </div>
+              <span className="border border-[#C6BFAF]/30 px-3 py-1 text-xs text-[#E6DDCB]">
+                Live workflow
+              </span>
+            </div>
+            <div className="grid gap-3">
+              {decisionRows.map((row) => (
+                <div
+                  key={row.name}
+                  className="grid gap-3 border border-white/10 bg-[#142218]/80 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                >
+                  <div>
+                    <p className="font-medium text-white">{row.name}</p>
+                    <p className="mt-1 text-sm text-[#AFA794]">{row.detail}</p>
+                  </div>
+                  <span className="w-fit border border-[#E6DDCB]/20 px-3 py-1 text-xs text-[#E6DDCB]">
+                    {row.status}
+                  </span>
+                  <p className="text-sm font-semibold text-[#F6F0DF]">
+                    {row.amount}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid gap-4">
+            {intelligenceCards.map((card) => (
+              <DataCard key={card.title} {...card} dark />
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ProductWorkflowSections() {
+  return (
+    <div id="borrowers" className="bg-[#F6F5F2]">
+      {workflowSections.map((section, index) => {
+        const isDark = section.tone === "dark";
+
+        return (
+          <section
+            key={section.title}
+            id={index === 1 ? "lenders" : index === 2 ? "security" : undefined}
+            className={`px-5 py-18 sm:px-8 sm:py-24 lg:px-10 ${
+              isDark ? "bg-[#111612] text-white" : "bg-[#F6F5F2] text-[#161616]"
+            }`}
+          >
+            <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
+              <div className="grid gap-5">
+                <p
+                  className={`text-xs font-semibold tracking-[0.2em] uppercase ${
+                    isDark ? "text-[#C6BFAF]" : "text-[#77736A]"
+                  }`}
+                >
+                  {section.eyebrow}
+                </p>
+                <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
+                  {section.title}
+                </h2>
+                <p
+                  className={`max-w-xl text-base leading-7 ${
+                    isDark ? "text-[#CFC8B9]" : "text-[#5F5F5F]"
+                  }`}
+                >
+                  {section.description}
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                {section.cards.map((card) => (
+                  <DataCard key={card.title} {...card} dark={isDark} />
+                ))}
+              </div>
+            </div>
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
+function LayerSection() {
+  return (
+    <section id="managers" className="border-y border-[#D9D7D1] px-5 py-20 sm:px-8 sm:py-24 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-10">
+        <div className="mx-auto grid max-w-3xl gap-4 text-center">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
+            Operating layers
+          </p>
+          <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
+            Built for every layer of modern lending
+          </h2>
+        </div>
+        <div className="grid gap-4 lg:grid-cols-3">
+          {layerCards.map((card) => (
+            <article
+              key={card.title}
+              className="border border-[#D9D7D1] bg-[#FFFFFC]/70 p-6 shadow-[0_22px_60px_rgba(14,26,18,0.06)]"
+            >
+              <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
+                {card.label}
+              </p>
+              <h3 className="mt-5 text-2xl font-semibold text-[#161616]">
+                {card.title}
+              </h3>
+              <p className="mt-4 text-sm leading-6 text-[#5F5F5F]">
+                {card.description}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function MetricsSection() {
+  return (
+    <section className="bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-8">
+        <div className="grid gap-3">
+          <p className="text-xs font-semibold tracking-[0.2em] text-[#77736A] uppercase">
+            Product frame
+          </p>
+          <h2 className="max-w-3xl text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-5xl">
+            A focused workflow without inflated claims
+          </h2>
+        </div>
+        <div className="grid border border-[#D9D7D1] bg-[#FFFFFC]/60 sm:grid-cols-2 lg:grid-cols-4">
+          {metrics.map((metric) => (
+            <article
+              key={metric.value}
+              className="border-b border-[#D9D7D1] p-6 last:border-b-0 sm:border-r sm:last:border-r-0 lg:border-b-0"
+            >
+              <p className="text-5xl font-semibold tracking-[-0.04em] text-[#161616] sm:text-6xl">
+                {metric.value}
+              </p>
+              <p className="mt-4 text-sm font-medium text-[#5F5F5F]">
+                {metric.label}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function FinalCta() {
+  return (
+    <section className="bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10">
+      <div className="mx-auto grid max-w-5xl place-items-center gap-7 text-center">
+        <h2 className="text-balance text-4xl leading-tight font-semibold tracking-[-0.02em] sm:text-6xl">
+          Add intelligence to every layer of your lending workflow
+        </h2>
+        <p className="max-w-2xl text-balance text-base leading-7 text-[#CFC8B9]">
+          Start with borrower profiles, lender review, offers, and the manager
+          oversight your team needs to keep decisions structured.
+        </p>
+        <Link
+          href="/signup"
+          className="inline-flex min-h-12 items-center justify-center border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
+        >
+          Create account
+        </Link>
+      </div>
+    </section>
+  );
+}
+
+function Footer() {
+  return (
+    <footer className="border-t border-[#D9D7D1] bg-[#F6F5F2] px-5 py-8 sm:px-8 lg:px-10">
+      <div className="mx-auto flex max-w-7xl flex-col gap-5 text-sm text-[#5F5F5F] sm:flex-row sm:items-center sm:justify-between">
+        <p className="font-semibold tracking-[0.18em] text-[#161616] uppercase">
+          LendFolio
+        </p>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          {navLinks.map((link) => (
+            <a
+              key={link}
+              href={`#${link.toLowerCase()}`}
+              className="transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            >
+              {link}
+            </a>
+          ))}
+        </div>
+      </div>
+    </footer>
+  );
+}
+
+type DataCardProps = {
+  title: string;
+  value: string;
+  detail: string;
+  status?: string;
+  dark?: boolean;
+};
+
+function DataCard({ title, value, detail, status, dark = false }: DataCardProps) {
+  return (
+    <article
+      className={`border p-5 ${
+        dark
+          ? "border-white/15 bg-white/[0.04] text-white"
+          : "border-[#D9D7D1] bg-[#FFFFFC]/70 text-[#161616] shadow-[0_18px_60px_rgba(14,26,18,0.06)]"
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        <p
+          className={`text-xs font-semibold tracking-[0.16em] uppercase ${
+            dark ? "text-[#AFA794]" : "text-[#77736A]"
+          }`}
+        >
+          {title}
+        </p>
+        {status ? (
+          <span
+            className={`shrink-0 border px-2 py-1 text-[0.68rem] font-medium ${
+              dark
+                ? "border-[#E6DDCB]/20 text-[#E6DDCB]"
+                : "border-[#C7C4BC] text-[#55534F]"
+            }`}
+          >
+            {status}
+          </span>
+        ) : null}
+      </div>
+      <p className="mt-5 text-3xl font-semibold tracking-[-0.03em]">{value}</p>
+      <p
+        className={`mt-4 text-sm leading-6 ${
+          dark ? "text-[#CFC8B9]" : "text-[#5F5F5F]"
+        }`}
+      >
+        {detail}
+      </p>
+      <div
+        className={`mt-5 h-2 overflow-hidden border ${
+          dark ? "border-white/10 bg-white/5" : "border-[#D9D7D1] bg-[#E7E4DE]"
+        }`}
+      >
+        <div
+          className={`h-full w-2/3 ${dark ? "bg-[#E6DDCB]" : "bg-[#33423C]"}`}
+        />
+      </div>
+    </article>
+  );
+}
+
+const navLinks = ["Product", "Borrowers", "Lenders", "Managers", "Security"];
+
+const heroCards = [
   {
-    title: "Business profiles",
-    description: "Keep borrower details ready for review.",
+    label: "Application status",
+    value: "Ready",
+    position: "top-8 left-2 lg:left-14",
   },
   {
-    title: "Loan applications",
-    description: "Submit and review financing requests.",
+    label: "Credit limit",
+    value: "PHP 40,000",
+    position: "top-10 right-4 lg:right-16",
   },
   {
-    title: "Lender offers",
-    description: "Compare, decline, or accept structured offers.",
+    label: "Repayment proof",
+    value: "Pending review",
+    position: "bottom-4 left-8 lg:left-24",
   },
+  {
+    label: "Risk notes",
+    value: "Verified profile",
+    position: "right-1 bottom-7 lg:right-16",
+  },
+];
+
+const workflowLabels = [
+  "Borrower profiles",
+  "Lender review",
+  "Manager approvals",
+  "Offers",
+  "Repayments",
+  "Proofs",
+];
+
+const decisionRows = [
+  {
+    name: "Sari-sari store expansion",
+    detail: "Profile complete, documents attached",
+    status: "Under review",
+    amount: "PHP 40,000",
+  },
+  {
+    name: "Food cart inventory",
+    detail: "Offer terms awaiting borrower response",
+    status: "Offer sent",
+    amount: "PHP 28,000",
+  },
+  {
+    name: "Market stall repairs",
+    detail: "Manager verification required",
+    status: "Approval",
+    amount: "PHP 18,500",
+  },
+];
+
+const intelligenceCards = [
+  {
+    title: "Offer quality",
+    value: "1 accepted",
+    detail: "One borrower decision closes competing pending offers.",
+    status: "Atomic",
+  },
+  {
+    title: "Proof review",
+    value: "4 types",
+    detail: "Repayment records can move through manager and lender checks.",
+    status: "Tracked",
+  },
+];
+
+const workflowSections = [
+  {
+    eyebrow: "Borrower profile",
+    title: "Make every borrower profile reviewable",
+    description:
+      "Capture business context, readiness signals, documents, and application status before a financing request moves forward.",
+    tone: "light",
+    cards: [
+      {
+        title: "Business details",
+        value: "Complete",
+        detail: "Trading history, monthly revenue, and business category.",
+        status: "Profile",
+      },
+      {
+        title: "Documents",
+        value: "Attached",
+        detail: "Verification files stay connected to the borrower record.",
+        status: "Review",
+      },
+      {
+        title: "Credit readiness",
+        value: "Prepared",
+        detail: "Credit limit context is visible before application review.",
+        status: "Ready",
+      },
+      {
+        title: "Application",
+        value: "Submitted",
+        detail: "Borrowers move from profile setup into a clear request.",
+        status: "Open",
+      },
+    ],
+  },
+  {
+    eyebrow: "Lender review",
+    title: "Connect every request to lender review",
+    description:
+      "Give approved lenders a structured view of requested amount, purpose, preferred term, decision status, and offer context.",
+    tone: "dark",
+    cards: [
+      {
+        title: "Requested amount",
+        value: "PHP 32,000",
+        detail: "Funding need and business purpose sit in one review surface.",
+        status: "Request",
+      },
+      {
+        title: "Preferred term",
+        value: "6 months",
+        detail: "Terms are evaluated before the lender creates an offer.",
+        status: "Term",
+      },
+      {
+        title: "Decision",
+        value: "Reviewing",
+        detail: "Lender decisions remain tied to the application record.",
+        status: "Queue",
+      },
+      {
+        title: "Offer status",
+        value: "Pending",
+        detail: "Borrowers can review structured offers before accepting.",
+        status: "Offer",
+      },
+    ],
+  },
+  {
+    eyebrow: "Repayment operations",
+    title: "Build intelligence on every repayment",
+    description:
+      "Use repayment proof, balances, due dates, and manager review states as the foundation for a clearer loan servicing workflow.",
+    tone: "light",
+    cards: [
+      {
+        title: "Due this month",
+        value: "PHP 6,800",
+        detail: "Upcoming repayment context is visible to the workspace.",
+        status: "Due",
+      },
+      {
+        title: "Repayment proof",
+        value: "Uploaded",
+        detail: "Proofs can be reviewed without losing application context.",
+        status: "Proof",
+      },
+      {
+        title: "Balance",
+        value: "Remaining",
+        detail: "Loan records can carry the next operational checkpoint.",
+        status: "Loan",
+      },
+      {
+        title: "Manager review",
+        value: "Queued",
+        detail: "Oversight stays connected to users, offers, and logs.",
+        status: "Review",
+      },
+    ],
+  },
+];
+
+const layerCards = [
+  {
+    label: "Borrowers",
+    title: "Prepare and respond",
+    description:
+      "Prepare profile, submit applications, review offers, and upload repayment proof from one borrower workspace.",
+  },
+  {
+    label: "Lenders",
+    title: "Review and offer",
+    description:
+      "Complete onboarding, review verified requests, and send structured offers with clear borrower context.",
+  },
+  {
+    label: "Managers",
+    title: "Oversee the flow",
+    description:
+      "Approve lenders, review users, monitor applications, offers, loans, logs, and proofs across the platform.",
+  },
+];
+
+const metrics = [
+  { value: "3", label: "workspaces" },
+  { value: "6", label: "review stages" },
+  { value: "4", label: "proof types" },
+  { value: "1", label: "structured lending flow" },
 ];
 
 function getAuthMessage(auth?: string) {

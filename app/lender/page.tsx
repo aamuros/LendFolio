@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { signOutAction } from "@/app/login/actions";
+import { DismissibleLenderStatusBanner } from "@/components/dismissible-lender-status-banner";
 import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
   formatCurrency,
@@ -307,7 +308,7 @@ function HomeTab({
             />
           </div>
 
-          <div className="grid gap-3 xl:grid-cols-[1fr_1.2fr_1.2fr]">
+          <div className="grid items-stretch gap-3 md:grid-cols-2 xl:grid-cols-3">
             <DashboardPanel title="Total revenue">
               <div className="grid gap-4">
                 <div>
@@ -650,7 +651,7 @@ function DashboardPanel({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-3xl border border-[var(--border)] bg-white p-4 shadow-sm">
+    <section className="h-full rounded-3xl border border-[var(--border)] bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
         {action}
@@ -1354,40 +1355,19 @@ function LenderProfileStatusBanner({
   status: LenderProfileStatus;
   buildProfileHref: (profileTab: LenderProfileTab) => string;
 }) {
-  const toneClassName =
-    status.tone === "ready"
-      ? "border-emerald-200 bg-emerald-50 text-emerald-950"
-      : status.tone === "attention"
-        ? "border-amber-200 bg-amber-50 text-amber-950"
-        : "border-[var(--border)] bg-white text-[var(--foreground)]";
+  const actionHref = status.actionProfileTab
+    ? buildProfileHref(status.actionProfileTab)
+    : null;
 
   return (
-    <section className={`rounded-3xl border px-5 py-5 shadow-sm ${toneClassName}`}>
-      <div className="flex items-start gap-3">
-        <StatusIcon tone={status.tone} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-lg font-semibold">{status.title}</h2>
-            <LenderStatusPill tone={status.tone}>{status.pill}</LenderStatusPill>
-          </div>
-          <p className="mt-1 text-sm leading-6 text-current/75">
-            {status.description}
-          </p>
-          {status.action ? (
-            status.actionProfileTab ? (
-              <Link
-                href={buildProfileHref(status.actionProfileTab)}
-                className="mt-3 inline-flex h-10 items-center justify-center rounded-full bg-white/80 px-4 text-sm font-semibold text-current shadow-sm transition hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-current"
-              >
-                {status.action}
-              </Link>
-            ) : (
-              <p className="mt-3 text-sm font-semibold">{status.action}</p>
-            )
-          ) : null}
-        </div>
-      </div>
-    </section>
+    <DismissibleLenderStatusBanner
+      title={status.title}
+      description={status.description}
+      pill={status.pill}
+      tone={status.tone}
+      action={status.action}
+      actionHref={actionHref}
+    />
   );
 }
 
@@ -1446,9 +1426,9 @@ function LenderStatusPill({
 }) {
   const className =
     tone === "ready"
-      ? "bg-emerald-100 text-emerald-700"
+      ? "border border-[#ddd0bd] bg-[#eee7dc] text-[#241f1a]"
       : tone === "attention"
-        ? "bg-amber-100 text-amber-800"
+        ? "bg-[#f3e5c5] text-[#3a2d16]"
         : "bg-[var(--muted)] text-[var(--muted-foreground)]";
 
   return (
@@ -1456,48 +1436,6 @@ function LenderStatusPill({
       className={`inline-flex h-7 items-center rounded-full px-2.5 text-xs font-semibold ${className}`}
     >
       {children}
-    </span>
-  );
-}
-
-function StatusIcon({ tone }: { tone: LenderProfileStatusTone }) {
-  const className =
-    tone === "ready"
-      ? "bg-emerald-100 text-emerald-700"
-      : tone === "attention"
-        ? "bg-amber-100 text-amber-800"
-        : "bg-[var(--muted)] text-[var(--muted-foreground)]";
-
-  return (
-    <span
-      className={`inline-flex size-10 shrink-0 items-center justify-center rounded-full ${className}`}
-    >
-      <svg
-        aria-hidden="true"
-        viewBox="0 0 24 24"
-        className="size-5"
-        fill="none"
-        stroke="currentColor"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        strokeWidth="2"
-      >
-        {tone === "ready" ? (
-          <path d="m5 12 4 4L19 6" />
-        ) : tone === "attention" ? (
-          <>
-            <path d="M12 9v4" />
-            <path d="M12 17h.01" />
-            <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-          </>
-        ) : (
-          <>
-            <circle cx="12" cy="12" r="9" />
-            <path d="M12 8v4" />
-            <path d="M12 16h.01" />
-          </>
-        )}
-      </svg>
     </span>
   );
 }
