@@ -18,7 +18,7 @@ fi
 
 echo ""
 echo "[2/3] Starting production server on port $PERF_PORT..."
-PORT=$PERF_PORT npm run start &
+PORT=$PERF_PORT npx next start -p "$PERF_PORT" &
 SERVER_PID=$!
 
 cleanup() {

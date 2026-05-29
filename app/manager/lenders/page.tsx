@@ -8,10 +8,7 @@ import {
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
-  DataCard,
   EmptyState,
-  Field,
-  FilterGrid,
   ManagerShell,
   PersonLabel,
   SelectFilter,
@@ -20,8 +17,31 @@ import {
   formatCurrency,
   formatDateTime,
 } from "../manager-ui";
-
-
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  CircleDotIcon,
+  ShieldCheckIcon,
+  XCircleIcon,
+} from "lucide-react";
+import { reviewLenderAction } from "@/app/manager/actions";
+import { RejectLenderDialog } from "@/components/manager/lenders/reject-lender-dialog";
 
 type PageProps = {
   searchParams: Promise<{
@@ -38,8 +58,7 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     return (
       <ManagerShell
         title="Lender review"
-        description="Review lender accounts before workspace access."
-        
+        description="Approve lender requests or reject accounts that should not access lender tools."
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -50,28 +69,75 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     verificationStatus: params.status,
   });
 
+  const pendingCount = result.lenders.filter(
+    (l) => l.verificationStatus === "pending",
+  ).length;
+  const approvedCount = result.lenders.filter(
+    (l) => l.verificationStatus === "approved",
+  ).length;
+  const rejectedCount = result.lenders.filter(
+    (l) => l.verificationStatus === "rejected",
+  ).length;
+
+  const pendingLenders = result.lenders.filter(
+    (l) => l.verificationStatus === "pending",
+  );
+  const completedLenders = result.lenders.filter(
+    (l) => l.verificationStatus !== "pending",
+  );
+
   return (
     <ManagerShell
       title="Lender review"
       description="Approve lender requests or reject accounts that should not access lender tools."
-      
+      showHeading={false}
     >
-      <ReviewStatus review={params.review} />
-      <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
-      <FilterGrid>
-        <SelectFilter
-          label="Status"
-          name="status"
-          defaultValue={params.status}
-          options={[
-            { value: "pending", label: "Pending" },
-            { value: "approved", label: "Approved" },
-            { value: "rejected", label: "Rejected" },
-          ]}
-        />
-      </FilterGrid>
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-xl font-semibold tracking-tight">
+              Lender review
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              Approve lender requests or reject accounts that should not access
+              lender tools.
+            </p>
+          </div>
+          {result.lenders.length > 0 ? (
+            <div className="flex items-center gap-2">
+              {pendingCount > 0 ? (
+                <Badge variant="secondary" className="gap-1">
+                  <CircleDotIcon className="size-3" />
+                  {pendingCount} pending
+                </Badge>
+              ) : null}
+              {approvedCount > 0 ? (
+                <Badge
+                  variant="default"
+                  className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <CheckCircle2Icon className="size-3" />
+                  {approvedCount} approved
+                </Badge>
+              ) : null}
+              {rejectedCount > 0 ? (
+                <Badge variant="destructive" className="gap-1">
+                  <XCircleIcon className="size-3" />
+                  {rejectedCount} rejected
+                </Badge>
+              ) : null}
+            </div>
+          ) : null}
+        </div>
 
-      <section className="grid gap-3">
+        <ReviewStatus review={params.review} />
+
+        {!result.ok ? (
+          <StatusMessage message={result.message} tone="error" />
+        ) : null}
+
+        <LenderFilters status={params.status} />
+
         {result.lenders.length === 0 ? (
           <EmptyState
             title="No lenders found"
@@ -79,11 +145,61 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
           />
         ) : null}
 
-        {result.lenders.map((lender) => (
-          <LenderCard key={lender.id} lender={lender} />
-        ))}
-      </section>
+        {pendingLenders.length > 0 ? (
+          <section className="space-y-4">
+            {pendingLenders.map((lender) => (
+              <PendingLenderCard key={lender.id} lender={lender} />
+            ))}
+          </section>
+        ) : null}
+
+        {completedLenders.length > 0 ? (
+          <section className="space-y-3">
+            {pendingLenders.length > 0 ? (
+              <div className="flex items-center gap-3">
+                <Separator className="flex-1" />
+                <span className="text-xs font-medium text-muted-foreground">
+                  Reviewed lenders
+                </span>
+                <Separator className="flex-1" />
+              </div>
+            ) : null}
+            {completedLenders.map((lender) => (
+              <CompletedLenderCard key={lender.id} lender={lender} />
+            ))}
+          </section>
+        ) : null}
+      </div>
     </ManagerShell>
+  );
+}
+
+function LenderFilters({ status }: { status?: string }) {
+  return (
+    <Card>
+      <CardContent>
+        <form className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Status"
+              name="status"
+              defaultValue={status}
+              options={[
+                { value: "pending", label: "Pending" },
+                { value: "approved", label: "Approved" },
+                { value: "rejected", label: "Rejected" },
+              ]}
+            />
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit">Apply</Button>
+            <Button type="button" variant="outline" asChild>
+              <Link href="?">Clear</Link>
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -116,87 +232,254 @@ function ReviewStatus({ review }: { review?: string }) {
   return null;
 }
 
-function LenderCard({ lender }: { lender: ManagerLenderRow }) {
+function PendingLenderCard({ lender }: { lender: ManagerLenderRow }) {
   return (
-    <DataCard>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h2 className="text-lg font-semibold">{lender.organizationName}</h2>
-          <p className="text-sm text-[var(--muted-foreground)]">
-            <PersonLabel person={lender.profile} />
-          </p>
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <CardTitle className="text-base">
+              {lender.organizationName}
+            </CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              <PersonLabel person={lender.profile} />
+            </p>
+          </div>
+          <StatusBadge status={lender.verificationStatus} />
         </div>
-        <StatusBadge status={lender.verificationStatus} />
-      </div>
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <MetaField label="Contact" value={lender.contactPerson} />
+          <MetaField label="Operating area" value={lender.operatingArea} />
+          <MetaField
+            label="Loan range"
+            value={`${formatCurrency(lender.minLoanAmount)} – ${formatCurrency(lender.maxLoanAmount)}`}
+          />
+          <MetaField
+            label="Requested at"
+            value={formatDateTime(lender.createdAt)}
+          />
+        </dl>
+      </CardHeader>
 
-      <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Field label="Contact" value={lender.contactPerson} />
-        <Field label="Operating area" value={lender.operatingArea} />
-        <Field
-          label="Loan range"
-          value={`${formatCurrency(lender.minLoanAmount)} - ${formatCurrency(
-            lender.maxLoanAmount,
-          )}`}
-        />
-        <Field label="Lender ID" value={getShortId(lender.userId)} />
-        <Field label="Request ID" value={getShortId(lender.id)} />
-        <Field label="Requested" value={formatDateTime(lender.createdAt)} />
-        <Field
-          label="Reviewed"
-          value={
-            lender.approvedAt
-              ? `${formatDateTime(lender.approvedAt)} by ${
-                  lender.approvedBy?.displayName ?? "Manager"
-                }`
-              : lender.rejectedAt
-                ? `${formatDateTime(lender.rejectedAt)} by ${
-                    lender.rejectedBy?.displayName ?? "Manager"
-                  }`
-              : "Not reviewed"
-          }
-        />
-      </dl>
+      <CardContent>
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+          <div className="min-w-0 space-y-6">
+            <CompactConsentSummary status={lender.consentStatus} />
 
-      <ConsentSummary status={lender.consentStatus} />
+            <Separator />
 
-      <Link
-        href={`/manager/lenders/${lender.id}`}
-        className="inline-flex h-10 w-fit items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        View details
-      </Link>
-    </DataCard>
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+              <MetaField
+                label="Lender ID"
+                value={getShortId(lender.userId)}
+              />
+              <MetaField
+                label="Request ID"
+                value={getShortId(lender.id)}
+              />
+              <MetaField
+                label="Registration no."
+                value={lender.businessRegistrationNumber ?? "Not provided"}
+              />
+            </dl>
+
+            {lender.lenderDescription ? (
+              <>
+                <Separator />
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground">
+                    Lender description
+                  </p>
+                  <p className="text-sm">{lender.lenderDescription}</p>
+                </div>
+              </>
+            ) : null}
+          </div>
+
+          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+            <PendingReviewActions lender={lender} />
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
-function ConsentSummary({ status }: { status: ConsentStatus }) {
-  return (
-    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-3 py-3">
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-sm font-semibold">Lender disclosures</p>
-        <span className="rounded-full bg-white px-2 py-1 text-xs font-semibold text-[var(--muted-foreground)]">
-          {status.isCurrent ? "Current" : "Missing"}
-        </span>
-      </div>
-      <div className="grid gap-1 text-xs leading-5 text-[var(--muted-foreground)]">
-        {status.required.map((consent) => {
-          const accepted = status.accepted.find(
-            (item) =>
-              item.consentType === consent.consentType &&
-              item.version === consent.version,
-          );
+function CompletedLenderCard({ lender }: { lender: ManagerLenderRow }) {
+  const isApproved = lender.verificationStatus === "approved";
 
-          return (
-            <p key={`${consent.consentType}-${consent.version}`}>
-              <span className="font-semibold text-[var(--foreground)]">
-                {consentTypeLabels[consent.consentType]}:
-              </span>{" "}
-              {accepted
-                ? `${consent.version}, ${formatDateTime(accepted.acceptedAt)}`
-                : "Missing current version"}
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {lender.organizationName}
             </p>
-          );
-        })}
+            <StatusBadge status={lender.verificationStatus} />
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+            <span>{lender.contactPerson}</span>
+            <span>{lender.operatingArea}</span>
+            <span>
+              {formatCurrency(lender.minLoanAmount)} –{" "}
+              {formatCurrency(lender.maxLoanAmount)}
+            </span>
+            <span>
+              {isApproved ? "Approved" : "Rejected"}{" "}
+              {formatDateTime(
+                isApproved ? lender.approvedAt! : lender.rejectedAt!,
+              )}
+              {(isApproved ? lender.approvedBy : lender.rejectedBy)
+                ? ` by ${(isApproved ? lender.approvedBy : lender.rejectedBy)!.displayName}`
+                : ""}
+            </span>
+          </div>
+          {!isApproved && lender.rejectionReason ? (
+            <p className="mt-1 text-xs text-destructive">
+              {lender.rejectionReason}
+            </p>
+          ) : null}
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function PendingReviewActions({ lender }: { lender: ManagerLenderRow }) {
+  const returnPath = `/manager/lenders`;
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Review decision</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <form action={reviewLenderAction} className="grid gap-3">
+          <input type="hidden" name="lenderProfileId" value={lender.id} />
+          <input type="hidden" name="decision" value="approve" />
+          <input type="hidden" name="returnPath" value={returnPath} />
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor={`notes-approve-${lender.id}`}
+              className="text-xs font-medium"
+            >
+              Review notes
+            </Label>
+            <Textarea
+              id={`notes-approve-${lender.id}`}
+              name="managerReviewNotes"
+              rows={2}
+              maxLength={1000}
+              placeholder="Optional note for this approval..."
+            />
+          </div>
+          <Button type="submit" className="w-full">
+            <CheckCircle2Icon className="size-4" />
+            Approve lender
+          </Button>
+        </form>
+
+        <Separator />
+
+        <RejectLenderDialog
+          lenderId={lender.id}
+          organizationName={lender.organizationName}
+          returnPath={returnPath}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+function MetaField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-0.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function CompactConsentSummary({ status }: { status: ConsentStatus }) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <ShieldCheckIcon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Lender disclosures</h3>
+        <Badge
+          variant={status.isCurrent ? "default" : "destructive"}
+          className={
+            status.isCurrent
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+              : undefined
+          }
+        >
+          {status.isCurrent ? "Current" : "Missing"}
+        </Badge>
+      </div>
+      <div className="rounded-lg border bg-muted/30 p-3">
+        <div className="grid gap-1 text-xs text-muted-foreground">
+          {status.required.map((consent) => {
+            const accepted = status.accepted.find(
+              (item) =>
+                item.consentType === consent.consentType &&
+                item.version === consent.version,
+            );
+
+            return (
+              <div
+                key={`${consent.consentType}-${consent.version}`}
+                className="flex items-start gap-1.5"
+              >
+                {accepted ? (
+                  <CheckCircle2Icon className="mt-0.5 size-3 shrink-0 text-emerald-600" />
+                ) : (
+                  <XCircleIcon className="mt-0.5 size-3 shrink-0 text-destructive" />
+                )}
+                <span>
+                  <span className="font-medium text-foreground">
+                    {consentTypeLabels[consent.consentType]}
+                  </span>
+                  {accepted
+                    ? ` \u00b7 ${consent.version}`
+                    : " \u00b7 Missing current version"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+        <Collapsible defaultOpen={false}>
+          <CollapsibleTrigger className="mt-2 inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            Show details
+            <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <div className="mt-2 grid gap-1 border-t pt-2 text-xs text-muted-foreground">
+              {status.required.map((consent) => {
+                const accepted = status.accepted.find(
+                  (item) =>
+                    item.consentType === consent.consentType &&
+                    item.version === consent.version,
+                );
+
+                return (
+                  <p key={`detail-${consent.consentType}-${consent.version}`}>
+                    <span className="font-medium text-foreground">
+                      {consentTypeLabels[consent.consentType]}
+                    </span>
+                    {accepted
+                      ? ` \u00b7 ${consent.version}, accepted ${formatDateTime(accepted.acceptedAt)}`
+                      : ` \u00b7 ${consent.version} not accepted`}
+                  </p>
+                );
+              })}
+            </div>
+          </CollapsibleContent>
+        </Collapsible>
       </div>
     </div>
   );

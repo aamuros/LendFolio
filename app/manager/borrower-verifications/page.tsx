@@ -34,12 +34,18 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import {
   Alert,
   AlertDescription,
 } from "@/components/ui/alert";
 import {
   AlertCircleIcon,
   CheckCircle2Icon,
+  ChevronDownIcon,
   FileTextIcon,
   ShieldCheckIcon,
   ClipboardListIcon,
@@ -73,9 +79,7 @@ export default async function ManagerBorrowerVerificationsPage({
         title="Borrower review"
         description="Review submitted borrower evidence before approving access."
       >
-        <div className="mx-auto w-full max-w-5xl">
-          <AccessDenied message={access.message} />
-        </div>
+        <AccessDenied message={access.message} />
       </ManagerShell>
     );
   }
@@ -97,14 +101,12 @@ export default async function ManagerBorrowerVerificationsPage({
     <ManagerShell
       title="Borrower review"
       description="Review submitted borrower evidence before approving access."
+      showHeading={false}
     >
-      <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
-        <ReviewStatus review={params.review} documentReview={params.documentReview} />
-        <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />
-
-        <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-6">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">
+            <h1 className="text-xl font-semibold tracking-tight">
               Borrower review
             </h1>
             <p className="text-sm text-muted-foreground">
@@ -129,13 +131,19 @@ export default async function ManagerBorrowerVerificationsPage({
           ) : null}
         </div>
 
+        <ReviewStatus review={params.review} documentReview={params.documentReview} />
+
+        {!result.ok ? (
+          <StatusMessage message={result.message} tone="error" />
+        ) : null}
+
         <BorrowerReviewFilters
           status={params.status}
           documentStatus={params.documentStatus}
           borrower={params.borrower}
         />
 
-        <section className="grid gap-4">
+        <section className="space-y-4">
           {result.verifications.length === 0 ? (
             <EmptyState
               title="No borrower verifications found"
@@ -167,41 +175,40 @@ function BorrowerReviewFilters({
   return (
     <Card>
       <CardContent>
-        <form className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SelectFilter
-            label="Status"
-            name="status"
-            defaultValue={status}
-            options={[
-              { value: "pending_documents", label: "Pending documents" },
-              { value: "submitted", label: "Submitted" },
-              { value: "under_review", label: "Under review" },
-              { value: "approved", label: "Approved" },
-              { value: "rejected", label: "Rejected" },
-              { value: "needs_resubmission", label: "Needs resubmission" },
-            ]}
-          />
-          <SelectFilter
-            label="Document"
-            name="documentStatus"
-            defaultValue={documentStatus}
-            options={[
-              { value: "submitted", label: "Submitted" },
-              { value: "accepted", label: "Accepted" },
-              { value: "rejected", label: "Rejected" },
-            ]}
-          />
-          <TextFilter label="Borrower" name="borrower" defaultValue={borrower} />
+        <form className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Status"
+              name="status"
+              defaultValue={status}
+              options={[
+                { value: "pending_documents", label: "Pending documents" },
+                { value: "submitted", label: "Submitted" },
+                { value: "under_review", label: "Under review" },
+                { value: "approved", label: "Approved" },
+                { value: "rejected", label: "Rejected" },
+                { value: "needs_resubmission", label: "Needs resubmission" },
+              ]}
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Document"
+              name="documentStatus"
+              defaultValue={documentStatus}
+              options={[
+                { value: "submitted", label: "Submitted" },
+                { value: "accepted", label: "Accepted" },
+                { value: "rejected", label: "Rejected" },
+              ]}
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <TextFilter label="Borrower" name="borrower" defaultValue={borrower} />
+          </div>
           <div className="flex items-end gap-2">
-            <Button type="submit" className="flex-1 sm:flex-none">
-              Apply
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              className="flex-1 sm:flex-none"
-              asChild
-            >
+            <Button type="submit">Apply</Button>
+            <Button type="button" variant="outline" asChild>
               <a href="?">Clear</a>
             </Button>
           </div>
@@ -273,21 +280,23 @@ function BorrowerReviewCard({
 }: {
   verification: ManagerBorrowerVerificationRow;
 }) {
+  const hasNotes = verification.rejectionReason || verification.managerReviewNotes;
+
   return (
     <Card>
-      <CardHeader className="gap-3">
+      <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="grid gap-1">
+          <div className="min-w-0">
             <CardTitle className="text-base">
               <PersonLabel person={verification.borrower} />
             </CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Review {getShortId(verification.id)}
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Review ID: {getShortId(verification.id)}
             </p>
           </div>
           <StatusBadge status={verification.verificationStatus} />
         </div>
-        <dl className="grid grid-cols-2 gap-2 text-xs sm:grid-cols-4">
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
           <MetaField label="Submitted" value={formatDateTime(verification.submittedAt)} />
           <MetaField label="Created" value={formatDateTime(verification.createdAt)} />
           <MetaField
@@ -302,40 +311,43 @@ function BorrowerReviewCard({
           />
           <MetaField
             label="Documents"
-            value={verification.documents.length.toString()}
+            value={`${verification.documents.length} uploaded`}
           />
         </dl>
       </CardHeader>
 
-      <CardContent className="grid gap-5">
-        <DisclosureSection
-          documentUpload={verification.documentUploadConsentStatus}
-          loanApplication={verification.loanApplicationConsentStatus}
-        />
-
-        <Separator />
-
-        <RequiredDocumentsChecklist
-          documentPolicy={verification.documentPolicy}
-        />
-
-        <Separator />
-
-        <EvidenceHistorySection documents={verification.documents} />
-
-        {(verification.rejectionReason || verification.managerReviewNotes) && (
-          <>
-            <Separator />
-            <ExistingNotesSection
-              rejectionReason={verification.rejectionReason}
-              managerReviewNotes={verification.managerReviewNotes}
+      <CardContent>
+        <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+          <div className="min-w-0 space-y-6">
+            <ConsentSection
+              documentUpload={verification.documentUploadConsentStatus}
+              loanApplication={verification.loanApplicationConsentStatus}
             />
-          </>
-        )}
 
-        <Separator />
+            <Separator />
 
-        <ManagerDecisionPanel verification={verification} />
+            <RequiredDocumentsSection verification={verification} />
+
+            <Separator />
+
+            <EvidenceHistorySection documents={verification.documents} />
+
+            {hasNotes ? (
+              <>
+                <Separator />
+                <ExistingNotesSection
+                  rejectionReason={verification.rejectionReason}
+                  managerReviewNotes={verification.managerReviewNotes}
+                />
+              </>
+            ) : null}
+          </div>
+
+          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
+            <ReadinessSummaryCard verification={verification} />
+            <ManagerDecisionPanel verification={verification} />
+          </div>
+        </div>
       </CardContent>
     </Card>
   );
@@ -350,7 +362,7 @@ function MetaField({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DisclosureSection({
+function ConsentSection({
   documentUpload,
   loanApplication,
 }: {
@@ -358,10 +370,10 @@ function DisclosureSection({
   loanApplication: ConsentStatus;
 }) {
   return (
-    <div className="grid gap-3">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <ShieldCheckIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Consent &amp; disclosures</h3>
+        <h3 className="text-sm font-semibold">Consents &amp; disclosures</h3>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
         <DisclosureCard title="Document upload" status={documentUpload} />
@@ -427,55 +439,139 @@ function DisclosureCard({
   );
 }
 
-function RequiredDocumentsChecklist({
-  documentPolicy,
+function RequiredDocumentsSection({
+  verification,
 }: {
-  documentPolicy: ManagerBorrowerVerificationRow["documentPolicy"];
+  verification: ManagerBorrowerVerificationRow;
 }) {
+  const { documentPolicy, documents } = verification;
+
+  const latestByType = new Map<string, ManagerBorrowerVerificationDocumentRow>();
+  for (const doc of documents) {
+    if (!latestByType.has(doc.documentType)) {
+      latestByType.set(doc.documentType, doc);
+    }
+  }
+
+  const acceptedRequired = documentPolicy.requiredDocumentTypes.filter((dt) =>
+    documentPolicy.acceptedDocumentTypes.includes(dt),
+  ).length;
+  const totalRequired = documentPolicy.requiredDocumentTypes.length;
+
   return (
-    <div className="grid gap-3">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <ClipboardListIcon className="size-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Required documents</h3>
+        <span className="text-xs text-muted-foreground">
+          {acceptedRequired}/{totalRequired} accepted
+        </span>
       </div>
-      <div className="rounded-lg border">
-        {documentPolicy.requiredDocumentTypes.map((documentType, index) => {
+
+      <div className="hidden overflow-hidden rounded-lg border sm:block">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
+              <th className="px-3 py-2 text-left">Type</th>
+              <th className="px-3 py-2 text-left">File</th>
+              <th className="px-3 py-2 text-left">Uploaded</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {documentPolicy.requiredDocumentTypes.map((docType, i) => {
+              const latest = latestByType.get(docType);
+              const isAccepted =
+                documentPolicy.acceptedDocumentTypes.includes(docType);
+              const isSubmitted =
+                documentPolicy.submittedDocumentTypes.includes(docType);
+              const isRejected =
+                documentPolicy.rejectedDocumentTypes.includes(docType);
+
+              return (
+                <tr
+                  key={docType}
+                  className={
+                    i < documentPolicy.requiredDocumentTypes.length - 1
+                      ? "border-b"
+                      : ""
+                  }
+                >
+                  <td className="px-3 py-2.5 font-medium">
+                    {borrowerVerificationDocumentTypeLabels[docType]}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">
+                    {latest ? (
+                      <span className="flex items-center gap-1.5">
+                        <FileTextIcon className="size-3.5 shrink-0" />
+                        <span className="max-w-[200px] truncate">
+                          {latest.fileName}
+                        </span>
+                      </span>
+                    ) : (
+                      "Not uploaded"
+                    )}
+                  </td>
+                  <td className="px-3 py-2.5 text-muted-foreground">
+                    {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
+                  </td>
+                  <td className="px-3 py-2.5">
+                    <DocumentStatusBadge
+                      isAccepted={isAccepted}
+                      isSubmitted={isSubmitted}
+                      isRejected={isRejected}
+                    />
+                  </td>
+                  <td className="px-3 py-2.5 text-right">
+                    <DocumentActions
+                      document={latest}
+                      isAccepted={isAccepted}
+                    />
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="space-y-2 sm:hidden">
+        {documentPolicy.requiredDocumentTypes.map((docType) => {
+          const latest = latestByType.get(docType);
           const isAccepted =
-            documentPolicy.acceptedDocumentTypes.includes(documentType);
+            documentPolicy.acceptedDocumentTypes.includes(docType);
           const isSubmitted =
-            documentPolicy.submittedDocumentTypes.includes(documentType);
+            documentPolicy.submittedDocumentTypes.includes(docType);
           const isRejected =
-            documentPolicy.rejectedDocumentTypes.includes(documentType);
+            documentPolicy.rejectedDocumentTypes.includes(docType);
 
           return (
-            <div
-              key={documentType}
-              className={`flex items-center justify-between gap-3 px-3 py-2.5 text-sm ${
-                index < documentPolicy.requiredDocumentTypes.length - 1
-                  ? "border-b"
-                  : ""
-              }`}
-            >
-              <div className="flex items-center gap-2">
-                {isAccepted ? (
-                  <CheckCircle2Icon className="size-4 text-emerald-600" />
-                ) : isRejected ? (
-                  <XCircleIcon className="size-4 text-destructive" />
-                ) : isSubmitted ? (
-                  <CircleDotIcon className="size-4 text-amber-600" />
+            <Card key={docType} size="sm">
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">
+                    {borrowerVerificationDocumentTypeLabels[docType]}
+                  </span>
+                  <DocumentStatusBadge
+                    isAccepted={isAccepted}
+                    isSubmitted={isSubmitted}
+                    isRejected={isRejected}
+                  />
+                </div>
+                {latest ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FileTextIcon className="size-3 shrink-0" />
+                    {latest.fileName}
+                    {" \u00b7 "}
+                    {formatDateTime(latest.uploadedAt)}
+                  </p>
                 ) : (
-                  <CircleIcon className="size-4 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">Not uploaded</p>
                 )}
-                <span>
-                  {borrowerVerificationDocumentTypeLabels[documentType]}
-                </span>
-              </div>
-              <DocumentStatusBadge
-                isAccepted={isAccepted}
-                isSubmitted={isSubmitted}
-                isRejected={isRejected}
-              />
-            </div>
+                <DocumentActions document={latest} isAccepted={isAccepted} />
+              </CardContent>
+            </Card>
           );
         })}
       </div>
@@ -496,32 +592,92 @@ function DocumentStatusBadge({
     return (
       <Badge
         variant="default"
-        className="border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+        className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
       >
+        <CheckCircle2Icon className="size-3" />
         Accepted
       </Badge>
     );
   }
 
   if (isRejected) {
-    return <Badge variant="destructive">Rejected</Badge>;
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <XCircleIcon className="size-3" />
+        Rejected
+      </Badge>
+    );
   }
 
   if (isSubmitted) {
     return (
       <Badge
         variant="secondary"
-        className="border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
+        className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
       >
+        <CircleDotIcon className="size-3" />
         Submitted
       </Badge>
     );
   }
 
   return (
-    <Badge variant="outline" className="text-muted-foreground">
+    <Badge variant="outline" className="gap-1 text-muted-foreground">
+      <CircleIcon className="size-3" />
       Missing
     </Badge>
+  );
+}
+
+function DocumentActions({
+  document,
+  isAccepted,
+}: {
+  document: ManagerBorrowerVerificationDocumentRow | undefined;
+  isAccepted: boolean;
+}) {
+  if (!document) {
+    return null;
+  }
+
+  const canReview = document.status === "submitted" && !isAccepted;
+
+  return (
+    <div className="flex items-center justify-end gap-1.5">
+      {document.viewUrl ? (
+        <Button variant="outline" size="sm" asChild>
+          <a href={document.viewUrl} target="_blank" rel="noreferrer">
+            <ExternalLinkIcon className="size-3.5" />
+            View
+          </a>
+        </Button>
+      ) : (
+        <span className="text-xs text-muted-foreground">File unavailable</span>
+      )}
+
+      {canReview ? (
+        <form
+          action={reviewBorrowerVerificationDocumentAction}
+          className="flex items-center gap-1.5"
+        >
+          <input type="hidden" name="documentId" value={document.id} />
+          <input type="hidden" name="reviewNotes" value="" />
+          <Button type="submit" name="decision" value="accept" size="sm">
+            Accept
+          </Button>
+          <Button
+            type="submit"
+            name="decision"
+            value="reject"
+            variant="outline"
+            size="sm"
+            className="text-destructive hover:bg-destructive/10"
+          >
+            Reject
+          </Button>
+        </form>
+      ) : null}
+    </div>
   );
 }
 
@@ -530,162 +686,85 @@ function EvidenceHistorySection({
 }: {
   documents: ManagerBorrowerVerificationDocumentRow[];
 }) {
-  return (
-    <div className="grid gap-3">
-      <div className="flex items-center gap-2">
-        <HistoryIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Evidence history</h3>
-      </div>
-      {documents.length === 0 ? (
+  if (documents.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <HistoryIcon className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Evidence history</h3>
+        </div>
         <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
           No documents uploaded.
         </div>
-      ) : (
-        <div className="hidden gap-2 sm:grid">
-          {documents.map((document) => (
-            <EvidenceDocumentRow key={document.id} document={document} />
-          ))}
-        </div>
-      )}
-      {documents.length > 0 ? (
-        <div className="grid gap-2 sm:hidden">
-          {documents.map((document) => (
-            <EvidenceDocumentCard key={document.id} document={document} />
-          ))}
-        </div>
-      ) : null}
-    </div>
-  );
-}
-
-function EvidenceDocumentRow({
-  document,
-}: {
-  document: ManagerBorrowerVerificationDocumentRow;
-}) {
-  return (
-    <div className="flex items-center gap-3 rounded-lg border px-3 py-2.5">
-      <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">{document.fileName}</p>
-        <p className="text-xs text-muted-foreground">
-          {borrowerVerificationDocumentTypeLabels[document.documentType]}
-          {" \u00b7 "}
-          {formatFileSize(document.fileSize)}
-          {" \u00b7 "}
-          {formatDateTime(document.uploadedAt)}
-        </p>
       </div>
-      <StatusBadge status={document.status} />
-      <div className="flex shrink-0 items-center gap-1.5">
-        {document.viewUrl ? (
-          <Button variant="outline" size="sm" asChild>
-            <a href={document.viewUrl} target="_blank" rel="noreferrer">
-              <ExternalLinkIcon className="size-3.5" />
-              View
-            </a>
-          </Button>
-        ) : (
-          <Button variant="outline" size="sm" disabled>
-            <ExternalLinkIcon className="size-3.5" />
-            Unavailable
-          </Button>
-        )}
-        <form
-          action={reviewBorrowerVerificationDocumentAction}
-          className="flex items-center gap-1.5"
-        >
-          <input type="hidden" name="documentId" value={document.id} />
-          <input type="hidden" name="reviewNotes" value="" />
-          <Button
-            type="submit"
-            name="decision"
-            value="accept"
-            size="sm"
-          >
-            Accept
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="reject"
-            variant="destructive"
-            size="sm"
-          >
-            Reject
-          </Button>
-        </form>
-      </div>
-    </div>
-  );
-}
+    );
+  }
 
-function EvidenceDocumentCard({
-  document,
-}: {
-  document: ManagerBorrowerVerificationDocumentRow;
-}) {
   return (
-    <Card size="sm">
-      <CardContent className="grid gap-2">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <FileTextIcon className="size-4 shrink-0 text-muted-foreground" />
-            <p className="truncate text-sm font-medium">{document.fileName}</p>
+    <Collapsible defaultOpen={false}>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <HistoryIcon className="size-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Evidence history</h3>
+            <span className="text-xs text-muted-foreground">
+              {documents.length} document{documents.length !== 1 ? "s" : ""}
+            </span>
           </div>
-          <StatusBadge status={document.status} />
+          <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            Show
+            <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+          </CollapsibleTrigger>
         </div>
-        <p className="text-xs text-muted-foreground">
-          {borrowerVerificationDocumentTypeLabels[document.documentType]}
-          {" \u00b7 "}
-          {formatFileSize(document.fileSize)}
-          {" \u00b7 "}
-          {formatDateTime(document.uploadedAt)}
-        </p>
-        {document.reviewNotes ? (
-          <p className="text-xs text-muted-foreground">{document.reviewNotes}</p>
-        ) : null}
-        <div className="flex items-center gap-1.5">
-          {document.viewUrl ? (
-            <Button variant="outline" size="sm" asChild>
-              <a href={document.viewUrl} target="_blank" rel="noreferrer">
-                <ExternalLinkIcon className="size-3.5" />
-                View
-              </a>
-            </Button>
-          ) : (
-            <Button variant="outline" size="sm" disabled>
-              <ExternalLinkIcon className="size-3.5" />
-              Unavailable
-            </Button>
-          )}
-          <form
-            action={reviewBorrowerVerificationDocumentAction}
-            className="flex items-center gap-1.5"
-          >
-            <input type="hidden" name="documentId" value={document.id} />
-            <input type="hidden" name="reviewNotes" value="" />
-            <Button
-              type="submit"
-              name="decision"
-              value="accept"
-              size="sm"
-            >
-              Accept
-            </Button>
-            <Button
-              type="submit"
-              name="decision"
-              value="reject"
-              variant="destructive"
-              size="sm"
-            >
-              Reject
-            </Button>
-          </form>
-        </div>
-      </CardContent>
-    </Card>
+        <CollapsibleContent>
+          <div className="space-y-1.5">
+            {documents.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex items-start gap-3 rounded-md border border-border/50 px-3 py-2 sm:items-center"
+              >
+                <FileTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground sm:mt-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-medium">{doc.fileName}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {borrowerVerificationDocumentTypeLabels[doc.documentType]}
+                    {" \u00b7 "}
+                    {formatFileSize(doc.fileSize)}
+                    {" \u00b7 "}
+                    {formatDateTime(doc.uploadedAt)}
+                  </p>
+                  {doc.reviewNotes ? (
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      Note: {doc.reviewNotes}
+                    </p>
+                  ) : null}
+                </div>
+                <div className="flex shrink-0 items-center gap-2">
+                  <StatusBadge status={doc.status} />
+                  {doc.viewUrl ? (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="shrink-0"
+                      asChild
+                    >
+                      <a
+                        href={doc.viewUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        aria-label="View document"
+                      >
+                        <ExternalLinkIcon className="size-3.5" />
+                      </a>
+                    </Button>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
   );
 }
 
@@ -697,7 +776,7 @@ function ExistingNotesSection({
   managerReviewNotes: string | null;
 }) {
   return (
-    <div className="grid gap-3">
+    <div className="space-y-3">
       <div className="flex items-center gap-2">
         <MessageSquareTextIcon className="size-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Previous notes</h3>
@@ -726,20 +805,83 @@ function ExistingNotesSection({
   );
 }
 
+function ReadinessSummaryCard({
+  verification,
+}: {
+  verification: ManagerBorrowerVerificationRow;
+}) {
+  const { documentPolicy } = verification;
+  const consentsCurrent =
+    verification.documentUploadConsentStatus.isCurrent &&
+    verification.loanApplicationConsentStatus.isCurrent;
+  const acceptedRequired = documentPolicy.requiredDocumentTypes.filter((dt) =>
+    documentPolicy.acceptedDocumentTypes.includes(dt),
+  ).length;
+  const totalRequired = documentPolicy.requiredDocumentTypes.length;
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Review readiness</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Consents</span>
+          {consentsCurrent ? (
+            <Badge
+              variant="default"
+              className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+            >
+              <CheckCircle2Icon className="size-3" />
+              Complete
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="gap-1">
+              <XCircleIcon className="size-3" />
+              Missing
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Documents</span>
+          {documentPolicy.documentsAccepted ? (
+            <Badge
+              variant="default"
+              className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+            >
+              <CheckCircle2Icon className="size-3" />
+              {acceptedRequired}/{totalRequired}
+            </Badge>
+          ) : (
+            <Badge variant="secondary" className="gap-1">
+              <CircleDotIcon className="size-3" />
+              {acceptedRequired}/{totalRequired}
+            </Badge>
+          )}
+        </div>
+        <Separator />
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Status</span>
+          <StatusBadge status={verification.verificationStatus} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ManagerDecisionPanel({
   verification,
 }: {
   verification: ManagerBorrowerVerificationRow;
 }) {
   return (
-    <div className="grid gap-4">
-      <div className="flex items-center gap-2">
-        <FileTextIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Manager decision</h3>
-      </div>
-      <form action={reviewBorrowerVerificationAction} className="grid gap-4">
-        <input type="hidden" name="borrowerId" value={verification.borrower.id} />
-        <div className="grid gap-3 sm:grid-cols-2">
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Manager decision</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form action={reviewBorrowerVerificationAction} className="grid gap-3">
+          <input type="hidden" name="borrowerId" value={verification.borrower.id} />
           <div className="grid gap-1.5">
             <Label htmlFor={`notes-${verification.id}`} className="text-xs font-medium">
               Manager note
@@ -747,7 +889,7 @@ function ManagerDecisionPanel({
             <Textarea
               id={`notes-${verification.id}`}
               name="managerReviewNotes"
-              rows={3}
+              rows={2}
               maxLength={1000}
               placeholder="Add a note for this review..."
             />
@@ -759,46 +901,48 @@ function ManagerDecisionPanel({
             <Textarea
               id={`reason-${verification.id}`}
               name="rejectionReason"
-              rows={3}
+              rows={2}
               maxLength={1000}
               placeholder="Provide a reason if rejecting..."
             />
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button type="submit" name="decision" value="approve">
-            <CheckCircle2Icon className="size-4" />
-            Approve
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="reject"
-            variant="destructive"
-          >
-            <XCircleIcon className="size-4" />
-            Reject
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="needs_resubmission"
-            variant="outline"
-            className="border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-          >
-            Needs resubmission
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="return_to_pending"
-            variant="ghost"
-          >
-            Return to pending
-          </Button>
-        </div>
-      </form>
-    </div>
+          <div className="grid gap-2">
+            <Button type="submit" name="decision" value="approve" className="w-full">
+              <CheckCircle2Icon className="size-4" />
+              Approve
+            </Button>
+            <Button
+              type="submit"
+              name="decision"
+              value="reject"
+              variant="destructive"
+              className="w-full"
+            >
+              <XCircleIcon className="size-4" />
+              Reject
+            </Button>
+            <Button
+              type="submit"
+              name="decision"
+              value="needs_resubmission"
+              variant="outline"
+              className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+            >
+              Needs resubmission
+            </Button>
+            <Button
+              type="submit"
+              name="decision"
+              value="return_to_pending"
+              variant="ghost"
+              className="w-full"
+            >
+              Return to pending
+            </Button>
+          </div>
+        </form>
+      </CardContent>
+    </Card>
   );
 }
 

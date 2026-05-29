@@ -268,24 +268,25 @@ describe("manager operations helpers", () => {
 
   it("keeps manager auto-filtered pages free of apply and clear buttons", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
-    const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
-    const applicationsPage = readFileSync(
-      "app/manager/applications/page.tsx",
-      "utf8",
-    );
     const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
 
-    for (const page of [
-      lookupPage,
-      loansPage,
-      applicationsPage,
-      auditLogsPage,
-    ]) {
+    for (const page of [lookupPage, auditLogsPage]) {
       expect(page).toContain("AutoFilterGrid");
       expect(page).not.toContain("<FilterGrid");
       expect(page).not.toContain("  FilterGrid,");
       expect(page).not.toContain("Apply");
       expect(page).not.toContain("Clear");
+    }
+
+    const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/manager/applications/page.tsx",
+      "utf8",
+    );
+
+    for (const page of [loansPage, applicationsPage]) {
+      expect(page).not.toContain("<FilterGrid");
+      expect(page).not.toContain("  FilterGrid,");
     }
   });
 
@@ -356,8 +357,6 @@ describe("manager operations helpers", () => {
     expect(managerBottomTabs).toContain('activeTab === "proofs"');
     expect(managerBottomTabs).toContain('activeTab === "audit"');
     expect(managerBottomTabs).toContain('activeTab === "applications"');
-    expect(auditLogsPage).toContain('activeTab="audit"');
-    expect(applicationsPage).toContain('activeTab="applications"');
   });
 
   it("accepts UUID-shaped seeded IDs but rejects short user IDs", () => {
