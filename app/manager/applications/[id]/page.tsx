@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
@@ -17,6 +16,7 @@ import {
   formatCurrency,
   formatDateOnly,
   formatDateTime,
+  BackLink,
 } from "../../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -36,7 +36,7 @@ export default async function ManagerApplicationDetailPage({
       <ManagerShell
         title="Application detail"
         description="Read-only application record."
-        activeTab="applications"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -50,7 +50,7 @@ export default async function ManagerApplicationDetailPage({
       <ManagerShell
         title="Invalid application link"
         description="This application link is not valid."
-        activeTab="applications"
+        
         showHeading={false}
       >
         <ManagerApplicationErrorState
@@ -66,7 +66,7 @@ export default async function ManagerApplicationDetailPage({
       <ManagerShell
         title="Application not found"
         description="This application record could not be found."
-        activeTab="applications"
+        
         showHeading={false}
       >
         <ManagerApplicationErrorState
@@ -82,7 +82,7 @@ export default async function ManagerApplicationDetailPage({
       <ManagerShell
         title="Could not load application"
         description="This application record could not be loaded."
-        activeTab="applications"
+        
         showHeading={false}
       >
         <ManagerApplicationErrorState
@@ -98,7 +98,7 @@ export default async function ManagerApplicationDetailPage({
       <ManagerShell
         title="Could not load application"
         description="This application record could not be loaded."
-        activeTab="applications"
+        
         showHeading={false}
       >
         <ManagerApplicationErrorState
@@ -118,16 +118,11 @@ export default async function ManagerApplicationDetailPage({
     <ManagerShell
       title={`Application ${getShortId(application.id)}`}
       description="Read-only manager view of this application."
-      activeTab="applications"
+      
       showHeading={false}
     >
       <section className="grid gap-3">
-        <Link
-          href="/manager/applications"
-          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          &larr; Back to applications
-        </Link>
+        <BackLink href="/manager/applications" label="Back to applications" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -299,12 +294,7 @@ function ManagerApplicationErrorState({
       className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm"
       role="alert"
     >
-      <Link
-        href="/manager/applications"
-        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        &larr; Back to applications
-      </Link>
+      <BackLink href="/manager/applications" label="Back to applications" />
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">

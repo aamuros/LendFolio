@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import { getShortId, loadManagerAuditLogDetail } from "@/lib/manager-operations";
 import {
@@ -8,6 +7,7 @@ import {
   ManagerShell,
   PersonLabel,
   formatDateTime,
+  BackLink,
 } from "../../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,7 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Audit log detail"
         description="Read-only audit log event."
-        activeTab="audit"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -39,7 +39,7 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Invalid audit log link"
         description="This audit log link is not valid."
-        activeTab="audit"
+        
         showHeading={false}
       >
         <ManagerAuditLogErrorState
@@ -55,7 +55,7 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Audit log not found"
         description="This audit log event could not be found."
-        activeTab="audit"
+        
         showHeading={false}
       >
         <ManagerAuditLogErrorState
@@ -71,7 +71,7 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load audit log"
         description="This audit log event could not be loaded."
-        activeTab="audit"
+        
         showHeading={false}
       >
         <ManagerAuditLogErrorState
@@ -87,7 +87,7 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load audit log"
         description="This audit log event could not be loaded."
-        activeTab="audit"
+        
         showHeading={false}
       >
         <ManagerAuditLogErrorState
@@ -104,16 +104,11 @@ export default async function ManagerAuditLogDetailPage({ params }: PageProps) {
     <ManagerShell
       title={log.action}
       description="Read-only manager view of this audit event."
-      activeTab="audit"
+      
       showHeading={false}
     >
       <section className="grid gap-3">
-        <Link
-          href="/manager/audit-logs"
-          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          &larr; Back to audit logs
-        </Link>
+        <BackLink href="/manager/audit-logs" label="Back to audit logs" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -171,12 +166,7 @@ function ManagerAuditLogErrorState({
       className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm"
       role="alert"
     >
-      <Link
-        href="/manager/audit-logs"
-        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        &larr; Back to audit logs
-      </Link>
+      <BackLink href="/manager/audit-logs" label="Back to audit logs" />
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">

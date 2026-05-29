@@ -79,7 +79,9 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
+import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
@@ -820,7 +822,6 @@ function HomeSummary({
 }) {
   const activeLoans = getActiveLoans(applications);
   const dueThisMonth = getThisMonthDue(activeLoans);
-  const averageDays = getAverageDaysToPay(activeLoans);
   const debtProgress = getDebtProgress(activeLoans);
   const profileCompletion = getProfileCompletion({
     borrowerVerification,
@@ -829,8 +830,6 @@ function HomeSummary({
     hasPortfolio,
     readiness,
   });
-  const calendarDays = getCalendarDaysWithDueDates(activeLoans);
-  const dueUpcoming = getUpcomingDueItems(activeLoans);
   const usedCreditRatio = creditSummary
     ? getProgressRatio(
       creditSummary.usedCredit,
@@ -842,11 +841,10 @@ function HomeSummary({
       ? dueThisMonth.totalDue / creditSummary.monthlyNetCashFlow
       : null;
   const dueCapacityStatus = getDueCapacityStatus(dueCapacityRatio);
-  const averageDaysRatio =
-    averageDays.averageDays === null
-      ? 0
-      : clamp(averageDays.averageDays / getDaysInCurrentMonth(), 0, 1);
-  const averageUrgency = getAverageDaysUrgency(averageDays.averageDays);
+  const canSubmitApplication = canSubmitLoanApplicationForVerification(borrowerVerification);
+  const hasPendingOffers = applications.some((a) =>
+    a.offers.some((o) => o.status === "pending"),
+  );
 
   const profileWarning = getProfileWarning({
     borrowerVerification,
@@ -873,6 +871,70 @@ function HomeSummary({
         <HomeDashboardSkeleton />
       ) : (
         <>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Next actions
+              </p>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <Button
+                  variant="outline"
+                  onClick={() => onNavigate?.("apply")}
+                  disabled={!hasPortfolio || !canSubmitApplication}
+                  aria-label="Apply for financing"
+                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
+                >
+                  <span className="grid gap-0.5">
+                    <span className="text-sm font-semibold">Apply for financing</span>
+                    <span className="text-xs text-muted-foreground">
+                      {!hasPortfolio
+                        ? "Save profile first"
+                        : !canSubmitApplication
+                          ? "Verification needed"
+                          : "Submit a new request"}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => onNavigate?.("offers")}
+                  disabled={!hasPendingOffers}
+                  aria-label="Review offers"
+                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
+                >
+                  <span className="grid gap-0.5">
+                    <span className="text-sm font-semibold">Review offers</span>
+                    <span className="text-xs text-muted-foreground">
+                      {hasPendingOffers
+                        ? "You have pending offers"
+                        : "No pending offers"}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => onNavigate?.("loans")}
+                  aria-label={activeLoans.length > 0 ? "Upload payment proof" : "View loans"}
+                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
+                >
+                  <span className="grid gap-0.5">
+                    <span className="text-sm font-semibold">
+                      {activeLoans.length > 0 ? "Upload payment proof" : "View loans"}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {activeLoans.length > 0
+                        ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
+                        : "No active loans"}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
           {profileWarning ? (
             <Alert className="rounded-2xl border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
               <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -925,103 +987,48 @@ function HomeSummary({
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3">
-            <Card className="rounded-2xl border-border/50 shadow-sm">
-              <CardContent className="grid gap-2 p-4">
-                <p className="text-xs font-semibold text-muted-foreground">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Due this month
                 </p>
-                <MoneyText
-                  value={dueThisMonth.totalDue}
-                  className="text-lg font-semibold sm:text-xl"
-                />
                 <Badge
                   variant="secondary"
                   className={cn(
-                    "w-fit text-[11px] font-semibold",
+                    "text-[11px] font-semibold",
                     dueCapacityStatus.badgeClassName,
                   )}
                 >
                   {dueCapacityStatus.label}
                 </Badge>
-                <p className="text-xs text-muted-foreground">
-                  {creditSummary && creditSummary.monthlyNetCashFlow > 0
-                    ? `Of ${formatMoney(creditSummary.monthlyNetCashFlow)} cashflow`
-                    : "No cashflow data"}
-                </p>
-                <DashboardProgressBar
-                  value={dueCapacityRatio ?? 0}
-                  barClassName={dueCapacityStatus.barClassName}
-                />
-              </CardContent>
-            </Card>
+              </div>
+              <MoneyText
+                value={dueThisMonth.totalDue}
+                className="text-2xl font-semibold sm:text-3xl"
+              />
+              <p className="text-xs text-muted-foreground">
+                {creditSummary && creditSummary.monthlyNetCashFlow > 0
+                  ? `${formatMoney(dueThisMonth.totalDue)} of ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
+                  : "No cashflow data available"}
+              </p>
+              <DashboardProgressBar
+                value={dueCapacityRatio ?? 0}
+                barClassName={dueCapacityStatus.barClassName}
+              />
+            </CardContent>
+          </Card>
 
-            <Card className="rounded-2xl border-border/50 shadow-sm">
-              <CardContent className="grid gap-2 p-4">
-                <p className="text-xs font-semibold text-muted-foreground">
-                  Avg. days to pay
-                </p>
-                <p className="text-lg font-semibold sm:text-xl">
-                  {averageDays.averageDays === null
-                    ? "No unpaid debt"
-                    : averageDays.averageDays < 0
-                      ? "Overdue"
-                      : `${averageDays.averageDays} days`}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  {averageDays.averageDays === null
-                    ? "All repayments are current."
-                    : "Based on unpaid installments"}
-                </p>
-                {averageDays.averageDays !== null ? (
-                  <DashboardProgressBar
-                    value={averageDaysRatio}
-                    barClassName={averageUrgency.barClassName}
-                  />
-                ) : null}
-              </CardContent>
-            </Card>
-          </div>
-
-          {dueUpcoming.length > 0 ? (
-            <Card className="rounded-2xl border-border/50 shadow-sm">
-              <CardHeader className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">
-                  Upcoming repayments
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
-                {dueUpcoming.map((item) => (
-                  <div
-                    key={item.repayment.id}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
-                  >
-                    <div className="grid gap-0.5">
-                      <p className="font-semibold">
-                        Installment {item.repayment.installmentNumber}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateOnly(item.repayment.dueDate)}
-                      </p>
-                    </div>
-                    <div className="flex shrink-0 items-center gap-2">
-                      <MoneyText
-                        value={item.repayment.amountDue}
-                        className="font-semibold"
-                      />
-                      <RepaymentStatusPill status={item.repayment.status} />
-                    </div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ) : null}
+          <RepaymentCalendarCard
+            activeLoans={activeLoans}
+            onNavigate={onNavigate}
+          />
 
           <div className="grid gap-3 sm:grid-cols-2">
             <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
                 <CardTitle className="text-sm font-semibold">
-                  Profile completion
+                  Profile readiness
                 </CardTitle>
                 {isProfileComplete ? (
                   <Badge
@@ -1047,7 +1054,7 @@ function HomeSummary({
                 <Progress
                   value={profileCompletion.percentage}
                   className="h-2"
-                  aria-label="Profile completion"
+                  aria-label="Profile readiness"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={profileCompletion.percentage}
@@ -1069,7 +1076,7 @@ function HomeSummary({
             <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
                 <CardTitle className="text-sm font-semibold">
-                  Debt payment progress
+                  Payment progress
                 </CardTitle>
                 {debtProgress.totalDebt > 0 ? (
                   <span className="text-xs font-semibold text-muted-foreground">
@@ -1104,7 +1111,7 @@ function HomeSummary({
 
           <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-              <CardTitle className="text-sm font-semibold">My Loans</CardTitle>
+              <CardTitle className="text-sm font-semibold">Active loans</CardTitle>
               {activeLoans.length > 0 ? (
                 <Button
                   variant="link"
@@ -1142,44 +1149,6 @@ function HomeSummary({
             </CardContent>
           </Card>
 
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardHeader className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-              <CardTitle className="text-sm font-semibold">Due dates</CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-              <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
-                {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-                  <span key={day}>{day}</span>
-                ))}
-              </div>
-              <div className="grid grid-cols-7 gap-1">
-                {calendarDays.map((day, index) =>
-                  day ? (
-                    <div
-                      key={day.key}
-                      className={cn(
-                        "grid aspect-square min-h-8 place-items-center rounded-xl border text-xs font-semibold",
-                        day.dueItems.length > 0
-                          ? "border-primary bg-primary text-primary-foreground"
-                          : day.isToday
-                            ? "border-primary bg-card text-foreground"
-                            : "border-border/50 bg-muted/30 text-foreground",
-                      )}
-                      title={
-                        day.dueItems.length > 0
-                          ? `${day.dueItems.length} repayment due`
-                          : undefined
-                      }
-                    >
-                      {day.day}
-                    </div>
-                  ) : (
-                    <div key={`empty-${index}`} className="aspect-square min-h-8" />
-                  ),
-                )}
-              </div>
-            </CardContent>
-          </Card>
         </>
       )}
     </div>
@@ -1189,6 +1158,16 @@ function HomeSummary({
 function HomeDashboardSkeleton() {
   return (
     <div className="grid gap-4">
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-3 p-4 sm:p-5">
+          <Skeleton className="h-3 w-24" />
+          <div className="grid gap-2 sm:grid-cols-3">
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+            <Skeleton className="h-16 rounded-xl" />
+          </div>
+        </CardContent>
+      </Card>
       <Card className="rounded-3xl border-border/50 shadow-sm">
         <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
           <Skeleton className="h-3 w-28" />
@@ -1200,19 +1179,236 @@ function HomeDashboardSkeleton() {
           <Skeleton className="h-2 w-full rounded-full" />
         </CardContent>
       </Card>
-      <div className="grid grid-cols-2 gap-3">
-        {[0, 1].map((item) => (
-          <Card key={item} className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="grid gap-2 p-4">
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-5 w-24" />
-              <Skeleton className="h-4 w-14" />
-              <Skeleton className="h-3 w-full" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-3 p-4 sm:p-5">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-3 w-44" />
+          <Skeleton className="h-2 w-full rounded-full" />
+        </CardContent>
+      </Card>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-3 p-4 sm:p-5">
+          <Skeleton className="h-3 w-32" />
+          <Skeleton className="h-52 w-full rounded-xl" />
+        </CardContent>
+      </Card>
     </div>
+  );
+}
+
+function RepaymentCalendarCard({
+  activeLoans,
+  onNavigate,
+}: {
+  activeLoans: ActiveLoan[];
+  onNavigate?: (tab: BorrowerTab) => void;
+}) {
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+  const today = useMemo(() => startOfLocalDay(new Date()), []);
+
+  const dueItemsByDate = useMemo(
+    () => buildDueItemsByDate(activeLoans),
+    [activeLoans],
+  );
+
+  const selectedDateKey = selectedDate ? formatDateKey(selectedDate) : null;
+  const selectedItems = selectedDateKey
+    ? (dueItemsByDate.get(selectedDateKey) ?? [])
+    : [];
+
+  const nextRepayments = useMemo(() => {
+    const allUnpaid = activeLoans
+      .flatMap((loan) =>
+        loan.schedule
+          .filter((r) => !isRepaymentVerified(r))
+          .map((r) => ({ loan, repayment: r })),
+      )
+      .sort(
+        (a, b) =>
+          parseDateOnly(a.repayment.dueDate).getTime() -
+          parseDateOnly(b.repayment.dueDate).getTime(),
+      );
+    return allUnpaid.slice(0, 4);
+  }, [activeLoans]);
+
+  return (
+    <Card className="rounded-2xl border-border/50 shadow-sm">
+      <CardHeader className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+        <CardTitle className="text-sm font-semibold">
+          Repayment calendar
+        </CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Select a date to view repayment details.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-5 px-4 pb-4 sm:px-5 sm:pb-5 lg:grid-cols-[22rem_1fr] lg:items-start">
+        <div className="mx-auto w-full max-w-[22rem] lg:mx-0">
+          <Calendar
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            defaultMonth={today}
+            showOutsideDays={true}
+            className="w-full rounded-2xl border border-border/50 p-3 [--cell-size:2.75rem]"
+            classNames={{ root: "w-full" }}
+            components={{
+              Day: ({ day, children, ...dayProps }) => {
+                const dateKey = formatDateKey(day.date);
+                const items = dueItemsByDate.get(dateKey);
+                const hasItems = items !== undefined && items.length > 0;
+                const isOverdue =
+                  hasItems &&
+                  items.some(
+                    (item) =>
+                      parseDateOnly(item.repayment.dueDate) < today &&
+                      !isRepaymentVerified(item.repayment),
+                  );
+                const isDueToday =
+                  hasItems &&
+                  items.some(
+                    (item) =>
+                      parseDateOnly(item.repayment.dueDate).getTime() ===
+                        today.getTime() &&
+                      !isRepaymentVerified(item.repayment),
+                  );
+
+                return (
+                  <td {...dayProps}>
+                    <div className="relative flex h-full w-full flex-col items-center justify-center">
+                      {children}
+                      {hasItems ? (
+                        <span
+                          className={cn(
+                            "absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full",
+                            isOverdue
+                              ? "bg-destructive"
+                              : isDueToday
+                                ? "bg-amber-500"
+                                : "bg-primary",
+                          )}
+                          aria-hidden="true"
+                        />
+                      ) : null}
+                    </div>
+                  </td>
+                );
+              },
+            }}
+          />
+        </div>
+
+        <div className="grid gap-3">
+          {selectedDate ? (
+            <div className="grid gap-3 rounded-2xl border border-border/50 p-4">
+              <p className="text-xs font-semibold text-muted-foreground">
+                {selectedDate.toLocaleDateString("en-PH", {
+                  weekday: "long",
+                  month: "long",
+                  day: "numeric",
+                })}
+              </p>
+              {selectedItems.length > 0 ? (
+                <div className="grid gap-2">
+                  {selectedItems.map((item) => (
+                    <div
+                      key={item.repayment.id}
+                      className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
+                    >
+                      <div className="grid gap-0.5">
+                        <p className="font-semibold">
+                          Installment {item.repayment.installmentNumber}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {formatDateOnly(item.repayment.dueDate)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <MoneyText
+                          value={item.repayment.amountDue}
+                          className="font-semibold"
+                        />
+                        <RepaymentStatusPill
+                          status={item.repayment.status}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => onNavigate?.("loans")}
+                    className="w-full rounded-full font-semibold sm:w-fit"
+                  >
+                    View in Loans
+                  </Button>
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  No repayments due on this date.
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/60 p-6">
+              <p className="text-xs text-muted-foreground">
+                Select a date to see repayment details.
+              </p>
+            </div>
+          )}
+
+          {nextRepayments.length > 0 ? (
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Next repayments
+              </p>
+              <div className="grid gap-2">
+                {nextRepayments.map((item) => (
+                  <div
+                    key={item.repayment.id}
+                    className="grid gap-1 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="font-semibold">
+                        Installment {item.repayment.installmentNumber}
+                      </p>
+                      <Badge
+                        variant="secondary"
+                        className={cn(
+                          "text-[10px] font-semibold",
+                          toneBadgeClassName(
+                            getRepaymentCalendarTone(item.repayment, today),
+                          ),
+                        )}
+                      >
+                        {formatRepaymentStatus(item.repayment.status)}
+                      </Badge>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs text-muted-foreground">
+                        {formatDateOnly(item.repayment.dueDate)}
+                      </p>
+                      <MoneyText
+                        value={item.repayment.amountDue}
+                        className="text-xs font-semibold"
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => onNavigate?.("loans")}
+                className="w-full rounded-full font-semibold"
+              >
+                View all in Loans
+              </Button>
+            </div>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -1341,30 +1537,6 @@ function getThisMonthDue(activeLoans: ActiveLoan[]) {
   };
 }
 
-function getAverageDaysToPay(activeLoans: ActiveLoan[]) {
-  const today = startOfLocalDay(new Date());
-  const unpaidRepayments = activeLoans
-    .flatMap((loan) => loan.schedule)
-    .filter((repayment) => !isRepaymentVerified(repayment));
-
-  if (unpaidRepayments.length === 0) {
-    return { averageDays: null, count: 0 };
-  }
-
-  const totalDays = unpaidRepayments.reduce((total, repayment) => {
-    const dueDate = parseDateOnly(repayment.dueDate);
-    const days = Math.ceil(
-      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
-
-    return total + days;
-  }, 0);
-
-  return {
-    averageDays: Math.round(totalDays / unpaidRepayments.length),
-    count: unpaidRepayments.length,
-  };
-}
 
 function getDebtProgress(activeLoans: ActiveLoan[]) {
   const totalDebt = activeLoans.reduce(
@@ -1471,60 +1643,6 @@ function getProfileWarning({
   return null;
 }
 
-function getCalendarDaysWithDueDates(activeLoans: ActiveLoan[]) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const days: (null | {
-    day: number;
-    dueItems: DashboardDueItem[];
-    isToday: boolean;
-    key: string;
-  })[] = Array.from({ length: firstDay.getDay() }, () => null);
-  const dueItemsByDay = new Map<number, DashboardDueItem[]>();
-
-  for (const loan of activeLoans) {
-    for (const repayment of loan.schedule) {
-      const dueDate = parseDateOnly(repayment.dueDate);
-
-      if (
-        dueDate.getFullYear() === year &&
-        dueDate.getMonth() === month &&
-        !isRepaymentVerified(repayment)
-      ) {
-        const day = dueDate.getDate();
-        const current = dueItemsByDay.get(day) ?? [];
-        current.push({ loan, repayment });
-        dueItemsByDay.set(day, current);
-      }
-    }
-  }
-
-  for (let day = 1; day <= daysInMonth; day += 1) {
-    days.push({
-      day,
-      dueItems: dueItemsByDay.get(day) ?? [],
-      isToday: day === today.getDate(),
-      key: `${year}-${month + 1}-${day}`,
-    });
-  }
-
-  return days;
-}
-
-function getUpcomingDueItems(activeLoans: ActiveLoan[]) {
-  const thisMonthDue = getThisMonthDue(activeLoans).dueItems;
-
-  return thisMonthDue
-    .sort(
-      (left, right) =>
-        parseDateOnly(left.repayment.dueDate).getTime() -
-        parseDateOnly(right.repayment.dueDate).getTime(),
-    )
-    .slice(0, 4);
-}
 
 function getDueCapacityStatus(ratio: number | null) {
   if (ratio === null) {
@@ -1558,21 +1676,6 @@ function getDueCapacityStatus(ratio: number | null) {
   };
 }
 
-function getAverageDaysUrgency(averageDays: number | null) {
-  if (averageDays === null) {
-    return { barClassName: "bg-muted" };
-  }
-
-  if (averageDays <= 7) {
-    return { barClassName: "bg-destructive" };
-  }
-
-  if (averageDays <= 14) {
-    return { barClassName: "bg-amber-500" };
-  }
-
-  return { barClassName: "bg-emerald-500" };
-}
 
 function isRepaymentVerified(repayment: RepaymentScheduleItem) {
   return (
@@ -1593,11 +1696,6 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(Math.max(value, min), max);
 }
 
-function getDaysInCurrentMonth() {
-  const today = new Date();
-
-  return new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
-}
 
 function isSameMonth(dateValue: string, target: Date) {
   const date = parseDateOnly(dateValue);
@@ -1614,6 +1712,58 @@ function parseDateOnly(value: string) {
 
 function startOfLocalDay(value: Date) {
   return new Date(value.getFullYear(), value.getMonth(), value.getDate());
+}
+
+function formatDateKey(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+function buildDueItemsByDate(
+  activeLoans: ActiveLoan[],
+): Map<string, DashboardDueItem[]> {
+  const map = new Map<string, DashboardDueItem[]>();
+
+  for (const loan of activeLoans) {
+    for (const repayment of loan.schedule) {
+      if (isRepaymentVerified(repayment)) {
+        continue;
+      }
+
+      const existing = map.get(repayment.dueDate) ?? [];
+      existing.push({ loan, repayment });
+      map.set(repayment.dueDate, existing);
+    }
+  }
+
+  return map;
+}
+
+function getRepaymentCalendarTone(
+  repayment: RepaymentScheduleItem,
+  today: Date,
+): "success" | "danger" | "attention" | "neutral" {
+  if (isRepaymentVerified(repayment)) {
+    return "success";
+  }
+
+  if (repayment.status === "late" || repayment.status === "rejected") {
+    return "danger";
+  }
+
+  if (repayment.status === "submitted") {
+    return "neutral";
+  }
+
+  const dueDate = parseDateOnly(repayment.dueDate);
+
+  if (dueDate < today) {
+    return "danger";
+  }
+
+  return "attention";
 }
 
 function ApplicationForm({

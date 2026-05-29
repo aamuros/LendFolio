@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { requireManager } from "@/lib/access-control";
 import {
   getShortId,
@@ -6,6 +5,7 @@ import {
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
+  BackLink,
   DetailItem,
   DetailSection,
   EmptyState,
@@ -33,7 +33,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Loan detail"
         description="Read-only loan record."
-        activeTab="loans"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -47,7 +47,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Invalid loan link"
         description="This loan link is not valid."
-        activeTab="loans"
+        
         showHeading={false}
       >
         <ManagerLoanErrorState
@@ -63,7 +63,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Loan not found"
         description="This loan record could not be found."
-        activeTab="loans"
+        
         showHeading={false}
       >
         <ManagerLoanErrorState
@@ -79,7 +79,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load loan"
         description="This loan record could not be loaded."
-        activeTab="loans"
+        
         showHeading={false}
       >
         <ManagerLoanErrorState title="Could not load loan" message={result.message} />
@@ -92,7 +92,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load loan"
         description="This loan record could not be loaded."
-        activeTab="loans"
+        
         showHeading={false}
       >
         <ManagerLoanErrorState
@@ -109,16 +109,11 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
     <ManagerShell
       title={`Loan ${getShortId(loan.id)}`}
       description="Read-only manager view of this funded loan."
-      activeTab="loans"
+      
       showHeading={false}
     >
       <section className="grid gap-3">
-        <Link
-          href="/manager/loans"
-          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          &larr; Back to loans
-        </Link>
+        <BackLink href="/manager/loans" label="Back to loans" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -264,12 +259,7 @@ function ManagerLoanErrorState({
       className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm"
       role="alert"
     >
-      <Link
-        href="/manager/loans"
-        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        &larr; Back to loans
-      </Link>
+      <BackLink href="/manager/loans" label="Back to loans" />
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold">{title}</h1>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">

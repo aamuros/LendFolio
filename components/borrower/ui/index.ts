@@ -6,4 +6,4 @@ export { EmptyState } from "./empty-state";
 export { ActionBanner, InlineStatus } from "./action-banner";
 export { SummaryRow, SummaryItem } from "./summary-row";
 
-export const borrowerPageBottomPadding = "pb-28 sm:pb-8";
+export const borrowerPageBottomPadding = "pb-32 sm:pb-8";

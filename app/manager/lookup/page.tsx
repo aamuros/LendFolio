@@ -6,11 +6,18 @@ import {
   loadManagerUserDirectory,
 } from "@/lib/manager-operations";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   AccessDenied,
   AutoFilterGrid,
   EmptyState,
   ManagerDetailsLink,
-  ManagerRecordHeader,
   ManagerShell,
   RoleBadge,
   SelectFilter,
@@ -62,7 +69,6 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       <ManagerShell
         title="Lookup"
         description="Search borrower portfolios, applications, offers, loans, and repayment schedules."
-        activeTab="lookup"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -73,17 +79,12 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
     loadManagerUserDirectory(access.supabase, filters),
     loadManagerLookup(access.supabase, q),
   ]);
-  const userGridClass =
-    "sm:grid-cols-[minmax(0,1.45fr)_0.65fr_0.75fr_minmax(0,1.5fr)_4.5rem] sm:items-center sm:gap-3";
-  const borrowerGridClass =
-    "sm:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)_0.7fr_minmax(0,1fr)_4.5rem] sm:items-center sm:gap-3";
   const hasActiveFilters = Boolean(q || filters.role || filters.status);
 
   return (
     <ManagerShell
       title="Lookup"
       description="Review users and find borrower records by name, ID, business location, application ID, or loan purpose."
-      activeTab="lookup"
     >
       <AutoFilterGrid>
         <TextFilter label="Search users" name="q" defaultValue={q} />
@@ -114,7 +115,7 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       {hasActiveFilters ? (
         <Link
           href="/manager/lookup"
-          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+          className="w-fit text-xs font-medium text-muted-foreground transition hover:text-foreground"
         >
           Reset filters
         </Link>
@@ -134,62 +135,77 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
         ) : null}
 
         {directoryResult.users.length > 0 ? (
-          <section className="grid gap-3 sm:block sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[var(--border)] sm:bg-white sm:shadow-sm">
-            <ManagerRecordHeader className={userGridClass}>
-              <span>User</span>
-              <span>Role</span>
-              <span>Status</span>
-              <span>Summary</span>
-              <span className="justify-self-center">Details</span>
-            </ManagerRecordHeader>
+          <>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User</TableHead>
+                    <TableHead>Role</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Summary</TableHead>
+                    <TableHead className="text-right">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {directoryResult.users.map((user) => (
+                    <TableRow key={user.profile.id}>
+                      <TableCell>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {user.profile.displayName}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {getShortId(user.profile.id)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <RoleBadge role={user.role} />
+                      </TableCell>
+                      <TableCell>
+                        <StatusBadge status={user.status} />
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {getUserSummary(user)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-            {directoryResult.users.map((user) => (
-              <article
-                key={user.profile.id}
-                className={`grid gap-2 rounded-2xl border border-[var(--border)] bg-white px-3 py-2.5 shadow-sm sm:rounded-none sm:border-x-0 sm:border-t-0 sm:shadow-none sm:last:border-b-0 sm:grid sm:py-2 ${userGridClass}`}
-              >
-                <div className="flex items-start justify-between gap-3 sm:hidden">
-                  <div className="min-w-0">
-                    <h2 className="truncate text-sm font-semibold">
-                      {user.profile.displayName}
-                    </h2>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      {getShortId(user.profile.id)}
-                    </p>
+            <div className="grid gap-3 md:hidden">
+              {directoryResult.users.map((user) => (
+                <article
+                  key={user.profile.id}
+                  className="grid gap-2 rounded-lg border bg-card p-3"
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <h2 className="truncate text-sm font-semibold">
+                        {user.profile.displayName}
+                      </h2>
+                      <p className="text-xs text-muted-foreground">
+                        {getShortId(user.profile.id)}
+                      </p>
+                    </div>
+                    <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
                   </div>
-                  <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
-                </div>
-                <div className="flex flex-wrap items-center gap-1.5 sm:hidden">
-                  <RoleBadge role={user.role} />
-                  <StatusBadge status={user.status} />
-                </div>
-                <p className="truncate text-xs text-[var(--muted-foreground)] sm:hidden">
-                  {getUserSummary(user)}
-                </p>
-
-                <div className="hidden min-w-0 sm:block">
-                  <p className="truncate text-sm font-semibold">
-                    {user.profile.displayName}
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <RoleBadge role={user.role} />
+                    <StatusBadge status={user.status} />
+                  </div>
+                  <p className="truncate text-xs text-muted-foreground">
+                    {getUserSummary(user)}
                   </p>
-                  <p className="text-xs text-[var(--muted-foreground)]">
-                    {getShortId(user.profile.id)}
-                  </p>
-                </div>
-                <div className="hidden sm:block">
-                  <RoleBadge role={user.role} />
-                </div>
-                <div className="hidden sm:block">
-                  <StatusBadge status={user.status} />
-                </div>
-                <p className="hidden truncate text-xs leading-5 text-[var(--muted-foreground)] sm:block">
-                  {getUserSummary(user)}
-                </p>
-                <div className="hidden sm:flex sm:justify-self-center">
-                  <ManagerDetailsLink href={getManagerUserHref(user.profile.id)} />
-                </div>
-              </article>
-            ))}
-          </section>
+                </article>
+              ))}
+            </div>
+          </>
         ) : null}
       </section>
 
@@ -210,79 +226,96 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
           ) : null}
 
           {borrowerLookupResult.results.length > 0 ? (
-            <section className="grid gap-3 sm:block sm:overflow-hidden sm:rounded-2xl sm:border sm:border-[var(--border)] sm:bg-white sm:shadow-sm">
-              <ManagerRecordHeader className={borrowerGridClass}>
-                <span>Borrower</span>
-                <span>Location</span>
-                <span>Applications</span>
-                <span>Latest record</span>
-                <span className="justify-self-center">Details</span>
-              </ManagerRecordHeader>
+            <>
+              <div className="hidden md:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Borrower</TableHead>
+                      <TableHead>Location</TableHead>
+                      <TableHead>Applications</TableHead>
+                      <TableHead>Latest record</TableHead>
+                      <TableHead className="text-right">Details</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {borrowerLookupResult.results.map((resultItem) => (
+                      <TableRow key={resultItem.borrower.id}>
+                        <TableCell>
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-medium">
+                              {resultItem.borrower.displayName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {getShortId(resultItem.borrower.id)}
+                            </p>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-xs text-muted-foreground">
+                          {resultItem.portfolio?.location ?? "No portfolio location"}
+                        </TableCell>
+                        <TableCell className="text-xs font-medium">
+                          {resultItem.applications.length}
+                        </TableCell>
+                        <TableCell>
+                          {resultItem.applications[0] ? (
+                            <div className="flex items-center gap-1.5">
+                              <StatusBadge status={resultItem.applications[0].status} />
+                              <span className="text-xs text-muted-foreground">
+                                {getShortId(resultItem.applications[0].id)}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-muted-foreground">
+                              No applications
+                            </span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <ManagerDetailsLink
+                            href={getManagerUserHref(resultItem.borrower.id)}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
 
-              {borrowerLookupResult.results.map((resultItem) => (
-                <article
-                  key={resultItem.borrower.id}
-                  className={`grid gap-2 rounded-2xl border border-[var(--border)] bg-white px-3 py-2.5 shadow-sm sm:rounded-none sm:border-x-0 sm:border-t-0 sm:shadow-none sm:last:border-b-0 sm:grid sm:py-2 ${borrowerGridClass}`}
-                >
-                  <div className="flex items-start justify-between gap-3 sm:hidden">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold">
-                        {resultItem.borrower.displayName}
-                      </h2>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {getShortId(resultItem.borrower.id)}
-                      </p>
+              <div className="grid gap-3 md:hidden">
+                {borrowerLookupResult.results.map((resultItem) => (
+                  <article
+                    key={resultItem.borrower.id}
+                    className="grid gap-2 rounded-lg border bg-card p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <h2 className="truncate text-sm font-semibold">
+                          {resultItem.borrower.displayName}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          {getShortId(resultItem.borrower.id)}
+                        </p>
+                      </div>
+                      <ManagerDetailsLink
+                        href={getManagerUserHref(resultItem.borrower.id)}
+                      />
                     </div>
-                    <ManagerDetailsLink
-                      href={getManagerUserHref(resultItem.borrower.id)}
-                    />
-                  </div>
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 sm:hidden">
-                    <span className="truncate text-xs text-[var(--muted-foreground)]">
-                      {resultItem.portfolio?.location ?? "No portfolio location"}
-                    </span>
-                    <span className="text-xs font-semibold">
-                      {resultItem.applications.length} applications
-                    </span>
-                    {resultItem.applications[0] ? (
-                      <StatusBadge status={resultItem.applications[0].status} />
-                    ) : null}
-                  </div>
-
-                  <div className="hidden min-w-0 sm:block">
-                    <p className="truncate text-sm font-semibold">
-                      {resultItem.borrower.displayName}
-                    </p>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      {getShortId(resultItem.borrower.id)}
-                    </p>
-                  </div>
-                  <p className="hidden truncate text-xs text-[var(--muted-foreground)] sm:block">
-                    {resultItem.portfolio?.location ?? "No portfolio location"}
-                  </p>
-                  <p className="hidden text-xs font-semibold sm:block">
-                    {resultItem.applications.length}
-                  </p>
-                  <div className="hidden min-w-0 flex-wrap gap-1.5 text-xs text-[var(--muted-foreground)] sm:flex">
-                    {resultItem.applications[0] ? (
-                      <>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="truncate text-xs text-muted-foreground">
+                        {resultItem.portfolio?.location ?? "No portfolio location"}
+                      </span>
+                      <span className="text-xs font-semibold">
+                        {resultItem.applications.length} applications
+                      </span>
+                      {resultItem.applications[0] ? (
                         <StatusBadge status={resultItem.applications[0].status} />
-                        <span className="truncate">
-                          {getShortId(resultItem.applications[0].id)}
-                        </span>
-                      </>
-                    ) : (
-                      "No applications"
-                    )}
-                  </div>
-                  <div className="hidden sm:flex sm:justify-self-center">
-                    <ManagerDetailsLink
-                      href={getManagerUserHref(resultItem.borrower.id)}
-                    />
-                  </div>
-                </article>
-              ))}
-            </section>
+                      ) : null}
+                    </div>
+                  </article>
+                ))}
+              </div>
+            </>
           ) : null}
         </section>
       ) : null}

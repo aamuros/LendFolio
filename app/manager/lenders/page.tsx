@@ -39,7 +39,7 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
       <ManagerShell
         title="Lender review"
         description="Review lender accounts before workspace access."
-        activeTab="lenders"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -54,7 +54,7 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     <ManagerShell
       title="Lender review"
       description="Approve lender requests or reject accounts that should not access lender tools."
-      activeTab="lenders"
+      
     >
       <ReviewStatus review={params.review} />
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />

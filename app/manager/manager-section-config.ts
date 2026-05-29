@@ -1,5 +1,3 @@
-import type { ManagerTab } from "@/components/manager-bottom-tabs";
-
 export type ManagerSectionId =
   | "lookup"
   | "loans"
@@ -27,7 +25,6 @@ export type ManagerSectionConfig = {
   href: string;
   shortLabel: string;
   description: string;
-  activeTab: ManagerTab;
   resetHref: string;
   filters: ManagerFilterField[];
 };
@@ -42,7 +39,6 @@ export const managerSectionConfigs: Record<
     href: "/manager/lookup",
     shortLabel: "Users",
     description: "Search users, borrower records, applications, and loans.",
-    activeTab: "lookup",
     resetHref: "/manager/lookup",
     filters: [
       { type: "search", name: "q", label: "Search users" },
@@ -76,7 +72,6 @@ export const managerSectionConfigs: Record<
     href: "/manager/loans",
     shortLabel: "Loans",
     description: "Track funded loans and repayment progress.",
-    activeTab: "loans",
     resetHref: "/manager/loans",
     filters: [
       {
@@ -103,7 +98,6 @@ export const managerSectionConfigs: Record<
     href: "/manager/repayments",
     shortLabel: "Proofs",
     description: "Monitor submitted, verified, and rejected proof.",
-    activeTab: "proofs",
     resetHref: "/manager/repayments",
     filters: [
       {
@@ -152,7 +146,6 @@ export const managerSectionConfigs: Record<
     href: "/manager/audit-logs",
     shortLabel: "Logs",
     description: "Review workflow events across the platform.",
-    activeTab: "audit",
     resetHref: "/manager/audit-logs",
     filters: [
       { type: "text", name: "action", label: "Action" },
@@ -168,7 +161,6 @@ export const managerSectionConfigs: Record<
     href: "/manager/applications",
     shortLabel: "Applications",
     description: "Follow application and offer lifecycles.",
-    activeTab: "applications",
     resetHref: "/manager/applications",
     filters: [
       {

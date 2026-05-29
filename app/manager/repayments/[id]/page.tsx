@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireManager } from "@/lib/access-control";
 import {
@@ -15,6 +14,7 @@ import {
   formatCurrency,
   formatDateOnly,
   formatDateTime,
+  BackLink,
 } from "../../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -34,7 +34,7 @@ export default async function ManagerRepaymentProofDetailPage({
       <ManagerShell
         title="Repayment proof"
         description="Read-only proof record."
-        activeTab="proofs"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -51,16 +51,11 @@ export default async function ManagerRepaymentProofDetailPage({
     <ManagerShell
       title={proof.fileName}
       description="Read-only repayment proof details and review metadata."
-      activeTab="proofs"
+      
       showHeading={false}
     >
       <section className="grid gap-3">
-        <Link
-          href="/manager/repayments"
-          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          &larr; Back to repayment proofs
-        </Link>
+        <BackLink href="/manager/repayments" label="Back to repayment proofs" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">

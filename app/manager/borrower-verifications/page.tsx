@@ -51,7 +51,7 @@ export default async function ManagerBorrowerVerificationsPage({
       <ManagerShell
         title="Borrower review"
         description="Review borrower verification status and submitted evidence."
-        activeTab="borrowers"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -68,7 +68,7 @@ export default async function ManagerBorrowerVerificationsPage({
     <ManagerShell
       title="Borrower review"
       description="Open submitted evidence with short-lived links before approving borrower access."
-      activeTab="borrowers"
+      
     >
       <ReviewStatus review={params.review} documentReview={params.documentReview} />
       <StatusMessage message={result.message} tone={result.ok ? "neutral" : "error"} />

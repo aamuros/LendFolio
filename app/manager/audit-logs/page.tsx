@@ -2,13 +2,18 @@ import { requireManager } from "@/lib/access-control";
 import Link from "next/link";
 import { getShortId, loadManagerAuditLogs } from "@/lib/manager-operations";
 import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
   AccessDenied,
   AutoFilterGrid,
   EmptyState,
   ManagerDetailsLink,
-  ManagerRecordHeader,
-  ManagerRecordList,
-  ManagerRecordRow,
   ManagerShell,
   PersonLabel,
   StatusMessage,
@@ -37,7 +42,6 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       <ManagerShell
         title="Audit logs"
         description="Read-only workflow event history for manager review."
-        activeTab="audit"
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -46,14 +50,11 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
 
   const result = await loadManagerAuditLogs(access.supabase, filters);
   const hasActiveFilters = Object.values(filters).some(Boolean);
-  const auditLogGridClass =
-    "sm:grid-cols-[minmax(0,1.25fr)_minmax(0,0.9fr)_minmax(0,1fr)_minmax(0,1fr)_4.5rem] sm:items-center sm:gap-3";
 
   return (
     <ManagerShell
       title="Audit logs"
       description="Review workflow events by actor, action, target, and date."
-      activeTab="audit"
     >
       <AutoFilterGrid>
         <TextFilter label="Action" name="action" defaultValue={filters.action} />
@@ -80,7 +81,7 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
       {hasActiveFilters ? (
         <Link
           href="/manager/audit-logs"
-          className="w-fit text-xs font-semibold text-[var(--muted-foreground)] transition hover:text-[var(--primary)]"
+          className="w-fit text-xs font-medium text-muted-foreground transition hover:text-foreground"
         >
           Reset filters
         </Link>
@@ -97,65 +98,78 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
         ) : null}
 
         {result.logs.length > 0 ? (
-          <ManagerRecordList>
-            <ManagerRecordHeader className={auditLogGridClass}>
-              <span>Event</span>
-              <span>Actor</span>
-              <span>Target</span>
-              <span>Created</span>
-              <span className="justify-self-center">Details</span>
-            </ManagerRecordHeader>
+          <>
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Event</TableHead>
+                    <TableHead>Actor</TableHead>
+                    <TableHead>Target</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead className="text-right">Details</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {result.logs.map((log) => (
+                    <TableRow key={log.id}>
+                      <TableCell>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-medium">
+                            {log.action}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Event {getShortId(log.id)}
+                          </p>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {log.actor ? (
+                          <PersonLabel person={log.actor} />
+                        ) : (
+                          <span className="text-sm text-muted-foreground">System</span>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <p className="text-sm">
+                          {log.targetTable} · {getShortId(log.targetId)}
+                        </p>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">
+                        {formatDateTime(log.timestamp)}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
 
-            {result.logs.map((log) => (
-              <ManagerRecordRow key={log.id}>
+            <div className="grid gap-3 md:hidden">
+              {result.logs.map((log) => (
                 <article
-                  className={`grid gap-2 px-3 py-2.5 sm:grid ${auditLogGridClass}`}
+                  key={log.id}
+                  className="grid gap-2 rounded-lg border bg-card p-3"
                 >
-                  <div className="flex items-start justify-between gap-3 sm:hidden">
+                  <div className="flex items-start justify-between gap-3">
                     <h2 className="truncate text-sm font-semibold">{log.action}</h2>
                     <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
                   </div>
-
-                  <p className="text-xs sm:hidden">
+                  <p className="text-xs">
                     {log.actor ? <PersonLabel person={log.actor} /> : "System"}
                   </p>
-
-                  <p className="truncate text-xs text-[var(--muted-foreground)] sm:hidden">
+                  <p className="truncate text-xs text-muted-foreground">
                     {log.targetTable} · {getShortId(log.targetId)}
                   </p>
-
-                  <p className="text-xs text-[var(--muted-foreground)] sm:hidden">
+                  <p className="text-xs text-muted-foreground">
                     {formatDateTime(log.timestamp)}
                   </p>
-
-                  <div className="hidden min-w-0 sm:block">
-                    <h2 className="truncate text-sm font-semibold">
-                      {log.action}
-                    </h2>
-                    <p className="text-xs text-[var(--muted-foreground)]">
-                      Event {getShortId(log.id)}
-                    </p>
-                  </div>
-
-                  <div className="hidden min-w-0 text-xs sm:block sm:text-sm">
-                    {log.actor ? <PersonLabel person={log.actor} /> : "System"}
-                  </div>
-
-                  <p className="hidden min-w-0 truncate text-sm sm:block">
-                    {log.targetTable} · {getShortId(log.targetId)}
-                  </p>
-
-                  <p className="hidden text-sm sm:block">
-                    {formatDateTime(log.timestamp)}
-                  </p>
-
-                  <span className="hidden sm:inline-flex sm:justify-self-center">
-                    <ManagerDetailsLink href={`/manager/audit-logs/${log.id}`} />
-                  </span>
                 </article>
-              </ManagerRecordRow>
-            ))}
-          </ManagerRecordList>
+              ))}
+            </div>
+          </>
         ) : null}
       </section>
     </ManagerShell>

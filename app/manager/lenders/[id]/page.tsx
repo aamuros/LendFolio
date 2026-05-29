@@ -43,7 +43,7 @@ export default async function ManagerLenderDetailPage({
       <ManagerShell
         title="Lender detail"
         description="Review lender profile information before workspace access."
-        activeTab="lenders"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -56,7 +56,7 @@ export default async function ManagerLenderDetailPage({
     <ManagerShell
       title="Lender detail"
       description="Review lender profile information before workspace access."
-      activeTab="lenders"
+      
     >
       <div>
         <Link

@@ -1,8 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
 import { useMemo, useState } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import {
+  ArrowUpRightIcon,
+} from "lucide-react";
 import type {
   BusinessType,
   ManagerLenderPerformanceRow,
@@ -50,21 +68,21 @@ export function LenderPerformancePanel({
   );
 
   return (
-    <DataCard>
-      <div className="grid gap-3">
-        <PanelHeader
-          title="Lender performance"
-          description="Top lenders by completed applications"
-          icon={<BriefcaseIcon />}
-        />
-        <label className="grid gap-1 text-sm font-semibold">
-          <span className="sr-only">Business type</span>
+    <Card>
+      <CardHeader>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>Lender performance</CardTitle>
+            <CardDescription>Top lenders by completed applications</CardDescription>
+          </div>
+        </div>
+        <div className="pt-2">
           <select
             value={selectedBusinessType}
             onChange={(event) =>
               setSelectedBusinessType(event.target.value as SelectedBusinessType)
             }
-            className="h-10 w-full rounded-full border border-[var(--border)] bg-white px-4 text-sm font-normal focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+            className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus:ring-ring flex h-8 w-full rounded-md border px-3 py-1 text-sm focus:ring-2 focus:ring-offset-2 focus:outline-none disabled:cursor-not-allowed disabled:opacity-50"
           >
             <option value="all">All business types</option>
             {businessTypeOptions.map((businessType) => (
@@ -73,65 +91,75 @@ export function LenderPerformancePanel({
               </option>
             ))}
           </select>
-        </label>
-      </div>
-      {rows.length > 0 ? (
-        visibleRows.length > 0 ? (
-          <ol className="grid gap-2">
-            {visibleRows.map((row, index) => (
-              <li key={row.id}>
-                <Link
-                  href={row.href}
-                  className="grid gap-3 rounded-2xl border border-[var(--border)] bg-white px-3 py-3 shadow-sm transition hover:-translate-y-0.5 hover:border-[var(--primary)] hover:shadow-md focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-[var(--primary)]"
-                >
-                  <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
-                    <span className="grid size-8 place-items-center rounded-full bg-[var(--muted)] text-xs font-semibold text-[var(--muted-foreground)]">
+        </div>
+      </CardHeader>
+      <CardContent>
+        {rows.length > 0 ? (
+          visibleRows.length > 0 ? (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Lender</TableHead>
+                  <TableHead className="text-center">Completed</TableHead>
+                  <TableHead className="text-right">Accepted</TableHead>
+                  <TableHead className="text-right">Active</TableHead>
+                  <TableHead className="w-12" />
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {visibleRows.map((row, index) => (
+                  <TableRow key={row.id}>
+                    <TableCell className="text-muted-foreground">
                       {index + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <h3 className="truncate text-sm font-semibold">
-                        {row.displayName}
-                      </h3>
-                      <p className="text-xs text-[var(--muted-foreground)]">
-                        {row.shortId}
-                      </p>
-                    </div>
-                    <div className="shrink-0 rounded-2xl bg-[#e8f6f3] px-3 py-2 text-right text-[#0f5f45]">
-                      <p className="text-lg leading-none font-semibold">
+                    </TableCell>
+                    <TableCell>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {row.displayName}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {row.shortId}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <span className="inline-flex items-center justify-center rounded-lg bg-emerald-50 px-2 py-1 text-sm font-semibold text-emerald-700">
                         {numberFormatter.format(row.completedApplicationCount)}
-                      </p>
-                      <p className="mt-1 text-[11px] font-semibold">
-                        completed
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <MetricChip
-                      value={row.acceptedOfferCount}
-                      label="accepted offers"
-                    />
-                    <MetricChip
-                      value={row.activeLoanCount}
-                      label="active loans"
-                    />
-                  </div>
-                </Link>
-              </li>
-            ))}
-          </ol>
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {row.acceptedOfferCount}
+                    </TableCell>
+                    <TableCell className="text-right text-sm">
+                      {row.activeLoanCount}
+                    </TableCell>
+                    <TableCell>
+                      <Button variant="ghost" size="icon-xs" asChild>
+                        <Link href={row.href}>
+                          <ArrowUpRightIcon className="size-3" />
+                          <span className="sr-only">View {row.displayName}</span>
+                        </Link>
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          ) : (
+            <DashboardEmptyState
+              title="No lender activity found"
+              description="Try another business type or wait for accepted offers and active loans."
+            />
+          )
         ) : (
           <DashboardEmptyState
-            title="No lender activity found"
-            description="Try another business type or wait for accepted offers and active loans."
+            title="No lender activity yet"
+            description="Lender performance will appear after offers are accepted and loans are activated."
           />
-        )
-      ) : (
-        <DashboardEmptyState
-          title="No lender activity yet"
-          description="Lender performance will appear after offers are accepted and loans are activated."
-        />
-      )}
-    </DataCard>
+        )}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -188,52 +216,6 @@ function getVisibleRows(
     .slice(0, 6);
 }
 
-function PanelHeader({
-  title,
-  description,
-  icon,
-}: {
-  title: string;
-  description: string;
-  icon: ReactNode;
-}) {
-  return (
-    <div className="flex items-start gap-3">
-      <span
-        aria-hidden="true"
-        className="grid size-10 shrink-0 place-items-center rounded-2xl border border-[#cbe8e4] bg-[#e8f6f3] text-[#0f5f45]"
-      >
-        {icon}
-      </span>
-      <div className="grid gap-1">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-          {description}
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function MetricChip({ value, label }: { value: number; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border)] bg-[var(--muted)]/25 px-2.5 py-1 text-[11px] font-semibold text-[var(--muted-foreground)]">
-      <span className="text-[var(--foreground)]">
-        {numberFormatter.format(value)}
-      </span>
-      {label}
-    </span>
-  );
-}
-
-function DataCard({ children }: { children: ReactNode }) {
-  return (
-    <article className="grid gap-4 rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm sm:px-5">
-      {children}
-    </article>
-  );
-}
-
 function DashboardEmptyState({
   title,
   description,
@@ -242,32 +224,9 @@ function DashboardEmptyState({
   description: string;
 }) {
   return (
-    <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--muted)]/20 px-4 py-8 text-center">
+    <div className="rounded-lg border border-dashed bg-muted/20 px-4 py-8 text-center">
       <h3 className="text-base font-semibold">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-        {description}
-      </p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </div>
-  );
-}
-
-function BriefcaseIcon({ className = "size-5" }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 24 24" fill="none">
-      <path
-        d="M8.25 7.75v-1.5a1.5 1.5 0 0 1 1.5-1.5h4.5a1.5 1.5 0 0 1 1.5 1.5v1.5M5.25 7.75h13.5v10.5H5.25z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-      <path
-        d="M5.25 11.25h13.5M10 11.25v1.5h4v-1.5"
-        stroke="currentColor"
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
   );
 }

@@ -22,6 +22,7 @@ import {
   formatCurrency,
   formatDateOnly,
   formatDateTime,
+  BackLink,
 } from "../../manager-ui";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +40,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="User detail"
         description="Read-only user record."
-        activeTab="lookup"
+        
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -53,7 +54,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Invalid user link"
         description="This user link is not valid."
-        activeTab="lookup"
+        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -69,7 +70,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="User not found"
         description="This user record could not be found."
-        activeTab="lookup"
+        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -85,7 +86,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load user"
         description="This user record could not be loaded."
-        activeTab="lookup"
+        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -101,7 +102,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
       <ManagerShell
         title="Could not load user"
         description="This user record could not be loaded."
-        activeTab="lookup"
+        
         showHeading={false}
       >
         <ManagerUserErrorState
@@ -118,16 +119,11 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
     <ManagerShell
       title={user.profile.displayName}
       description="Read-only manager view of this user and related activity."
-      activeTab="lookup"
+      
       showHeading={false}
     >
       <section className="grid gap-3">
-        <Link
-          href="/manager/lookup"
-          className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-        >
-          &larr; Back to users
-        </Link>
+        <BackLink href="/manager/lookup" label="Back to users" />
 
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
@@ -382,12 +378,7 @@ function ManagerUserErrorState({
 }) {
   return (
     <section className="grid gap-4 rounded-2xl border border-[var(--border)] bg-white p-4 shadow-sm">
-      <Link
-        href="/manager/lookup"
-        className="w-fit text-sm font-semibold text-[var(--primary)] transition hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-      >
-        &larr; Back to users
-      </Link>
+      <BackLink href="/manager/lookup" label="Back to users" />
       <div className="grid gap-1">
         <h1 className="text-2xl leading-tight font-semibold">{title}</h1>
         <p className="text-sm leading-6 text-[var(--muted-foreground)]">
