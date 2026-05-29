@@ -17,6 +17,7 @@ import {
 } from "@/lib/credit-limit";
 import {
   evaluateBorrowerReadiness,
+  type BorrowerProfileReadinessResult,
   type BorrowerReadinessResult,
 } from "@/lib/borrower-readiness";
 import {
@@ -99,6 +100,7 @@ export type LoanApplicationSubmitResult =
         | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
+      readiness?: BorrowerReadinessResult;
     };
 
 export type LoanApplicationUpdateResult =
@@ -602,8 +604,10 @@ export async function submitLoanApplication(
       | {
           ok?: boolean;
           code?: string;
+          codes?: Json;
           message?: string;
           application?: Json;
+          readiness?: Json;
         }
       | null;
 
@@ -613,9 +617,10 @@ export async function submitLoanApplication(
         ok: false,
         mode:
           result?.code === "missing_portfolio" ||
-          result?.code === "profile_required" ||
-          result?.code === "profile_incomplete"
+          result?.code === "profile_required"
             ? "missing-portfolio"
+            : result?.code === "profile_incomplete"
+              ? "readiness"
             : result?.code === "consent_required"
               ? "consent-required"
             : result?.code === "borrower_verification_required"
@@ -633,6 +638,7 @@ export async function submitLoanApplication(
               : "supabase",
         message,
         fieldErrors: getLoanApplicationFieldErrorsFromCode(result?.code, message),
+        readiness: mapRpcReadiness(result?.readiness, result?.codes),
       };
     }
 
@@ -1222,6 +1228,88 @@ function isLoanApplicationRow(value: Json | undefined): value is Parameters<
 
 function createSafeProofFileName(fileName: string) {
   return createSafeUploadFileName(fileName, "repayment-proof");
+}
+
+function mapRpcReadiness(
+  readiness: Json | undefined,
+  codes: Json | undefined,
+): BorrowerReadinessResult | undefined {
+  if (!readiness || typeof readiness !== "object" || Array.isArray(readiness)) {
+    return undefined;
+  }
+
+  const record = readiness as Record<string, Json | undefined>;
+  const profileReadiness = record.profile_readiness;
+  const profileRecord =
+    profileReadiness &&
+    typeof profileReadiness === "object" &&
+    !Array.isArray(profileReadiness)
+      ? (profileReadiness as Record<string, Json | undefined>)
+      : record;
+  const readinessStatus = String(
+    profileRecord.readiness_status ?? record.readiness_status ?? "incomplete",
+  );
+
+  if (!isBorrowerReadinessStatus(readinessStatus)) {
+    return undefined;
+  }
+
+  return {
+    readinessStatus,
+    codes: toStringArray(record.codes ?? codes),
+    missingFields: toStringArray(profileRecord.missing_fields),
+    riskFlags: toStringArray(profileRecord.risk_flags),
+    monthlyNetCashFlow: toNumber(profileRecord.monthly_net_cash_flow),
+    debtBurdenRatio:
+      profileRecord.debt_burden_ratio == null
+        ? null
+        : toNumber(profileRecord.debt_burden_ratio),
+    profileIsStale: profileRecord.profile_is_stale === true,
+    nextActions: toStringArray(profileRecord.next_actions),
+    profileReadiness: mapProfileReadiness(profileRecord, readinessStatus),
+  };
+}
+
+function mapProfileReadiness(
+  profileRecord: Record<string, Json | undefined>,
+  readinessStatus: BorrowerReadinessResult["readinessStatus"],
+): BorrowerProfileReadinessResult {
+  return {
+    readinessStatus,
+    missingFields: toStringArray(profileRecord.missing_fields),
+    riskFlags: toStringArray(profileRecord.risk_flags),
+    monthlyNetCashFlow: toNumber(profileRecord.monthly_net_cash_flow),
+    debtBurdenRatio:
+      profileRecord.debt_burden_ratio == null
+        ? null
+        : toNumber(profileRecord.debt_burden_ratio),
+    profileIsStale: profileRecord.profile_is_stale === true,
+    nextActions: toStringArray(profileRecord.next_actions),
+  };
+}
+
+function isBorrowerReadinessStatus(
+  value: string,
+): value is BorrowerReadinessResult["readinessStatus"] {
+  return [
+    "incomplete",
+    "complete",
+    "needs_review",
+    "not_eligible",
+    "eligible_to_apply",
+  ].includes(value);
+}
+
+function toStringArray(value: Json | undefined): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function toNumber(value: Json | undefined) {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : 0;
 }
 
 async function loadUserConsents(

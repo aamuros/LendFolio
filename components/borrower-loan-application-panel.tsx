@@ -30,7 +30,6 @@ import {
   getBorrowerVerificationMessage,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
-import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
   formatCreditAmount,
@@ -114,12 +113,14 @@ type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers" | "loans";
   onNavigate?: (tab: BorrowerTab) => void;
   initialLoadResult?: LoanApplicationsLoadResult | null;
+  refreshKey?: number;
 };
 
 export function BorrowerLoanApplicationPanel({
   view = "apply",
   onNavigate,
   initialLoadResult = null,
+  refreshKey = 0,
 }: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>(
@@ -249,41 +250,21 @@ export function BorrowerLoanApplicationPanel({
   useEffect(() => {
     let isActive = true;
 
-    function load() {
-      startTransition(() => {
-        void loadBorrowerLoanApplications().then((result) => {
-          if (!isActive) {
-            return;
-          }
+    startTransition(() => {
+      void loadBorrowerLoanApplications().then((result) => {
+        if (!isActive) {
+          return;
+        }
 
-          applyLoanApplicationsResult(result);
-          setSuccessMessage("");
-        });
+        applyLoanApplicationsResult(result);
+        setSuccessMessage("");
       });
-    }
-
-    if (!initialLoadResult) {
-      load();
-    }
-    window.addEventListener(borrowerPortfolioSavedEvent, load);
+    });
 
     return () => {
       isActive = false;
-      window.removeEventListener(borrowerPortfolioSavedEvent, load);
     };
-  }, [applyLoanApplicationsResult, initialLoadResult, startTransition]);
-
-  useEffect(() => {
-    if (!initialLoadResult) {
-      return;
-    }
-
-    const timeout = window.setTimeout(() => {
-      applyLoanApplicationsResult(initialLoadResult);
-    }, 0);
-
-    return () => window.clearTimeout(timeout);
-  }, [applyLoanApplicationsResult, initialLoadResult]);
+  }, [applyLoanApplicationsResult, refreshKey, startTransition]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -313,7 +294,10 @@ export function BorrowerLoanApplicationPanel({
   const borrowerVerificationMessage =
     getBorrowerVerificationMessage(borrowerVerification);
   const readinessBlock =
-    hasPortfolio && readiness?.readinessStatus !== "eligible_to_apply"
+    readiness &&
+    ["incomplete", "needs_review", "not_eligible"].includes(
+      readiness.readinessStatus,
+    )
       ? readiness
       : null;
 
@@ -383,6 +367,10 @@ export function BorrowerLoanApplicationPanel({
             });
           }
         }
+      }
+
+      if (result.readiness) {
+        setReadiness(result.readiness);
       }
 
       setLoadState(
@@ -706,6 +694,11 @@ export function BorrowerLoanApplicationPanel({
                 action="Go to Profile"
                 onAction={() => onNavigate?.("profile")}
               />
+            ) : readinessBlock ? (
+              <ProfileReadinessGateCard
+                readiness={readinessBlock}
+                onNavigate={onNavigate}
+              />
             ) : !canSubmitApplication ? (
               <VerificationGateCard
                 borrowerVerification={borrowerVerification}
@@ -722,8 +715,6 @@ export function BorrowerLoanApplicationPanel({
                   });
                 }}
               />
-            ) : readinessBlock ? (
-              <ReadinessGateCard readiness={readinessBlock} onNavigate={onNavigate} />
             ) : (
               <ApplicationForm
                 control={control}
@@ -866,13 +857,39 @@ function VerificationGateCard({
   );
 }
 
-function ReadinessGateCard({
+function ProfileReadinessGateCard({
   onNavigate,
   readiness,
 }: {
   onNavigate?: (tab: BorrowerTab) => void;
   readiness: BorrowerReadinessResult;
 }) {
+  const profileReadiness = readiness.profileReadiness ?? readiness;
+  const missingFields =
+    profileReadiness.missingFields.length > 0
+      ? profileReadiness.missingFields
+      : readiness.missingFields;
+  const riskFlags =
+    profileReadiness.riskFlags.length > 0
+      ? profileReadiness.riskFlags
+      : readiness.riskFlags;
+  const codes = readiness.codes ?? [];
+  const statusLabel =
+    readiness.readinessStatus === "incomplete"
+      ? "Profile incomplete"
+      : readiness.readinessStatus === "not_eligible"
+        ? "Profile not eligible"
+        : "Profile needs review";
+  const title =
+    readiness.readinessStatus === "incomplete"
+      ? "Complete your business profile"
+      : readiness.readinessStatus === "not_eligible"
+        ? "Profile not eligible to apply"
+        : "Review your business profile";
+  const actionLabel =
+    readiness.readinessStatus === "incomplete"
+      ? "Open profile"
+      : "Review profile";
   const message =
     readiness.nextActions[0] ??
     "Review your profile details before submitting an application.";
@@ -881,19 +898,27 @@ function ReadinessGateCard({
     <Card className="rounded-2xl" role="status" aria-live="polite">
       <CardContent className="grid gap-3 p-5">
         <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {statusLabel}
+          </p>
           <p className="text-sm font-semibold text-foreground">
-            Application readiness
+            {title}
           </p>
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
-        {readiness.missingFields.length > 0 ? (
+        {missingFields.length > 0 ? (
           <p className="text-sm text-muted-foreground">
-            Missing: {readiness.missingFields.join(", ")}
+            Missing fields: {missingFields.join(", ")}
           </p>
         ) : null}
-        {readiness.riskFlags.length > 0 ? (
+        {riskFlags.length > 0 ? (
           <p className="text-sm text-muted-foreground">
-            Needs review: {readiness.riskFlags.join(", ")}
+            Risk flags: {riskFlags.join(", ")}
+          </p>
+        ) : null}
+        {codes.length > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Readiness codes: {codes.join(", ")}
           </p>
         ) : null}
         <Button
@@ -901,7 +926,7 @@ function ReadinessGateCard({
           onClick={() => onNavigate?.("profile")}
           className="w-full rounded-full font-semibold sm:w-fit"
         >
-          Review profile
+          {actionLabel}
         </Button>
       </CardContent>
     </Card>

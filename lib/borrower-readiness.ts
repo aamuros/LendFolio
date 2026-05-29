@@ -20,6 +20,18 @@ export type BorrowerReadinessStatus =
 
 export type BorrowerReadinessResult = {
   readinessStatus: BorrowerReadinessStatus;
+  codes?: string[];
+  profileReadiness?: BorrowerProfileReadinessResult;
+  missingFields: string[];
+  riskFlags: string[];
+  monthlyNetCashFlow: number;
+  debtBurdenRatio: number | null;
+  profileIsStale: boolean;
+  nextActions: string[];
+};
+
+export type BorrowerProfileReadinessResult = {
+  readinessStatus?: BorrowerReadinessStatus;
   missingFields: string[];
   riskFlags: string[];
   monthlyNetCashFlow: number;

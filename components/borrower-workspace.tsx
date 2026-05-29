@@ -69,29 +69,38 @@ export function BorrowerWorkspace({
   const [readiness, setReadiness] = useState<BorrowerReadinessResult | null>(
     initialLoanApplications?.readiness ?? null,
   );
+  const [loanApplicationsResult, setLoanApplicationsResult] =
+    useState<LoanApplicationsLoadResult | null>(initialLoanApplications);
+  const [loanApplicationsRefreshKey, setLoanApplicationsRefreshKey] =
+    useState(0);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
   useEffect(() => {
     let isActive = true;
 
-    function loadCreditSummary() {
+    function refreshLoanApplications() {
       startTransition(() => {
         void loadBorrowerLoanApplications().then((result) => {
           if (!isActive) {
             return;
           }
 
+          setLoanApplicationsResult(result);
+          setLoanApplicationsRefreshKey((current) => current + 1);
           setCreditSummary(result.creditSummary);
           setReadiness(result.readiness);
         });
       });
     }
 
-    window.addEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+    window.addEventListener(borrowerPortfolioSavedEvent, refreshLoanApplications);
 
     return () => {
       isActive = false;
-      window.removeEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+      window.removeEventListener(
+        borrowerPortfolioSavedEvent,
+        refreshLoanApplications,
+      );
     };
   }, [startTransition]);
 
@@ -108,6 +117,8 @@ export function BorrowerWorkspace({
           return;
         }
 
+        setLoanApplicationsResult(result);
+        setLoanApplicationsRefreshKey((current) => current + 1);
         setCreditSummary(result.creditSummary);
         setReadiness(result.readiness);
       });
@@ -243,7 +254,7 @@ export function BorrowerWorkspace({
               onProfileViewChange={setProfileMode}
               portfolio={portfolio}
               readiness={readiness}
-              result={initialLoanApplications}
+              result={loanApplicationsResult}
             />
           )}
         </section>
@@ -251,7 +262,8 @@ export function BorrowerWorkspace({
         <BorrowerLoanApplicationPanel
           view={workspaceTab}
           onNavigate={changeTab}
-          initialLoadResult={initialLoanApplications}
+          initialLoadResult={loanApplicationsResult}
+          refreshKey={loanApplicationsRefreshKey}
         />
       )}
 
