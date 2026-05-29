@@ -5,7 +5,10 @@ import {
   getManagerSubmittedDateRange,
   resolveSubmittedDateRangeFilters,
 } from "../lib/date-ranges";
-import { loanApplicationSchema } from "../lib/loan-application";
+import {
+  getLoanApplicationFieldErrorsFromCode,
+  loanApplicationSchema,
+} from "../lib/loan-application";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
 import {
   createMetadataPreview,
@@ -85,6 +88,41 @@ describe("loan application schema", () => {
     });
 
     expect(result.success).toBe(false);
+  });
+
+  it("rejects invalid purpose, preferred term, and remarks", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "Stock",
+      preferredTerm: "24_months",
+      remarks: "x".repeat(501),
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const errors = result.error.flatten().fieldErrors;
+      expect(errors.purpose).toBeDefined();
+      expect(errors.preferredTerm).toBeDefined();
+      expect(errors.remarks).toBeDefined();
+    }
+  });
+
+  it("maps RPC validation codes to form fields", () => {
+    expect(getLoanApplicationFieldErrorsFromCode("invalid_amount")).toHaveProperty(
+      "requestedAmount",
+    );
+    expect(getLoanApplicationFieldErrorsFromCode("invalid_purpose")).toHaveProperty(
+      "purpose",
+    );
+    expect(getLoanApplicationFieldErrorsFromCode("invalid_term")).toHaveProperty(
+      "preferredTerm",
+    );
+    expect(getLoanApplicationFieldErrorsFromCode("invalid_remarks")).toHaveProperty(
+      "remarks",
+    );
+    expect(
+      getLoanApplicationFieldErrorsFromCode("credit_limit_exceeded"),
+    ).toHaveProperty("requestedAmount");
   });
 
   it("shows friendly validation for empty numeric inputs", () => {

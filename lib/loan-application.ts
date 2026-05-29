@@ -55,6 +55,28 @@ export const loanApplicationSchema = z.object({
 
 export type LoanApplicationInput = z.infer<typeof loanApplicationSchema>;
 export type LoanApplicationFormInput = z.input<typeof loanApplicationSchema>;
+export type LoanApplicationFieldErrors = Partial<
+  Record<keyof LoanApplicationInput, string[]>
+>;
+
+export function getLoanApplicationFieldErrorsFromCode(
+  code: string | null | undefined,
+  message = "Review this field before submitting.",
+): LoanApplicationFieldErrors | undefined {
+  switch (code) {
+    case "invalid_amount":
+    case "credit_limit_exceeded":
+      return { requestedAmount: [message] };
+    case "invalid_purpose":
+      return { purpose: [message] };
+    case "invalid_term":
+      return { preferredTerm: [message] };
+    case "invalid_remarks":
+      return { remarks: [message] };
+    default:
+      return undefined;
+  }
+}
 
 export type LoanApplicationSummary = {
   id: string;

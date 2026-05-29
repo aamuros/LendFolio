@@ -37,6 +37,7 @@ import {
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
 import {
+  getLoanApplicationFieldErrorsFromCode,
   loanApplicationSchema,
   mapLoanApplicationRow,
   type LoanApplicationInput,
@@ -607,6 +608,7 @@ export async function submitLoanApplication(
       | null;
 
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
+      const message = result?.message ?? "Could not submit application.";
       return {
         ok: false,
         mode:
@@ -629,7 +631,8 @@ export async function submitLoanApplication(
                 result?.code === "not_eligible"
               ? "readiness"
               : "supabase",
-        message: result?.message ?? "Could not submit application.",
+        message,
+        fieldErrors: getLoanApplicationFieldErrorsFromCode(result?.code, message),
       };
     }
 

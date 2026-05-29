@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormEventHandler, ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import {
   Controller,
   useForm,
@@ -195,11 +195,56 @@ export function BorrowerLoanApplicationPanel({
     reset,
     control,
     formState: { errors },
+    setError,
   } = useForm<LoanApplicationFormInput, unknown, LoanApplicationInput>({
     resolver: zodResolver(loanApplicationSchema),
     defaultValues,
     mode: "onBlur",
   });
+
+  const applyLoanApplicationsResult = useCallback(
+    (result: LoanApplicationsLoadResult) => {
+      const nextHasPortfolio = result.hasPortfolio;
+      const nextApplications = result.ok ? result.applications : [];
+
+      setHasPortfolio(nextHasPortfolio);
+      setBorrowerVerification(result.borrowerVerification);
+      setReadiness(result.readiness);
+      setConsentStatuses(result.consentStatuses);
+      setLoanConsentStatus(
+        result.consentStatuses?.borrowerLoanApplication ?? null,
+      );
+      setApplications(nextApplications);
+      setCreditSummary(result.creditSummary);
+      setExpandedApplicationIds(
+        getDefaultExpandedApplicationIds(
+          nextApplications,
+          readStoredIdSet(collapsedApplicationsStorageKey),
+        ),
+      );
+      setExpandedOfferIds(
+        getDefaultExpandedOfferIds(
+          nextApplications,
+          readStoredIdSet(collapsedOffersStorageKey),
+        ),
+      );
+      setExpandedRepaymentIds(
+        getDefaultExpandedRepaymentIds(
+          nextApplications,
+          readStoredIdSet(collapsedRepaymentsStorageKey),
+        ),
+      );
+      setLoadState(nextHasPortfolio ? "ready" : "blocked");
+      setMessage(result.ok ? "" : result.message);
+    },
+    [],
+  );
+
+  const reloadLoanApplications = useCallback(async () => {
+    const result = await loadBorrowerLoanApplications();
+    applyLoanApplicationsResult(result);
+    return result;
+  }, [applyLoanApplicationsResult]);
 
   useEffect(() => {
     let isActive = true;
@@ -211,38 +256,7 @@ export function BorrowerLoanApplicationPanel({
             return;
           }
 
-          const nextHasPortfolio = result.hasPortfolio;
-          const nextApplications = result.ok ? result.applications : [];
-
-          setHasPortfolio(nextHasPortfolio);
-          setBorrowerVerification(result.borrowerVerification);
-          setReadiness(result.readiness);
-          setConsentStatuses(result.consentStatuses);
-          setLoanConsentStatus(
-            result.consentStatuses?.borrowerLoanApplication ?? null,
-          );
-          setApplications(nextApplications);
-          setCreditSummary(result.creditSummary);
-          setExpandedApplicationIds(
-            getDefaultExpandedApplicationIds(
-              nextApplications,
-              readStoredIdSet(collapsedApplicationsStorageKey),
-            ),
-          );
-          setExpandedOfferIds(
-            getDefaultExpandedOfferIds(
-              nextApplications,
-              readStoredIdSet(collapsedOffersStorageKey),
-            ),
-          );
-          setExpandedRepaymentIds(
-            getDefaultExpandedRepaymentIds(
-              nextApplications,
-              readStoredIdSet(collapsedRepaymentsStorageKey),
-            ),
-          );
-          setLoadState(nextHasPortfolio ? "ready" : "blocked");
-          setMessage(result.ok ? "" : result.message);
+          applyLoanApplicationsResult(result);
           setSuccessMessage("");
         });
       });
@@ -257,7 +271,19 @@ export function BorrowerLoanApplicationPanel({
       isActive = false;
       window.removeEventListener(borrowerPortfolioSavedEvent, load);
     };
-  }, [initialLoadResult, startTransition]);
+  }, [applyLoanApplicationsResult, initialLoadResult, startTransition]);
+
+  useEffect(() => {
+    if (!initialLoadResult) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      applyLoanApplicationsResult(initialLoadResult);
+    }, 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [applyLoanApplicationsResult, initialLoadResult]);
 
   useEffect(() => {
     if (!successMessage) {
@@ -286,6 +312,10 @@ export function BorrowerLoanApplicationPanel({
   );
   const borrowerVerificationMessage =
     getBorrowerVerificationMessage(borrowerVerification);
+  const readinessBlock =
+    hasPortfolio && readiness?.readinessStatus !== "eligible_to_apply"
+      ? readiness
+      : null;
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
@@ -306,6 +336,10 @@ export function BorrowerLoanApplicationPanel({
     ) {
       setLoadState("ready");
       setMessage("");
+      setError("requestedAmount", {
+        type: "manual",
+        message: "Requested amount exceeds your available credit.",
+      });
       return;
     }
 
@@ -316,18 +350,39 @@ export function BorrowerLoanApplicationPanel({
       const result = await submitLoanApplication(values);
 
       if (result.ok) {
-        setApplications((current) => [
-          { ...result.application, offers: [], activeLoan: null },
-          ...current,
-        ]);
-        setExpandedApplicationIds(
-          (current) => new Set([...current, result.application.id]),
-        );
-        setLoadState("ready");
-        setMessage("");
-        setSuccessMessage(result.message);
         reset(defaultValues);
+        const refreshed = await loadBorrowerLoanApplications();
+        if (refreshed.ok) {
+          applyLoanApplicationsResult(refreshed);
+          setExpandedApplicationIds((current) =>
+            new Set([...current, result.application.id]),
+          );
+        } else {
+          setApplications((current) => [
+            { ...result.application, offers: [], activeLoan: null },
+            ...current,
+          ]);
+          setExpandedApplicationIds(
+            (current) => new Set([...current, result.application.id]),
+          );
+          setLoadState("ready");
+          setMessage("");
+        }
+        setSuccessMessage(result.message);
         return;
+      }
+
+      if (result.fieldErrors) {
+        for (const [field, messages] of Object.entries(result.fieldErrors)) {
+          const message = messages?.[0];
+
+          if (message) {
+            setError(field as keyof LoanApplicationInput, {
+              type: result.mode,
+              message,
+            });
+          }
+        }
       }
 
       setLoadState(
@@ -335,6 +390,9 @@ export function BorrowerLoanApplicationPanel({
           ? "blocked"
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required"
+            || result.mode === "credit-limit"
+            || result.mode === "readiness"
+            || result.mode === "validation"
             ? "ready"
             : "error",
       );
@@ -439,8 +497,7 @@ export function BorrowerLoanApplicationPanel({
 
       const refreshed = await loadBorrowerLoanApplications();
       if (refreshed.ok) {
-        setApplications(refreshed.applications);
-        setCreditSummary(refreshed.creditSummary);
+        applyLoanApplicationsResult(refreshed);
       } else {
         setApplications((current) =>
           current.map((application) => {
@@ -535,14 +592,7 @@ export function BorrowerLoanApplicationPanel({
       const refreshed = await loadBorrowerLoanApplications();
 
       if (refreshed.ok) {
-        setApplications(refreshed.applications);
-        setCreditSummary(refreshed.creditSummary);
-        setExpandedRepaymentIds(
-          getDefaultExpandedRepaymentIds(
-            refreshed.applications,
-            readStoredIdSet(collapsedRepaymentsStorageKey),
-          ),
-        );
+        applyLoanApplicationsResult(refreshed);
       }
 
       setProofFeedback((current) => ({
@@ -660,12 +710,20 @@ export function BorrowerLoanApplicationPanel({
               <VerificationGateCard
                 borrowerVerification={borrowerVerification}
                 message={borrowerVerificationMessage}
+                onNavigate={onNavigate}
               />
             ) : loanConsentStatus && !loanConsentStatus.isCurrent ? (
               <ConsentAcceptancePanel
                 scope="borrower_loan_application"
                 status={loanConsentStatus}
+                onAccepted={() => {
+                  startTransition(() => {
+                    void reloadLoanApplications();
+                  });
+                }}
               />
+            ) : readinessBlock ? (
+              <ReadinessGateCard readiness={readinessBlock} onNavigate={onNavigate} />
             ) : (
               <ApplicationForm
                 control={control}
@@ -767,9 +825,11 @@ export function BorrowerLoanApplicationPanel({
 function VerificationGateCard({
   borrowerVerification,
   message,
+  onNavigate,
 }: {
   borrowerVerification: BorrowerVerificationSummary | null;
   message: string;
+  onNavigate?: (tab: BorrowerTab) => void;
 }) {
   const managerNote =
     borrowerVerification?.managerReviewNotes ??
@@ -794,6 +854,55 @@ function VerificationGateCard({
             </CardContent>
           </Card>
         ) : null}
+        <Button
+          variant="outline"
+          onClick={() => onNavigate?.("profile")}
+          className="w-full rounded-full font-semibold sm:w-fit"
+        >
+          Open Profile Verification
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReadinessGateCard({
+  onNavigate,
+  readiness,
+}: {
+  onNavigate?: (tab: BorrowerTab) => void;
+  readiness: BorrowerReadinessResult;
+}) {
+  const message =
+    readiness.nextActions[0] ??
+    "Review your profile details before submitting an application.";
+
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-3 p-5">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-foreground">
+            Application readiness
+          </p>
+          <p className="text-sm text-muted-foreground">{message}</p>
+        </div>
+        {readiness.missingFields.length > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Missing: {readiness.missingFields.join(", ")}
+          </p>
+        ) : null}
+        {readiness.riskFlags.length > 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Needs review: {readiness.riskFlags.join(", ")}
+          </p>
+        ) : null}
+        <Button
+          variant="outline"
+          onClick={() => onNavigate?.("profile")}
+          className="w-full rounded-full font-semibold sm:w-fit"
+        >
+          Review profile
+        </Button>
       </CardContent>
     </Card>
   );

@@ -19,12 +19,14 @@ type ConsentAcceptancePanelProps = {
   status: ConsentStatus;
   scope: ConsentScope;
   title?: string;
+  onAccepted?: () => void;
 };
 
 export function ConsentAcceptancePanel({
   status,
   scope,
   title = "Required disclosures",
+  onAccepted,
 }: ConsentAcceptancePanelProps) {
   const router = useRouter();
   const [isChecked, setIsChecked] = useState(false);
@@ -40,6 +42,7 @@ export function ConsentAcceptancePanel({
 
       if (result.ok) {
         setIsChecked(false);
+        onAccepted?.();
         router.refresh();
       }
     });
