@@ -101,7 +101,7 @@ a {
 .hero-rail::after {
   position: absolute;
   top: 50%;
-  width: 4.5rem;
+  width: 7.25rem;
   height: 1px;
   pointer-events: none;
   content: "";
@@ -114,35 +114,35 @@ a {
 }
 
 .hero-rail::before {
-  transform: translateY(-3.9rem) rotate(-10deg);
+  transform: translateY(-6.7rem) rotate(-12deg);
 }
 
 .hero-rail::after {
-  transform: translateY(3.6rem) rotate(10deg);
+  transform: translateY(6.2rem) rotate(12deg);
 }
 
 .hero-rail-left::before,
 .hero-rail-left::after {
-  right: -5rem;
+  right: -7.75rem;
 }
 
 .hero-rail-right::before,
 .hero-rail-right::after {
-  left: -5rem;
+  left: -7.75rem;
 }
 
 .hero-rail-right::before {
-  transform: translateY(-3.9rem) rotate(10deg);
+  transform: translateY(-6.7rem) rotate(12deg);
 }
 
 .hero-rail-right::after {
-  transform: translateY(3.6rem) rotate(-10deg);
+  transform: translateY(6.2rem) rotate(-12deg);
 }
 
 .hero-card-3d {
   transform-style: preserve-3d;
   animation: hero-float 9s ease-in-out infinite;
-  opacity: 0.82;
+  opacity: 0.88;
 }
 
 .hero-card-3d::before {
@@ -178,6 +178,16 @@ a {
 .hero-card-4 {
   rotate: -1deg;
   animation-delay: -4.8s;
+}
+
+.hero-card-5 {
+  rotate: -0.8deg;
+  animation-delay: -5.8s;
+}
+
+.hero-card-6 {
+  rotate: 0.9deg;
+  animation-delay: -6.8s;
 }
 
 @keyframes hero-slow-rotate {

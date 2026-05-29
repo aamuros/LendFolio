@@ -20,7 +20,7 @@ export default async function Home({ searchParams }: HomeProps) {
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(246,245,242,0)_0%,rgba(246,245,242,0.72)_82%,rgba(246,245,242,0.98)_100%)]" />
 
-        <div className="mx-auto grid w-full max-w-[1180px] gap-7">
+        <div className="mx-auto grid w-full max-w-[min(1440px,calc(100vw-3rem))] gap-7">
           {authMessage ? (
             <p
               className="mx-auto max-w-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
@@ -30,7 +30,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="mx-auto grid w-full max-w-[1180px] gap-6 xl:grid-cols-[190px_minmax(0,1fr)_190px] xl:items-end xl:gap-5">
+          <div className="mx-auto grid w-full max-w-[min(1440px,calc(100vw-3rem))] gap-6 xl:grid-cols-[minmax(230px,0.32fr)_minmax(0,1fr)_minmax(230px,0.32fr)] xl:items-center xl:gap-8">
             <HeroFinanceRails side="left" />
 
             <div className="relative mx-auto grid w-full max-w-4xl place-items-center gap-5 text-center sm:gap-6">
@@ -158,23 +158,25 @@ function LandingMesh() {
 }
 
 function HeroFinanceRails({ side }: { side: "left" | "right" }) {
-  const cards = side === "left" ? heroCards.slice(0, 2) : heroCards.slice(2);
+  const cards = heroCards.filter((card) => card.side === side);
+  const offsets =
+    side === "left"
+      ? ["xl:translate-x-4", "xl:-translate-x-3", "xl:translate-x-7"]
+      : ["xl:-translate-x-4", "xl:translate-x-3", "xl:-translate-x-7"];
 
   return (
     <div
-      className={`hero-rail pointer-events-none relative hidden gap-4 xl:grid ${
+      className={`hero-rail pointer-events-none relative hidden gap-4 xl:grid xl:self-center ${
         side === "left"
-          ? "hero-rail-left justify-self-end"
-          : "hero-rail-right justify-self-start"
+          ? "hero-rail-left justify-items-end justify-self-end"
+          : "hero-rail-right justify-items-start justify-self-start"
       }`}
       aria-hidden="true"
     >
       {cards.map((card, index) => (
         <HeroFinanceCard
           key={card.label}
-          className={`w-[184px] ${card.depth} ${
-            index === 0 ? "translate-y-[-0.65rem]" : "translate-y-[0.65rem]"
-          }`}
+          className={`w-[220px] 2xl:w-[240px] ${card.depth} ${offsets[index]}`}
           label={card.label}
           value={card.value}
           status={card.status}
@@ -1033,6 +1035,7 @@ const commandRows = [
 
 const heroCards = [
   {
+    side: "left",
     label: "Application status",
     value: "Ready",
     depth: "hero-card-1",
@@ -1041,14 +1044,25 @@ const heroCards = [
     status: "Profile locked",
   },
   {
-    label: "Repayment proof",
-    value: "Pending review",
+    side: "left",
+    label: "Profile readiness",
+    value: "92%",
     depth: "hero-card-2",
+    marker: "B",
+    progress: "w-11/12",
+    status: "Documents aligned",
+  },
+  {
+    side: "left",
+    label: "Proof review",
+    value: "Pending review",
+    depth: "hero-card-5",
     marker: "P",
     progress: "w-1/2",
     status: "Manager queue",
   },
   {
+    side: "right",
     label: "Credit limit",
     value: "PHP 40,000",
     depth: "hero-card-3",
@@ -1057,12 +1071,22 @@ const heroCards = [
     status: "Capacity checked",
   },
   {
-    label: "Risk notes",
-    value: "Verified profile",
+    side: "right",
+    label: "Active offer",
+    value: "6-month term",
     depth: "hero-card-4",
-    marker: "R",
+    marker: "O",
     progress: "w-2/3",
     status: "Lender ready",
+  },
+  {
+    side: "right",
+    label: "Repayment health",
+    value: "On track",
+    depth: "hero-card-6",
+    marker: "H",
+    progress: "w-5/6",
+    status: "Proofs current",
   },
 ];
 
