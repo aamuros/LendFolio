@@ -17,9 +17,13 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
+  CardAction,
   CardContent,
+  CardDescription,
+  CardHeader,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Users, HandCoins, ShieldCheck, UserCircle } from "lucide-react";
 import {
   AccessDenied,
   EmptyState,
@@ -100,13 +104,11 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
       title="Users"
       description="Search users, borrower records, applications, loans, and repayment activity."
     >
-      <Card>
-        <CardContent>
-          <FilterForm className="flex flex-wrap items-end gap-3">
-            <div className="min-w-[140px] flex-1">
+      <div className="space-y-6">
+        <Card>
+          <CardContent>
+            <FilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_auto]">
               <TextFilter label="Search users" name="q" defaultValue={q} />
-            </div>
-            <div className="min-w-[140px] flex-1">
               <SelectFilter
                 label="Role"
                 name="role"
@@ -118,8 +120,6 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                   { value: "manager", label: "Manager" },
                 ]}
               />
-            </div>
-            <div className="min-w-[140px] flex-1">
               <SelectFilter
                 label="Status"
                 name="status"
@@ -131,306 +131,365 @@ export default async function ManagerLookupPage({ searchParams }: PageProps) {
                   { value: "suspended", label: "Suspended" },
                 ]}
               />
-            </div>
-            <div className="flex items-end gap-2">
-              <Button type="submit">Apply</Button>
-              {hasActiveFilters ? (
-                <Button type="button" variant="outline" asChild>
-                  <Link href="/manager/lookup">Clear</Link>
+              <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
+                <Button type="submit" className="flex-1 sm:flex-none">
+                  Apply
                 </Button>
-              ) : null}
-            </div>
-          </FilterForm>
-        </CardContent>
-      </Card>
-
-      {!directoryResult.ok ? (
-        <StatusMessage message={directoryResult.message} tone="error" />
-      ) : null}
-
-      {totalCount > 0 ? (
-        <section
-          aria-label="User summary"
-          className="grid grid-cols-2 gap-3 sm:grid-cols-4"
-        >
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs font-medium text-muted-foreground">
-                Total users
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {totalCount}
-              </p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs font-medium text-muted-foreground">
-                Borrowers
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {borrowerCount}
-              </p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs font-medium text-muted-foreground">
-                Lenders
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {lenderCount}
-              </p>
-            </CardContent>
-          </Card>
-          <Card size="sm">
-            <CardContent>
-              <p className="text-xs font-medium text-muted-foreground">
-                Managers
-              </p>
-              <p className="mt-1 text-xl font-semibold tabular-nums">
-                {managerCount}
-              </p>
-            </CardContent>
-          </Card>
-        </section>
-      ) : null}
-
-      <section>
-        {totalCount === 0 ? (
-          <div className="grid gap-3">
-            <EmptyState
-              title={
-                hasActiveFilters
-                  ? "No users match these filters"
-                  : "No users yet"
-              }
-              description={
-                hasActiveFilters
-                  ? "Try adjusting your search or filters."
-                  : "Users will appear here when accounts are created."
-              }
-            />
-            {hasActiveFilters ? (
-              <div className="flex justify-center">
-                <Button variant="outline" size="sm" asChild>
-                  <Link href="/manager/lookup">Clear filters</Link>
-                </Button>
+                {hasActiveFilters ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="flex-1 sm:flex-none"
+                    asChild
+                  >
+                    <Link href="/manager/lookup">Clear</Link>
+                  </Button>
+                ) : null}
               </div>
-            ) : null}
-          </div>
+            </FilterForm>
+          </CardContent>
+        </Card>
+
+        {!directoryResult.ok ? (
+          <StatusMessage message={directoryResult.message} tone="error" />
         ) : null}
 
         {totalCount > 0 ? (
-          <>
-            <div className="hidden md:block">
-              <ListTable>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Activity</TableHead>
-                      <TableHead className="text-right">Details</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {users.map((user) => (
-                      <TableRow key={user.profile.id}>
-                        <TableCell className="py-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium">
-                              {user.profile.displayName}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {getShortId(user.profile.id)}
-                            </p>
-                          </div>
-                        </TableCell>
-                        <TableCell className="py-3">
-                          <RoleBadge role={user.role} />
-                        </TableCell>
-                        <TableCell className="py-3">
-                          <StatusBadge status={user.status} />
-                        </TableCell>
-                        <TableCell className="py-3 text-xs text-muted-foreground">
-                          {getUserSummary(user)}
-                        </TableCell>
-                        <TableCell className="py-3 text-right">
-                          <ManagerDetailsLink
-                            href={getManagerUserHref(user.profile.id)}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </ListTable>
-            </div>
-
-            <div className="grid gap-3 md:hidden">
-              {users.map((user) => (
-                <MobileCard key={user.profile.id}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <h2 className="truncate text-sm font-semibold">
-                        {user.profile.displayName}
-                      </h2>
-                      <p className="text-xs text-muted-foreground">
-                        {getShortId(user.profile.id)}
-                      </p>
-                    </div>
-                    <ManagerDetailsLink
-                      href={getManagerUserHref(user.profile.id)}
-                    />
+          <section
+            aria-label="User summary"
+            className="*:data-[slot=card]:shadow-xs grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+          >
+            <Card>
+              <CardHeader>
+                <CardDescription className="text-xs font-medium">
+                  Total users
+                </CardDescription>
+                <CardAction>
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Users className="size-4" />
                   </div>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <RoleBadge role={user.role} />
-                    <StatusBadge status={user.status} />
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {totalCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  All registered accounts.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription className="text-xs font-medium">
+                  Borrowers
+                </CardDescription>
+                <CardAction>
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <UserCircle className="size-4" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {getUserSummary(user)}
-                  </p>
-                </MobileCard>
-              ))}
-            </div>
-          </>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {borrowerCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Borrower accounts on the platform.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription className="text-xs font-medium">
+                  Lenders
+                </CardDescription>
+                <CardAction>
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <HandCoins className="size-4" />
+                  </div>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {lenderCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Lender accounts on the platform.
+                </p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardDescription className="text-xs font-medium">
+                  Managers
+                </CardDescription>
+                <CardAction>
+                  <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <ShieldCheck className="size-4" />
+                  </div>
+                </CardAction>
+              </CardHeader>
+              <CardContent>
+                <p className="text-2xl font-semibold tracking-tight tabular-nums">
+                  {managerCount}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Platform manager accounts.
+                </p>
+              </CardContent>
+            </Card>
+          </section>
         ) : null}
-      </section>
 
-      {q ? (
-        <>
-          <Separator />
-
-          <section className="grid gap-4">
-            <div className="flex items-center gap-2">
-              <h2 className="text-sm font-semibold">Borrower records</h2>
-              <Badge variant="secondary">
-                {borrowerLookupResult.results.length}
-              </Badge>
-            </div>
-            <p className="-mt-2 text-xs text-muted-foreground">
-              Matching portfolios, applications, and loans.
-            </p>
-
-            {!borrowerLookupResult.ok ? (
-              <StatusMessage
-                message={borrowerLookupResult.message}
-                tone="error"
-              />
-            ) : null}
-
-            {borrowerLookupResult.results.length === 0 &&
-            borrowerLookupResult.ok ? (
+        <section>
+          {totalCount === 0 ? (
+            <div className="grid gap-3">
               <EmptyState
-                title="No borrower records found"
-                description="Matching borrower portfolios, applications, and loans will appear here."
+                title={
+                  hasActiveFilters
+                    ? "No users match these filters"
+                    : "No users yet"
+                }
+                description={
+                  hasActiveFilters
+                    ? "Try adjusting your search or filters."
+                    : "Users will appear here when accounts are created."
+                }
               />
-            ) : null}
-
-            {borrowerLookupResult.results.length > 0 ? (
-              <>
-                <div className="hidden md:block">
-                  <ListTable>
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Borrower</TableHead>
-                          <TableHead>Location</TableHead>
-                          <TableHead>Applications</TableHead>
-                          <TableHead>Latest record</TableHead>
-                          <TableHead className="text-right">Details</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {borrowerLookupResult.results.map((resultItem) => (
-                          <TableRow key={resultItem.borrower.id}>
-                            <TableCell className="py-3">
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium">
-                                  {resultItem.borrower.displayName}
-                                </p>
-                                <p className="text-xs text-muted-foreground">
-                                  {getShortId(resultItem.borrower.id)}
-                                </p>
-                              </div>
-                            </TableCell>
-                            <TableCell className="py-3 text-xs text-muted-foreground">
-                              {resultItem.portfolio?.location ??
-                                "No portfolio location"}
-                            </TableCell>
-                            <TableCell className="py-3 text-xs font-medium">
-                              {resultItem.applications.length}
-                            </TableCell>
-                            <TableCell className="py-3">
-                              {resultItem.applications[0] ? (
-                                <div className="flex items-center gap-1.5">
-                                  <StatusBadge
-                                    status={resultItem.applications[0].status}
-                                  />
-                                  <span className="text-xs text-muted-foreground">
-                                    {getShortId(resultItem.applications[0].id)}
-                                  </span>
-                                </div>
-                              ) : (
-                                <span className="text-xs text-muted-foreground">
-                                  No applications
-                                </span>
-                              )}
-                            </TableCell>
-                            <TableCell className="py-3 text-right">
-                              <ManagerDetailsLink
-                                href={getManagerUserHref(
-                                  resultItem.borrower.id,
-                                )}
-                              />
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </ListTable>
+              {hasActiveFilters ? (
+                <div className="flex justify-center">
+                  <Button variant="outline" size="sm" asChild>
+                    <Link href="/manager/lookup">Clear filters</Link>
+                  </Button>
                 </div>
+              ) : null}
+            </div>
+          ) : null}
 
-                <div className="grid gap-3 md:hidden">
-                  {borrowerLookupResult.results.map((resultItem) => (
-                    <MobileCard key={resultItem.borrower.id}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <h2 className="truncate text-sm font-semibold">
-                            {resultItem.borrower.displayName}
-                          </h2>
-                          <p className="text-xs text-muted-foreground">
-                            {getShortId(resultItem.borrower.id)}
-                          </p>
-                        </div>
+          {totalCount > 0 ? (
+            <>
+              <div className="hidden md:block">
+                <ListTable>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>User</TableHead>
+                        <TableHead>Role</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Activity</TableHead>
+                        <TableHead className="w-[96px] text-center">
+                          Details
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {users.map((user) => (
+                        <TableRow key={user.profile.id}>
+                          <TableCell className="py-3">
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-medium">
+                                {user.profile.displayName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {getShortId(user.profile.id)}
+                              </p>
+                            </div>
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <RoleBadge role={user.role} />
+                          </TableCell>
+                          <TableCell className="py-3">
+                            <StatusBadge status={user.status} />
+                          </TableCell>
+                          <TableCell className="py-3 text-xs text-muted-foreground">
+                            {getUserSummary(user)}
+                          </TableCell>
+                          <TableCell className="py-3 text-center">
+                            <ManagerDetailsLink
+                              href={getManagerUserHref(user.profile.id)}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </ListTable>
+              </div>
+
+              <div className="grid gap-3 md:hidden">
+                {users.map((user) => (
+                  <MobileCard key={user.profile.id}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
+                        <h2 className="truncate text-sm font-semibold">
+                          {user.profile.displayName}
+                        </h2>
+                        <p className="text-xs text-muted-foreground">
+                          {getShortId(user.profile.id)}
+                        </p>
+                      </div>
+                      <div className="shrink-0">
                         <ManagerDetailsLink
-                          href={getManagerUserHref(resultItem.borrower.id)}
+                          href={getManagerUserHref(user.profile.id)}
                         />
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                        <span className="truncate text-xs text-muted-foreground">
-                          {resultItem.portfolio?.location ??
-                            "No portfolio location"}
-                        </span>
-                        <span className="text-xs font-semibold">
-                          {resultItem.applications.length} applications
-                        </span>
-                        {resultItem.applications[0] ? (
-                          <StatusBadge
-                            status={resultItem.applications[0].status}
-                          />
-                        ) : null}
-                      </div>
-                    </MobileCard>
-                  ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <RoleBadge role={user.role} />
+                      <StatusBadge status={user.status} />
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {getUserSummary(user)}
+                    </p>
+                  </MobileCard>
+                ))}
+              </div>
+            </>
+          ) : null}
+        </section>
+
+        {q ? (
+          <>
+            <Separator />
+
+            <section className="grid gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-sm font-semibold">Borrower records</h2>
+                  <Badge variant="secondary">
+                    {borrowerLookupResult.results.length}
+                  </Badge>
                 </div>
-              </>
-            ) : null}
-          </section>
-        </>
-      ) : null}
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Matching portfolios, applications, and loans.
+                </p>
+              </div>
+
+              {!borrowerLookupResult.ok ? (
+                <StatusMessage
+                  message={borrowerLookupResult.message}
+                  tone="error"
+                />
+              ) : null}
+
+              {borrowerLookupResult.results.length === 0 &&
+              borrowerLookupResult.ok ? (
+                <EmptyState
+                  title="No borrower records found"
+                  description="Matching borrower portfolios, applications, and loans will appear here."
+                />
+              ) : null}
+
+              {borrowerLookupResult.results.length > 0 ? (
+                <>
+                  <div className="hidden md:block">
+                    <ListTable>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Borrower</TableHead>
+                            <TableHead>Location</TableHead>
+                            <TableHead>Applications</TableHead>
+                            <TableHead>Latest record</TableHead>
+                            <TableHead className="w-[96px] text-center">
+                              Details
+                            </TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {borrowerLookupResult.results.map((resultItem) => (
+                            <TableRow key={resultItem.borrower.id}>
+                              <TableCell className="py-3">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-medium">
+                                    {resultItem.borrower.displayName}
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">
+                                    {getShortId(resultItem.borrower.id)}
+                                  </p>
+                                </div>
+                              </TableCell>
+                              <TableCell className="py-3 text-xs text-muted-foreground">
+                                {resultItem.portfolio?.location ??
+                                  "No portfolio location"}
+                              </TableCell>
+                              <TableCell className="py-3 text-xs font-medium">
+                                {resultItem.applications.length}
+                              </TableCell>
+                              <TableCell className="py-3">
+                                {resultItem.applications[0] ? (
+                                  <div className="flex items-center gap-1.5">
+                                    <StatusBadge
+                                      status={resultItem.applications[0].status}
+                                    />
+                                    <span className="text-xs text-muted-foreground">
+                                      {getShortId(
+                                        resultItem.applications[0].id,
+                                      )}
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <span className="text-xs text-muted-foreground">
+                                    No applications
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="py-3 text-center">
+                                <ManagerDetailsLink
+                                  href={getManagerUserHref(
+                                    resultItem.borrower.id,
+                                  )}
+                                />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </ListTable>
+                  </div>
+
+                  <div className="grid gap-3 md:hidden">
+                    {borrowerLookupResult.results.map((resultItem) => (
+                      <MobileCard key={resultItem.borrower.id}>
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <h2 className="truncate text-sm font-semibold">
+                              {resultItem.borrower.displayName}
+                            </h2>
+                            <p className="text-xs text-muted-foreground">
+                              {getShortId(resultItem.borrower.id)}
+                            </p>
+                          </div>
+                          <div className="shrink-0">
+                            <ManagerDetailsLink
+                              href={getManagerUserHref(resultItem.borrower.id)}
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                          <span className="truncate text-xs text-muted-foreground">
+                            {resultItem.portfolio?.location ??
+                              "No portfolio location"}
+                          </span>
+                          <span className="text-xs font-semibold">
+                            {resultItem.applications.length} applications
+                          </span>
+                          {resultItem.applications[0] ? (
+                            <StatusBadge
+                              status={resultItem.applications[0].status}
+                            />
+                          ) : null}
+                        </div>
+                      </MobileCard>
+                    ))}
+                  </div>
+                </>
+              ) : null}
+            </section>
+          </>
+        ) : null}
+      </div>
     </ManagerShell>
   );
 }

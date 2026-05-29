@@ -11,16 +11,16 @@ export default async function LenderApplicationsPage() {
   const result = await loadOpenLenderApplications();
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
       <div className="mx-auto grid max-w-4xl gap-5">
-        <LenderHeader title="Applications" />
+        <LenderHeader activeTab="applications" />
 
         <section className="grid gap-4">
           <div className="grid gap-1">
             <h1 className="text-2xl leading-tight font-semibold">
               Open applications
             </h1>
-            <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+            <p className="text-sm leading-6 text-muted-foreground">
               Review borrower context and send terms when there is a fit.
             </p>
           </div>

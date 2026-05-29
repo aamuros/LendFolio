@@ -8,6 +8,10 @@ import {
 } from "@/app/lender/applications/[id]/actions";
 import { CurrencyInput } from "@/components/currency-input";
 import { StatusToast } from "@/components/status-toast";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 
 type LenderOfferFormProps = {
   applicationId: string;
@@ -84,46 +88,45 @@ export function LenderOfferForm({
         </Field>
 
         <Field label="Due date" error={state.fieldErrors?.dueDate?.[0]}>
-          <input
+          <Input
             type="date"
             name="dueDate"
             defaultValue={defaultDueDate}
             disabled={isPending}
-            className="h-12 w-full rounded-2xl border border-[var(--border)] bg-white px-3 text-base outline-none focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
+            className="h-9"
           />
         </Field>
       </div>
 
       <Field label="Remarks" error={state.fieldErrors?.remarks?.[0]}>
-        <textarea
+        <Textarea
           name="remarks"
           rows={4}
           disabled={isPending}
-          className="w-full resize-y rounded-2xl border border-[var(--border)] bg-white px-3 py-3 text-base leading-7 outline-none placeholder:text-[var(--muted-foreground)] focus:border-[var(--primary)] focus:ring-2 focus:ring-[var(--primary)]/20 disabled:cursor-not-allowed disabled:opacity-70"
           placeholder="Optional offer notes for the borrower."
         />
       </Field>
 
       {state.message && !state.ok ? (
-        <div
-          className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)]"
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
           role="alert"
         >
           {state.message}
-        </div>
+        </p>
       ) : null}
 
       <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-between">
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        <p className="text-sm leading-6 text-muted-foreground">
           The borrower can review and accept this offer.
         </p>
-        <button
+        <Button
           type="submit"
           disabled={isPending}
-          className="inline-flex h-12 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-base font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] disabled:cursor-not-allowed disabled:opacity-70"
+          className="h-11 rounded-full font-semibold"
         >
           {isPending ? "Sending..." : "Send offer"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -139,14 +142,12 @@ function Field({
   children: ReactNode;
 }) {
   return (
-    <label className="grid gap-1.5">
-      <span className="text-sm font-semibold text-[var(--foreground)]">
-        {label}
-      </span>
+    <Label className="grid gap-1.5">
+      <span className="text-sm font-semibold">{label}</span>
       {children}
       {error ? (
-        <span className="text-sm leading-5 text-[var(--accent)]">{error}</span>
+        <span className="text-sm leading-5 text-destructive">{error}</span>
       ) : null}
-    </label>
+    </Label>
   );
 }

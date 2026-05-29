@@ -3,46 +3,82 @@ import {
   formatPreferredTerm,
   type LenderApplicationReview,
 } from "@/lib/lender-applications";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ToneBadge } from "@/components/borrower-status-badge";
+import { cn } from "@/lib/utils";
 
 type LenderApplicationsListProps = {
   applications: LenderApplicationReview[];
 };
+
+function applicationStatusTone(status: string) {
+  switch (status) {
+    case "submitted":
+      return "attention" as const;
+    case "approved":
+      return "success" as const;
+    case "rejected":
+      return "danger" as const;
+    default:
+      return "neutral" as const;
+  }
+}
+
+function offerStateTone(
+  state: LenderApplicationReview["currentLenderOfferState"],
+) {
+  switch (state) {
+    case "offer_accepted":
+      return "success" as const;
+    case "offer_declined":
+      return "danger" as const;
+    case "offer_pending":
+      return "attention" as const;
+    case "offer_expired":
+      return "neutral" as const;
+    default:
+      return "neutral" as const;
+  }
+}
 
 export function LenderApplicationsList({
   applications,
 }: LenderApplicationsListProps) {
   if (applications.length === 0) {
     return (
-      <div className="rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-8 text-center shadow-sm">
-        <h2 className="text-xl font-semibold">No open applications</h2>
-        <p className="mx-auto mt-3 max-w-xl text-sm leading-6 text-[var(--muted-foreground)]">
-          New borrower applications will appear here.
-        </p>
-      </div>
+      <Card className="rounded-2xl border-dashed border-border/50">
+        <CardContent className="grid gap-2 p-5 text-center">
+          <p className="text-lg font-semibold">No open applications</p>
+          <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
+            New borrower applications will appear here.
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   return (
     <div className="grid gap-3">
       {applications.map((application) => (
-        <article
+        <Card
           key={application.id}
-          className="rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm"
+          className="rounded-2xl border-border/50 shadow-sm"
         >
-          <div className="grid gap-3">
+          <CardContent className="grid gap-3 p-4">
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
                 <h2 className="text-lg font-semibold">
                   {application.portfolio.businessTypeLabel}
                 </h2>
-                <span className="rounded-full bg-[var(--muted)] px-2.5 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
+                <ToneBadge tone={applicationStatusTone(application.status)}>
                   {application.status}
-                </span>
-                <span className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-[var(--muted-foreground)] ring-1 ring-[var(--border)]">
+                </ToneBadge>
+                <ToneBadge tone={offerStateTone(application.currentLenderOfferState)}>
                   {offerStateLabels[application.currentLenderOfferState]}
-                </span>
+                </ToneBadge>
               </div>
-              <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+              <p className="text-sm leading-6 text-muted-foreground">
                 {application.portfolio.location}
               </p>
             </div>
@@ -65,19 +101,21 @@ export function LenderApplicationsList({
                 value={formatDate(application.submittedAt)}
               />
             </dl>
-          </div>
 
-          <div className="mt-4 flex justify-end">
-            <Link
-              href={`/lender/applications/${application.id}`}
-              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-            >
-              {application.currentLenderOfferState === "not_offered"
-                ? "Review"
-                : "View"}
-            </Link>
-          </div>
-        </article>
+            <div className="flex justify-end">
+              <Button
+                asChild
+                className="h-11 rounded-full font-semibold"
+              >
+                <Link href={`/lender/applications/${application.id}`}>
+                  {application.currentLenderOfferState === "not_offered"
+                    ? "Review"
+                    : "View"}
+                </Link>
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       ))}
     </div>
   );
@@ -103,7 +141,12 @@ export function LenderApplicationsStatus({
 }) {
   return (
     <div
-      className="rounded-2xl border border-[var(--border)] bg-white px-4 py-3 text-sm leading-6 text-[var(--muted-foreground)] shadow-sm"
+      className={cn(
+        "rounded-xl border px-3 py-3 text-sm leading-6",
+        tone === "error"
+          ? "border-destructive/30 bg-destructive/10 text-destructive"
+          : "border-border bg-muted/30 text-foreground",
+      )}
       role={tone === "error" ? "alert" : "status"}
     >
       {message}
@@ -114,8 +157,8 @@ export function LenderApplicationsStatus({
 function SummaryItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="font-semibold text-[var(--muted-foreground)]">{label}</dt>
-      <dd className="mt-1 break-words font-semibold text-[var(--foreground)]">
+      <dt className="font-semibold text-muted-foreground">{label}</dt>
+      <dd className="mt-1 break-words font-semibold text-foreground">
         {value}
       </dd>
     </div>

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { User } from "lucide-react";
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 import { NotificationButton } from "@/components/notification-button";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 export type LenderTab = "home" | "applications" | "offers" | "account";
 
@@ -15,6 +18,12 @@ const tabs: AppBottomTab<LenderTab>[] = [
   { id: "offers", label: "Offers", icon: "offers", href: "/lender?tab=offers" },
 ];
 
+const desktopTabs: { id: LenderTab; label: string; href: string }[] = [
+  { id: "home", label: "Home", href: "/lender" },
+  { id: "applications", label: "Applications", href: "/lender/applications" },
+  { id: "offers", label: "Offers", href: "/lender?tab=offers" },
+];
+
 export function LenderBottomTabs({ activeTab }: { activeTab: LenderTab }) {
   return (
     <AppBottomTabs
@@ -26,39 +35,53 @@ export function LenderBottomTabs({ activeTab }: { activeTab: LenderTab }) {
 }
 
 export function LenderHeader({
-  title = "LendFolio",
+  activeTab = "home",
   showAccountLink = true,
   showNotifications = true,
 }: {
-  title?: string;
+  activeTab?: LenderTab;
   showAccountLink?: boolean;
   showNotifications?: boolean;
 }) {
   return (
-    <header className="flex min-h-10 items-center justify-between gap-4">
-      <p className="text-sm font-semibold text-[var(--foreground)]">{title}</p>
+    <header className="flex items-center justify-between gap-4">
+      <div className="flex items-center gap-6">
+        <p className="text-base font-semibold tracking-tight text-foreground">
+          LendFolio
+        </p>
+        <nav className="hidden items-center gap-1 sm:flex">
+          {desktopTabs.map((tab) => (
+            <Button
+              key={tab.id}
+              variant="ghost"
+              size="sm"
+              asChild
+              className={cn(
+                "rounded-lg px-3 py-1.5 text-sm font-medium",
+                activeTab === tab.id
+                  ? "bg-foreground text-background hover:bg-foreground hover:text-background"
+                  : "text-muted-foreground",
+              )}
+            >
+              <Link href={tab.href}>{tab.label}</Link>
+            </Button>
+          ))}
+        </nav>
+      </div>
       <div className="flex items-center gap-2">
         {showNotifications ? <NotificationButton /> : null}
         {showAccountLink ? (
-          <Link
-            href="/lender?tab=account"
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
             aria-label="Open account"
-            className="inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+            className="rounded-full text-muted-foreground hover:text-foreground"
           >
-            <svg
-              aria-hidden="true"
-              viewBox="0 0 24 24"
-              className="size-5"
-              fill="none"
-              stroke="currentColor"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth="2"
-            >
-              <circle cx="12" cy="8" r="4" />
-              <path d="M4 21a8 8 0 0 1 16 0" />
-            </svg>
-          </Link>
+            <Link href="/lender?tab=account">
+              <User className="size-5" />
+            </Link>
+          </Button>
         ) : null}
       </div>
     </header>

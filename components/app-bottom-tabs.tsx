@@ -191,10 +191,10 @@ export function AppBottomTabs<T extends string>({
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] touch-manipulation motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
             isActive
-              ? "bg-primary text-primary-foreground shadow-sm"
-              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+              ? "bg-foreground text-background shadow-sm active:bg-foreground/80"
+              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground active:bg-muted"
           }`;
           const content = (
             <>

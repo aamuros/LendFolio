@@ -22,6 +22,13 @@ import {
   type LenderOfferReview,
 } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { ToneBadge } from "@/components/borrower-status-badge";
+import { CollapsibleSection } from "@/components/lender-collapsible-section";
+import { SummaryRow } from "@/components/borrower/ui/summary-row";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +48,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   if (!access.ok) {
     return (
-      <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+      <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
         <div className="mx-auto grid max-w-4xl gap-5">
-          <LenderHeader showAccountLink={false} showNotifications={false} />
+          <LenderHeader activeTab={activeTab} showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={access.message} tone="error" />
           <LenderBottomTabs activeTab={activeTab} />
         </div>
@@ -66,9 +73,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           : "Your account does not have access to this workspace.";
 
     return (
-      <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+      <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
         <div className="mx-auto grid max-w-4xl gap-5">
-          <LenderHeader showAccountLink={false} showNotifications={false} />
+          <LenderHeader activeTab={activeTab} showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={message} tone="error" />
           {access.profile.role === "lender" ? (
             <ConsentAcceptancePanel
@@ -97,9 +104,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   const offers = offersResult.ok ? offersResult.offers : [];
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-36 sm:px-8 sm:pt-6">
+    <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
       <div className="mx-auto grid max-w-4xl gap-5">
-        <LenderHeader showAccountLink={activeTab !== "account"} />
+        <LenderHeader activeTab={activeTab} showAccountLink={activeTab !== "account"} />
 
         {activeTab === "home" ? (
           <HomeTab
@@ -213,25 +220,20 @@ function HomeTab({
 
   return (
     <section className="grid gap-4">
-      <div className="rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
-        <div className="grid gap-3">
-          <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-            Today
-          </p>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-3 p-5">
+          <p className="text-sm font-semibold text-muted-foreground">Today</p>
           <h1 className="text-3xl leading-tight font-semibold">
             {nextAction.title}
           </h1>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+          <p className="text-sm leading-6 text-muted-foreground">
             {nextAction.description}
           </p>
-          <Link
-            href={nextAction.href}
-            className="mt-1 inline-flex h-11 items-center justify-center rounded-full bg-[var(--primary)] px-5 text-sm font-semibold !text-white transition hover:bg-[#0b5f59] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
-          >
-            {nextAction.label}
-          </Link>
-        </div>
-      </div>
+          <Button asChild className="mt-1 h-11 w-full rounded-full font-semibold sm:w-fit">
+            <Link href={nextAction.href}>{nextAction.label}</Link>
+          </Button>
+        </CardContent>
+      </Card>
 
       <div className="grid grid-cols-3 gap-3">
         <SummaryCard label="New" value={needsReviewCount.toString()} />
@@ -270,7 +272,7 @@ function OffersTab({
     <section className="grid gap-4">
       <div className="grid gap-1">
         <h1 className="text-2xl leading-tight font-semibold">Offers</h1>
-        <p className="text-sm leading-6 text-[var(--muted-foreground)]">
+        <p className="text-sm leading-6 text-muted-foreground">
           Sent offers grouped by borrower response.
         </p>
       </div>
@@ -278,18 +280,20 @@ function OffersTab({
       {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
 
       {offers.length === 0 && !error ? (
-        <div className="rounded-3xl border border-dashed border-[var(--border)] bg-white px-5 py-8 text-center shadow-sm">
-          <h2 className="text-xl font-semibold">No sent offers</h2>
-          <p className="mt-2 text-sm leading-6 text-[var(--muted-foreground)]">
-            Sent offers will appear here.
-          </p>
-        </div>
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="grid gap-2 p-5 text-center">
+            <p className="text-lg font-semibold">No sent offers</p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              Sent offers will appear here.
+            </p>
+          </CardContent>
+        </Card>
       ) : null}
 
       {groups.map((group) =>
         group.offers.length > 0 ? (
           <div key={group.label} className="grid gap-3">
-            <h2 className="text-sm font-semibold text-[var(--muted-foreground)]">
+            <h2 className="text-sm font-semibold text-muted-foreground">
               {group.label}
             </h2>
             {group.offers.map((offer) => (
@@ -316,35 +320,46 @@ function AccountTab({
     } | null;
   };
 }) {
+  const verificationStatus = access.lenderProfile?.verification_status ?? "pending";
+  const verificationTone =
+    verificationStatus === "approved"
+      ? "success"
+      : verificationStatus === "rejected"
+        ? "danger"
+        : "attention";
+
   return (
     <section className="grid gap-4">
       <div className="grid gap-1">
         <h1 className="text-2xl leading-tight font-semibold">Account</h1>
-        <p className="break-words text-sm leading-6 text-[var(--muted-foreground)]">
+        <p className="break-words text-sm leading-6 text-muted-foreground">
           {email || "Signed in"}
         </p>
       </div>
 
-      <div className="grid gap-3 rounded-3xl border border-[var(--border)] bg-white px-5 py-5 shadow-sm">
-        <AccountRow label="Role" value={access.role} />
-        <AccountRow label="Account status" value={access.status} />
-        <AccountRow
-          label="Organization"
-          value={access.lenderProfile?.organization_name ?? "Not provided"}
-        />
-        <AccountRow
-          label="Verification"
-          value={access.lenderProfile?.verification_status ?? "Pending"}
-        />
-      </div>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-0 p-4">
+          <SummaryRow label="Role" value={access.role} />
+          <SummaryRow label="Account status" value={access.status} />
+          <SummaryRow
+            label="Organization"
+            value={access.lenderProfile?.organization_name ?? "Not provided"}
+          />
+          <div className="flex items-center justify-between gap-4 border-b border-border/40 py-3">
+            <p className="shrink-0 text-sm text-muted-foreground">Verification</p>
+            <ToneBadge tone={verificationTone}>{verificationStatus}</ToneBadge>
+          </div>
+        </CardContent>
+      </Card>
 
       <form action={signOutAction}>
-        <button
+        <Button
           type="submit"
-          className="inline-flex h-11 items-center justify-center rounded-full border border-[var(--border)] bg-white px-5 text-sm font-semibold text-[var(--muted-foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+          variant="outline"
+          className="h-11 w-full rounded-full font-semibold sm:w-fit"
         >
           Sign out
-        </button>
+        </Button>
       </form>
     </section>
   );
@@ -352,13 +367,30 @@ function AccountTab({
 
 function SummaryCard({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl border border-[var(--border)] bg-white px-3 py-4 text-center shadow-sm">
-      <p className="text-2xl font-semibold">{value}</p>
-      <p className="mt-1 text-xs font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </p>
-    </div>
+    <Card className="rounded-2xl border-border/50 shadow-sm">
+      <CardContent className="p-4 text-center">
+        <p className="text-2xl font-semibold">{value}</p>
+        <p className="mt-1 text-xs font-semibold text-muted-foreground">
+          {label}
+        </p>
+      </CardContent>
+    </Card>
   );
+}
+
+function offerStatusTone(status: string) {
+  switch (status) {
+    case "pending":
+      return "attention" as const;
+    case "accepted":
+      return "success" as const;
+    case "declined":
+      return "danger" as const;
+    case "expired":
+      return "neutral" as const;
+    default:
+      return "neutral" as const;
+  }
 }
 
 function OfferCard({ offer }: { offer: LenderOfferReview }) {
@@ -369,138 +401,144 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
     : "Application context unavailable";
 
   return (
-    <article
-      className={`rounded-3xl border border-[var(--border)] bg-white px-4 py-4 shadow-sm ${
-        isQuiet ? "opacity-75" : ""
-      }`}
+    <Card
+      className={cn(
+        "rounded-2xl border-border/50 shadow-sm",
+        isQuiet && "opacity-75",
+      )}
     >
-      <div className="flex items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <h3 className="font-semibold">{context}</h3>
-          <p className="text-sm leading-6 text-[var(--muted-foreground)]">
-            {offer.application?.purpose ?? "Offer sent"}
-          </p>
-        </div>
-        <span className="rounded-full bg-[var(--muted)] px-3 py-1 text-xs font-semibold capitalize text-[var(--muted-foreground)]">
-          {offer.status}
-        </span>
-      </div>
-      <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
-        {offer.application ? (
-          <MiniMetric
-            label="Requested"
-            value={`PHP ${formatCurrency(offer.application.requestedAmount)}`}
-          />
-        ) : null}
-        <MiniMetric
-          label="Approved"
-          value={`PHP ${formatCurrency(offer.approvedAmount)}`}
-        />
-        <MiniMetric
-          label="Repayment"
-          value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
-        />
-        {offer.application ? (
-          <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} />
-        ) : null}
-        <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} />
-        <MiniMetric label="Sent" value={formatDate(offer.sentAt)} />
-      </dl>
-      {activeLoan ? (
-        <div className="mt-4 grid gap-3 border-t border-[var(--border)] pt-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-semibold text-[var(--accent)]">
-              Active loan
+      <CardContent className="grid gap-4 p-4">
+        <div className="flex items-start justify-between gap-3">
+          <div className="grid gap-1">
+            <h3 className="font-semibold">{context}</h3>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {offer.application?.purpose ?? "Offer sent"}
             </p>
-            <span
-              className={`rounded-full px-3 py-1 text-xs font-semibold capitalize ${
-                activeLoan.status === "overdue"
-                  ? "bg-[#fff4f4] text-[#8f1d1d]"
-                  : "bg-[#e1f5ee] text-[#0f5f45]"
-              }`}
-            >
-              {activeLoan.status}
-            </span>
           </div>
-          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-            <MiniMetric
-              label="Principal"
-              value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
-            />
-            <MiniMetric
-              label="Repayment"
-              value={`PHP ${formatCurrency(activeLoan.repaymentAmount)}`}
-            />
-            <MiniMetric
-              label="Outstanding"
-              value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
-            />
-            <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
-          </dl>
-          {activeLoan.schedule.length > 0 ? (
-            <div className="grid gap-3 rounded-2xl border border-[var(--border)] bg-[var(--muted)]/30 px-4 py-4">
-              <h4 className="text-sm font-semibold">Repayment schedule</h4>
-              {activeLoan.schedule.map((repayment) => {
-                const latestProof = repayment.latestProof;
-                const currentSubmittedProof =
-                  latestProof?.status === "submitted" ? latestProof : null;
-
-                return (
-                  <div
-                    key={repayment.id}
-                    className="grid gap-3 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
-                  >
-                    <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                      <MiniMetric
-                        label="Installment"
-                        value={`#${repayment.installmentNumber}`}
-                      />
-                      <MiniMetric
-                        label="Amount due"
-                        value={`PHP ${formatCurrency(repayment.amountDue)}`}
-                      />
-                      <MiniMetric
-                        label="Due"
-                        value={formatDateOnly(repayment.dueDate)}
-                      />
-                      <MiniMetric
-                        label="Repayment"
-                        value={formatRepaymentStatus(repayment.status)}
-                      />
-                      <MiniMetric
-                        label="Proof"
-                        value={
-                          latestProof
-                            ? formatProofStatus(latestProof.status)
-                            : "Not submitted"
-                        }
-                      />
-                    </dl>
-                    {latestProof ? (
-                      <ProofReviewState
-                        proofStatus={latestProof.status}
-                        reviewNotes={latestProof.reviewNotes}
-                      />
-                    ) : (
-                      <p className="rounded-2xl border border-[var(--border)] bg-white px-3 py-2 text-sm leading-6 text-[var(--muted-foreground)]">
-                        Waiting for the borrower to upload proof for this installment.
-                      </p>
-                    )}
-                    {repayment.proofs.length > 0 ? (
-                      <LenderProofHistory
-                        currentSubmittedProofId={currentSubmittedProof?.id ?? null}
-                        proofs={repayment.proofs}
-                      />
-                    ) : null}
-                  </div>
-                );
-              })}
-            </div>
-          ) : null}
+          <ToneBadge tone={offerStatusTone(offer.status)}>
+            {offer.status}
+          </ToneBadge>
         </div>
-      ) : null}
-    </article>
+        <dl className="grid grid-cols-2 gap-3 text-sm">
+          {offer.application ? (
+            <MiniMetric
+              label="Requested"
+              value={`PHP ${formatCurrency(offer.application.requestedAmount)}`}
+            />
+          ) : null}
+          <MiniMetric
+            label="Approved"
+            value={`PHP ${formatCurrency(offer.approvedAmount)}`}
+          />
+          <MiniMetric
+            label="Repayment"
+            value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+          />
+          {offer.application ? (
+            <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} />
+          ) : null}
+          <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} />
+          <MiniMetric label="Sent" value={formatDate(offer.sentAt)} />
+        </dl>
+        {activeLoan ? (
+          <div className="grid gap-3">
+            <Separator />
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-foreground">
+                Active loan
+              </p>
+              <LoanStatusBadge status={activeLoan.status} />
+            </div>
+            <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+              <MiniMetric
+                label="Principal"
+                value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
+              />
+              <MiniMetric
+                label="Repayment"
+                value={`PHP ${formatCurrency(activeLoan.repaymentAmount)}`}
+              />
+              <MiniMetric
+                label="Outstanding"
+                value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
+              />
+              <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
+            </dl>
+            {activeLoan.schedule.length > 0 ? (
+              <CollapsibleSection triggerLabel="Repayment schedule">
+                <Card className="rounded-xl bg-muted/30">
+                  <CardContent className="grid gap-3 p-4">
+                    {activeLoan.schedule.map((repayment) => {
+                      const latestProof = repayment.latestProof;
+                      const currentSubmittedProof =
+                        latestProof?.status === "submitted" ? latestProof : null;
+
+                      return (
+                        <div
+                          key={repayment.id}
+                          className="grid gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0"
+                        >
+                          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                            <MiniMetric
+                              label="Installment"
+                              value={`#${repayment.installmentNumber}`}
+                            />
+                            <MiniMetric
+                              label="Amount due"
+                              value={`PHP ${formatCurrency(repayment.amountDue)}`}
+                            />
+                            <MiniMetric
+                              label="Due"
+                              value={formatDateOnly(repayment.dueDate)}
+                            />
+                            <MiniMetric
+                              label="Repayment"
+                              value={formatRepaymentStatus(repayment.status)}
+                            />
+                            <MiniMetric
+                              label="Proof"
+                              value={
+                                latestProof
+                                  ? formatProofStatus(latestProof.status)
+                                  : "Not submitted"
+                              }
+                            />
+                          </dl>
+                          {latestProof ? (
+                            <ProofReviewState
+                              proofStatus={latestProof.status}
+                              reviewNotes={latestProof.reviewNotes}
+                            />
+                          ) : (
+                            <p className="rounded-xl border border-border bg-card px-3 py-2 text-sm leading-6 text-muted-foreground">
+                              Waiting for the borrower to upload proof for this installment.
+                            </p>
+                          )}
+                          {repayment.proofs.length > 0 ? (
+                            <CollapsibleSection triggerLabel="Proof attempts">
+                              <LenderProofHistory
+                                currentSubmittedProofId={currentSubmittedProof?.id ?? null}
+                                proofs={repayment.proofs}
+                              />
+                            </CollapsibleSection>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </CardContent>
+                </Card>
+              </CollapsibleSection>
+            ) : null}
+          </div>
+        ) : null}
+      </CardContent>
+    </Card>
   );
+}
+
+function LoanStatusBadge({ status }: { status: string }) {
+  const tone = status === "overdue" ? "danger" : "success";
+  return <ToneBadge tone={tone}>{status}</ToneBadge>;
 }
 
 function LenderProofHistory({
@@ -511,17 +549,16 @@ function LenderProofHistory({
   proofs: NonNullable<LenderOfferReview["activeLoan"]>["schedule"][number]["proofs"];
 }) {
   return (
-    <div className="grid gap-2 rounded-2xl border border-[var(--border)] bg-white px-3 py-3">
-      <p className="text-sm font-semibold">Proof attempts</p>
+    <div className="grid gap-2">
       {proofs.map((proof) => (
         <div
           key={proof.id}
-          className="grid gap-2 border-t border-[var(--border)] pt-3 first:border-t-0 first:pt-0"
+          className="grid gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0"
         >
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div className="grid gap-1">
               <p className="break-words text-sm font-semibold">{proof.fileName}</p>
-              <p className="text-xs leading-5 text-[var(--muted-foreground)]">
+              <p className="text-xs leading-5 text-muted-foreground">
                 Submitted {formatDate(proof.submittedAt)}
                 {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
               </p>
@@ -529,7 +566,7 @@ function LenderProofHistory({
             <ProofStatusBadge status={proof.status} />
           </div>
           {proof.reviewNotes ? (
-            <p className="rounded-xl bg-[var(--muted)]/50 px-3 py-2 text-sm leading-6 text-[var(--muted-foreground)]">
+            <p className="rounded-xl bg-muted/50 px-3 py-2 text-sm leading-6 text-muted-foreground">
               {proof.reviewNotes}
             </p>
           ) : null}
@@ -540,14 +577,11 @@ function LenderProofHistory({
               proofUrl={proof.viewUrl}
             />
           ) : proof.viewUrl ? (
-            <a
-              href={proof.viewUrl}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex h-10 w-full items-center justify-center rounded-full border border-[var(--border)] bg-white px-4 text-sm font-semibold transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)] sm:w-fit"
-            >
-              View proof
-            </a>
+            <Button variant="outline" asChild className="h-10 w-full rounded-full font-semibold sm:w-fit">
+              <a href={proof.viewUrl} target="_blank" rel="noreferrer">
+                View proof
+              </a>
+            </Button>
           ) : null}
         </div>
       ))}
@@ -564,7 +598,7 @@ function ProofReviewState({
 }) {
   if (proofStatus === "submitted") {
     return (
-      <p className="rounded-2xl border border-[#d8dde8] bg-[#f7f9fc] px-3 py-2 text-sm leading-6 text-[var(--foreground)]">
+      <p className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm leading-6 text-foreground">
         Review the submitted proof, then verify the repayment or reject it with a note.
       </p>
     );
@@ -572,7 +606,7 @@ function ProofReviewState({
 
   if (proofStatus === "verified") {
     return (
-      <p className="rounded-2xl border border-[#c8e6d8] bg-[#f1fbf6] px-3 py-2 text-sm leading-6 text-[#0f5f45]">
+      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-700">
         Proof verified. This installment is marked paid.
       </p>
     );
@@ -580,7 +614,7 @@ function ProofReviewState({
 
   if (proofStatus === "rejected") {
     return (
-      <p className="rounded-2xl border border-[#f3c7c7] bg-[#fff4f4] px-3 py-2 text-sm leading-6 text-[#8f1d1d]">
+      <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive">
         Proof rejected. The borrower can upload a corrected proof.
         {reviewNotes ? ` Note: ${reviewNotes}` : ""}
       </p>
@@ -591,40 +625,23 @@ function ProofReviewState({
 }
 
 function ProofStatusBadge({ status }: { status: string }) {
-  const className =
+  const tone =
     status === "rejected"
-      ? "bg-[#fff4f4] text-[#8f1d1d]"
+      ? "danger"
       : status === "verified"
-        ? "bg-[#e1f5ee] text-[#0f5f45]"
-        : "bg-[#f7f9fc] text-[var(--foreground)]";
+        ? "success"
+        : "neutral";
 
-  return (
-    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}>
-      {formatProofStatus(status)}
-    </span>
-  );
+  return <ToneBadge tone={tone}>{formatProofStatus(status)}</ToneBadge>;
 }
 
 function MiniMetric({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold text-[var(--muted-foreground)]">
+      <dt className="text-xs font-semibold text-muted-foreground">
         {label}
       </dt>
       <dd className="mt-1 break-words font-semibold">{value}</dd>
-    </div>
-  );
-}
-
-function AccountRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex items-center justify-between gap-4 border-b border-[var(--border)] py-2 last:border-0">
-      <p className="text-sm font-semibold text-[var(--muted-foreground)]">
-        {label}
-      </p>
-      <p className="break-words text-right text-sm font-semibold capitalize">
-        {value}
-      </p>
     </div>
   );
 }
