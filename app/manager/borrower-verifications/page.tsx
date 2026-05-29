@@ -779,74 +779,69 @@ function RequiredDocumentsSection({
         </span>
       </div>
 
-      <div className="hidden overflow-hidden rounded-lg border sm:block">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b bg-muted/40 text-xs font-medium text-muted-foreground">
-              <th className="px-3 py-2 text-left">Type</th>
-              <th className="px-3 py-2 text-left">File</th>
-              <th className="px-3 py-2 text-left">Uploaded</th>
-              <th className="px-3 py-2 text-left">Status</th>
-              <th className="px-3 py-2 text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {documentPolicy.requiredDocumentTypes.map((docType, i) => {
-              const latest = latestByType.get(docType);
-              const isAccepted =
-                documentPolicy.acceptedDocumentTypes.includes(docType);
-              const isSubmitted =
-                documentPolicy.submittedDocumentTypes.includes(docType);
-              const isRejected =
-                documentPolicy.rejectedDocumentTypes.includes(docType);
+      <div className="hidden sm:block">
+        <Card className="py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>File</TableHead>
+                <TableHead>Uploaded</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documentPolicy.requiredDocumentTypes.map((docType) => {
+                const latest = latestByType.get(docType);
+                const isAccepted =
+                  documentPolicy.acceptedDocumentTypes.includes(docType);
+                const isSubmitted =
+                  documentPolicy.submittedDocumentTypes.includes(docType);
+                const isRejected =
+                  documentPolicy.rejectedDocumentTypes.includes(docType);
 
-              return (
-                <tr
-                  key={docType}
-                  className={
-                    i < documentPolicy.requiredDocumentTypes.length - 1
-                      ? "border-b"
-                      : ""
-                  }
-                >
-                  <td className="px-3 py-2.5 font-medium">
-                    {borrowerVerificationDocumentTypeLabels[docType]}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted-foreground">
-                    {latest ? (
-                      <span className="flex items-center gap-1.5">
-                        <FileTextIcon className="size-3.5 shrink-0" />
-                        <span className="max-w-[200px] truncate">
-                          {latest.fileName}
+                return (
+                  <TableRow key={docType}>
+                    <TableCell className="font-medium">
+                      {borrowerVerificationDocumentTypeLabels[docType]}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {latest ? (
+                        <span className="flex items-center gap-1.5">
+                          <FileTextIcon className="size-3.5 shrink-0" />
+                          <span className="max-w-[200px] truncate">
+                            {latest.fileName}
+                          </span>
                         </span>
-                      </span>
-                    ) : (
-                      <span className="text-muted-foreground">
-                        Not uploaded
-                      </span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2.5 text-muted-foreground">
-                    {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
-                  </td>
-                  <td className="px-3 py-2.5">
-                    <DocumentStatusBadge
-                      isAccepted={isAccepted}
-                      isSubmitted={isSubmitted}
-                      isRejected={isRejected}
-                    />
-                  </td>
-                  <td className="px-3 py-2.5 text-right">
-                    <DocumentActions
-                      document={latest}
-                      isAccepted={isAccepted}
-                    />
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Not uploaded
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
+                    </TableCell>
+                    <TableCell>
+                      <DocumentStatusBadge
+                        isAccepted={isAccepted}
+                        isSubmitted={isSubmitted}
+                        isRejected={isRejected}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <DocumentActions
+                        document={latest}
+                        isAccepted={isAccepted}
+                      />
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
       </div>
 
       <div className="space-y-2 sm:hidden">
