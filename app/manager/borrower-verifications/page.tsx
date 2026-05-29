@@ -702,7 +702,7 @@ function DisclosureCard({
   status: ConsentStatus;
 }) {
   return (
-    <div className="rounded-lg border bg-muted/30 p-3">
+    <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
       <div className="mb-2 flex items-center justify-between gap-2">
         <p className="text-sm font-medium">{title}</p>
         <Badge
@@ -1005,7 +1005,7 @@ function EvidenceHistorySection({
           <HistoryIcon className="size-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold">Evidence history</h3>
         </div>
-        <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+        <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-center text-sm text-muted-foreground">
           No documents uploaded.
         </div>
       </div>

@@ -254,7 +254,7 @@ export default async function ManagerApplicationDetailPage({
               {application.offers.map((offer) => (
                 <article
                   key={offer.id}
-                  className="grid gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2 sm:grid-cols-[minmax(0,1.3fr)_0.9fr_0.9fr_0.9fr_0.7fr] sm:items-center sm:gap-3"
+                  className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 sm:grid-cols-[minmax(0,1.3fr)_0.9fr_0.9fr_0.9fr_0.7fr] sm:items-center sm:gap-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">

@@ -485,7 +485,7 @@ function ApplicationList({
       {applications.map((application) => (
         <article
           key={application.id}
-          className="grid gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-3 border-b border-border/60 pb-3 last:border-b-0 last:pb-0"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">
@@ -546,7 +546,7 @@ function LoanList({
       {loans.map((loan) => (
         <article
           key={loan.id}
-          className="grid gap-3 border-b border-border pb-3 last:border-b-0 last:pb-0"
+          className="grid gap-3 border-b border-border/60 pb-3 last:border-b-0 last:pb-0"
         >
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold">Loan {getShortId(loan.id)}</h3>
@@ -589,7 +589,7 @@ function ProofList({
         <Link
           key={proof.id}
           href={`/manager/repayments/${proof.id}`}
-          className="grid gap-2 border-b border-border pb-3 text-sm transition last:border-b-0 last:pb-0 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          className="grid gap-2 border-b border-border/60 pb-3 text-sm transition last:border-b-0 last:pb-0 hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <span className="font-semibold">{proof.fileName}</span>
           <span className="text-xs text-muted-foreground">

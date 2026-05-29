@@ -250,7 +250,7 @@ function LenderSummaryCard({ lender }: { lender: ManagerLenderRow }) {
           />
         </dl>
         {(isApproved || isRejected) && statusDate ? (
-          <div className="mt-3 flex items-center gap-2 border-t pt-3">
+          <div className="mt-3 flex items-center gap-2 border-t border-border/60 pt-3">
             {isApproved ? (
               <CheckCircle2Icon className="size-4 text-emerald-600" />
             ) : (

@@ -204,7 +204,7 @@ export function DetailPageSkeleton() {
               {Array.from({ length: 4 }).map((_, j) => (
                 <div
                   key={j}
-                  className="flex items-start justify-between gap-4 border-b border-border/70 pb-2 last:border-b-0 last:pb-0"
+                  className="flex items-start justify-between gap-4 border-b border-border/60 pb-2 last:border-b-0 last:pb-0"
                 >
                   <Skeleton className="h-3 w-24" />
                   <Skeleton className="h-4 w-32" />

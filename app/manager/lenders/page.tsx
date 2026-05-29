@@ -426,7 +426,7 @@ function CompactConsentSummary({ status }: { status: ConsentStatus }) {
           {status.isCurrent ? "Current" : "Missing"}
         </Badge>
       </div>
-      <div className="rounded-lg border bg-muted/30 p-3">
+      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
         <div className="grid gap-1 text-xs text-muted-foreground">
           {status.required.map((consent) => {
             const accepted = status.accepted.find(
@@ -463,7 +463,7 @@ function CompactConsentSummary({ status }: { status: ConsentStatus }) {
             <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
           </CollapsibleTrigger>
           <CollapsibleContent>
-            <div className="mt-2 grid gap-1 border-t pt-2 text-xs text-muted-foreground">
+            <div className="mt-2 grid gap-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
               {status.required.map((consent) => {
                 const accepted = status.accepted.find(
                   (item) =>

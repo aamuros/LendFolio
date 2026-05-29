@@ -33,7 +33,7 @@ export function RepaymentProofsTable({
 }: RepaymentProofsTableProps) {
   if (proofs.length === 0) {
     return (
-      <Card className="border-dashed bg-muted/50">
+      <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
         <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
           <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
             <ReceiptTextIcon className="size-5" />

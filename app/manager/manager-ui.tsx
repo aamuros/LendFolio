@@ -124,7 +124,7 @@ export function ManagerRecordHeader({
   return (
     <div
       className={cn(
-        "hidden border-b bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground sm:grid",
+        "hidden border-b border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground sm:grid",
         className,
       )}
     >
@@ -172,7 +172,7 @@ export function RoleBadge({ role }: { role: string }) {
 
 export function ManagerRecordRow({ children }: { children: React.ReactNode }) {
   return (
-    <article className="border-b last:border-b-0">
+    <article className="border-b border-border/60 last:border-b-0">
       {children}
     </article>
   );
@@ -184,7 +184,7 @@ export function DataCard({ children }: { children: React.ReactNode }) {
 
 export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-lg border bg-muted/30 px-3 py-2">
+    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-sm font-medium break-words">{value}</dd>
     </div>
@@ -218,7 +218,7 @@ export function DetailItem({
   value: React.ReactNode;
 }) {
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border/70 pb-2 last:border-b-0 last:pb-0">
+    <div className="flex items-start justify-between gap-4 border-b border-border/60 pb-2 last:border-b-0 last:pb-0">
       <dt className="shrink-0 text-xs font-medium text-muted-foreground">
         {label}
       </dt>
@@ -266,7 +266,7 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <Card className="border-dashed bg-muted/50">
+    <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
       <CardContent className="flex flex-col items-center gap-1 py-8 text-center">
         <h3 className="text-sm font-medium">{title}</h3>
         <p className="text-xs text-muted-foreground">{description}</p>

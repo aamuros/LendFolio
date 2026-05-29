@@ -99,7 +99,7 @@ export function ManagerOperationsTable({
       </CardHeader>
       <CardContent className="px-0">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 mx-4 px-4 py-8 text-center">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 mx-4 px-4 py-8 text-center">
             <p className="text-sm font-medium">No pending items</p>
             <p className="mt-0.5 text-xs text-muted-foreground">
               All operations are up to date.
@@ -181,7 +181,7 @@ export function ManagerOperationsTable({
                 return (
                   <div
                     key={item.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border bg-card p-3"
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-card p-3"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

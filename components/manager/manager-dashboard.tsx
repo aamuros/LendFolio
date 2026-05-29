@@ -113,7 +113,7 @@ export function ManagerDashboard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 py-8 text-center">
+          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 px-4 py-8 text-center">
             <p className="text-sm font-medium">Coming soon</p>
             <p className="mt-0.5 max-w-sm text-xs text-muted-foreground">
               Application trends, approval rates, and repayment activity will
@@ -143,7 +143,7 @@ function DashboardKpiOverview({ kpis }: { kpis: ManagerDashboardKpi[] }) {
               <Link
                 key={kpi.label}
                 href={kpi.href}
-                className="group flex items-start gap-3 rounded-lg border bg-muted/30 p-3 transition-colors hover:bg-muted/50"
+                className="group flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
               >
                 <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
                   <IconComponent className="size-4" />

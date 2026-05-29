@@ -108,7 +108,7 @@ function EmptyTableState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
 
 function MobileEmptyState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
   return (
-    <Card className="border-dashed bg-muted/50">
+    <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
       <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
         <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
           <CircleDollarSign className="size-5" />

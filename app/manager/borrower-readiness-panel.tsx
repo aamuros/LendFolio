@@ -186,7 +186,7 @@ function DashboardEmptyState({
   description: string;
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed bg-muted/30 px-4 py-6 text-center">
+    <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 px-4 py-6 text-center">
       <p className="text-sm font-medium">{title}</p>
       <p className="mt-0.5 text-xs text-muted-foreground">{description}</p>
     </div>

@@ -191,7 +191,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
               {loan.repaymentSchedules.map((schedule) => (
                 <article
                   key={schedule.id}
-                  className="grid gap-1 rounded-xl border border-border bg-muted/20 px-3 py-2 sm:grid-cols-[0.8fr_1fr_1fr_0.8fr] sm:items-center sm:gap-3"
+                  className="grid gap-1 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 sm:grid-cols-[0.8fr_1fr_1fr_0.8fr] sm:items-center sm:gap-3"
                 >
                   <p className="text-sm font-semibold">
                     Installment {schedule.installmentNumber}
@@ -219,7 +219,7 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
               {loan.repaymentProofs.map((proof) => (
                 <article
                   key={proof.id}
-                  className="grid gap-2 rounded-xl border border-border bg-muted/20 px-3 py-2 sm:grid-cols-[minmax(0,1.5fr)_0.8fr_0.8fr_1fr_5rem] sm:items-center sm:gap-3"
+                  className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 px-3 py-2 sm:grid-cols-[minmax(0,1.5fr)_0.8fr_0.8fr_1fr_5rem] sm:items-center sm:gap-3"
                 >
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold">
