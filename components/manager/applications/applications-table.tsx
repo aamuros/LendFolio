@@ -20,6 +20,7 @@ import {
   PersonLabel,
   StatusBadge,
 } from "@/app/manager/manager-ui";
+import { ManagerEmptyState } from "@/components/manager/manager-empty-state";
 
 type ApplicationsTableProps = {
   applications: ManagerApplicationRow[];
@@ -95,26 +96,22 @@ function EmptyTableState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
 
 function MobileEmptyState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
   return (
-    <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
-      <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-        <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <SearchX className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">No applications found</p>
-          <p className="text-xs text-muted-foreground">
-            {hasActiveFilters
-              ? "Applications matching the current filters will appear here."
-              : "Submitted applications will appear here when borrowers apply."}
-          </p>
-        </div>
-        {hasActiveFilters ? (
+    <ManagerEmptyState
+      icon={SearchX}
+      title="No applications found"
+      description={
+        hasActiveFilters
+          ? "Applications matching the current filters will appear here."
+          : "Submitted applications will appear here when borrowers apply."
+      }
+      action={
+        hasActiveFilters ? (
           <Button variant="outline" size="sm" asChild>
             <Link href="/manager/applications">Clear filters</Link>
           </Button>
-        ) : null}
-      </CardContent>
-    </Card>
+        ) : undefined
+      }
+    />
   );
 }
 

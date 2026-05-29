@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   StatusBadge,
@@ -21,6 +21,7 @@ import {
   formatDateTime,
 } from "@/app/manager/manager-ui";
 import { ReceiptTextIcon } from "lucide-react";
+import { ManagerEmptyState } from "@/components/manager/manager-empty-state";
 
 type RepaymentProofsTableProps = {
   proofs: ManagerRepaymentProofRow[];
@@ -33,24 +34,18 @@ export function RepaymentProofsTable({
 }: RepaymentProofsTableProps) {
   if (proofs.length === 0) {
     return (
-      <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
-        <CardContent className="flex flex-col items-center gap-3 py-12 text-center">
-          <div className="flex size-10 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-            <ReceiptTextIcon className="size-5" />
-          </div>
-          <div className="grid gap-1">
-            <h3 className="text-sm font-medium">No repayment proofs found</h3>
-            <p className="text-xs text-muted-foreground">
-              Submitted proof records matching the current filters will appear here.
-            </p>
-          </div>
-          {hasActiveFilters ? (
+      <ManagerEmptyState
+        icon={ReceiptTextIcon}
+        title="No repayment proofs found"
+        description="Submitted proof records matching the current filters will appear here."
+        action={
+          hasActiveFilters ? (
             <Button variant="outline" size="sm" asChild>
               <Link href="/manager/repayments">Clear filters</Link>
             </Button>
-          ) : null}
-        </CardContent>
-      </Card>
+          ) : undefined
+        }
+      />
     );
   }
 

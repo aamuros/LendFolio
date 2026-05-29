@@ -16,6 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { cn } from "@/lib/utils";
+import { ManagerEmptyState } from "./manager-empty-state";
 import {
   ShieldCheck,
   UserCheck,
@@ -23,6 +25,7 @@ import {
   Receipt,
   ClipboardList,
   ArrowUpRightIcon,
+  ListTodo,
 } from "lucide-react";
 
 export type OperationsQueueItem = {
@@ -36,7 +39,6 @@ export type OperationsQueueItem = {
   subject: string;
   status: string;
   priority: "high" | "medium" | "low";
-  updatedAt: string;
   href: string;
 };
 
@@ -99,15 +101,12 @@ export function ManagerOperationsTable({
       </CardHeader>
       <CardContent className="px-0">
         {items.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 mx-4 px-4 py-8 text-center">
-            <p className="text-sm font-medium">No pending items</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              All operations are up to date.
-            </p>
-            <p className="mt-2 max-w-sm text-[11px] text-muted-foreground">
-              New borrower verifications, lender reviews, applications, or
-              repayment proofs will appear here.
-            </p>
+          <div className="px-4">
+            <ManagerEmptyState
+              icon={ListTodo}
+              title="No pending items"
+              description="All operations are up to date. New borrower verifications, lender reviews, applications, or repayment proofs will appear here."
+            />
           </div>
         ) : (
           <>
@@ -119,7 +118,6 @@ export function ManagerOperationsTable({
                     <TableHead>Subject</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Priority</TableHead>
-                    <TableHead>Updated</TableHead>
                     <TableHead className="text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -128,9 +126,16 @@ export function ManagerOperationsTable({
                     const config = typeConfig[item.type];
                     const priority = priorityConfig[item.priority];
                     const IconComponent = config.icon;
+                    const isHighPriority = item.priority === "high";
 
                     return (
-                      <TableRow key={item.id}>
+                      <TableRow
+                        key={item.id}
+                        className={cn(
+                          isHighPriority &&
+                            "bg-destructive/5",
+                        )}
+                      >
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <div className="flex size-7 items-center justify-center rounded-md bg-muted text-muted-foreground">
@@ -154,11 +159,12 @@ export function ManagerOperationsTable({
                             {priority.label}
                           </Badge>
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {item.updatedAt}
-                        </TableCell>
                         <TableCell className="text-right">
-                          <Button variant="outline" size="sm" asChild>
+                          <Button
+                            variant={isHighPriority ? "default" : "outline"}
+                            size="sm"
+                            asChild
+                          >
                             <Link href={item.href}>
                               Review
                               <ArrowUpRightIcon className="size-3" />
@@ -177,11 +183,17 @@ export function ManagerOperationsTable({
                 const config = typeConfig[item.type];
                 const priority = priorityConfig[item.priority];
                 const IconComponent = config.icon;
+                const isHighPriority = item.priority === "high";
 
                 return (
                   <div
                     key={item.id}
-                    className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-card p-3"
+                    className={cn(
+                      "flex items-start justify-between gap-3 rounded-lg border bg-card p-3",
+                      isHighPriority
+                        ? "border-destructive/20 bg-destructive/5"
+                        : "border-border/60",
+                    )}
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
@@ -200,12 +212,13 @@ export function ManagerOperationsTable({
                         <Badge variant={priority.variant} className="text-[10px]">
                           {priority.label}
                         </Badge>
-                        <span className="text-[10px] text-muted-foreground">
-                          {item.updatedAt}
-                        </span>
                       </div>
                     </div>
-                    <Button variant="outline" size="sm" asChild>
+                    <Button
+                      variant={isHighPriority ? "default" : "outline"}
+                      size="sm"
+                      asChild
+                    >
                       <Link href={item.href}>Review</Link>
                     </Button>
                   </div>

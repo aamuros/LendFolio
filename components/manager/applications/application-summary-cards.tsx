@@ -15,7 +15,7 @@ import type { ManagerApplicationRow } from "@/lib/manager-operations";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
-const managerApplicationSummaryMockData = {
+const emptyApplicationSummary = {
   openApplications: 0,
   needsReview: 0,
   offersSent: 0,
@@ -37,25 +37,25 @@ function buildSummaryCards(
       {
         label: "Open applications",
         description: "Applications currently available for review.",
-        value: managerApplicationSummaryMockData.openApplications,
+        value: emptyApplicationSummary.openApplications,
         icon: FileText,
       },
       {
         label: "Needs review",
         description: "Applications waiting for manager attention.",
-        value: managerApplicationSummaryMockData.needsReview,
+        value: emptyApplicationSummary.needsReview,
         icon: ClipboardCheck,
       },
       {
         label: "Offers sent",
         description: "Total lender offers linked to applications.",
-        value: managerApplicationSummaryMockData.offersSent,
+        value: emptyApplicationSummary.offersSent,
         icon: Send,
       },
       {
         label: "Accepted offers",
         description: "Applications with accepted terms.",
-        value: managerApplicationSummaryMockData.acceptedOffers,
+        value: emptyApplicationSummary.acceptedOffers,
         icon: CheckCircle2,
       },
     ];

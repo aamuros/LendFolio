@@ -72,34 +72,36 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
               ]}
             />
           </div>
-          <div className="min-w-[200px] flex-1">
-            <div className="grid gap-1.5">
-              <span className="text-xs font-medium">Submitted date</span>
-              <div className="flex gap-2">
-                <Input
-                  name="submittedFrom"
-                  type="date"
-                  defaultValue={filters.submittedFrom ?? ""}
-                  className="flex-1"
-                  aria-label="Submitted from"
-                />
-                <Input
-                  name="submittedTo"
-                  type="date"
-                  defaultValue={filters.submittedTo ?? ""}
-                  className="flex-1"
-                  aria-label="Submitted to"
-                />
+          <div className="flex w-full items-end gap-3">
+            <div className="min-w-[200px] flex-1">
+              <div className="grid gap-1.5">
+                <span className="text-xs font-medium">Submitted date</span>
+                <div className="flex gap-2">
+                  <Input
+                    name="submittedFrom"
+                    type="date"
+                    defaultValue={filters.submittedFrom ?? ""}
+                    className="flex-1"
+                    aria-label="Submitted from"
+                  />
+                  <Input
+                    name="submittedTo"
+                    type="date"
+                    defaultValue={filters.submittedTo ?? ""}
+                    className="flex-1"
+                    aria-label="Submitted to"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-          <div className="flex items-end gap-2">
-            <Button type="submit">Apply</Button>
-            {hasActiveFilters ? (
-              <Button type="button" variant="outline" asChild>
-                <Link href="/manager/repayments">Clear</Link>
-              </Button>
-            ) : null}
+            <div className="flex shrink-0 items-end gap-2">
+              <Button type="submit">Apply</Button>
+              {hasActiveFilters ? (
+                <Button type="button" variant="outline" asChild>
+                  <Link href="/manager/repayments">Clear</Link>
+                </Button>
+              ) : null}
+            </div>
           </div>
         </FilterForm>
       </CardContent>

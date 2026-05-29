@@ -32,11 +32,13 @@ export function ManagerShell({
   title,
   description,
   showHeading = true,
+  headerActions,
   children,
 }: {
   title: string;
   description: string;
   showHeading?: boolean;
+  headerActions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -47,9 +49,14 @@ export function ManagerShell({
       <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
         <div className="mx-auto w-full max-w-[1600px]">
           {showHeading ? (
-            <div className="mb-4">
-              <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-              <p className="text-sm text-muted-foreground">{description}</p>
+            <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0 flex-1">
+                <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+                <p className="text-sm text-muted-foreground">{description}</p>
+              </div>
+              {headerActions ? (
+                <div className="flex shrink-0 items-center gap-2">{headerActions}</div>
+              ) : null}
             </div>
           ) : null}
           {children}
@@ -246,9 +253,9 @@ export function StatusBadge({ status }: { status: string }) {
           : "secondary";
 
   const className = statusPositive.includes(status)
-    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+    ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-950"
     : statusWarning.includes(status)
-      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
+      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-950"
       : undefined;
 
   return (

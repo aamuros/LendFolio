@@ -69,7 +69,7 @@ export function LoanFilters({ filters, hasActiveFilters }: LoanFiltersProps) {
               </div>
             </div>
           </div>
-          <div className="flex items-end gap-2">
+          <div className="flex shrink-0 items-end gap-2">
             <Button type="submit">Apply</Button>
             {hasActiveFilters ? (
               <Button type="button" variant="outline" asChild>

@@ -18,6 +18,7 @@ import {
   type OperationsQueueItem,
 } from "./manager-operations-table";
 import { Wallet, Users, UserPlus, FileText } from "lucide-react";
+import { ManagerEmptyState } from "./manager-empty-state";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -40,7 +41,6 @@ function buildOperationsQueue(
       subject: `${dashboard.pendingActions.pendingBorrowerVerifications} verification${dashboard.pendingActions.pendingBorrowerVerifications !== 1 ? "s" : ""} awaiting review`,
       status: "Submitted",
       priority: "high",
-      updatedAt: "Now",
       href: "/manager/borrower-verifications?status=submitted",
     });
   }
@@ -52,7 +52,6 @@ function buildOperationsQueue(
       subject: `${dashboard.pendingActions.pendingLenderReviews} lender signup${dashboard.pendingActions.pendingLenderReviews !== 1 ? "s" : ""} to review`,
       status: "Pending",
       priority: "high",
-      updatedAt: "Now",
       href: "/manager/lenders?status=pending",
     });
   }
@@ -64,7 +63,6 @@ function buildOperationsQueue(
       subject: `${dashboard.pendingActions.openApplications} open application${dashboard.pendingActions.openApplications !== 1 ? "s" : ""} awaiting offers`,
       status: "Open",
       priority: "medium",
-      updatedAt: "Now",
       href: "/manager/applications?status=open",
     });
   }
@@ -76,7 +74,6 @@ function buildOperationsQueue(
       subject: `${dashboard.pendingActions.pendingRepaymentReviews} repayment proof${dashboard.pendingActions.pendingRepaymentReviews !== 1 ? "s" : ""} to verify`,
       status: "Submitted",
       priority: "medium",
-      updatedAt: "Now",
       href: "/manager/repayments?proofStatus=submitted",
     });
   }
@@ -113,13 +110,10 @@ export function ManagerDashboard({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-border/60 bg-muted/30 px-4 py-8 text-center">
-            <p className="text-sm font-medium">Coming soon</p>
-            <p className="mt-0.5 max-w-sm text-xs text-muted-foreground">
-              Application trends, approval rates, and repayment activity will
-              appear here once platform analytics are connected.
-            </p>
-          </div>
+          <ManagerEmptyState
+            title="Coming soon"
+            description="Application trends, approval rates, and repayment activity will appear here once platform analytics are connected."
+          />
         </CardContent>
       </Card>
     </div>

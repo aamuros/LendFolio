@@ -1,7 +1,5 @@
 import { getManagerAccess } from "../manager-access";
 import { loadManagerApplications } from "@/lib/manager-operations";
-import { RefreshCw, Download } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import {
   AccessDenied,
   ManagerShell,
@@ -49,30 +47,7 @@ export default async function ManagerApplicationsPage({ searchParams }: PageProp
     <ManagerShell
       title="Applications & offers"
       description="Track borrower requests, preferred terms, offer counts, and accepted terms."
-      showHeading={false}
     >
-      <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-xl font-semibold tracking-tight">
-            Applications & offers
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Track borrower requests, preferred terms, offer counts, and accepted
-            terms.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" disabled>
-            <RefreshCw className="size-3.5" />
-            Refresh
-          </Button>
-          <Button variant="outline" size="sm" disabled>
-            <Download className="size-3.5" />
-            Export CSV
-          </Button>
-        </div>
-      </div>
-
       <div className="space-y-6">
         <ApplicationSummaryCards applications={result.applications} />
 

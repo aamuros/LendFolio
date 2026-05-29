@@ -86,8 +86,8 @@ export function ManagerMetricCards({
       className="*:data-[slot=card]:shadow-xs grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
     >
       {cards.map((card) => (
-        <Link key={card.label} href={card.href} className="group block">
-          <Card className="transition-colors hover:bg-muted/50">
+        <Link key={card.label} href={card.href} className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+          <Card className="transition-colors group-hover:bg-muted/50 group-focus-visible:ring-0">
             <CardHeader>
               <CardDescription className="text-xs font-medium">
                 {card.label}

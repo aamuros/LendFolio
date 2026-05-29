@@ -8,7 +8,7 @@ import {
   StatusMessage,
 } from "../manager-ui";
 import { Button } from "@/components/ui/button";
-import { RefreshCwIcon, DownloadIcon } from "lucide-react";
+import { RefreshCwIcon } from "lucide-react";
 import { RepaymentSummaryCards } from "@/components/manager/repayments/repayment-summary-cards";
 import { RepaymentFilters } from "@/components/manager/repayments/repayment-filters";
 import { RepaymentProofsTable } from "@/components/manager/repayments/repayment-proofs-table";
@@ -57,33 +57,16 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
     <ManagerShell
       title="Repayment proofs"
       description="Monitor submitted payment evidence, review status, due dates, and lender decisions."
-      showHeading={false}
+      headerActions={
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/manager/repayments">
+            <RefreshCwIcon />
+            Refresh
+          </Link>
+        </Button>
+      }
     >
       <div className="flex flex-col gap-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-xl font-semibold tracking-tight">
-              Repayment proofs
-            </h1>
-            <p className="text-sm text-muted-foreground">
-              Monitor submitted payment evidence, review status, due dates, and
-              lender decisions.
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/manager/repayments">
-                <RefreshCwIcon />
-                Refresh
-              </Link>
-            </Button>
-            <Button variant="outline" size="sm" disabled>
-              <DownloadIcon />
-              Export CSV
-            </Button>
-          </div>
-        </div>
-
         <RepaymentSummaryCards />
 
         <RepaymentFilters

@@ -20,6 +20,7 @@ import {
   PersonLabel,
   StatusBadge,
 } from "@/app/manager/manager-ui";
+import { ManagerEmptyState } from "@/components/manager/manager-empty-state";
 
 type LoansTableProps = {
   loans: ManagerLoanRow[];
@@ -108,24 +109,18 @@ function EmptyTableState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
 
 function MobileEmptyState({ hasActiveFilters }: { hasActiveFilters: boolean }) {
   return (
-    <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
-      <CardContent className="flex flex-col items-center gap-2 py-10 text-center">
-        <div className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
-          <CircleDollarSign className="size-5" />
-        </div>
-        <div>
-          <p className="text-sm font-medium">No active loans found</p>
-          <p className="text-xs text-muted-foreground">
-            Funded loans matching the current filters will appear here.
-          </p>
-        </div>
-        {hasActiveFilters ? (
+    <ManagerEmptyState
+      icon={CircleDollarSign}
+      title="No active loans found"
+      description="Funded loans matching the current filters will appear here."
+      action={
+        hasActiveFilters ? (
           <Button variant="outline" size="sm" asChild>
             <Link href="/manager/loans">Clear filters</Link>
           </Button>
-        ) : null}
-      </CardContent>
-    </Card>
+        ) : undefined
+      }
+    />
   );
 }
 
@@ -146,11 +141,11 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
                   <TableHead>Next due date</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Repayment progress</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                <EmptyTableState hasActiveFilters={hasActiveFilters} />
+                <TableHead className="w-[96px] text-center">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
           </Card>
@@ -177,7 +172,7 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
                 <TableHead>Next due date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Repayment progress</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="w-[96px] text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -209,7 +204,7 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
                   <TableCell>
                     <RepaymentProgress loan={loan} />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-center">
                     <ManagerDetailsLink
                       href={`/manager/loans/${loan.id}`}
                     />
