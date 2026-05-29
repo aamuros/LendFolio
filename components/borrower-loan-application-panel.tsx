@@ -78,6 +78,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
@@ -768,7 +769,7 @@ function VerificationGateCard({
     borrowerVerification?.rejectionReason;
 
   return (
-    <Card className="rounded-3xl border-border/50 bg-card shadow-sm" role="status" aria-live="polite">
+    <Card className="rounded-2xl" role="status" aria-live="polite">
       <CardContent className="grid gap-3 p-5">
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-foreground">
@@ -777,7 +778,7 @@ function VerificationGateCard({
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
         {managerNote ? (
-          <Card className="rounded-2xl border-border/50 bg-muted/30 shadow-none">
+          <Card className="rounded-2xl bg-muted/30">
             <CardContent className="p-4">
               <p className="text-xs font-semibold uppercase text-muted-foreground">
                 Manager note
@@ -847,13 +848,18 @@ function HomeSummary({
     readiness,
   });
 
+  const isProfileReady = profileCompletion.percentage >= 100;
+  const profileSectionTitle = isProfileReady && borrowerVerification && borrowerVerification.status !== "approved"
+    ? "Profile readiness"
+    : "Profile completion";
+
   return (
-    <div className="grid gap-4 pb-24 sm:gap-5 sm:pb-8">
+    <div className="grid gap-4 pb-28 sm:gap-5 sm:pb-8">
       <div className="grid gap-1">
-        <h1 className="text-2xl leading-tight font-semibold sm:text-3xl">
+        <h1 className="text-xl leading-tight font-semibold sm:text-2xl">
           Home
         </h1>
-        <p className="text-sm leading-6 text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           Track credit capacity, repayments, and active loans.
         </p>
       </div>
@@ -863,18 +869,15 @@ function HomeSummary({
       ) : (
         <>
           {profileWarning ? (
-            <Alert
-              variant="destructive"
-              className="rounded-2xl border-destructive/20 bg-destructive/5"
-            >
-              <AlertDescription className="flex flex-wrap items-center justify-between gap-3">
+            <Alert className="rounded-2xl border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+              <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-sm">
                 <span>{profileWarning.message}</span>
                 {profileWarning.showAction ? (
                   <Button
                     variant="outline"
                     size="sm"
                     onClick={() => onNavigate?.("profile")}
-                    className="rounded-full font-semibold"
+                    className="rounded-full border-amber-300 font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/30"
                   >
                     Review profile
                   </Button>
@@ -883,56 +886,60 @@ function HomeSummary({
             </Alert>
           ) : null}
 
-          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-            <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-              <CardDescription className="font-semibold text-muted-foreground">
+          <Card className="rounded-3xl border-border/50 shadow-sm">
+            <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+              <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Financing overview
               </CardDescription>
-              <CardTitle className="text-xl leading-tight sm:text-2xl">
+              <CardTitle className="text-lg leading-tight sm:text-xl">
                 Available to request
               </CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-3 p-4 sm:p-5">
+            <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
               {creditSummary ? (
                 <>
                   <MoneyText
                     value={creditSummary.availableCredit}
-                    className="text-3xl font-semibold"
+                    className="text-2xl font-semibold sm:text-3xl"
                   />
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {formatMoney(creditSummary.availableCredit)} available of{" "}
+                  <p className="text-xs text-muted-foreground">
+                    {formatMoney(creditSummary.availableCredit)} of{" "}
                     {formatMoney(creditSummary.calculatedCreditLimit)} limit
                   </p>
-                  <DashboardProgressBar value={usedCreditRatio} />
+                  <Progress
+                    value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
+                    className="mt-1 h-2"
+                    aria-label="Available credit"
+                  />
                 </>
               ) : (
-                <p className="text-sm leading-6 text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Complete your business profile to calculate your request limit.
                 </p>
               )}
             </CardContent>
           </Card>
 
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
-            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+          <div className="grid grid-cols-2 gap-3">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardContent className="grid gap-2 p-4">
                 <p className="text-xs font-semibold text-muted-foreground">
                   Due this month
                 </p>
                 <MoneyText
                   value={dueThisMonth.totalDue}
-                  className="text-xl font-semibold sm:text-2xl"
+                  className="text-lg font-semibold sm:text-xl"
                 />
                 <Badge
                   variant="secondary"
                   className={cn(
-                    "w-fit text-xs font-semibold",
+                    "w-fit text-[11px] font-semibold",
                     dueCapacityStatus.badgeClassName,
                   )}
                 >
                   {dueCapacityStatus.label}
                 </Badge>
-                <p className="text-xs leading-5 text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {creditSummary && creditSummary.monthlyNetCashFlow > 0
                     ? `Of ${formatMoney(creditSummary.monthlyNetCashFlow)} cashflow`
                     : "No cashflow data"}
@@ -944,49 +951,55 @@ function HomeSummary({
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardContent className="grid gap-2 p-4">
                 <p className="text-xs font-semibold text-muted-foreground">
                   Avg. days to pay
                 </p>
-                <p className="text-xl font-semibold sm:text-2xl">
+                <p className="text-lg font-semibold sm:text-xl">
                   {averageDays.averageDays === null
-                    ? "—"
+                    ? "No unpaid debt"
                     : averageDays.averageDays < 0
                       ? "Overdue"
                       : `${averageDays.averageDays} days`}
                 </p>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Based on unpaid installments
+                <p className="text-xs text-muted-foreground">
+                  {averageDays.averageDays === null
+                    ? "All repayments are current."
+                    : "Based on unpaid installments"}
                 </p>
-                <DashboardProgressBar
-                  value={averageDaysRatio}
-                  barClassName={averageUrgency.barClassName}
-                />
+                {averageDays.averageDays !== null ? (
+                  <DashboardProgressBar
+                    value={averageDaysRatio}
+                    barClassName={averageUrgency.barClassName}
+                  />
+                ) : null}
               </CardContent>
             </Card>
           </div>
 
           {dueUpcoming.length > 0 ? (
-            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-              <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-                <CardTitle className="text-base">Upcoming repayments</CardTitle>
+            <Card className="rounded-2xl border-border/50 shadow-sm">
+              <CardHeader className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                <CardTitle className="text-sm font-semibold">
+                  Upcoming repayments
+                </CardTitle>
               </CardHeader>
-              <CardContent className="grid gap-2 p-4 pt-2 sm:p-5 sm:pt-2">
+              <CardContent className="grid gap-2 px-4 pb-4 sm:px-5 sm:pb-5">
                 {dueUpcoming.map((item) => (
                   <div
                     key={item.repayment.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border border-border/50 bg-muted/30 px-3 py-3 text-sm"
+                    className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
                   >
-                    <div className="grid gap-1">
+                    <div className="grid gap-0.5">
                       <p className="font-semibold">
                         Installment {item.repayment.installmentNumber}
                       </p>
-                      <p className="text-muted-foreground">
+                      <p className="text-xs text-muted-foreground">
                         {formatDateOnly(item.repayment.dueDate)}
                       </p>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex shrink-0 items-center gap-2">
                       <MoneyText
                         value={item.repayment.amountDue}
                         className="font-semibold"
@@ -999,76 +1012,105 @@ function HomeSummary({
             </Card>
           ) : null}
 
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-              <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
-                <CardTitle className="text-base">Profile completion</CardTitle>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                <CardTitle className="text-sm font-semibold">
+                  {profileSectionTitle}
+                </CardTitle>
+                {isProfileReady ? (
+                  <Badge
+                    variant="secondary"
+                    className={cn(
+                      "text-[11px] font-semibold",
+                      borrowerVerification && borrowerVerification.status !== "approved"
+                        ? toneBadgeClassName("attention")
+                        : toneBadgeClassName("success"),
+                    )}
+                  >
+                    {borrowerVerification && borrowerVerification.status !== "approved"
+                      ? "Needs review"
+                      : "Ready"}
+                  </Badge>
+                ) : (
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {profileCompletion.percentage}%
+                  </span>
+                )}
               </CardHeader>
-              <CardContent className="grid gap-4 p-4 sm:p-5">
-                <div className="grid gap-4 sm:grid-cols-[auto_1fr] sm:items-center">
-                  <ProgressRing value={profileCompletion.percentage} />
-                  <div className="grid gap-2">
-                    <p className="text-sm leading-6 text-muted-foreground">
-                      {profileCompletion.nextStep}
-                    </p>
-                    <Button
-                      variant="outline"
-                      onClick={() => onNavigate?.("profile")}
-                      className="h-10 w-full rounded-full font-semibold sm:w-fit"
-                    >
-                      Open profile
-                    </Button>
-                  </div>
-                </div>
+              <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+                <Progress
+                  value={profileCompletion.percentage}
+                  className="h-2"
+                  aria-label={profileSectionTitle}
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={profileCompletion.percentage}
+                />
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {profileCompletion.nextStep}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNavigate?.("profile")}
+                  className="w-full rounded-full font-semibold sm:w-fit"
+                >
+                  Open profile
+                </Button>
               </CardContent>
             </Card>
 
-            <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-              <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
-                <CardTitle className="text-base">Debt payment progress</CardTitle>
-              </CardHeader>
-              <CardContent className="grid gap-4 p-4 sm:p-5">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
+              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                <CardTitle className="text-sm font-semibold">
+                  Debt payment progress
+                </CardTitle>
                 {debtProgress.totalDebt > 0 ? (
-                  <div className="grid gap-3">
-                    <div className="flex items-end justify-between gap-3">
-                      <div>
-                        <MoneyText
-                          value={debtProgress.totalPaid}
-                          className="text-2xl font-semibold"
-                        />
-                        <p className="text-sm text-muted-foreground">
-                          paid of {formatMoney(debtProgress.totalDebt)}
-                        </p>
-                      </div>
-                      <p className="text-sm font-semibold text-muted-foreground">
-                        {Math.round(debtProgress.percentComplete * 100)}%
+                  <span className="text-xs font-semibold text-muted-foreground">
+                    {Math.round(debtProgress.percentComplete * 100)}%
+                  </span>
+                ) : null}
+              </CardHeader>
+              <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+                {debtProgress.totalDebt > 0 ? (
+                  <>
+                    <div className="flex items-baseline justify-between gap-2">
+                      <MoneyText
+                        value={debtProgress.totalPaid}
+                        className="text-lg font-semibold"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        of {formatMoney(debtProgress.totalDebt)}
                       </p>
                     </div>
                     <DashboardProgressBar
                       value={debtProgress.percentComplete}
                     />
-                  </div>
+                  </>
                 ) : (
-                  <EmptyState message="Active loan progress will appear here." />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Active loan progress will appear here.
+                  </p>
                 )}
               </CardContent>
             </Card>
           </div>
 
-          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-            <CardHeader className="flex flex-row items-start justify-between gap-3 p-4 pb-0 sm:p-5 sm:pb-0">
-              <CardTitle className="text-base">My Loans</CardTitle>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+              <CardTitle className="text-sm font-semibold">My Loans</CardTitle>
               {activeLoans.length > 0 ? (
                 <Button
                   variant="link"
                   onClick={() => onNavigate?.("loans")}
-                  className="h-auto p-0 text-sm font-semibold"
+                  className="h-auto p-0 text-xs font-semibold"
                 >
                   View in Loans
                 </Button>
               ) : null}
             </CardHeader>
-            <CardContent className="grid gap-4 p-4 sm:p-5">
+            <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
               {activeLoans.length > 0 ? (
                 <div className="grid gap-3">
                   {activeLoans.map((loan) => (
@@ -1081,10 +1123,12 @@ function HomeSummary({
                 </div>
               ) : (
                 <div className="grid gap-3">
-                  <EmptyState message="Accepted offers will appear here as active loans." />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Accepted offers will appear here as active loans.
+                  </p>
                   <Button
                     onClick={() => onNavigate?.("offers")}
-                    className="h-11 w-full rounded-full font-semibold sm:w-fit"
+                    className="h-10 w-full rounded-full font-semibold sm:w-fit"
                   >
                     Review offers
                   </Button>
@@ -1093,11 +1137,11 @@ function HomeSummary({
             </CardContent>
           </Card>
 
-          <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-            <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-              <CardTitle className="text-base">Due dates</CardTitle>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardHeader className="px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+              <CardTitle className="text-sm font-semibold">Due dates</CardTitle>
             </CardHeader>
-            <CardContent className="grid gap-4 p-4 sm:p-5">
+            <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
               <div className="grid grid-cols-7 gap-1 text-center text-xs font-semibold text-muted-foreground">
                 {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
                   <span key={day}>{day}</span>
@@ -1109,7 +1153,7 @@ function HomeSummary({
                     <div
                       key={day.key}
                       className={cn(
-                        "grid aspect-square min-h-10 place-items-center rounded-2xl border text-sm font-semibold",
+                        "grid aspect-square min-h-8 place-items-center rounded-xl border text-xs font-semibold",
                         day.dueItems.length > 0
                           ? "border-primary bg-primary text-primary-foreground"
                           : day.isToday
@@ -1125,7 +1169,7 @@ function HomeSummary({
                       {day.day}
                     </div>
                   ) : (
-                    <div key={`empty-${index}`} className="aspect-square min-h-10" />
+                    <div key={`empty-${index}`} className="aspect-square min-h-8" />
                   ),
                 )}
               </div>
@@ -1140,26 +1184,25 @@ function HomeSummary({
 function HomeDashboardSkeleton() {
   return (
     <div className="grid gap-4">
-      <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
-        <CardHeader className="p-4 pb-0 sm:p-5 sm:pb-0">
-          <Skeleton className="h-4 w-28" />
-          <Skeleton className="h-6 w-44" />
+      <Card className="rounded-3xl border-border/50 shadow-sm">
+        <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-5 w-40" />
         </CardHeader>
-        <CardContent className="grid gap-3 p-4 sm:p-5">
-          <Skeleton className="h-8 w-36" />
-          <Skeleton className="h-3 w-48" />
+        <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
+          <Skeleton className="h-7 w-32" />
+          <Skeleton className="h-3 w-44" />
           <Skeleton className="h-2 w-full rounded-full" />
         </CardContent>
       </Card>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3">
         {[0, 1].map((item) => (
-          <Card key={item} className="rounded-3xl border-border/50 bg-card shadow-sm">
+          <Card key={item} className="rounded-2xl border-border/50 shadow-sm">
             <CardContent className="grid gap-2 p-4">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-6 w-28" />
-              <Skeleton className="h-5 w-16" />
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-5 w-24" />
+              <Skeleton className="h-4 w-14" />
               <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-2 w-full rounded-full" />
             </CardContent>
           </Card>
         ))}
@@ -1200,27 +1243,6 @@ function DashboardProgressBar({
   );
 }
 
-function ProgressRing({ value }: { value: number }) {
-  const percentage = Math.round(clamp(value / 100, 0, 1) * 100);
-
-  return (
-    <div
-      className="grid size-32 place-items-center rounded-full"
-      style={{
-        background: `conic-gradient(var(--primary) ${percentage * 3.6}deg, var(--muted) 0deg)`,
-      }}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={percentage}
-    >
-      <div className="grid size-24 place-items-center rounded-full bg-card">
-        <span className="text-2xl font-semibold">{percentage}%</span>
-      </div>
-    </div>
-  );
-}
-
 function DashboardLoanCard({
   loan,
   onNavigate,
@@ -1231,7 +1253,7 @@ function DashboardLoanCard({
   const installmentProgress = getLoanInstallmentProgress(loan);
 
   return (
-    <Card className="rounded-3xl shadow-none border-border">
+    <Card className="rounded-2xl">
       <CardContent className="grid gap-4 p-4">
         <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
           <div className="grid gap-1">
@@ -1613,7 +1635,7 @@ function ApplicationForm({
     : errors.requestedAmount?.message;
 
   return (
-    <Card className="rounded-3xl border-border/50 bg-card shadow-sm">
+    <Card className="rounded-2xl">
       <CardContent className="p-5">
         <form
           onSubmit={onSubmit}
@@ -1621,7 +1643,7 @@ function ApplicationForm({
           aria-describedby="loan-application-state"
         >
           {creditSummary ? (
-            <div className="flex items-baseline justify-between gap-3 rounded-2xl border border-border/50 bg-muted/30 p-4 shadow-none">
+            <div className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/30 p-4">
               <div className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">
                   Available to request
@@ -1944,7 +1966,7 @@ function BorrowerListCard({
   status: ReactNode;
 }) {
   return (
-    <Card className="overflow-hidden rounded-3xl shadow-sm border-border bg-card">
+    <Card className="overflow-hidden rounded-2xl">
       <BorrowerListCardHeader
         amount={amount}
         detailsId={detailsId}
@@ -2027,7 +2049,7 @@ function OfferCard({
   const isClosed = offer.status !== "pending";
 
   return (
-    <Card className="overflow-hidden rounded-3xl shadow-sm border-border bg-card">
+    <Card className="overflow-hidden rounded-2xl">
       <BorrowerListCardHeader
         detailsId={offerDetailsId}
         isExpanded={isExpanded}
@@ -2152,7 +2174,7 @@ function BlockedCard({
   onClick?: () => void;
 }) {
   return (
-    <Card className="rounded-3xl border-dashed border-border/50 bg-card shadow-sm">
+    <Card className="rounded-2xl border-dashed">
       <CardContent className="grid gap-3 p-5">
         <p className="text-sm leading-6 text-muted-foreground">{message}</p>
         {onClick ? (
@@ -2260,7 +2282,7 @@ function ActiveLoanCard({
 
   return (
     <article className="grid gap-4">
-      <Card className="rounded-3xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl">
         <CardContent className="grid gap-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
@@ -2302,7 +2324,7 @@ function ActiveLoanCard({
           </div>
 
           {nextRepayment ? (
-            <Card className="rounded-2xl shadow-none border-border">
+            <Card className="rounded-xl">
               <CardContent className="flex flex-wrap items-center justify-between gap-3 p-4">
                 <div className="grid gap-1">
                   <p className="text-sm font-semibold">Next repayment</p>
@@ -2330,7 +2352,7 @@ function ActiveLoanCard({
         </CardContent>
       </Card>
 
-      <Card className="rounded-3xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl">
         <CardContent className="grid gap-2 p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
             <h4 className="text-base font-semibold">Repayment schedule</h4>
@@ -2339,7 +2361,7 @@ function ActiveLoanCard({
             </p>
           </div>
           {loan.schedule.length > 0 ? (
-            <Card className="overflow-hidden rounded-2xl shadow-none border-border">
+            <Card className="overflow-hidden rounded-xl">
               <div className="divide-y divide-border">
                 {loan.schedule.map((repayment) => (
                   <RepaymentScheduleRow
@@ -2355,7 +2377,7 @@ function ActiveLoanCard({
               </div>
             </Card>
           ) : (
-            <p className="rounded-2xl border border-border bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+            <p className="rounded-xl bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
               Your repayment schedule will appear here when it is ready.
             </p>
           )}
@@ -2490,7 +2512,7 @@ function ProofHistory({
   proofs: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number]["proofs"];
 }) {
   return (
-    <Card className="rounded-2xl shadow-none border-border bg-muted/30">
+    <Card className="rounded-xl bg-muted/30">
       <CardContent className="grid gap-2 p-3">
         <p className="text-sm font-semibold">Proof history</p>
         <div className="grid gap-2">
@@ -2592,7 +2614,7 @@ function ActionBanner({
         : "border-border bg-muted/30 text-foreground";
 
   return (
-    <div className={`rounded-2xl border px-3 py-3 text-sm leading-6 ${className}`}>
+    <div className={`rounded-xl border px-3 py-3 text-sm leading-6 ${className}`}>
       <p className="font-semibold">{title}</p>
       {message ? <p>{message}</p> : null}
     </div>
@@ -2613,7 +2635,7 @@ function ProofStatusMessage({
 
   return (
     <p
-      className={`rounded-2xl border px-3 py-2 text-sm leading-6 ${className}`}
+      className={`rounded-xl border px-3 py-2 text-sm leading-6 ${className}`}
       role="status"
     >
       {message}
@@ -3070,7 +3092,7 @@ function StatusBadge({ value }: { value: string }) {
 
 function EmptyState({ message }: { message: string }) {
   return (
-    <Card className="rounded-md border-dashed shadow-none border-border bg-card">
+    <Card className="rounded-xl border-dashed">
       <CardContent className="p-4">
         <p className="text-sm leading-6 text-muted-foreground">{message}</p>
       </CardContent>

@@ -99,7 +99,7 @@ export function BorrowerVerificationDocumentsPanel({
   }
 
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
+    <Card className="rounded-2xl">
       <CardContent className="grid gap-5 p-5">
         <VerificationSection>
           <div className="grid gap-1.5">

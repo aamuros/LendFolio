@@ -13,7 +13,7 @@ type CreditSummaryProps = {
 
 export function CompactCreditStatusCard({ summary }: CreditSummaryProps) {
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
+    <Card className="rounded-2xl">
       <CardContent className="grid gap-3 p-4 sm:p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-1">
@@ -34,7 +34,7 @@ export function CompactCreditStatusCard({ summary }: CreditSummaryProps) {
 
 export function CreditEligibilityBanner({ summary }: CreditSummaryProps) {
   return (
-    <Card className="rounded-2xl border-border bg-muted/40 shadow-none">
+    <Card className="rounded-2xl bg-muted/40">
       <CardContent className="grid gap-1 p-4">
         <p className="text-sm font-semibold text-muted-foreground">
           You can request up to
@@ -57,7 +57,7 @@ export function CreditProfileSection({
   onUpdateProfile?: () => void;
 }) {
   return (
-    <Card className="rounded-3xl shadow-sm border-border bg-card">
+    <Card className="rounded-2xl">
       <CardHeader className="p-5 pb-0">
         <CardTitle className="text-lg">Credit profile</CardTitle>
         <CardDescription>

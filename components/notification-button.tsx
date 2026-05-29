@@ -135,7 +135,7 @@ export function NotificationButton() {
         aria-label="Open notifications"
         aria-expanded={isOpen}
         onClick={openPanel}
-        className="relative inline-flex size-10 items-center justify-center rounded-full border border-[var(--border)] bg-white text-[var(--foreground)] shadow-sm transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--primary)]"
+        className="relative inline-flex size-10 items-center justify-center rounded-full bg-background text-foreground ring-1 ring-foreground/10 transition hover:text-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
       >
         <svg
           aria-hidden="true"
@@ -151,7 +151,7 @@ export function NotificationButton() {
           <path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9" />
         </svg>
         {unreadCount > 0 ? (
-          <span className="absolute -top-1 -right-1 min-w-5 rounded-full bg-[var(--primary)] px-1.5 py-0.5 text-center text-[10px] leading-none font-semibold text-white">
+          <span className="absolute -top-1 -right-1 min-w-5 rounded-full bg-primary px-1.5 py-0.5 text-center text-[10px] leading-none font-semibold text-primary-foreground">
             {unreadCount > 9 ? "9+" : unreadCount}
           </span>
         ) : null}
@@ -160,13 +160,13 @@ export function NotificationButton() {
       {isOpen ? (
         <section
           aria-label="Notifications"
-          className="fixed inset-x-4 top-16 z-40 mx-auto grid max-h-[75svh] max-w-md overflow-hidden rounded-3xl border border-[var(--border)] bg-white shadow-xl sm:absolute sm:inset-x-auto sm:top-12 sm:right-0 sm:w-96"
+          className="fixed inset-x-4 top-16 z-40 mx-auto grid max-h-[75svh] max-w-md overflow-hidden rounded-2xl bg-popover text-popover-foreground ring-1 ring-foreground/10 shadow-xl sm:absolute sm:inset-x-auto sm:top-12 sm:right-0 sm:w-96"
         >
-          <div className="flex items-center justify-between gap-3 border-b border-[var(--border)] px-4 py-3">
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div className="grid gap-0.5">
               <h2 className="text-sm font-semibold">Notifications</h2>
               {unreadCount > 0 ? (
-                <p className="text-xs text-[var(--muted-foreground)]">
+                <p className="text-xs text-muted-foreground">
                   {unreadCount} unread
                 </p>
               ) : null}
@@ -177,7 +177,7 @@ export function NotificationButton() {
                   type="button"
                   onClick={markAllRead}
                   disabled={isPending}
-                  className="inline-flex h-9 items-center justify-center rounded-full border border-[var(--border)] px-3 text-xs font-semibold text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                  className="inline-flex h-9 items-center justify-center rounded-full border border-border px-3 text-xs font-semibold text-muted-foreground transition hover:text-foreground disabled:opacity-60 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
                 >
                   Mark all as read
                 </button>
@@ -186,7 +186,7 @@ export function NotificationButton() {
                 type="button"
                 aria-label="Close notifications"
                 onClick={() => setIsOpen(false)}
-                className="inline-flex size-9 items-center justify-center rounded-full border border-[var(--border)] text-[var(--muted-foreground)] transition hover:border-[var(--primary)] hover:text-[var(--primary)] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--primary)]"
+                className="inline-flex size-9 items-center justify-center rounded-full border border-border text-muted-foreground transition hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
               >
                 <svg
                   aria-hidden="true"
@@ -207,49 +207,49 @@ export function NotificationButton() {
 
           <div className="max-h-[62svh] overflow-y-auto">
             {message ? (
-              <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]" role="alert">
+              <p className="px-4 py-6 text-sm text-muted-foreground" role="alert">
                 {message}
               </p>
             ) : null}
 
             {!message && notifications.length === 0 ? (
-              <p className="px-4 py-6 text-sm text-[var(--muted-foreground)]">
+              <p className="px-4 py-6 text-sm text-muted-foreground">
                 {isPending ? "Loading notifications." : "No notifications yet."}
               </p>
             ) : null}
 
             {!message && notifications.length > 0 ? (
-              <ul className="divide-y divide-[var(--border)]">
+              <ul className="divide-y divide-border">
                 {notifications.map((notification) => (
                   <li key={notification.id}>
                     <button
                       type="button"
                       onClick={() => void openNotification(notification)}
                       disabled={activeNotificationId === notification.id}
-                      className="grid w-full grid-cols-[auto_1fr] gap-3 px-4 py-4 text-left transition hover:bg-[var(--muted)]/35 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-[var(--primary)]"
+                      className="grid w-full grid-cols-[auto_1fr] gap-3 px-4 py-4 text-left transition hover:bg-muted/50 disabled:opacity-70 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring"
                     >
                       <span
                         aria-hidden="true"
                         className={`mt-1.5 size-2.5 rounded-full ${
                           notification.isUnread
-                            ? "bg-[var(--primary)]"
-                            : "bg-[var(--border)]"
+                            ? "bg-primary"
+                            : "bg-border"
                         }`}
                       />
                       <span className="grid gap-1">
                         <span className="flex flex-wrap items-start justify-between gap-2">
-                          <span className="text-sm font-semibold text-[var(--foreground)]">
+                          <span className="text-sm font-semibold text-foreground">
                             {notification.title}
                           </span>
-                          <span className="text-xs font-semibold text-[var(--subtle-foreground)]">
+                          <span className="text-xs font-semibold text-muted-foreground">
                             {formatNotificationDate(notification.createdAt)}
                           </span>
                         </span>
-                        <span className="text-sm leading-6 text-[var(--muted-foreground)]">
+                        <span className="text-sm leading-6 text-muted-foreground">
                           {notification.message}
                         </span>
                         {notification.isUnread ? (
-                          <span className="text-xs font-semibold text-[var(--foreground)]">
+                          <span className="text-xs font-semibold text-foreground">
                             Unread
                           </span>
                         ) : null}

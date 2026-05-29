@@ -47,7 +47,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
   }
 
   return (
-    <Card className="rounded-3xl border-border/50 p-6 shadow-sm">
+    <Card className="rounded-2xl p-6">
       <CardHeader className="p-0 text-center">
         <CardTitle className="text-xl">Sign in</CardTitle>
         <CardDescription>

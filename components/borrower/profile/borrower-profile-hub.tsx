@@ -193,7 +193,7 @@ export function BorrowerProfileHub({
   if (activeView === "support") {
     return (
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
-        <Card className="rounded-2xl px-5 py-4 shadow-none">
+        <Card className="rounded-2xl">
           <h3 className="text-sm font-medium text-foreground">Support</h3>
           <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
             For questions about your borrower profile, verification, or loan
@@ -217,7 +217,7 @@ export function BorrowerProfileHub({
       {loadState === "loading" ? (
         <ProfileHubSkeleton />
       ) : loadState === "error" ? (
-        <Card className="rounded-2xl border-destructive/20 bg-destructive/5 px-5 py-4 shadow-none">
+        <Card className="rounded-2xl border-destructive/20 bg-destructive/5">
           <div className="flex items-center gap-2">
             <AlertCircle className="size-4 text-destructive" />
             <p className="text-sm font-medium text-destructive">Error</p>
@@ -240,7 +240,7 @@ export function BorrowerProfileHub({
             }}
           />
 
-          <div className="rounded-3xl border border-border/50 bg-card shadow-sm overflow-hidden divide-y divide-border/50">
+          <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -310,7 +310,7 @@ function ProfileHubSkeleton() {
         </div>
       </div>
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="rounded-3xl border border-border/50 bg-card shadow-sm overflow-hidden p-1">
+      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 p-1">
         <Skeleton className="h-14 w-full rounded-2xl" />
         <Skeleton className="mt-1 h-14 w-full rounded-2xl" />
         <Skeleton className="mt-1 h-14 w-full rounded-2xl" />

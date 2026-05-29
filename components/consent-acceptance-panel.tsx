@@ -46,7 +46,7 @@ export function ConsentAcceptancePanel({
   }
 
   return (
-    <Card className="rounded-2xl border-border bg-muted/30 shadow-sm">
+    <Card className="rounded-2xl bg-muted/30">
       <CardContent className="grid gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-1">

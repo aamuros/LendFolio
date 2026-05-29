@@ -135,7 +135,7 @@ export function BorrowerPortfolioForm({
   }
 
   return (
-    <Card className="rounded-2xl shadow-sm border-border bg-card">
+    <Card className="rounded-2xl">
     <CardContent className="p-5">
     <form
       onSubmit={handleSubmit(onSubmit)}
@@ -376,7 +376,7 @@ function ReadinessPanel({
   monthlyNetCashFlow: number;
 }) {
   return (
-    <Card className="rounded-2xl border-border bg-background shadow-sm">
+    <Card className="rounded-xl bg-muted/30">
       <CardContent className="grid gap-2 p-4 text-sm leading-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold">Profile readiness</p>
@@ -417,7 +417,7 @@ function BorrowerPortfolioFormSkeleton() {
       aria-busy="true"
       aria-label="Loading business profile"
     >
-      <Card className="rounded-2xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl">
         <CardContent className="grid gap-3 p-5">
           <Skeleton className="h-4 w-28" />
           <Skeleton className="h-3 w-full max-w-sm" />
@@ -425,7 +425,7 @@ function BorrowerPortfolioFormSkeleton() {
       </Card>
 
       {Array.from({ length: 3 }).map((_, index) => (
-        <Card key={index} className="rounded-2xl shadow-sm border-border bg-card">
+        <Card key={index} className="rounded-2xl">
           <CardContent className="grid gap-4 p-5">
             <Skeleton className="h-4 w-36" />
             <div className="grid gap-4 sm:grid-cols-2">
@@ -436,7 +436,7 @@ function BorrowerPortfolioFormSkeleton() {
         </Card>
       ))}
 
-      <Card className="rounded-2xl shadow-sm border-border bg-card">
+      <Card className="rounded-2xl">
         <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-5">
           <div className="grid gap-2">
             <Skeleton className="h-4 w-48" />

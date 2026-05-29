@@ -13,7 +13,7 @@ export function ProfileDetailCard({
   onAction: () => void;
 }) {
   return (
-    <Card className="rounded-2xl shadow-none">
+    <Card className="rounded-2xl">
       <div className="flex items-center justify-end px-5 pt-4">
         <Button
           variant="ghost"

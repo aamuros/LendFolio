@@ -6,7 +6,7 @@ import { LogOut } from "lucide-react";
 
 export function AccountSection({ email }: { email: string }) {
   return (
-    <Card className="rounded-2xl shadow-none">
+    <Card className="rounded-2xl">
       <div className="px-5 pt-5 pb-4">
         <h3 className="text-sm font-medium text-foreground">Account</h3>
         <p className="mt-0.5 break-words text-sm text-muted-foreground">

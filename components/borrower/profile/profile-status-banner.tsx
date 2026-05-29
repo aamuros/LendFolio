@@ -28,7 +28,7 @@ export function ProfileStatusBanner({
   return (
     <Card
       className={cn(
-        "rounded-2xl border-border/50 shadow-sm",
+        "rounded-2xl",
         status.tone === "attention" && "bg-muted/40",
         status.tone === "ready" && "bg-muted/40",
         status.tone === "neutral" && "bg-muted",

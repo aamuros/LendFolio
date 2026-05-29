@@ -27,7 +27,7 @@ export function BorrowingPowerDetail({
   }
 
   return (
-    <Card className="rounded-2xl shadow-none">
+    <Card className="rounded-2xl">
       <div className="px-5 pt-5 pb-4">
         <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
           Available to request
