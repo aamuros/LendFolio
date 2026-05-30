@@ -432,7 +432,9 @@ export function BorrowerLoanApplicationPanel({
       values.requestedAmount > creditSummary.availableCredit
     ) {
       setLoadState("ready");
-      setMessage("");
+      setMessage(
+        "Requested amount exceeds your available credit. Please reduce the amount or update your profile.",
+      );
       return;
     }
 
