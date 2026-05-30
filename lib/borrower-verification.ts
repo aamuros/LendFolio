@@ -40,6 +40,7 @@ export type BorrowerVerificationDocumentSummary = {
   uploadedAt: string;
   reviewedAt: string | null;
   reviewNotes: string | null;
+  viewUrl: string | null;
 };
 
 export const borrowerVerificationDocumentBucket =
@@ -223,8 +224,23 @@ export async function getBorrowerVerificationStatus(
     .eq("borrower_verification_id", data.id)
     .order("uploaded_at", { ascending: false });
 
-  const mappedDocuments = (documents ?? []).map(
-    mapBorrowerVerificationDocumentRow,
+  const mappedDocuments = await Promise.all(
+    (documents ?? []).map(async (doc) => {
+      const summary = mapBorrowerVerificationDocumentRow(doc);
+
+      if (doc.storage_bucket && doc.storage_path) {
+        try {
+          const { data: signed } = await supabase.storage
+            .from(doc.storage_bucket)
+            .createSignedUrl(doc.storage_path, 3600);
+          summary.viewUrl = signed?.signedUrl ?? null;
+        } catch {
+          summary.viewUrl = null;
+        }
+      }
+
+      return summary;
+    }),
   );
 
   return {
@@ -253,6 +269,7 @@ export function mapBorrowerVerificationDocumentRow(
     uploadedAt: row.uploaded_at,
     reviewedAt: row.reviewed_at,
     reviewNotes: row.review_notes,
+    viewUrl: null,
   };
 }
 

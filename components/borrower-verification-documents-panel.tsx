@@ -35,6 +35,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ToneBadge } from "@/components/borrower-status-badge";
+import { ExternalLinkIcon } from "lucide-react";
 
 type BorrowerVerificationDocumentsPanelProps = {
   verification: BorrowerVerificationSummary | null;
@@ -115,6 +116,11 @@ export function BorrowerVerificationDocumentsPanel({
             {verification.rejectionReason ? (
               <Alert variant="destructive" className="mt-1">
                 <AlertDescription>{verification.rejectionReason}</AlertDescription>
+              </Alert>
+            ) : null}
+            {verification.managerReviewNotes ? (
+              <Alert className="mt-1">
+                <AlertDescription>{verification.managerReviewNotes}</AlertDescription>
               </Alert>
             ) : null}
           </div>
@@ -281,6 +287,20 @@ export function BorrowerVerificationDocumentsPanel({
                       {borrowerVerificationDocumentStatusLabels[document.status]}
                     </ToneBadge>
                   }
+                  action={
+                    document.viewUrl ? (
+                      <Button variant="outline" size="sm" asChild>
+                        <a
+                          href={document.viewUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          <ExternalLinkIcon className="size-3.5" />
+                          View
+                        </a>
+                      </Button>
+                    ) : null
+                  }
                 />
               ))}
             </div>
@@ -382,11 +402,13 @@ function VerificationSection({
 }
 
 function CompactRow({
+  action,
   badge,
   detail,
   label,
   note,
 }: {
+  action?: ReactNode;
   badge: ReactNode;
   detail: string;
   label: string;
@@ -404,6 +426,7 @@ function CompactRow({
             {note}
           </p>
         ) : null}
+        {action ? <div className="mt-1.5">{action}</div> : null}
       </div>
       <div className="pt-0.5">{badge}</div>
     </div>

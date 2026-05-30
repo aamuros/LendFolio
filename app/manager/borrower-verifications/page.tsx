@@ -1,6 +1,5 @@
 import Link from "next/link";
 import {
-  reviewBorrowerVerificationAction,
   reviewBorrowerVerificationDocumentAction,
 } from "@/app/manager/actions";
 import { getManagerAccess } from "../manager-access";
@@ -24,6 +23,7 @@ import {
   TextFilter,
   formatDateTime,
 } from "../manager-ui";
+import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -34,7 +34,6 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Table,
   TableBody,
@@ -970,23 +969,31 @@ function DocumentActions({
       {canReview ? (
         <form
           action={reviewBorrowerVerificationDocumentAction}
-          className="flex items-center gap-1.5"
+          className="grid gap-1.5"
         >
           <input type="hidden" name="documentId" value={document.id} />
-          <input type="hidden" name="reviewNotes" value="" />
-          <Button type="submit" name="decision" value="accept" size="sm">
-            Accept
-          </Button>
-          <Button
-            type="submit"
-            name="decision"
-            value="reject"
-            variant="outline"
-            size="sm"
-            className="text-destructive hover:bg-destructive/10"
-          >
-            Reject
-          </Button>
+          <Textarea
+            name="reviewNotes"
+            rows={1}
+            maxLength={1000}
+            placeholder="Optional note..."
+            className="min-h-0 resize-none text-xs"
+          />
+          <div className="flex items-center justify-end gap-1.5">
+            <Button type="submit" name="decision" value="accept" size="sm">
+              Accept
+            </Button>
+            <Button
+              type="submit"
+              name="decision"
+              value="reject"
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10"
+            >
+              Reject
+            </Button>
+          </div>
         </form>
       ) : null}
     </div>
@@ -1199,82 +1206,10 @@ function ManagerDecisionPanel({
         <CardTitle className="text-sm">Manager decision</CardTitle>
       </CardHeader>
       <CardContent>
-        <form action={reviewBorrowerVerificationAction} className="grid gap-3">
-          <input
-            type="hidden"
-            name="borrowerId"
-            value={verification.borrower.id}
-          />
-          <div className="grid gap-1.5">
-            <Label
-              htmlFor={`notes-${verification.id}`}
-              className="text-xs font-medium"
-            >
-              Manager note
-            </Label>
-            <Textarea
-              id={`notes-${verification.id}`}
-              name="managerReviewNotes"
-              rows={2}
-              maxLength={1000}
-              placeholder="Add a note for this review..."
-            />
-          </div>
-          <div className="grid gap-1.5">
-            <Label
-              htmlFor={`reason-${verification.id}`}
-              className="text-xs font-medium"
-            >
-              Rejection reason
-            </Label>
-            <Textarea
-              id={`reason-${verification.id}`}
-              name="rejectionReason"
-              rows={2}
-              maxLength={1000}
-              placeholder="Provide a reason if rejecting..."
-            />
-          </div>
-          <div className="grid gap-2">
-            <Button
-              type="submit"
-              name="decision"
-              value="approve"
-              className="w-full"
-            >
-              <CheckCircle2Icon className="size-4" />
-              Approve
-            </Button>
-            <Button
-              type="submit"
-              name="decision"
-              value="reject"
-              variant="destructive"
-              className="w-full"
-            >
-              <XCircleIcon className="size-4" />
-              Reject
-            </Button>
-            <Button
-              type="submit"
-              name="decision"
-              value="needs_resubmission"
-              variant="outline"
-              className="w-full border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
-            >
-              Needs resubmission
-            </Button>
-            <Button
-              type="submit"
-              name="decision"
-              value="return_to_pending"
-              variant="ghost"
-              className="w-full"
-            >
-              Return to pending
-            </Button>
-          </div>
-        </form>
+        <VerificationDecisionForm
+          borrowerId={verification.borrower.id}
+          verificationId={verification.id}
+        />
       </CardContent>
     </Card>
   );
