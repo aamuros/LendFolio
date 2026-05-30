@@ -139,25 +139,30 @@ export function NotificationButton() {
     </Button>
   );
 
+  const panelContent = (
+    <NotificationPanelContent
+      notifications={notifications}
+      unreadCount={unreadCount}
+      message={message}
+      isPending={isPending}
+      activeNotificationId={activeNotificationId}
+      onOpenNotification={openNotification}
+      onMarkAllRead={markAllRead}
+    />
+  );
+
   return (
     <Popover open={isOpen} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>{bellIcon}</PopoverTrigger>
       <PopoverContent
-        align="center"
+        align="end"
         side="bottom"
         sideOffset={8}
-        className="z-50 w-[min(calc(100vw-1.5rem),24rem)] p-0"
+        collisionPadding={16}
+        className="z-50 w-[calc(100vw-2rem)] max-w-sm p-0 sm:w-96"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
-        <NotificationPanelContent
-          notifications={notifications}
-          unreadCount={unreadCount}
-          message={message}
-          isPending={isPending}
-          activeNotificationId={activeNotificationId}
-          onOpenNotification={openNotification}
-          onMarkAllRead={markAllRead}
-        />
+        {panelContent}
       </PopoverContent>
     </Popover>
   );

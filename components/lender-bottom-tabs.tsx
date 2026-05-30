@@ -44,7 +44,7 @@ export function LenderHeader({
   showNotifications?: boolean;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4">
+    <header className="sticky top-0 z-30 -mx-5 flex items-center justify-between gap-4 border-b border-border/50 bg-background/95 px-5 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:-mx-8 sm:px-8 mb-6">
       <div className="flex items-center gap-6">
         <p className="text-base font-semibold tracking-tight text-foreground">
           LendFolio

@@ -198,75 +198,77 @@ export function BorrowerWorkspace({
   const showProfile = activeTab === "profile";
 
   return (
-    <div className={cn("grid gap-8", borrowerPageBottomPadding)}>
-      <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-6">
-        <div className="flex items-center gap-6">
-          <p className="text-base font-semibold tracking-tight text-foreground">
-            LendFolio
-          </p>
-          <Tabs
-            value={showProfile ? "" : activeTab}
-            onValueChange={(value) => changeTab(value as BorrowerTab)}
-            className="hidden sm:block"
-          >
-            <TabsList variant="line">
-              {desktopTabs.map((tab) => (
-                <TabsTrigger key={tab.id} value={tab.id}>
-                  {tab.label}
-                </TabsTrigger>
-              ))}
-            </TabsList>
-          </Tabs>
-        </div>
-        <div className="flex items-center gap-2">
-          <NotificationButton />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                aria-label="Open profile menu"
-                className={cn(
-                  "rounded-full text-muted-foreground hover:text-foreground",
-                  showProfile && "bg-muted text-foreground",
-                )}
-              >
-                <User className="size-5" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel className="font-semibold">
-                {accountEmail || "Account"}
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                onClick={() => {
-                  setActiveTab("profile");
-                  setProfileMode("index");
-                }}
-              >
-                <UserCircle className="size-4" />
-                Profile
-              </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <form action={signOutAction}>
+    <div className={cn("grid", borrowerPageBottomPadding)}>
+      <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:h-16 sm:px-6">
+          <div className="flex items-center gap-6">
+            <p className="text-base font-semibold tracking-tight text-foreground">
+              LendFolio
+            </p>
+            <Tabs
+              value={showProfile ? "" : activeTab}
+              onValueChange={(value) => changeTab(value as BorrowerTab)}
+              className="hidden sm:block"
+            >
+              <TabsList variant="line">
+                {desktopTabs.map((tab) => (
+                  <TabsTrigger key={tab.id} value={tab.id}>
+                    {tab.label}
+                  </TabsTrigger>
+                ))}
+              </TabsList>
+            </Tabs>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <NotificationButton />
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  aria-label="Open profile menu"
+                  className={cn(
+                    "rounded-full text-muted-foreground hover:text-foreground",
+                    showProfile && "bg-muted text-foreground",
+                  )}
+                >
+                  <User className="size-5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel className="font-semibold">
+                  {accountEmail || "Account"}
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  variant="destructive"
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    (e.target as HTMLElement).closest("form")?.requestSubmit();
+                  onClick={() => {
+                    setActiveTab("profile");
+                    setProfileMode("index");
                   }}
                 >
-                  <LogOut className="size-4" />
-                  Sign out
+                  <UserCircle className="size-4" />
+                  Profile
                 </DropdownMenuItem>
-              </form>
-            </DropdownMenuContent>
-          </DropdownMenu>
+                <DropdownMenuSeparator />
+                <form action={signOutAction}>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      (e.target as HTMLElement).closest("form")?.requestSubmit();
+                    }}
+                  >
+                    <LogOut className="size-4" />
+                    Sign out
+                  </DropdownMenuItem>
+                </form>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         </div>
       </header>
 
-      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8">
         {showProfile ? (
           <section>
             {profileMode === "edit" ? (

@@ -56,7 +56,7 @@ export default async function BorrowerPage({
 
   return (
     <main className="min-h-svh bg-background">
-      <div className="mx-auto max-w-6xl px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+      <div className="mx-auto max-w-7xl px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
         {access.ok ? (
           <BorrowerWorkspace
             accountEmail={user?.email ?? ""}

@@ -29,29 +29,31 @@ export function NotificationPanelContent({
 }) {
   return (
     <>
-      <div className="flex items-center justify-between gap-3 px-4 py-3">
-        <div className="grid gap-0.5">
-          <h2 className="text-sm font-semibold">Notifications</h2>
+      <div className="sticky top-0 z-10 bg-popover">
+        <div className="flex items-center justify-between gap-3 px-4 py-3">
+          <div className="grid gap-0.5">
+            <h2 className="text-sm font-semibold">Notifications</h2>
+            {unreadCount > 0 ? (
+              <p className="text-xs text-muted-foreground">
+                {unreadCount} unread
+              </p>
+            ) : null}
+          </div>
           {unreadCount > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              {unreadCount} unread
-            </p>
+            <Button
+              variant="ghost"
+              size="xs"
+              onClick={onMarkAllRead}
+              disabled={isPending}
+              className="gap-1 text-muted-foreground"
+            >
+              <CheckCheck className="size-3.5" />
+              Mark all read
+            </Button>
           ) : null}
         </div>
-        {unreadCount > 0 ? (
-          <Button
-            variant="ghost"
-            size="xs"
-            onClick={onMarkAllRead}
-            disabled={isPending}
-            className="gap-1 text-muted-foreground"
-          >
-            <CheckCheck className="size-3.5" />
-            Mark all read
-          </Button>
-        ) : null}
+        <Separator />
       </div>
-      <Separator />
 
       {message ? (
         <div className="px-4 py-3">
@@ -71,7 +73,7 @@ export function NotificationPanelContent({
       ) : null}
 
       {!message && notifications.length > 0 ? (
-        <ScrollArea className="max-h-[min(28rem,calc(100vh-8rem))]">
+        <ScrollArea className="max-h-[min(28rem,calc(100svh-10rem))]">
           <NotificationList
             notifications={notifications}
             activeNotificationId={activeNotificationId}
