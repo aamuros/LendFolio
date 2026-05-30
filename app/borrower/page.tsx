@@ -56,7 +56,7 @@ export default async function BorrowerPage({
 
   return (
     <main className="min-h-svh bg-background">
-      <div className="mx-auto max-w-7xl px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+      <div className="mx-auto max-w-7xl">
         {access.ok ? (
           <BorrowerWorkspace
             accountEmail={user?.email ?? ""}
@@ -69,10 +69,12 @@ export default async function BorrowerPage({
             highlightProofId={proofId ?? null}
           />
         ) : (
-          <Alert variant="destructive" role="alert">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>{access.message}</AlertDescription>
-          </Alert>
+          <div className="px-4 pt-6 sm:px-6 sm:pt-8">
+            <Alert variant="destructive" role="alert">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>{access.message}</AlertDescription>
+            </Alert>
+          </div>
         )}
       </div>
     </main>

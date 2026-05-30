@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
+import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
   formatCurrency,
   formatDate,
@@ -35,16 +35,23 @@ export default async function LenderApplicationDetailPage({
 
   if (!result.ok) {
     return (
-      <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
-        <div className="mx-auto grid max-w-4xl gap-5">
-          <DetailHeader />
-          <section className="grid gap-4">
-            <h1 className="text-2xl leading-tight font-semibold">
-              Application unavailable
-            </h1>
-            <LenderApplicationsStatus message={result.message} tone="error" />
-          </section>
-          <LenderBottomTabs activeTab="applications" />
+      <main className="min-h-svh bg-background">
+        <div className="mx-auto max-w-7xl">
+          <LenderHeader activeTab="applications" />
+          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+            <div className="mx-auto grid max-w-4xl gap-5">
+              <DetailHeader />
+              <section className="grid gap-4">
+                <h1 className="text-2xl leading-tight font-semibold">
+                  Application unavailable
+                </h1>
+                <LenderApplicationsStatus message={result.message} tone="error" />
+              </section>
+            </div>
+          </div>
+          <div className="sm:hidden">
+            <LenderBottomTabs activeTab="applications" />
+          </div>
         </div>
       </main>
     );
@@ -64,9 +71,12 @@ export default async function LenderApplicationDetailPage({
     application.status === "accepted" || hasAcceptedOffer;
 
   return (
-    <main className="min-h-svh px-5 pt-4 pb-32 sm:px-8 sm:pt-6 sm:pb-8">
-      <div className="mx-auto grid max-w-4xl gap-5">
-        <DetailHeader />
+    <main className="min-h-svh bg-background">
+      <div className="mx-auto max-w-7xl">
+        <LenderHeader activeTab="applications" />
+        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+          <div className="mx-auto grid max-w-4xl gap-5">
+            <DetailHeader />
 
         <section className="grid gap-4">
           <Card className="rounded-2xl border-border/50 shadow-sm">
@@ -289,8 +299,12 @@ export default async function LenderApplicationDetailPage({
             </Card>
           )}
         </section>
+          </div>
+        </div>
 
-        <LenderBottomTabs activeTab="applications" />
+        <div className="sm:hidden">
+          <LenderBottomTabs activeTab="applications" />
+        </div>
       </div>
     </main>
   );

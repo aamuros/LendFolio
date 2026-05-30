@@ -51,10 +51,14 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   if (!access.ok) {
     return (
       <main className="min-h-svh bg-background">
-        <div className="mx-auto max-w-6xl px-5 pt-6 pb-32 sm:px-8 sm:pt-10">
-          <LenderHeader activeTab={activeTab} showAccountLink={false} showNotifications={false} />
-          <LenderApplicationsStatus message={access.message} tone="error" />
-          <LenderBottomTabs activeTab={activeTab} />
+        <div className="mx-auto max-w-7xl">
+          <LenderHeader activeTab={activeTab} showNotifications={false} />
+          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+            <LenderApplicationsStatus message={access.message} tone="error" />
+          </div>
+          <div className="sm:hidden">
+            <LenderBottomTabs activeTab={activeTab} />
+          </div>
         </div>
       </main>
     );
@@ -85,24 +89,28 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
     return (
       <main className="min-h-svh bg-background">
-        <div className="mx-auto max-w-6xl px-5 pt-6 pb-32 sm:px-8 sm:pt-10">
-          <LenderHeader activeTab={activeTab} showAccountLink={false} showNotifications={false} />
-          <div className="grid gap-5">
-            <LenderApplicationsStatus message={message} tone="error" />
-            {access.profile.role === "lender" &&
-            access.profile.lenderProfile?.verification_status === "rejected" ? (
-              <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
-                <Link href="/lender/onboarding">Update lender profile</Link>
-              </Button>
-            ) : null}
-            {access.profile.role === "lender" ? (
-              <ConsentAcceptancePanel
-                scope="lender_review"
-                status={lenderConsentStatus}
-              />
-            ) : null}
+        <div className="mx-auto max-w-7xl">
+          <LenderHeader activeTab={activeTab} showNotifications={false} />
+          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+            <div className="grid gap-5">
+              <LenderApplicationsStatus message={message} tone="error" />
+              {access.profile.role === "lender" &&
+              access.profile.lenderProfile?.verification_status === "rejected" ? (
+                <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
+                  <Link href="/lender/onboarding">Update lender profile</Link>
+                </Button>
+              ) : null}
+              {access.profile.role === "lender" ? (
+                <ConsentAcceptancePanel
+                  scope="lender_review"
+                  status={lenderConsentStatus}
+                />
+              ) : null}
+            </div>
           </div>
-          <LenderBottomTabs activeTab={activeTab} />
+          <div className="sm:hidden">
+            <LenderBottomTabs activeTab={activeTab} />
+          </div>
         </div>
       </main>
     );
@@ -124,27 +132,31 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   return (
     <main className="min-h-svh bg-background">
-      <div className="mx-auto max-w-6xl px-5 pt-6 pb-32 sm:px-8 sm:pt-10">
-        <LenderHeader activeTab={activeTab} showAccountLink={activeTab !== "account"} />
+      <div className="mx-auto max-w-7xl">
+        <LenderHeader activeTab={activeTab} accountEmail={user?.email} />
 
-        {activeTab === "home" ? (
-          <HomeTab
-            applications={applications}
-            offers={offers}
-            applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
-            offersError={!offersResult.ok ? offersResult.message : ""}
-          />
-        ) : null}
+        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+          {activeTab === "home" ? (
+            <HomeTab
+              applications={applications}
+              offers={offers}
+              applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
+              offersError={!offersResult.ok ? offersResult.message : ""}
+            />
+          ) : null}
 
-        {activeTab === "offers" ? (
-          <OffersTab offers={offers} error={!offersResult.ok ? offersResult.message : ""} />
-        ) : null}
+          {activeTab === "offers" ? (
+            <OffersTab offers={offers} error={!offersResult.ok ? offersResult.message : ""} />
+          ) : null}
 
-        {activeTab === "account" ? (
-          <AccountTab email={user?.email ?? ""} access={access.profile} />
-        ) : null}
+          {activeTab === "account" ? (
+            <AccountTab email={user?.email ?? ""} access={access.profile} />
+          ) : null}
+        </div>
 
-        <LenderBottomTabs activeTab={activeTab} />
+        <div className="sm:hidden">
+          <LenderBottomTabs activeTab={activeTab} />
+        </div>
       </div>
     </main>
   );
@@ -260,7 +272,7 @@ function HomeTab({
   return (
     <section className="grid gap-5">
       <div className="grid gap-1">
-        <h1 className="text-xl font-semibold sm:text-2xl">Home</h1>
+        <h1 className="text-xl leading-tight font-semibold sm:text-2xl">Home</h1>
         <p className="text-sm text-muted-foreground">
           Review queue and portfolio overview.
         </p>
@@ -271,9 +283,9 @@ function HomeTab({
       ) : null}
       {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-12 lg:items-start">
+      <div className="grid gap-4 lg:grid-cols-12">
         <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-          <CardContent className="grid gap-1 p-4 sm:p-5">
+          <CardContent className="flex flex-1 flex-col gap-1 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Next action
             </p>
@@ -346,18 +358,18 @@ function HomeTab({
         </Card>
 
         <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Overview
             </p>
-            <p className="mt-2 text-2xl font-semibold">
+            <p className="text-2xl font-semibold">
               {offers.length}
             </p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               total offer{offers.length === 1 ? "" : "s"} sent
             </p>
-            <Separator className="my-3" />
-            <div className="grid gap-2">
+            <Separator className="my-1" />
+            <div className="flex flex-1 flex-col gap-2">
               {offersByStatus.pending > 0 ? (
                 <div className="flex items-center justify-between text-xs">
                   <span className="text-muted-foreground">Pending</span>
@@ -390,15 +402,15 @@ function HomeTab({
         </Card>
 
         <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Applications to review
             </p>
-            <p className="mt-2 text-2xl font-semibold">{needsReviewCount}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-2xl font-semibold">{needsReviewCount}</p>
+            <p className="text-xs text-muted-foreground">
               {needsReviewCount === 1 ? "application" : "applications"} awaiting your review
             </p>
-            <Button asChild variant="ghost" size="sm" className="mt-2 h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+            <Button asChild variant="ghost" size="sm" className="mt-auto h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
               <Link href="/lender/applications">
                 View applications
                 <ArrowRight className="size-3.5" />
@@ -408,15 +420,15 @@ function HomeTab({
         </Card>
 
         <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Proofs to review
             </p>
-            <p className="mt-2 text-2xl font-semibold">{repaymentProofsNeedingReview}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-2xl font-semibold">{repaymentProofsNeedingReview}</p>
+            <p className="text-xs text-muted-foreground">
               submitted proof{repaymentProofsNeedingReview === 1 ? "" : "s"} awaiting verification
             </p>
-            <Button asChild variant="ghost" size="sm" className="mt-2 h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+            <Button asChild variant="ghost" size="sm" className="mt-auto h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
               <Link href="/lender?tab=offers">
                 View offers
                 <ArrowRight className="size-3.5" />
@@ -426,15 +438,15 @@ function HomeTab({
         </Card>
 
         <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-          <CardContent className="p-4 sm:p-5">
+          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Active loans
             </p>
-            <p className="mt-2 text-2xl font-semibold">{activeLoans}</p>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="text-2xl font-semibold">{activeLoans}</p>
+            <p className="text-xs text-muted-foreground">
               accepted offer{activeLoans === 1 ? "" : "s"} with active loans
             </p>
-            <Button asChild variant="ghost" size="sm" className="mt-2 h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+            <Button asChild variant="ghost" size="sm" className="mt-auto h-auto w-full justify-between rounded-lg px-3 py-2 text-xs font-semibold">
               <Link href="/lender?tab=offers">
                 View offers
                 <ArrowRight className="size-3.5" />
@@ -443,8 +455,8 @@ function HomeTab({
           </CardContent>
         </Card>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-7">
-          <CardContent className="grid gap-3 p-4 sm:p-5">
+        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
+          <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Applications needing review
@@ -456,7 +468,7 @@ function HomeTab({
               ) : null}
             </div>
             {topApplications.length > 0 ? (
-              <div className="grid gap-2">
+              <div className="flex flex-1 flex-col gap-2">
                 {topApplications.map((app) => {
                   const context = app.portfolio
                     ? `${app.portfolio.businessTypeLabel} in ${app.portfolio.location}`
@@ -481,7 +493,7 @@ function HomeTab({
                   );
                 })}
                 {needsReviewCount > 3 ? (
-                  <Button asChild variant="ghost" size="sm" className="h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+                  <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
                     <Link href="/lender/applications">
                       View all {needsReviewCount} applications
                       <ArrowRight className="size-3.5" />
@@ -490,20 +502,22 @@ function HomeTab({
                 ) : null}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">
-                No applications currently awaiting your review.
-              </p>
+              <div className="flex flex-1 items-center">
+                <p className="text-xs text-muted-foreground">
+                  No applications currently awaiting your review.
+                </p>
+              </div>
             )}
           </CardContent>
         </Card>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-5">
-          <CardContent className="grid gap-3 p-4 sm:p-5">
+        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
+          <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Offers by status
             </p>
             {offers.length > 0 ? (
-              <div className="grid gap-2">
+              <div className="flex flex-1 flex-col gap-2">
                 {offersByStatus.pending > 0 ? (
                   <div className="flex items-center justify-between rounded-lg bg-muted/30 px-3 py-2">
                     <span className="text-sm">Pending</span>
@@ -530,9 +544,11 @@ function HomeTab({
                 ) : null}
               </div>
             ) : (
-              <p className="text-xs text-muted-foreground">No offers sent yet.</p>
+              <div className="flex flex-1 items-center">
+                <p className="text-xs text-muted-foreground">No offers sent yet.</p>
+              </div>
             )}
-            <Button asChild variant="ghost" size="sm" className="h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+            <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
               <Link href="/lender?tab=offers">
                 View all offers
                 <ArrowRight className="size-3.5" />

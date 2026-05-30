@@ -27,7 +27,9 @@ export default function LenderApplicationsError() {
             </p>
           </CardContent>
         </Card>
-        <LenderBottomTabs activeTab="applications" />
+        <div className="sm:hidden">
+          <LenderBottomTabs activeTab="applications" />
+        </div>
       </div>
     </main>
   );
