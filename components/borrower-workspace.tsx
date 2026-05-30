@@ -133,6 +133,10 @@ export function BorrowerWorkspace({
     if (tab !== "profile") {
       setProfileMode("index");
     }
+
+    const url = new URL(window.location.href);
+    url.searchParams.set("tab", tab);
+    window.history.replaceState(null, "", url.toString());
   }
 
   useEffect(() => {
@@ -193,10 +197,7 @@ export function BorrowerWorkspace({
         onNavChange={(id) => changeTab(id as BorrowerTab)}
         accountEmail={accountEmail}
         isAccountActive={showProfile}
-        onAccountClick={() => {
-          setActiveTab("profile");
-          setProfileMode("index");
-        }}
+        onAccountClick={() => changeTab("profile")}
         accountLabel="Profile"
       />
 
