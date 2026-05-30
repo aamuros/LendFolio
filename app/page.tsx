@@ -1,4 +1,15 @@
 import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
+import { cn } from "@/lib/utils";
 
 type HomeProps = {
   searchParams?: Promise<{
@@ -11,104 +22,230 @@ export default async function Home({ searchParams }: HomeProps) {
   const authMessage = getAuthMessage(params?.auth);
 
   return (
-    <main className="min-h-svh bg-[#F6F5F2] text-[#161616]">
-      <section className="mx-auto flex min-h-svh w-full max-w-6xl flex-col px-5 py-5 sm:px-8 lg:px-10">
-        <header className="flex min-h-12 items-center justify-between gap-4 border-b border-[#D9D7D1]">
-          <p className="text-xs font-semibold tracking-[0.18em] text-[#1F1F1F] uppercase">
+    <main className="min-h-svh bg-background text-foreground">
+      <header className="sticky top-0 z-30 border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link
+            href="/"
+            className="text-xs font-semibold tracking-[0.18em] uppercase"
+          >
             LENDFOLIO
-          </p>
-          <div className="flex items-center gap-4">
+          </Link>
+          <nav className="flex items-center gap-2">
             <Link
               href="/signup"
-              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+              className={cn(buttonVariants({ variant: "ghost", size: "sm" }))}
             >
               Create account
             </Link>
             <Link
               href="/login"
-              className="rounded-sm px-1 py-1 text-sm font-medium text-[#1F1F1F] underline-offset-4 transition-colors hover:text-[#5F5F5F] hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
+              className={cn(buttonVariants({ size: "sm" }))}
+            >
+              Sign in
+            </Link>
+          </nav>
+        </div>
+      </header>
+
+      <section>
+        <div className="mx-auto max-w-3xl px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-20 sm:pb-14 lg:px-8 lg:pt-24 lg:pb-16">
+          {authMessage ? (
+            <p
+              className="mx-auto max-w-xl border-l-2 border-foreground bg-muted/50 px-4 py-3 text-left text-sm leading-6 text-muted-foreground"
+              role="status"
+            >
+              {authMessage}
+            </p>
+          ) : null}
+          <Badge
+            variant="outline"
+            className="mx-auto mt-4 w-fit text-xs font-medium"
+          >
+            Borrower · Lender · Manager workflows
+          </Badge>
+          <h1 className="mt-5 text-3xl leading-[1.1] font-semibold tracking-tight text-balance sm:text-4xl lg:text-5xl">
+            Lending workflows for borrowers, lenders, and managers.
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
+            LendFolio keeps borrower profiles, verification documents, lender
+            offers, approvals, and repayment proof organized in one traceable
+            workflow.
+          </p>
+          <div className="mt-7 flex flex-wrap justify-center gap-3">
+            <Link
+              href="/signup"
+              className={cn(buttonVariants({ size: "lg" }))}
+            >
+              Create account
+            </Link>
+            <Link
+              href="/login"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" })
+              )}
             >
               Sign in
             </Link>
           </div>
-        </header>
-
-        <div className="flex flex-1 flex-col justify-center gap-10 py-10 sm:py-12 lg:gap-12 lg:py-14">
-          <div className="grid max-w-4xl gap-8 lg:pt-4">
-            {authMessage ? (
-              <p
-                className="max-w-xl border-l-2 border-[#1F1F1F] bg-white/70 px-4 py-3 text-sm leading-6 text-[#5F5F5F]"
-                role="status"
-              >
-                {authMessage}
-              </p>
-            ) : null}
-            <div className="grid gap-5">
-              <p className="text-xs font-semibold tracking-[0.16em] text-[#6A6863] uppercase">
-                MICRO-BUSINESS LENDING
-              </p>
-              <h1 className="max-w-4xl text-4xl leading-[1.04] font-semibold tracking-[-0.01em] text-balance text-[#161616] sm:text-5xl lg:text-6xl">
-                Simple financing workflows for micro-business lending.
-              </h1>
-              <p className="max-w-2xl text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
-                LendFolio helps borrowers submit business profiles, lenders
-                review applications, and teams manage offer decisions.
-              </p>
-            </div>
-            <div>
-              <div className="flex flex-wrap gap-3">
-                <Link
-                  href="/signup"
-                  className="inline-flex min-h-12 items-center justify-center rounded-md bg-[#1F1F1F] px-6 text-sm font-semibold !text-white shadow-[0_1px_0_rgba(255,255,255,0.18)_inset] transition-colors hover:bg-[#0F0F0F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-                >
-                  Create account
-                </Link>
-                <Link
-                  href="/login"
-                  className="inline-flex min-h-12 items-center justify-center rounded-md border border-[#D9D7D1] bg-white/70 px-6 text-sm font-semibold text-[#1F1F1F] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#1F1F1F]"
-                >
-                  Sign in
-                </Link>
-              </div>
-            </div>
-          </div>
-
-          <section
-            aria-label="Core workflow"
-            className="grid overflow-hidden rounded-lg border border-[#D9D7D1] bg-white/45 sm:grid-cols-3 sm:divide-x sm:divide-[#D9D7D1]"
-          >
-            {features.map((feature) => (
-              <article
-                key={feature.title}
-                className="grid gap-3 border-b border-[#D9D7D1] p-5 last:border-b-0 sm:border-b-0 sm:p-6"
-              >
-                <h2 className="text-sm font-semibold text-[#1F1F1F]">
-                  {feature.title}
-                </h2>
-                <p className="max-w-xs text-sm leading-6 text-[#5F5F5F]">
-                  {feature.description}
-                </p>
-              </article>
-            ))}
-          </section>
         </div>
       </section>
+
+      <section className="bg-muted/30">
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+          <p className="mb-8 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
+            How it works
+          </p>
+          <div className="grid gap-6 sm:grid-cols-5 sm:gap-4">
+            {workflowSteps.map((step, index) => (
+              <div key={step.title} className="grid gap-1.5">
+                <span className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
+                  {String(index + 1).padStart(2, "0")}
+                </span>
+                <p className="text-sm font-semibold">{step.title}</p>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  {step.description}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
+          <p className="mb-8 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
+            Built for every role
+          </p>
+          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+            {audiences.map((audience) => (
+              <Card key={audience.title}>
+                <CardHeader className="p-5 sm:p-6">
+                  <CardTitle className="text-base">{audience.title}</CardTitle>
+                  <CardDescription className="text-sm leading-6">
+                    {audience.description}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
+                  <ul className="grid gap-2">
+                    {audience.capabilities.map((cap) => (
+                      <li
+                        key={cap.label}
+                        className="flex items-center gap-2 text-sm text-muted-foreground"
+                      >
+                        <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                        {cap.label}
+                      </li>
+                    ))}
+                  </ul>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <footer className="border-t border-border/60">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <div className="flex items-center gap-3">
+              <p className="text-xs font-semibold tracking-[0.18em] uppercase">
+                LENDFOLIO
+              </p>
+              <Separator orientation="vertical" className="hidden h-4 sm:block" />
+              <p className="text-xs text-muted-foreground">
+                Verified lending workflows for borrowers, lenders, and managers.
+              </p>
+            </div>
+            <nav className="flex items-center gap-4">
+              <Link
+                href="/terms"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Terms
+              </Link>
+              <Link
+                href="/privacy"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Privacy
+              </Link>
+              <Link
+                href="/signup"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Create account
+              </Link>
+              <Link
+                href="/login"
+                className="text-xs text-muted-foreground transition-colors hover:text-foreground"
+              >
+                Sign in
+              </Link>
+            </nav>
+          </div>
+          <p className="mt-6 text-center text-[11px] text-muted-foreground sm:text-left">
+            &copy; 2026 LendFolio. All rights reserved.
+          </p>
+        </div>
+      </footer>
     </main>
   );
 }
 
-const features = [
+const workflowSteps = [
   {
-    title: "Business profiles",
-    description: "Keep borrower details ready for review.",
+    title: "Verify profile",
+    description: "Complete identity and document checks.",
   },
   {
-    title: "Loan applications",
-    description: "Submit and review financing requests.",
+    title: "Request financing",
+    description: "Submit a loan application.",
   },
   {
-    title: "Lender offers",
-    description: "Compare, decline, or accept structured offers.",
+    title: "Review offers",
+    description: "Compare lender terms.",
+  },
+  {
+    title: "Approve terms",
+    description: "Accept one offer to proceed.",
+  },
+  {
+    title: "Track repayment",
+    description: "Upload proof and monitor status.",
+  },
+];
+
+const audiences = [
+  {
+    title: "Borrowers",
+    description:
+      "Prepare one verified profile and submit financing requests with required documents.",
+    capabilities: [
+      { label: "Business profile" },
+      { label: "Document checklist" },
+      { label: "Financing requests" },
+    ],
+  },
+  {
+    title: "Lenders",
+    description:
+      "Review borrower requests, structure offers, and track repayment evidence.",
+    capabilities: [
+      { label: "Request review" },
+      { label: "Offer terms" },
+      { label: "Repayment proof" },
+    ],
+  },
+  {
+    title: "Managers",
+    description:
+      "Keep approvals, exceptions, and activity traceable across the lending process.",
+    capabilities: [
+      { label: "Approval gates" },
+      { label: "Review status" },
+      { label: "Audit trail" },
+    ],
   },
 ];
 

@@ -430,6 +430,19 @@ export function BorrowerLoanApplicationPanel({
     }
 
     if (
+      readiness &&
+      (readiness.readinessStatus === "needs_review" ||
+        readiness.readinessStatus === "not_eligible" ||
+        readiness.readinessStatus === "incomplete")
+    ) {
+      setLoadState("ready");
+      setMessage(
+        readiness.nextActions[0] ?? "Update your profile before applying.",
+      );
+      return;
+    }
+
+    if (
       creditSummary &&
       values.requestedAmount > creditSummary.availableCredit
     ) {
@@ -465,7 +478,8 @@ export function BorrowerLoanApplicationPanel({
         result.mode === "missing-portfolio"
           ? "blocked"
           : result.mode === "borrower-verification" ||
-            result.mode === "consent-required"
+            result.mode === "consent-required" ||
+            result.mode === "readiness"
             ? "ready"
             : "error",
       );
@@ -799,6 +813,14 @@ export function BorrowerLoanApplicationPanel({
                 scope="borrower_loan_application"
                 status={loanConsentStatus}
               />
+            ) : readiness &&
+              (readiness.readinessStatus === "needs_review" ||
+                readiness.readinessStatus === "not_eligible" ||
+                readiness.readinessStatus === "incomplete") ? (
+              <ProfileReadinessBlocker
+                readiness={readiness}
+                onEditProfile={() => onNavigate?.("profile")}
+              />
             ) : (
               <ApplicationForm
                 control={control}
@@ -945,6 +967,41 @@ function VerificationGateCard({
   );
 }
 
+function ProfileReadinessBlocker({
+  readiness,
+  onEditProfile,
+}: {
+  readiness: BorrowerReadinessResult;
+  onEditProfile?: () => void;
+}) {
+  const hasVagueLoanPurpose =
+    readiness.riskFlags.includes("vague_loan_purpose");
+  const message = hasVagueLoanPurpose
+    ? "Add more detail to your loan purpose before applying."
+    : readiness.nextActions[0] ?? "Update your profile before applying.";
+
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-3 p-5">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold text-foreground">
+            Profile update needed
+          </p>
+          <p className="text-sm text-muted-foreground">{message}</p>
+        </div>
+        {onEditProfile ? (
+          <Button
+            onClick={onEditProfile}
+            className="w-fit rounded-full h-10 px-5 font-semibold"
+          >
+            Edit profile
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
 function HomeSummary({
   applications,
   borrowerVerification,
@@ -997,8 +1054,9 @@ function HomeSummary({
   );
 
   const isProfileComplete = profileCompletion.percentage >= 100;
-  const needsVerification = isProfileComplete && borrowerVerification && borrowerVerification.status !== "approved";
-  const showOnboardingCallout = !hasPortfolio || needsVerification;
+  const needsProfileUpdate = profileCompletion.profileNeedsUpdate;
+  const needsVerification = isProfileComplete && !needsProfileUpdate && borrowerVerification && borrowerVerification.status !== "approved";
+  const showOnboardingCallout = !hasPortfolio || needsProfileUpdate || needsVerification;
 
   const hasActiveLoans = activeLoans.length > 0;
   const hasDebt = debtProgress.totalDebt > 0;
@@ -1021,13 +1079,27 @@ function HomeSummary({
         <>
           {showOnboardingCallout ? (
             <OnboardingCallout
-              title={!hasPortfolio ? "Complete your business profile" : "Verify your borrower profile"}
+              title={
+                !hasPortfolio
+                  ? "Complete your business profile"
+                  : needsProfileUpdate
+                    ? "Update your business profile"
+                    : "Verify your borrower profile"
+              }
               description={
                 !hasPortfolio
                   ? "Save your business and cashflow details so LendFolio can calculate your request limit."
-                  : "Your profile is saved. Complete verification before applying for financing."
+                  : needsProfileUpdate
+                    ? profileCompletion.nextStep
+                    : "Your profile is saved. Complete verification before applying for financing."
               }
-              cta={!hasPortfolio ? "Complete profile" : "Continue verification"}
+              cta={
+                !hasPortfolio
+                  ? "Complete profile"
+                  : needsProfileUpdate
+                    ? "Update profile"
+                    : "Continue verification"
+              }
               badge={!hasPortfolio ? "Required" : undefined}
               progressPercent={profileCompletion.percentage}
               progressLabel="Profile progress"
@@ -1105,7 +1177,7 @@ function HomeSummary({
                 )}
                 <Button
                   onClick={() => onNavigate?.("apply")}
-                  disabled={!hasPortfolio || !canSubmitApplication}
+                  disabled={!hasPortfolio || !canSubmitApplication || needsProfileUpdate}
                   className="mt-auto h-11 w-full rounded-full font-semibold sm:w-fit"
                 >
                   Apply for financing
@@ -1115,6 +1187,7 @@ function HomeSummary({
 
             <ProfileReadinessCard
               isProfileComplete={isProfileComplete}
+              needsProfileUpdate={needsProfileUpdate}
               needsVerification={needsVerification === true}
               profileCompletion={profileCompletion}
               onNavigate={onNavigate}
@@ -1420,36 +1493,44 @@ function ProgressRing({
 
 function ProfileReadinessCard({
   isProfileComplete,
+  needsProfileUpdate,
   needsVerification,
   profileCompletion,
   onNavigate,
   onNavigateVerification,
 }: {
   isProfileComplete: boolean;
+  needsProfileUpdate: boolean;
   needsVerification: boolean;
   profileCompletion: ReturnType<typeof getProfileCompletion>;
   onNavigate?: (tab: BorrowerTab) => void;
   onNavigateVerification?: () => void;
 }) {
   const statusLabel = isProfileComplete
-    ? needsVerification
-      ? "Verification needed"
-      : "Ready"
+    ? needsProfileUpdate
+      ? "Update needed"
+      : needsVerification
+        ? "Verification needed"
+        : "Ready"
     : "In progress";
   const statusTone = isProfileComplete
-    ? needsVerification
+    ? needsProfileUpdate || needsVerification
       ? "attention"
       : "success"
     : "attention";
   const description = isProfileComplete
-    ? needsVerification
-      ? "Complete borrower verification before applying."
-      : "Your profile is ready for financing requests."
+    ? needsProfileUpdate
+      ? profileCompletion.nextStep
+      : needsVerification
+        ? "Complete borrower verification before applying."
+        : "Your profile is ready for financing requests."
     : profileCompletion.nextStep;
   const ctaLabel = isProfileComplete
-    ? needsVerification
-      ? "Continue verification"
-      : "Review profile"
+    ? needsProfileUpdate
+      ? "Update profile"
+      : needsVerification
+        ? "Continue verification"
+        : "Review profile"
     : "Complete profile";
 
   return (
@@ -1999,8 +2080,13 @@ function getProfileCompletion({
     borrowerVerification.documentPolicy.documentsAccepted;
   const loanConsentCurrent =
     consentStatuses?.borrowerLoanApplication.isCurrent ?? false;
+  const profileNeedsUpdate =
+    readiness?.readinessStatus === "needs_review" ||
+    readiness?.readinessStatus === "not_eligible";
+  const profileHasVagueLoanPurpose =
+    readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
   const percentage =
-    (hasPortfolio ? 50 : 0) +
+    (hasPortfolio && !profileNeedsUpdate ? 50 : hasPortfolio ? 40 : 0) +
     (verificationComplete ? 30 : 0) +
     (loanConsentCurrent ? 10 : 0) +
     (creditSummary ? 10 : 0);
@@ -2008,16 +2094,20 @@ function getProfileCompletion({
   const readinessNextStep = readiness?.nextActions[0];
   const nextStep = !hasPortfolio
     ? "Save your business profile to unlock financing."
-    : !verificationComplete
-      ? "Complete borrower verification before applying."
-      : !loanConsentCurrent
-        ? "Accept the current loan application consent."
-        : !creditSummary
-          ? "Update your business profile to calculate your request limit."
-          : readinessNextStep ?? "Your profile is ready for financing requests.";
+    : profileNeedsUpdate
+      ? profileHasVagueLoanPurpose
+        ? "Add more detail to your loan purpose before applying."
+        : readinessNextStep ?? "Update your profile before applying."
+      : !verificationComplete
+        ? "Complete borrower verification before applying."
+        : !loanConsentCurrent
+          ? "Accept the current loan application consent."
+          : !creditSummary
+            ? "Update your business profile to calculate your request limit."
+            : readinessNextStep ?? "Your profile is ready for financing requests.";
 
   const steps = [
-    { label: "Business profile", done: hasPortfolio },
+    { label: "Business profile", done: hasPortfolio && !profileNeedsUpdate },
     { label: "Verification", done: verificationComplete },
     { label: "Loan consent", done: loanConsentCurrent },
     { label: "Credit evaluation", done: Boolean(creditSummary) },
@@ -2027,6 +2117,7 @@ function getProfileCompletion({
     nextStep,
     percentage: Math.min(percentage, 100),
     steps,
+    profileNeedsUpdate,
   };
 }
 

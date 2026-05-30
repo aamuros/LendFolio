@@ -81,7 +81,10 @@ export const borrowerPortfolioSchema = z.object({
   loanPurposeContext: z
     .string()
     .trim()
-    .min(20, "Add at least 20 characters of context.")
+    .min(
+      40,
+      "Add more detail about how you will use the loan.",
+    )
     .max(800, "Keep the loan purpose context under 800 characters."),
 });
 

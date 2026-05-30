@@ -123,6 +123,34 @@ export function evaluateBorrowerReadiness(
   }
 
   if (riskFlags.size > 0) {
+    const nextActions: string[] = [];
+
+    if (riskFlags.has("vague_loan_purpose")) {
+      nextActions.push(
+        "Add more detail to your loan purpose before applying.",
+      );
+    }
+
+    if (riskFlags.has("expenses_exceed_revenue")) {
+      nextActions.push(
+        "Your monthly expenses exceed revenue. Update your financials.",
+      );
+    }
+
+    if (riskFlags.has("high_debt_burden")) {
+      nextActions.push(
+        "Your debt burden is high. Review your existing loan payments.",
+      );
+    }
+
+    if (riskFlags.has("zero_revenue")) {
+      nextActions.push("Enter your monthly gross revenue.");
+    }
+
+    if (nextActions.length === 0) {
+      nextActions.push("Update the flagged profile details before applying.");
+    }
+
     return {
       readinessStatus: "needs_review",
       missingFields,
@@ -130,7 +158,7 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow,
       debtBurdenRatio,
       profileIsStale,
-      nextActions: ["Request review or update the flagged profile details."],
+      nextActions,
     };
   }
 

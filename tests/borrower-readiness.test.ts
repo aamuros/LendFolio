@@ -44,6 +44,25 @@ describe("borrower profile validation and readiness", () => {
     expect(parsed.success).toBe(false);
   });
 
+  it("rejects loan purpose under 40 characters", () => {
+    const parsed = borrowerPortfolioSchema.safeParse({
+      ...completeProfile,
+      loanPurposeContext: "Short purpose",
+    });
+
+    expect(parsed.success).toBe(false);
+  });
+
+  it("accepts loan purpose with 40 or more characters", () => {
+    const parsed = borrowerPortfolioSchema.safeParse({
+      ...completeProfile,
+      loanPurposeContext:
+        "Buy additional inventory and supplies for the store.",
+    });
+
+    expect(parsed.success).toBe(true);
+  });
+
   it("marks missing production fields as incomplete", () => {
     const readiness = evaluateBorrowerReadiness({
       ...completeProfile,
@@ -83,6 +102,27 @@ describe("borrower profile validation and readiness", () => {
 
     expect(readiness.readinessStatus).toBe("needs_review");
     expect(readiness.riskFlags).toContain("high_debt_burden");
+  });
+
+  it("flags vague loan purpose for review when under 40 characters", () => {
+    const readiness = evaluateBorrowerReadiness({
+      ...completeProfile,
+      loanPurposeContext: "Buy inventory",
+    });
+
+    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.riskFlags).toContain("vague_loan_purpose");
+    expect(readiness.nextActions[0]).toContain("loan purpose");
+  });
+
+  it("does not flag vague loan purpose when 40 or more characters", () => {
+    const readiness = evaluateBorrowerReadiness({
+      ...completeProfile,
+      loanPurposeContext:
+        "Buy additional inventory and supplies for the store.",
+    });
+
+    expect(readiness.riskFlags).not.toContain("vague_loan_purpose");
   });
 
   it("returns eligible when profile and gates are complete", () => {

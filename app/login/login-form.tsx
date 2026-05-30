@@ -90,7 +90,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 <FieldLabel htmlFor="password">Password</FieldLabel>
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-muted-foreground underline underline-offset-4 hover:text-primary"
+                  className="text-xs text-muted-foreground hover:text-primary"
                 >
                   Forgot password?
                 </Link>

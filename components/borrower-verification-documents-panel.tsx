@@ -27,6 +27,7 @@ import {
   type BorrowerVerificationDocumentType,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
+import type { BorrowerReadinessStatus } from "@/lib/borrower-readiness";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +50,7 @@ import {
 type BorrowerVerificationDocumentsPanelProps = {
   verification: BorrowerVerificationSummary | null;
   consentStatus: ConsentStatus | null;
+  readinessStatus?: BorrowerReadinessStatus | null;
 };
 
 const initialState: BorrowerVerificationDocumentSubmitResult | null = null;
@@ -56,6 +58,7 @@ const initialState: BorrowerVerificationDocumentSubmitResult | null = null;
 export function BorrowerVerificationDocumentsPanel({
   verification,
   consentStatus,
+  readinessStatus,
 }: BorrowerVerificationDocumentsPanelProps) {
   const router = useRouter();
   const [consentChecked, setConsentChecked] = useState(false);
@@ -134,7 +137,7 @@ export function BorrowerVerificationDocumentsPanel({
         disclosuresCurrent={disclosuresCurrent}
       />
 
-      <WhatNextSection facingState={facingState} />
+      <WhatNextSection facingState={facingState} readinessStatus={readinessStatus} />
 
       <SupportingDocumentsSection
         verification={verification}
@@ -150,7 +153,7 @@ export function BorrowerVerificationDocumentsPanel({
         submitState={supportingState}
       />
 
-      <ApplicationReadinessBanner facingState={facingState} />
+      <ApplicationReadinessBanner facingState={facingState} readinessStatus={readinessStatus} />
     </div>
   );
 }
@@ -480,16 +483,25 @@ function RequiredDocumentCard({
 
 function WhatNextSection({
   facingState,
+  readinessStatus,
 }: {
   facingState: BorrowerFacingVerificationState;
+  readinessStatus?: BorrowerReadinessStatus | null;
 }) {
+  const profileBlocksApply =
+    readinessStatus === "needs_review" ||
+    readinessStatus === "not_eligible" ||
+    readinessStatus === "incomplete";
+
   const messages: Record<BorrowerFacingVerificationState, string> = {
     missing_disclosures: "Accept the required disclosures first.",
     missing_documents: "Upload the required documents.",
     waiting_review: "A manager will review your documents.",
     under_review: "A manager is reviewing your documents.",
     needs_update: "Replace the rejected document.",
-    approved: "You can now apply for financing.",
+    approved: profileBlocksApply
+      ? "Verification is approved. Update your borrower profile before applying."
+      : "You can now apply for financing.",
   };
 
   return (
@@ -700,26 +712,34 @@ function SupportingDocumentsSection({
 
 function ApplicationReadinessBanner({
   facingState,
+  readinessStatus,
 }: {
   facingState: BorrowerFacingVerificationState;
+  readinessStatus?: BorrowerReadinessStatus | null;
 }) {
-  const isApproved = facingState === "approved";
+  const verificationApproved = facingState === "approved";
+  const profileBlocksApply =
+    readinessStatus === "needs_review" ||
+    readinessStatus === "not_eligible" ||
+    readinessStatus === "incomplete";
 
   return (
     <div
       className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm ${
-        isApproved
+        verificationApproved && !profileBlocksApply
           ? "bg-emerald-50 text-emerald-800"
           : "bg-muted/50 text-muted-foreground"
       }`}
     >
-      {isApproved ? (
+      {verificationApproved && !profileBlocksApply ? (
         <CheckCircle2 className="size-4 shrink-0" />
       ) : (
         <AlertCircle className="size-4 shrink-0" />
       )}
-      {isApproved
-        ? "Verification approved. You can now apply for financing."
+      {verificationApproved
+        ? profileBlocksApply
+          ? "Verification approved. Update your borrower profile before applying."
+          : "Verification approved. You can now apply for financing."
         : "Loan applications unlock after verification approval."}
     </div>
   );

@@ -286,7 +286,7 @@ export function BorrowerPortfolioForm({
               aria-describedby={errors.loanPurposeContext ? "loanPurposeContext-error" : undefined}
               {...register("loanPurposeContext")}
               rows={3}
-              placeholder="Inventory, equipment, repairs, working capital, or another business need."
+              placeholder="Describe the loan purpose in at least 40 characters, including what the funds will be used for and how it supports the business."
             />
           </Field>
         </div>
@@ -375,13 +375,19 @@ function ReadinessPanel({
   readiness: ReturnType<typeof evaluateBorrowerReadiness>;
   monthlyNetCashFlow: number;
 }) {
+  const hasVagueLoanPurpose = readiness.riskFlags.includes("vague_loan_purpose");
+  const statusLabel =
+    readiness.readinessStatus === "needs_review" && hasVagueLoanPurpose
+      ? "Update needed"
+      : readiness.readinessStatus.replaceAll("_", " ");
+
   return (
     <Card className="rounded-xl bg-muted/30">
       <CardContent className="grid gap-2 p-4 text-sm leading-6">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold">Profile readiness</p>
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold capitalize text-muted-foreground">
-            {readiness.readinessStatus.replaceAll("_", " ")}
+            {statusLabel}
           </span>
         </div>
         <p className="text-muted-foreground">
@@ -404,7 +410,13 @@ function ReadinessPanel({
               .join(", ")}
           </p>
         ) : null}
-        <p className="font-medium">{readiness.nextActions[0]}</p>
+        {hasVagueLoanPurpose ? (
+          <p className="font-medium">
+            Add more detail to your loan purpose before applying.
+          </p>
+        ) : (
+          <p className="font-medium">{readiness.nextActions[0]}</p>
+        )}
       </CardContent>
     </Card>
   );

@@ -179,6 +179,7 @@ export function BorrowerProfileHub({
         <BorrowerVerificationDocumentsPanel
           verification={result?.borrowerVerification ?? null}
           consentStatus={result?.consentStatuses?.borrowerDocumentUpload ?? null}
+          readinessStatus={readiness?.readinessStatus ?? null}
         />
       </ProfileSubview>
     );
@@ -370,15 +371,23 @@ function getProfileStatus(
     readiness?.readinessStatus === "needs_review" ||
     readiness?.readinessStatus === "not_eligible"
   ) {
+    const hasVagueLoanPurpose =
+      readiness.riskFlags.includes("vague_loan_purpose");
+
     return {
       tone: "attention" as const,
-      label: "Profile needs review",
-      title: "Review your profile",
-      description:
-        readiness.nextActions[0] ??
-        "Some profile details may affect loan application readiness.",
+      label: hasVagueLoanPurpose ? "Update needed" : "Profile needs update",
+      title: hasVagueLoanPurpose
+        ? "Add more detail to your loan purpose"
+        : "Review your profile",
+      description: hasVagueLoanPurpose
+        ? "Add more detail to your loan purpose before applying."
+        : readiness.nextActions[0] ??
+          "Some profile details may affect loan application readiness.",
       action: "edit" as const,
-      actionLabel: "Update profile details",
+      actionLabel: hasVagueLoanPurpose
+        ? "Edit loan purpose"
+        : "Update profile details",
     };
   }
 
