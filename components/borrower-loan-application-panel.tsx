@@ -51,6 +51,7 @@ import {
   Card,
   CardContent,
   CardDescription,
+  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -82,7 +83,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Lock } from "lucide-react";
+import { ArrowRight, Check, Circle, Lock } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
@@ -928,62 +929,6 @@ function VerificationGateCard({
   );
 }
 
-function DashboardActionItem({
-  title,
-  description,
-  badgeLabel,
-  icon,
-  locked,
-  disabled,
-  onClick,
-  ariaLabel,
-}: {
-  title: string;
-  description: string;
-  badgeLabel?: string;
-  icon?: ReactNode;
-  locked?: boolean;
-  disabled?: boolean;
-  onClick?: () => void;
-  ariaLabel?: string;
-}) {
-  const isDisabled = disabled || locked;
-
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={isDisabled}
-      aria-label={ariaLabel ?? title}
-      className={cn(
-        "flex min-w-0 items-start gap-3 rounded-xl border border-border/50 bg-card px-4 py-3.5 text-left transition hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
-        isDisabled && "cursor-not-allowed opacity-70",
-      )}
-    >
-      {icon ? (
-        <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
-      ) : null}
-      <span className="grid min-w-0 flex-1 gap-1">
-        <span className="flex items-center gap-2">
-          <span className="text-sm font-semibold">{title}</span>
-          {badgeLabel ? (
-            <Badge variant="secondary" className="text-[10px] font-semibold">
-              {badgeLabel}
-            </Badge>
-          ) : null}
-          {locked ? (
-            <Lock className="size-3 text-muted-foreground" />
-          ) : null}
-        </span>
-        <span className="text-xs text-muted-foreground">{description}</span>
-      </span>
-      {!isDisabled ? (
-        <ArrowRight className="size-4 shrink-0 self-center text-muted-foreground" />
-      ) : null}
-    </button>
-  );
-}
-
 function HomeSummary({
   applications,
   borrowerVerification,
@@ -1068,94 +1013,121 @@ function HomeSummary({
             />
           ) : null}
 
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="grid gap-3 p-4 sm:p-5">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Next actions
-              </p>
-              <div className="grid gap-2">
-                {hasPortfolio && !isProfileComplete ? (
-                  <DashboardActionItem
-                    title="Complete your profile"
-                    description={profileCompletion.nextStep}
-                    badgeLabel={`${profileCompletion.percentage}%`}
-                    onClick={() => onNavigate?.("profile")}
-                    aria-label="Complete your profile"
-                  />
-                ) : null}
-                <div className="grid gap-2 md:grid-cols-3">
-                  <DashboardActionItem
-                    title="Apply for financing"
-                    description={
-                      !hasPortfolio
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)] lg:items-start">
+            <Card className="rounded-2xl border-border/50 shadow-sm">
+              <CardHeader className="px-5 pb-3 pt-4 sm:px-6 sm:pt-5">
+                <CardTitle className="text-sm font-semibold">Next actions</CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-1 px-5 pb-4 sm:px-6 sm:pb-5">
+                <Button
+                  onClick={() => onNavigate?.("apply")}
+                  disabled={!hasPortfolio || !canSubmitApplication}
+                  className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-3"
+                >
+                  <span className="grid gap-0.5 text-left">
+                    <span className="text-sm font-semibold">Apply for financing</span>
+                    <span className="text-xs font-normal opacity-80">
+                      {!hasPortfolio
                         ? "Complete profile first"
                         : !canSubmitApplication
                           ? "Verification needed"
-                          : "Submit a new request"
-                    }
-                    locked={!hasPortfolio || !canSubmitApplication}
-                    onClick={() => onNavigate?.("apply")}
-                    aria-label="Apply for financing"
-                  />
-                  <DashboardActionItem
-                    title="Review offers"
-                    description={hasPendingOffers ? "You have pending offers" : "No pending offers"}
-                    badgeLabel={pendingOfferCount > 0 ? `${pendingOfferCount}` : undefined}
-                    onClick={() => onNavigate?.("offers")}
-                    aria-label="Review offers"
-                  />
-                  <DashboardActionItem
-                    title={activeLoans.length > 0 ? "Loans" : "View loans"}
-                    description={
-                      activeLoans.length > 0
-                        ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
-                        : "No active loans"
-                    }
-                    badgeLabel={activeLoans.length > 0 ? `${activeLoans.length}` : undefined}
-                    onClick={() => onNavigate?.("loans")}
-                    aria-label={activeLoans.length > 0 ? "View active loans" : "View loans"}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.8fr)] lg:items-start">
-            <div className="grid gap-5">
-              <Card className="rounded-2xl border-border/50 shadow-sm">
-                <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
-                  <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Financing overview
-                  </CardDescription>
-                  <CardTitle className="text-lg leading-tight sm:text-xl">
-                    Available to request
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
-                  {creditSummary ? (
-                    <>
-                      <MoneyText
-                        value={creditSummary.availableCredit}
-                        className="text-2xl font-semibold sm:text-3xl"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        {formatMoney(creditSummary.availableCredit)} of{" "}
-                        {formatMoney(creditSummary.calculatedCreditLimit)} limit
-                      </p>
-                      <Progress
-                        value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
-                        className="mt-1 h-2"
-                        aria-label="Available credit"
-                      />
-                    </>
+                          : "Submit a new request"}
+                    </span>
+                  </span>
+                  {!hasPortfolio || !canSubmitApplication ? (
+                    <Lock className="size-4 shrink-0" />
                   ) : (
-                    <p className="text-sm text-muted-foreground">
-                      Complete your business profile to calculate your request limit.
-                    </p>
+                    <ArrowRight className="size-4 shrink-0" />
                   )}
-                </CardContent>
-              </Card>
+                </Button>
 
+                <Separator className="my-1" />
+
+                <Button
+                  variant="ghost"
+                  onClick={() => onNavigate?.("offers")}
+                  className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-3"
+                >
+                  <span className="grid gap-0.5 text-left">
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">Review offers</span>
+                      {pendingOfferCount > 0 ? (
+                        <Badge variant="secondary" className="text-[10px] font-semibold">
+                          {pendingOfferCount}
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {hasPendingOffers ? "You have pending offers" : "No pending offers"}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Button>
+
+                <Button
+                  variant="ghost"
+                  onClick={() => onNavigate?.("loans")}
+                  className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-3"
+                >
+                  <span className="grid gap-0.5 text-left">
+                    <span className="flex items-center gap-2">
+                      <span className="text-sm font-semibold">
+                        {activeLoans.length > 0 ? "Loans" : "View loans"}
+                      </span>
+                      {activeLoans.length > 0 ? (
+                        <Badge variant="secondary" className="text-[10px] font-semibold">
+                          {activeLoans.length}
+                        </Badge>
+                      ) : null}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {activeLoans.length > 0
+                        ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
+                        : "No active loans"}
+                    </span>
+                  </span>
+                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card className="rounded-2xl border-border/50 shadow-sm">
+              <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+                <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Financing overview
+                </CardDescription>
+                <CardTitle className="text-lg leading-tight sm:text-xl">
+                  Available to request
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
+                {creditSummary ? (
+                  <>
+                    <MoneyText
+                      value={creditSummary.availableCredit}
+                      className="text-2xl font-semibold sm:text-3xl"
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {formatMoney(creditSummary.availableCredit)} of{" "}
+                      {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                    </p>
+                    <Progress
+                      value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
+                      className="mt-1 h-2"
+                      aria-label="Available credit"
+                    />
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Complete your business profile to calculate your request limit.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
+            <div className="grid gap-5">
               <Card className="rounded-2xl border-border/50 shadow-sm">
                 <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
                   <CardTitle className="text-sm font-semibold">Active loans</CardTitle>
@@ -1195,6 +1167,11 @@ function HomeSummary({
                   )}
                 </CardContent>
               </Card>
+
+              <RepaymentCalendarCard
+                activeLoans={activeLoans}
+                onNavigate={onNavigate}
+              />
             </div>
 
             <div className="grid gap-5">
@@ -1231,7 +1208,7 @@ function HomeSummary({
               </Card>
 
               <Card className="rounded-2xl border-border/50 shadow-sm">
-                <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
                   <CardTitle className="text-sm font-semibold">
                     Profile readiness
                   </CardTitle>
@@ -1250,25 +1227,75 @@ function HomeSummary({
                         : "Ready"}
                     </Badge>
                   ) : (
-                    <span className="text-xs font-semibold text-muted-foreground">
-                      {profileCompletion.percentage}%
-                    </span>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[11px] font-semibold",
+                        toneBadgeClassName("attention"),
+                      )}
+                    >
+                      In progress
+                    </Badge>
                   )}
                 </CardHeader>
-                <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                  <ReadinessRing percentage={profileCompletion.percentage} />
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    {profileCompletion.nextStep}
+                <CardContent className="grid gap-3 px-4 pt-2 pb-0 sm:px-5">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
+                      {profileCompletion.percentage}%
+                    </span>
+                    <span className="text-xs font-medium text-muted-foreground">
+                      complete
+                    </span>
+                  </div>
+                  <Progress
+                    value={profileCompletion.percentage}
+                    className="h-2"
+                    aria-label="Profile completion"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {isProfileComplete
+                      ? "Your profile is ready for financing requests."
+                      : profileCompletion.nextStep}
                   </p>
+                  <Separator />
+                  <div className="grid gap-2">
+                    {profileCompletion.steps.map((step) => (
+                      <div
+                        key={step.label}
+                        className="flex items-center gap-2"
+                      >
+                        {step.done ? (
+                          <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
+                            <Check className="size-2.5" />
+                          </span>
+                        ) : (
+                          <Circle className="size-4 shrink-0 text-muted-foreground/40" />
+                        )}
+                        <span
+                          className={cn(
+                            "text-xs",
+                            step.done
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {step.label}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+                <CardFooter className="mt-3 border-t px-4 py-3 sm:px-5">
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={() => onNavigate?.("profile")}
-                    className="w-full justify-start rounded-full font-semibold sm:w-fit"
+                    className="w-full justify-between rounded-lg px-3 text-xs font-semibold"
                   >
                     Open profile
+                    <ArrowRight className="size-3.5" />
                   </Button>
-                </CardContent>
+                </CardFooter>
               </Card>
 
               <Card className="rounded-2xl border-border/50 shadow-sm">
@@ -1307,11 +1334,6 @@ function HomeSummary({
               </Card>
             </div>
           </div>
-
-          <RepaymentCalendarCard
-            activeLoans={activeLoans}
-            onNavigate={onNavigate}
-          />
         </>
       )}
     </div>
@@ -1321,33 +1343,40 @@ function HomeSummary({
 function HomeDashboardSkeleton() {
   return (
     <div className="grid gap-5">
-      <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-3 p-4 sm:p-5">
-          <Skeleton className="h-3 w-24" />
-          <div className="grid gap-2 md:grid-cols-3">
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-            <Skeleton className="h-16 rounded-xl" />
-          </div>
-        </CardContent>
-      </Card>
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.8fr)] lg:items-start">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)] lg:items-start">
+        <Card className="rounded-2xl border-border/50 shadow-sm">
+          <CardContent className="grid gap-3 p-4 sm:p-5">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-11 rounded-xl" />
+            <Skeleton className="h-px w-full" />
+            <Skeleton className="h-11 rounded-xl" />
+            <Skeleton className="h-11 rounded-xl" />
+          </CardContent>
+        </Card>
+        <Card className="rounded-2xl border-border/50 shadow-sm">
+          <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-5 w-40" />
+          </CardHeader>
+          <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
+            <Skeleton className="h-7 w-32" />
+            <Skeleton className="h-3 w-44" />
+            <Skeleton className="h-2 w-full rounded-full" />
+          </CardContent>
+        </Card>
+      </div>
+      <div className="grid gap-5 lg:grid-cols-2 lg:items-start">
         <div className="grid gap-5">
           <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
-              <Skeleton className="h-3 w-28" />
-              <Skeleton className="h-5 w-40" />
-            </CardHeader>
-            <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
-              <Skeleton className="h-7 w-32" />
-              <Skeleton className="h-3 w-44" />
-              <Skeleton className="h-2 w-full rounded-full" />
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-16 rounded-xl" />
             </CardContent>
           </Card>
           <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardContent className="grid gap-3 p-4 sm:p-5">
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-16 rounded-xl" />
+              <Skeleton className="h-3 w-32" />
+              <Skeleton className="h-52 w-full rounded-xl" />
             </CardContent>
           </Card>
         </div>
@@ -1361,17 +1390,28 @@ function HomeDashboardSkeleton() {
             </CardContent>
           </Card>
           <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="grid gap-3 p-4 sm:p-5">
-              <Skeleton className="h-3 w-28" />
-              <div className="flex items-center gap-4">
-                <Skeleton className="size-24 shrink-0 rounded-full" />
-                <div className="grid gap-1.5">
-                  <Skeleton className="h-3 w-40" />
-                  <Skeleton className="h-8 w-28 rounded-full" />
-                </div>
+            <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
+              <Skeleton className="h-4 w-28" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+            </CardHeader>
+            <CardContent className="grid gap-3 px-4 pt-2 pb-0 sm:px-5">
+              <div className="flex items-baseline gap-2">
+                <Skeleton className="h-7 w-12" />
+                <Skeleton className="h-3 w-16" />
               </div>
-              <Skeleton className="h-3 w-40" />
+              <Skeleton className="h-2 w-full rounded-full" />
+              <Skeleton className="h-3 w-44" />
+              <Skeleton className="h-px w-full" />
+              <div className="grid gap-2">
+                <Skeleton className="h-3 w-28" />
+                <Skeleton className="h-3 w-32" />
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-3 w-28" />
+              </div>
             </CardContent>
+            <div className="mt-3 border-t px-4 py-3 sm:px-5">
+              <Skeleton className="h-8 w-full rounded-lg" />
+            </div>
           </Card>
           <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardContent className="grid gap-3 p-4 sm:p-5">
@@ -1382,12 +1422,6 @@ function HomeDashboardSkeleton() {
           </Card>
         </div>
       </div>
-      <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-3 p-4 sm:p-5">
-          <Skeleton className="h-3 w-32" />
-          <Skeleton className="h-52 w-full rounded-xl" />
-        </CardContent>
-      </Card>
     </div>
   );
 }
@@ -1639,75 +1673,6 @@ function DashboardProgressBar({
   );
 }
 
-function ReadinessRing({ percentage }: { percentage: number }) {
-  const size = 120;
-  const strokeWidth = 10;
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const clamped = clamp(percentage, 0, 100);
-  const offset = circumference - (clamped / 100) * circumference;
-  const gradientId = "readiness-ring-gradient";
-  const glowId = "readiness-ring-glow";
-
-  return (
-    <div className="relative" style={{ width: size, height: size }}>
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
-        role="img"
-        aria-label={`${clamped}% complete`}
-      >
-        <defs>
-          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="hsl(var(--primary))" />
-            <stop offset="100%" stopColor="hsl(var(--primary) / 0.6)" />
-          </linearGradient>
-          <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
-            <feGaussianBlur stdDeviation="3" result="blur" />
-            <feMerge>
-              <feMergeNode in="blur" />
-              <feMergeNode in="SourceGraphic" />
-            </feMerge>
-          </filter>
-        </defs>
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          strokeWidth={strokeWidth}
-          className="stroke-muted/60"
-        />
-        {clamped > 0 ? (
-          <circle
-            cx={size / 2}
-            cy={size / 2}
-            r={radius}
-            fill="none"
-            strokeWidth={strokeWidth}
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            stroke={`url(#${gradientId})`}
-            filter={`url(#${glowId})`}
-            className="transition-[stroke-dashoffset] duration-700 ease-out"
-          />
-        ) : null}
-      </svg>
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
-        <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
-          {clamped}%
-        </span>
-        <span className="text-[11px] font-medium text-muted-foreground">
-          complete
-        </span>
-      </div>
-    </div>
-  );
-}
-
 function DashboardLoanCard({
   loan,
   onNavigate,
@@ -1868,9 +1833,17 @@ function getProfileCompletion({
           ? "Update your business profile to calculate your request limit."
           : readinessNextStep ?? "Your profile is ready for financing requests.";
 
+  const steps = [
+    { label: "Business profile", done: hasPortfolio },
+    { label: "Verification", done: verificationComplete },
+    { label: "Loan consent", done: loanConsentCurrent },
+    { label: "Credit evaluation", done: Boolean(creditSummary) },
+  ];
+
   return {
     nextStep,
     percentage: Math.min(percentage, 100),
+    steps,
   };
 }
 
