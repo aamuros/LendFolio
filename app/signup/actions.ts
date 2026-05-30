@@ -100,7 +100,25 @@ export async function signupAction(
       };
     }
 
-    redirectTo = destination;
+    // Verify the provisioned profile role matches the signup role.
+    // If provisioning created a different role, redirect to the correct
+    // workspace rather than silently sending the user to the wrong one.
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .maybeSingle();
+
+    if (profile && profile.role !== input.role) {
+      redirectTo =
+        profile.role === "borrower"
+          ? "/borrower?message=account-created"
+          : profile.role === "lender"
+            ? "/?auth=lender-pending"
+            : destination;
+    } else {
+      redirectTo = destination;
+    }
   } catch {
     return {
       status: "error",

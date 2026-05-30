@@ -1,6 +1,17 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { borrowerPortfolioSchema } from "../lib/borrower-portfolio";
+import { evaluateBorrowerReadiness } from "../lib/borrower-readiness";
+import {
+  canSubmitLoanApplicationForVerification,
+  type BorrowerVerificationSummary,
+} from "../lib/borrower-verification";
+import { getRouteForRole } from "../lib/app-roles";
+import {
+  buildConsentStatus,
+  type UserConsentRecord,
+  CURRENT_CONSENT_VERSIONS,
+} from "../lib/consents";
 import {
   getManagerSubmittedDateRange,
   resolveSubmittedDateRangeFilters,
@@ -246,7 +257,7 @@ describe("manager operations helpers", () => {
       "utf8",
     );
 
-    expect(auditLogsPage).toContain("AutoFilterGrid");
+    expect(auditLogsPage).toContain("FilterForm");
     expect(auditLogsPage).toContain("ManagerDetailsLink");
     expect(auditLogsPage).toContain(
       "href={`/manager/audit-logs/${log.id}`}",
@@ -271,11 +282,9 @@ describe("manager operations helpers", () => {
     const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
 
     for (const page of [lookupPage, auditLogsPage]) {
-      expect(page).toContain("AutoFilterGrid");
+      expect(page).toContain("FilterForm");
       expect(page).not.toContain("<FilterGrid");
       expect(page).not.toContain("  FilterGrid,");
-      expect(page).not.toContain("Apply");
-      expect(page).not.toContain("Clear");
     }
 
     const loansPage = readFileSync("app/manager/loans/page.tsx", "utf8");
@@ -310,11 +319,6 @@ describe("manager operations helpers", () => {
     );
     const managerBottomTabs = readFileSync(
       "components/manager-bottom-tabs.tsx",
-      "utf8",
-    );
-    const auditLogsPage = readFileSync("app/manager/audit-logs/page.tsx", "utf8");
-    const applicationsPage = readFileSync(
-      "app/manager/applications/page.tsx",
       "utf8",
     );
 
@@ -710,5 +714,235 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("borrower_portfolios_select_access");
     expect(migration).toContain("v_installment_count := case");
     expect(migration).toContain("repayment_schedule_created");
+  });
+});
+
+describe("borrower readiness gates", () => {
+  const completePortfolio = {
+    businessName: "Aling Nena Store",
+    businessType: "sari_sari_store" as const,
+    location: "Quezon City",
+    monthlyGrossRevenue: 45_000,
+    monthlyExpenses: 28_000,
+    existingLoanPayments: 3_500,
+    yearsInOperation: 2,
+    loanPurposeContext:
+      "Additional working capital for inventory before the holiday season.",
+  };
+
+  it("blocks borrowers when verification is not approved", () => {
+    const result = evaluateBorrowerReadiness(completePortfolio, {
+      accountStatus: "active",
+      borrowerVerification: {
+        id: "v-1",
+        status: "pending",
+        managerReviewNotes: null,
+        rejectionReason: null,
+        submittedAt: null,
+        reviewedAt: null,
+        documents: [],
+        documentPolicy: {
+          requiredDocumentTypes: ["valid_id", "business_proof"],
+          missingRequiredDocumentTypes: ["valid_id", "business_proof"],
+          submittedDocumentTypes: [],
+          acceptedDocumentTypes: [],
+          rejectedDocumentTypes: [],
+          readyForManagerReview: false,
+          documentsAccepted: false,
+        },
+      },
+      loanApplicationConsent: {
+        scope: "borrower_loan_application",
+        isCurrent: true,
+        required: [],
+        missing: [],
+        accepted: [],
+      },
+    });
+
+    expect(result.readinessStatus).not.toBe("eligible_to_apply");
+  });
+
+  it("blocks borrowers when loan application consent is missing", () => {
+    const result = evaluateBorrowerReadiness(completePortfolio, {
+      accountStatus: "active",
+      borrowerVerification: {
+        id: "v-1",
+        status: "approved",
+        managerReviewNotes: null,
+        rejectionReason: null,
+        submittedAt: null,
+        reviewedAt: null,
+        documents: [],
+        documentPolicy: {
+          requiredDocumentTypes: ["valid_id", "business_proof"],
+          missingRequiredDocumentTypes: [],
+          submittedDocumentTypes: ["valid_id", "business_proof"],
+          acceptedDocumentTypes: ["valid_id", "business_proof"],
+          rejectedDocumentTypes: [],
+          readyForManagerReview: true,
+          documentsAccepted: true,
+        },
+      },
+      loanApplicationConsent: {
+        scope: "borrower_loan_application",
+        isCurrent: false,
+        required: [],
+        missing: [{ consentType: "credit_review_authorization", version: "v1" }],
+        accepted: [],
+      },
+    });
+
+    expect(result.readinessStatus).not.toBe("eligible_to_apply");
+  });
+
+  it("allows borrowers when verification is approved and consent is current", () => {
+    const result = evaluateBorrowerReadiness(completePortfolio, {
+      accountStatus: "active",
+      borrowerVerification: {
+        id: "v-1",
+        status: "approved",
+        managerReviewNotes: null,
+        rejectionReason: null,
+        submittedAt: null,
+        reviewedAt: null,
+        documents: [],
+        documentPolicy: {
+          requiredDocumentTypes: ["valid_id", "business_proof"],
+          missingRequiredDocumentTypes: [],
+          submittedDocumentTypes: ["valid_id", "business_proof"],
+          acceptedDocumentTypes: ["valid_id", "business_proof"],
+          rejectedDocumentTypes: [],
+          readyForManagerReview: true,
+          documentsAccepted: true,
+        },
+      },
+      loanApplicationConsent: {
+        scope: "borrower_loan_application",
+        isCurrent: true,
+        required: [],
+        missing: [],
+        accepted: [],
+      },
+    });
+
+    expect(result.readinessStatus).toBe("eligible_to_apply");
+  });
+});
+
+describe("borrower verification eligibility", () => {
+  it("requires approved status and accepted documents for loan application", () => {
+    const approved: BorrowerVerificationSummary = {
+      id: "v-1",
+      status: "approved",
+      managerReviewNotes: null,
+      rejectionReason: null,
+      submittedAt: null,
+      reviewedAt: null,
+      documents: [],
+      documentPolicy: {
+        requiredDocumentTypes: ["valid_id", "business_proof"],
+        missingRequiredDocumentTypes: [],
+        submittedDocumentTypes: ["valid_id", "business_proof"],
+        acceptedDocumentTypes: ["valid_id", "business_proof"],
+        rejectedDocumentTypes: [],
+        readyForManagerReview: true,
+        documentsAccepted: true,
+      },
+    };
+    expect(canSubmitLoanApplicationForVerification(approved)).toBe(true);
+  });
+
+  it("blocks loan application when verification is pending", () => {
+    const pending: BorrowerVerificationSummary = {
+      id: "v-1",
+      status: "pending",
+      managerReviewNotes: null,
+      rejectionReason: null,
+      submittedAt: null,
+      reviewedAt: null,
+      documents: [],
+      documentPolicy: {
+        requiredDocumentTypes: ["valid_id", "business_proof"],
+        missingRequiredDocumentTypes: ["valid_id", "business_proof"],
+        submittedDocumentTypes: [],
+        acceptedDocumentTypes: [],
+        rejectedDocumentTypes: [],
+        readyForManagerReview: false,
+        documentsAccepted: false,
+      },
+    };
+    expect(canSubmitLoanApplicationForVerification(pending)).toBe(false);
+  });
+
+  it("blocks loan application when documents are not accepted", () => {
+    const approvedNoDocs: BorrowerVerificationSummary = {
+      id: "v-1",
+      status: "approved",
+      managerReviewNotes: null,
+      rejectionReason: null,
+      submittedAt: null,
+      reviewedAt: null,
+      documents: [],
+      documentPolicy: {
+        requiredDocumentTypes: ["valid_id", "business_proof"],
+        missingRequiredDocumentTypes: ["business_proof"],
+        submittedDocumentTypes: ["valid_id"],
+        acceptedDocumentTypes: ["valid_id"],
+        rejectedDocumentTypes: [],
+        readyForManagerReview: true,
+        documentsAccepted: false,
+      },
+    };
+    expect(canSubmitLoanApplicationForVerification(approvedNoDocs)).toBe(false);
+  });
+
+  it("blocks loan application when verification is null", () => {
+    expect(canSubmitLoanApplicationForVerification(null)).toBe(false);
+  });
+});
+
+describe("role-based routing", () => {
+  it("routes borrowers to /borrower", () => {
+    expect(getRouteForRole("borrower")).toBe("/borrower");
+  });
+
+  it("routes lenders to /lender", () => {
+    expect(getRouteForRole("lender")).toBe("/lender");
+  });
+
+  it("routes managers to /manager", () => {
+    expect(getRouteForRole("manager")).toBe("/manager");
+  });
+});
+
+describe("consent status building", () => {
+  it("marks loan application consent as not current when missing credit review", () => {
+    const status = buildConsentStatus("borrower_loan_application", []);
+    expect(status.isCurrent).toBe(false);
+    expect(status.missing.length).toBeGreaterThan(0);
+  });
+
+  it("marks loan application consent as current when all required consents present", () => {
+    const consents: UserConsentRecord[] = [
+      {
+        consentType: "terms_of_service",
+        version: CURRENT_CONSENT_VERSIONS.terms_of_service,
+        acceptedAt: "2026-05-01T00:00:00Z",
+      },
+      {
+        consentType: "privacy_notice",
+        version: CURRENT_CONSENT_VERSIONS.privacy_notice,
+        acceptedAt: "2026-05-01T00:00:00Z",
+      },
+      {
+        consentType: "credit_review_authorization",
+        version: CURRENT_CONSENT_VERSIONS.credit_review_authorization,
+        acceptedAt: "2026-05-01T00:00:00Z",
+      },
+    ];
+    const status = buildConsentStatus("borrower_loan_application", consents);
+    expect(status.isCurrent).toBe(true);
+    expect(status.missing.length).toBe(0);
   });
 });

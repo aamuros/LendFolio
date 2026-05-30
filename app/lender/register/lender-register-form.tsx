@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useCallback, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import {
@@ -31,11 +31,32 @@ const initialState: LenderRegisterState = {
 };
 
 export function LenderRegisterForm() {
-  const [state, formAction] = useActionState(
+  const [state, serverAction] = useActionState(
     lenderRegisterAction,
     initialState,
   );
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
   const isSuccess = state.status === "success";
+
+  const handleSubmit = useCallback(
+    (formData: FormData) => {
+      const password = formData.get("password") as string;
+      const confirmPassword = formData.get("confirmPassword") as string;
+
+      if (password !== confirmPassword) {
+        setPasswordMismatch(true);
+        return;
+      }
+
+      setPasswordMismatch(false);
+      serverAction(formData);
+    },
+    [serverAction],
+  );
+
+  const confirmPasswordErrors = passwordMismatch
+    ? ["Passwords must match."]
+    : state.fieldErrors?.confirmPassword;
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,7 +70,7 @@ export function LenderRegisterForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={formAction}>
+          <form action={handleSubmit}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="displayName">Full name</FieldLabel>
@@ -103,6 +124,7 @@ export function LenderRegisterForm() {
                       type="password"
                       autoComplete="new-password"
                       required
+                      onChange={() => passwordMismatch && setPasswordMismatch(false)}
                     />
                   </Field>
                   <Field>
@@ -115,6 +137,7 @@ export function LenderRegisterForm() {
                       type="password"
                       autoComplete="new-password"
                       required
+                      onChange={() => passwordMismatch && setPasswordMismatch(false)}
                     />
                   </Field>
                 </Field>
@@ -125,11 +148,11 @@ export function LenderRegisterForm() {
                   messages={state.fieldErrors?.password}
                 />
                 <FieldErrorHelper
-                  messages={state.fieldErrors?.confirmPassword}
+                  messages={confirmPasswordErrors}
                 />
               </Field>
 
-              {state.message ? (
+              {!passwordMismatch && state.message ? (
                 <Alert variant={isSuccess ? "default" : "destructive"}>
                   {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
                   <AlertDescription>{state.message}</AlertDescription>
@@ -194,3 +217,4 @@ function SubmitButton() {
     </Button>
   );
 }
+

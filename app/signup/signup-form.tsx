@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useCallback, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { signupAction, type SignupState } from "@/app/signup/actions";
@@ -22,9 +22,31 @@ const initialState: SignupState = {
 };
 
 export function SignupForm() {
-  const [state, formAction] = useActionState(signupAction, initialState);
+  const [state, serverAction] = useActionState(signupAction, initialState);
   const [role, setRole] = useState<SignupRole>("borrower");
+  const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
   const isSuccess = state.status === "success";
+
+  const handleSubmit = useCallback(
+    (formData: FormData) => {
+      const password = formData.get("password") as string;
+      const confirmPassword = formData.get("confirmPassword") as string;
+
+      if (password !== confirmPassword) {
+        setPasswordMismatch(true);
+        return;
+      }
+
+      setPasswordMismatch(false);
+      serverAction(formData);
+    },
+    [serverAction],
+  );
+
+  const confirmPasswordErrors = passwordMismatch
+    ? ["Passwords must match."]
+    : state.fieldErrors?.confirmPassword;
 
   return (
     <Card className="rounded-2xl p-6">
@@ -33,16 +55,15 @@ export function SignupForm() {
         <CardDescription>Get started with LendFolio</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <form action={formAction}>
+        <form ref={formRef} action={handleSubmit}>
           <FieldGroup className="gap-5">
             <fieldset className="grid gap-2">
-              <legend className="text-sm font-medium">Account type</legend>
               <RadioGroup
                 defaultValue="borrower"
                 value={role}
                 onValueChange={(val) => setRole(val as SignupRole)}
                 name="role"
-                className="grid grid-cols-2 gap-4"
+                className="grid grid-cols-2 gap-2"
               >
                 <RoleCard
                   value="borrower"
@@ -99,6 +120,7 @@ export function SignupForm() {
                 placeholder="At least 8 characters"
                 className="h-12 rounded-xl bg-background"
                 required
+                onChange={() => passwordMismatch && setPasswordMismatch(false)}
               />
               <FieldErrorHelper messages={state.fieldErrors?.password} />
             </Field>
@@ -113,8 +135,9 @@ export function SignupForm() {
                 placeholder="Re-enter your password"
                 className="h-12 rounded-xl bg-background"
                 required
+                onChange={() => passwordMismatch && setPasswordMismatch(false)}
               />
-              <FieldErrorHelper messages={state.fieldErrors?.confirmPassword} />
+              <FieldErrorHelper messages={confirmPasswordErrors} />
             </Field>
 
             <fieldset className="rounded-lg border bg-muted/30 p-3">
@@ -151,7 +174,7 @@ export function SignupForm() {
               </div>
             </fieldset>
 
-            {state.message ? (
+            {!passwordMismatch && state.message ? (
               <Alert variant={isSuccess ? "default" : "destructive"}>
                 {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
                 <AlertDescription>{state.message}</AlertDescription>
@@ -199,16 +222,14 @@ function RoleCard({
       <Label
         htmlFor={id}
         className={cn(
-          "flex h-full w-full flex-col gap-2 cursor-pointer rounded-xl border bg-card p-3 transition-all",
+          "flex w-full flex-col items-center gap-2.5 cursor-pointer rounded-xl border bg-card px-4 py-5 text-center transition-all",
           "hover:bg-muted/50",
           "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
         )}
       >
-        <div className="flex items-center gap-2">
-          <Icon className="size-4 shrink-0 text-muted-foreground peer-data-[state=checked]:text-primary" />
-          <span className="text-sm font-semibold leading-none">{label}</span>
-        </div>
+        <Icon className="size-5 shrink-0 text-muted-foreground" />
+        <span className="text-sm font-semibold leading-none">{label}</span>
         <p className="text-xs leading-relaxed text-muted-foreground">
           {description}
         </p>
