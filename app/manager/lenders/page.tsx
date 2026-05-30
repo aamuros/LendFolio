@@ -70,6 +70,9 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     verificationStatus: params.status,
   });
 
+  const incompleteCount = result.lenders.filter(
+    (l) => l.verificationStatus === "incomplete",
+  ).length;
   const pendingCount = result.lenders.filter(
     (l) => l.verificationStatus === "pending",
   ).length;
@@ -106,6 +109,12 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
           </div>
           {result.lenders.length > 0 ? (
             <div className="flex items-center gap-2">
+              {incompleteCount > 0 ? (
+                <Badge variant="outline" className="gap-1">
+                  <CircleDotIcon className="size-3" />
+                  {incompleteCount} incomplete
+                </Badge>
+              ) : null}
               {pendingCount > 0 ? (
                 <Badge variant="secondary" className="gap-1">
                   <CircleDotIcon className="size-3" />
@@ -188,6 +197,7 @@ function LenderFilters({ status }: { status?: string }) {
               name="status"
               defaultValue={status}
               options={[
+                { value: "incomplete", label: "Incomplete" },
                 { value: "pending", label: "Pending" },
                 { value: "approved", label: "Approved" },
                 { value: "rejected", label: "Rejected" },

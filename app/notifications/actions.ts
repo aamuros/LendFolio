@@ -154,7 +154,7 @@ export async function markNotificationReadAction(
   if (error || !data) {
     return {
       ok: false,
-      message: "Notification unavailable.",
+      message: "Could not update notifications.",
     };
   }
 

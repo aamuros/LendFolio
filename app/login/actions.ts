@@ -94,5 +94,13 @@ async function getPostLoginDestination(
     return getRouteForRole(profile.role);
   }
 
+  if (
+    lenderProfile?.verification_status === "incomplete" ||
+    lenderProfile?.verification_status === "rejected" ||
+    !lenderProfile
+  ) {
+    return "/lender/onboarding";
+  }
+
   return "/?auth=lender-pending";
 }

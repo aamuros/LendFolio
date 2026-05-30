@@ -6,6 +6,7 @@ import {
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
 } from "@/app/borrower/actions";
+import { signOutAction } from "@/app/login/actions";
 import {
   BorrowerBottomTabs,
   type BorrowerTab,
@@ -14,8 +15,17 @@ import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-applica
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { BorrowerProfileHub } from "./borrower/profile/borrower-profile-hub";
 import { ProfileSubviewHeader } from "./borrower/profile/profile-subview";
-import { User } from "lucide-react";
+import { User, LogOut, UserCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { borrowerPageBottomPadding } from "@/components/borrower/ui";
 
@@ -39,6 +49,12 @@ type PortfolioLoadState = "loading" | "ready" | "empty" | "error";
 type BorrowerWorkspaceProps = {
   accountEmail?: string;
   initialLoanApplications?: LoanApplicationsLoadResult | null;
+  initialTab?: BorrowerTab;
+  highlightOfferId?: string | null;
+  highlightApplicationId?: string | null;
+  highlightLoanId?: string | null;
+  highlightRepaymentId?: string | null;
+  highlightProofId?: string | null;
 };
 
 const desktopTabs: { id: BorrowerTab; label: string }[] = [
@@ -51,8 +67,14 @@ const desktopTabs: { id: BorrowerTab; label: string }[] = [
 export function BorrowerWorkspace({
   accountEmail = "",
   initialLoanApplications = null,
+  initialTab = "home",
+  highlightOfferId = null,
+  highlightApplicationId = null,
+  highlightLoanId = null,
+  highlightRepaymentId = null,
+  highlightProofId = null,
 }: BorrowerWorkspaceProps) {
-  const [activeTab, setActiveTab] = useState<BorrowerTab>("home");
+  const [activeTab, setActiveTab] = useState<BorrowerTab>(initialTab);
   const [profileMode, setProfileMode] = useState<ProfileMode>("index");
   const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
   const [portfolioLoadState, setPortfolioLoadState] =
@@ -177,83 +199,117 @@ export function BorrowerWorkspace({
 
   return (
     <div className={cn("grid gap-8", borrowerPageBottomPadding)}>
-      <header className="flex items-center justify-between gap-4">
+      <header className="sticky top-0 z-30 flex items-center justify-between gap-4 border-b border-border/50 bg-background/95 px-4 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/60 sm:px-6">
         <div className="flex items-center gap-6">
           <p className="text-base font-semibold tracking-tight text-foreground">
             LendFolio
           </p>
-          <nav className="hidden items-center gap-1 sm:flex">
-            {desktopTabs.map((tab) => (
-              <Button
-                key={tab.id}
-                variant="ghost"
-                size="sm"
-                onClick={() => changeTab(tab.id)}
-                className={cn(
-                  "rounded-lg px-3 py-1.5 text-sm font-medium",
-                  activeTab === tab.id && !showProfile
-                    ? "bg-foreground text-background hover:bg-foreground hover:text-background"
-                    : "text-muted-foreground",
-                )}
-              >
-                {tab.label}
-              </Button>
-            ))}
-          </nav>
+          <Tabs
+            value={showProfile ? "" : activeTab}
+            onValueChange={(value) => changeTab(value as BorrowerTab)}
+            className="hidden sm:block"
+          >
+            <TabsList variant="line">
+              {desktopTabs.map((tab) => (
+                <TabsTrigger key={tab.id} value={tab.id}>
+                  {tab.label}
+                </TabsTrigger>
+              ))}
+            </TabsList>
+          </Tabs>
         </div>
         <div className="flex items-center gap-2">
           <NotificationButton />
-          <Button
-            variant="ghost"
-            size="icon"
-            aria-label="Open profile"
-            onClick={() => changeTab("profile")}
-            className={`rounded-full text-muted-foreground hover:text-foreground ${
-              showProfile ? "bg-muted text-foreground" : ""
-            }`}
-          >
-            <User className="size-5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label="Open profile menu"
+                className={cn(
+                  "rounded-full text-muted-foreground hover:text-foreground",
+                  showProfile && "bg-muted text-foreground",
+                )}
+              >
+                <User className="size-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel className="font-semibold">
+                {accountEmail || "Account"}
+              </DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={() => {
+                  setActiveTab("profile");
+                  setProfileMode("index");
+                }}
+              >
+                <UserCircle className="size-4" />
+                Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <form action={signOutAction}>
+                <DropdownMenuItem
+                  variant="destructive"
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    (e.target as HTMLElement).closest("form")?.requestSubmit();
+                  }}
+                >
+                  <LogOut className="size-4" />
+                  Sign out
+                </DropdownMenuItem>
+              </form>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
-      {showProfile ? (
-        <section>
-          {profileMode === "edit" ? (
-            <div id="business-profile-edit" className="grid gap-6">
-              <ProfileSubviewHeader
-                title="Edit Profile"
-                description="Keep your business and loan-use details current."
-                onBack={() => setProfileMode(editReturnMode)}
+      <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
+        {showProfile ? (
+          <section>
+            {profileMode === "edit" ? (
+              <div id="business-profile-edit" className="grid gap-6">
+                <ProfileSubviewHeader
+                  title="Edit Profile"
+                  description="Keep your business and loan-use details current."
+                  onBack={() => setProfileMode(editReturnMode)}
+                />
+                <BorrowerPortfolioForm
+                  onCancel={() => setProfileMode(editReturnMode)}
+                  onSaved={handlePortfolioSaved}
+                />
+              </div>
+            ) : (
+              <BorrowerProfileHub
+                accountEmail={accountEmail}
+                activeView={profileMode}
+                creditSummary={creditSummary}
+                loadState={portfolioLoadState}
+                message={portfolioMessage}
+                onEditProfile={openProfileEdit}
+                onNavigateHome={() => changeTab("home")}
+                onProfileViewChange={setProfileMode}
+                portfolio={portfolio}
+                readiness={readiness}
+                result={initialLoanApplications}
               />
-              <BorrowerPortfolioForm
-                onCancel={() => setProfileMode(editReturnMode)}
-                onSaved={handlePortfolioSaved}
-              />
-            </div>
-          ) : (
-            <BorrowerProfileHub
-              accountEmail={accountEmail}
-              activeView={profileMode}
-              creditSummary={creditSummary}
-              loadState={portfolioLoadState}
-              message={portfolioMessage}
-              onEditProfile={openProfileEdit}
-              onNavigateHome={() => changeTab("home")}
-              onProfileViewChange={setProfileMode}
-              portfolio={portfolio}
-              readiness={readiness}
-              result={initialLoanApplications}
-            />
-          )}
-        </section>
-      ) : (
-        <BorrowerLoanApplicationPanel
-          view={workspaceTab}
-          onNavigate={changeTab}
-          initialLoadResult={initialLoanApplications}
-        />
-      )}
+            )}
+          </section>
+        ) : (
+          <BorrowerLoanApplicationPanel
+            view={workspaceTab}
+            onNavigate={changeTab}
+            initialLoadResult={initialLoanApplications}
+            highlightOfferId={highlightOfferId}
+            highlightApplicationId={highlightApplicationId}
+            highlightLoanId={highlightLoanId}
+            highlightRepaymentId={highlightRepaymentId}
+            highlightProofId={highlightProofId}
+          />
+        )}
+      </div>
 
       <div className="sm:hidden">
         <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />

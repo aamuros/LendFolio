@@ -2,7 +2,7 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormEventHandler, ReactNode } from "react";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   Controller,
   useForm,
@@ -81,13 +81,14 @@ import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ArrowRight, Lock } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
   EmptyState,
   InlineStatus,
+  OnboardingCallout,
   PageHeader,
   StatusPill,
   SummaryItem,
@@ -116,12 +117,22 @@ type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers" | "loans";
   onNavigate?: (tab: BorrowerTab) => void;
   initialLoadResult?: LoanApplicationsLoadResult | null;
+  highlightOfferId?: string | null;
+  highlightApplicationId?: string | null;
+  highlightLoanId?: string | null;
+  highlightRepaymentId?: string | null;
+  highlightProofId?: string | null;
 };
 
 export function BorrowerLoanApplicationPanel({
   view = "apply",
   onNavigate,
   initialLoadResult = null,
+  highlightOfferId = null,
+  highlightApplicationId = null,
+  highlightLoanId = null,
+  highlightRepaymentId = null,
+  highlightProofId = null,
 }: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>(
@@ -270,6 +281,119 @@ export function BorrowerLoanApplicationPanel({
 
     return () => window.clearTimeout(timeout);
   }, [successMessage]);
+
+  const highlightProcessedRef = useRef(false);
+
+  useEffect(() => {
+    if (highlightProcessedRef.current || applications.length === 0) {
+      return;
+    }
+
+    const hasHighlight =
+      highlightOfferId || highlightApplicationId || highlightRepaymentId || highlightLoanId;
+
+    if (!hasHighlight) {
+      return;
+    }
+
+    highlightProcessedRef.current = true;
+
+    let scrollTargetId: string | null = null;
+
+    if (highlightOfferId && view === "offers") {
+      scrollTargetId = `offer-${highlightOfferId}`;
+    } else if (highlightApplicationId) {
+      scrollTargetId = `application-${highlightApplicationId}`;
+    } else if (highlightRepaymentId && view === "loans") {
+      scrollTargetId = `repayment-${highlightRepaymentId}`;
+    } else if (highlightLoanId && view === "loans") {
+      scrollTargetId = `loan-${highlightLoanId}`;
+    }
+
+    if (scrollTargetId) {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(scrollTargetId!);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+        }
+      });
+    }
+  }, [
+    applications,
+    view,
+    highlightOfferId,
+    highlightApplicationId,
+    highlightLoanId,
+    highlightRepaymentId,
+    highlightProofId,
+  ]);
+
+  useEffect(() => {
+    if (applications.length === 0) {
+      return;
+    }
+
+    if (highlightOfferId && view === "offers") {
+      startTransition(() => {
+        setExpandedOfferIds((current) => {
+          if (current.has(highlightOfferId)) return current;
+          const next = new Set(current);
+          next.add(highlightOfferId);
+          return next;
+        });
+      });
+      setStoredIdCollapsed(collapsedOffersStorageKey, highlightOfferId, false);
+
+      const parentApp = applications.find((a) =>
+        a.offers.some((o) => o.id === highlightOfferId),
+      );
+      if (parentApp) {
+        startTransition(() => {
+          setExpandedApplicationIds((current) => {
+            if (current.has(parentApp.id)) return current;
+            const next = new Set(current);
+            next.add(parentApp.id);
+            return next;
+          });
+        });
+        setStoredIdCollapsed(collapsedApplicationsStorageKey, parentApp.id, false);
+      }
+    } else if (highlightApplicationId) {
+      startTransition(() => {
+        setExpandedApplicationIds((current) => {
+          if (current.has(highlightApplicationId)) return current;
+          const next = new Set(current);
+          next.add(highlightApplicationId);
+          return next;
+        });
+      });
+      setStoredIdCollapsed(
+        collapsedApplicationsStorageKey,
+        highlightApplicationId,
+        false,
+      );
+    } else if (highlightRepaymentId && view === "loans") {
+      startTransition(() => {
+        setExpandedRepaymentIds((current) => {
+          if (current.has(highlightRepaymentId)) return current;
+          const next = new Set(current);
+          next.add(highlightRepaymentId);
+          return next;
+        });
+      });
+      setStoredIdCollapsed(
+        collapsedRepaymentsStorageKey,
+        highlightRepaymentId,
+        false,
+      );
+    }
+  }, [
+    applications,
+    view,
+    highlightOfferId,
+    highlightApplicationId,
+    highlightRepaymentId,
+  ]);
 
   const applicationCountLabel = useMemo(() => {
     if (applications.length === 1) {
@@ -712,6 +836,7 @@ export function BorrowerLoanApplicationPanel({
               onNavigate={onNavigate}
               onToggleOffer={toggleOffer}
               pendingOffers={pendingOffers}
+              highlightOfferId={highlightOfferId}
             />
           </>
         ) : null}
@@ -730,6 +855,8 @@ export function BorrowerLoanApplicationPanel({
               onSubmitProof={onSubmitProof}
               onToggleRepayment={toggleRepayment}
               proofFeedback={proofFeedback}
+              highlightRepaymentId={highlightRepaymentId}
+              highlightLoanId={highlightLoanId}
             />
           </>
         ) : null}
@@ -801,6 +928,62 @@ function VerificationGateCard({
   );
 }
 
+function DashboardActionItem({
+  title,
+  description,
+  badgeLabel,
+  icon,
+  locked,
+  disabled,
+  onClick,
+  ariaLabel,
+}: {
+  title: string;
+  description: string;
+  badgeLabel?: string;
+  icon?: ReactNode;
+  locked?: boolean;
+  disabled?: boolean;
+  onClick?: () => void;
+  ariaLabel?: string;
+}) {
+  const isDisabled = disabled || locked;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isDisabled}
+      aria-label={ariaLabel ?? title}
+      className={cn(
+        "flex min-w-0 items-start gap-3 rounded-xl border border-border/50 bg-card px-4 py-3.5 text-left transition hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ring",
+        isDisabled && "cursor-not-allowed opacity-70",
+      )}
+    >
+      {icon ? (
+        <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
+      ) : null}
+      <span className="grid min-w-0 flex-1 gap-1">
+        <span className="flex items-center gap-2">
+          <span className="text-sm font-semibold">{title}</span>
+          {badgeLabel ? (
+            <Badge variant="secondary" className="text-[10px] font-semibold">
+              {badgeLabel}
+            </Badge>
+          ) : null}
+          {locked ? (
+            <Lock className="size-3 text-muted-foreground" />
+          ) : null}
+        </span>
+        <span className="text-xs text-muted-foreground">{description}</span>
+      </span>
+      {!isDisabled ? (
+        <ArrowRight className="size-4 shrink-0 self-center text-muted-foreground" />
+      ) : null}
+    </button>
+  );
+}
+
 function HomeSummary({
   applications,
   borrowerVerification,
@@ -845,19 +1028,17 @@ function HomeSummary({
   const hasPendingOffers = applications.some((a) =>
     a.offers.some((o) => o.status === "pending"),
   );
-
-  const profileWarning = getProfileWarning({
-    borrowerVerification,
-    hasPortfolio,
-    loadState,
-    readiness,
-  });
+  const pendingOfferCount = applications.reduce(
+    (count, a) => count + a.offers.filter((o) => o.status === "pending").length,
+    0,
+  );
 
   const isProfileComplete = profileCompletion.percentage >= 100;
   const needsVerification = isProfileComplete && borrowerVerification && borrowerVerification.status !== "approved";
+  const showOnboardingCallout = !hasPortfolio || needsVerification;
 
   return (
-    <div className={cn("grid gap-4 sm:gap-5", borrowerPageBottomPadding)}>
+    <div className={cn("grid gap-5", borrowerPageBottomPadding)}>
       <div className="grid gap-1">
         <h1 className="text-xl leading-tight font-semibold sm:text-2xl">
           Home
@@ -871,284 +1052,266 @@ function HomeSummary({
         <HomeDashboardSkeleton />
       ) : (
         <>
+          {showOnboardingCallout ? (
+            <OnboardingCallout
+              title={!hasPortfolio ? "Complete your business profile" : "Verify your borrower profile"}
+              description={
+                !hasPortfolio
+                  ? "Save your business and cashflow details so LendFolio can calculate your request limit."
+                  : "Your profile is saved. Complete verification before applying for financing."
+              }
+              cta={!hasPortfolio ? "Complete profile" : "Continue verification"}
+              badge={!hasPortfolio ? "Required" : undefined}
+              progressPercent={profileCompletion.percentage}
+              progressLabel="Profile progress"
+              onAction={() => onNavigate?.("profile")}
+            />
+          ) : null}
+
           <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardContent className="grid gap-3 p-4 sm:p-5">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Next actions
               </p>
-              <div className="grid gap-2 sm:grid-cols-3">
-                <Button
-                  variant="outline"
-                  onClick={() => onNavigate?.("apply")}
-                  disabled={!hasPortfolio || !canSubmitApplication}
-                  aria-label="Apply for financing"
-                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
-                >
-                  <span className="grid gap-0.5">
-                    <span className="text-sm font-semibold">Apply for financing</span>
-                    <span className="text-xs text-muted-foreground">
-                      {!hasPortfolio
-                        ? "Save profile first"
+              <div className="grid gap-2">
+                {hasPortfolio && !isProfileComplete ? (
+                  <DashboardActionItem
+                    title="Complete your profile"
+                    description={profileCompletion.nextStep}
+                    badgeLabel={`${profileCompletion.percentage}%`}
+                    onClick={() => onNavigate?.("profile")}
+                    aria-label="Complete your profile"
+                  />
+                ) : null}
+                <div className="grid gap-2 md:grid-cols-3">
+                  <DashboardActionItem
+                    title="Apply for financing"
+                    description={
+                      !hasPortfolio
+                        ? "Complete profile first"
                         : !canSubmitApplication
                           ? "Verification needed"
-                          : "Submit a new request"}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => onNavigate?.("offers")}
-                  disabled={!hasPendingOffers}
-                  aria-label="Review offers"
-                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
-                >
-                  <span className="grid gap-0.5">
-                    <span className="text-sm font-semibold">Review offers</span>
-                    <span className="text-xs text-muted-foreground">
-                      {hasPendingOffers
-                        ? "You have pending offers"
-                        : "No pending offers"}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => onNavigate?.("loans")}
-                  aria-label={activeLoans.length > 0 ? "Upload payment proof" : "View loans"}
-                  className="h-auto justify-between gap-2 rounded-xl px-4 py-3 text-left font-normal"
-                >
-                  <span className="grid gap-0.5">
-                    <span className="text-sm font-semibold">
-                      {activeLoans.length > 0 ? "Upload payment proof" : "View loans"}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {activeLoans.length > 0
+                          : "Submit a new request"
+                    }
+                    locked={!hasPortfolio || !canSubmitApplication}
+                    onClick={() => onNavigate?.("apply")}
+                    aria-label="Apply for financing"
+                  />
+                  <DashboardActionItem
+                    title="Review offers"
+                    description={hasPendingOffers ? "You have pending offers" : "No pending offers"}
+                    badgeLabel={pendingOfferCount > 0 ? `${pendingOfferCount}` : undefined}
+                    onClick={() => onNavigate?.("offers")}
+                    aria-label="Review offers"
+                  />
+                  <DashboardActionItem
+                    title={activeLoans.length > 0 ? "Loans" : "View loans"}
+                    description={
+                      activeLoans.length > 0
                         ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
-                        : "No active loans"}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Button>
+                        : "No active loans"
+                    }
+                    badgeLabel={activeLoans.length > 0 ? `${activeLoans.length}` : undefined}
+                    onClick={() => onNavigate?.("loans")}
+                    aria-label={activeLoans.length > 0 ? "View active loans" : "View loans"}
+                  />
+                </div>
               </div>
             </CardContent>
           </Card>
 
-          {profileWarning ? (
-            <Alert className="rounded-2xl border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-              <AlertDescription className="flex flex-wrap items-center justify-between gap-3 text-sm">
-                <span>{profileWarning.message}</span>
-                {profileWarning.showAction ? (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onNavigate?.("profile")}
-                    className="rounded-full border-amber-300 font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:text-amber-200 dark:hover:bg-amber-900/30"
-                  >
-                    Review profile
-                  </Button>
-                ) : null}
-              </AlertDescription>
-            </Alert>
-          ) : null}
+          <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.8fr)] lg:items-start">
+            <div className="grid gap-5">
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+                  <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Financing overview
+                  </CardDescription>
+                  <CardTitle className="text-lg leading-tight sm:text-xl">
+                    Available to request
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
+                  {creditSummary ? (
+                    <>
+                      <MoneyText
+                        value={creditSummary.availableCredit}
+                        className="text-2xl font-semibold sm:text-3xl"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {formatMoney(creditSummary.availableCredit)} of{" "}
+                        {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                      </p>
+                      <Progress
+                        value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
+                        className="mt-1 h-2"
+                        aria-label="Available credit"
+                      />
+                    </>
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      Complete your business profile to calculate your request limit.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
 
-          <Card className="rounded-3xl border-border/50 shadow-sm">
-            <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
-              <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Financing overview
-              </CardDescription>
-              <CardTitle className="text-lg leading-tight sm:text-xl">
-                Available to request
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
-              {creditSummary ? (
-                <>
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                  <CardTitle className="text-sm font-semibold">Active loans</CardTitle>
+                  {activeLoans.length > 0 ? (
+                    <Button
+                      variant="link"
+                      onClick={() => onNavigate?.("loans")}
+                      className="h-auto p-0 text-xs font-semibold"
+                    >
+                      View in Loans
+                    </Button>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+                  {activeLoans.length > 0 ? (
+                    <div className="grid gap-3">
+                      {activeLoans.map((loan) => (
+                        <DashboardLoanCard
+                          key={loan.id}
+                          loan={loan}
+                          onNavigate={onNavigate}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid gap-3">
+                      <p className="text-xs leading-5 text-muted-foreground">
+                        Accepted offers will appear here as active loans.
+                      </p>
+                      <Button
+                        onClick={() => onNavigate?.("offers")}
+                        className="h-10 w-full rounded-full font-semibold sm:w-fit"
+                      >
+                        Review offers
+                      </Button>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+
+            <div className="grid gap-5">
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardContent className="grid gap-3 p-4 sm:p-5">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                      Due this month
+                    </p>
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[11px] font-semibold",
+                        dueCapacityStatus.badgeClassName,
+                      )}
+                    >
+                      {dueCapacityStatus.label}
+                    </Badge>
+                  </div>
                   <MoneyText
-                    value={creditSummary.availableCredit}
+                    value={dueThisMonth.totalDue}
                     className="text-2xl font-semibold sm:text-3xl"
                   />
                   <p className="text-xs text-muted-foreground">
-                    {formatMoney(creditSummary.availableCredit)} of{" "}
-                    {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                    {creditSummary && creditSummary.monthlyNetCashFlow > 0
+                      ? `${formatMoney(dueThisMonth.totalDue)} of ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
+                      : "No cashflow data available"}
                   </p>
-                  <Progress
-                    value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
-                    className="mt-1 h-2"
-                    aria-label="Available credit"
+                  <DashboardProgressBar
+                    value={dueCapacityRatio ?? 0}
+                    barClassName={dueCapacityStatus.barClassName}
                   />
-                </>
-              ) : (
-                <p className="text-sm text-muted-foreground">
-                  Complete your business profile to calculate your request limit.
-                </p>
-              )}
-            </CardContent>
-          </Card>
+                </CardContent>
+              </Card>
 
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="grid gap-3 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Due this month
-                </p>
-                <Badge
-                  variant="secondary"
-                  className={cn(
-                    "text-[11px] font-semibold",
-                    dueCapacityStatus.badgeClassName,
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                  <CardTitle className="text-sm font-semibold">
+                    Profile readiness
+                  </CardTitle>
+                  {isProfileComplete ? (
+                    <Badge
+                      variant="secondary"
+                      className={cn(
+                        "text-[11px] font-semibold",
+                        needsVerification
+                          ? toneBadgeClassName("attention")
+                          : toneBadgeClassName("success"),
+                      )}
+                    >
+                      {needsVerification
+                        ? "Verification needed"
+                        : "Ready"}
+                    </Badge>
+                  ) : (
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {profileCompletion.percentage}%
+                    </span>
                   )}
-                >
-                  {dueCapacityStatus.label}
-                </Badge>
-              </div>
-              <MoneyText
-                value={dueThisMonth.totalDue}
-                className="text-2xl font-semibold sm:text-3xl"
-              />
-              <p className="text-xs text-muted-foreground">
-                {creditSummary && creditSummary.monthlyNetCashFlow > 0
-                  ? `${formatMoney(dueThisMonth.totalDue)} of ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
-                  : "No cashflow data available"}
-              </p>
-              <DashboardProgressBar
-                value={dueCapacityRatio ?? 0}
-                barClassName={dueCapacityStatus.barClassName}
-              />
-            </CardContent>
-          </Card>
+                </CardHeader>
+                <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+                  <ReadinessRing percentage={profileCompletion.percentage} />
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {profileCompletion.nextStep}
+                  </p>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onNavigate?.("profile")}
+                    className="w-full justify-start rounded-full font-semibold sm:w-fit"
+                  >
+                    Open profile
+                  </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
+                  <CardTitle className="text-sm font-semibold">
+                    Payment progress
+                  </CardTitle>
+                  {debtProgress.totalDebt > 0 ? (
+                    <span className="text-xs font-semibold text-muted-foreground">
+                      {Math.round(debtProgress.percentComplete * 100)}%
+                    </span>
+                  ) : null}
+                </CardHeader>
+                <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+                  {debtProgress.totalDebt > 0 ? (
+                    <>
+                      <div className="flex items-baseline justify-between gap-2">
+                        <MoneyText
+                          value={debtProgress.totalPaid}
+                          className="text-lg font-semibold"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          of {formatMoney(debtProgress.totalDebt)}
+                        </p>
+                      </div>
+                      <DashboardProgressBar
+                        value={debtProgress.percentComplete}
+                      />
+                    </>
+                  ) : (
+                    <p className="text-xs leading-5 text-muted-foreground">
+                      Active loan progress will appear here.
+                    </p>
+                  )}
+                </CardContent>
+              </Card>
+            </div>
+          </div>
 
           <RepaymentCalendarCard
             activeLoans={activeLoans}
             onNavigate={onNavigate}
           />
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Card className="rounded-2xl border-border/50 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">
-                  Profile readiness
-                </CardTitle>
-                {isProfileComplete ? (
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "text-[11px] font-semibold",
-                      needsVerification
-                        ? toneBadgeClassName("attention")
-                        : toneBadgeClassName("success"),
-                    )}
-                  >
-                    {needsVerification
-                      ? "Verification needed"
-                      : "Ready"}
-                  </Badge>
-                ) : (
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {profileCompletion.percentage}%
-                  </span>
-                )}
-              </CardHeader>
-              <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                <Progress
-                  value={profileCompletion.percentage}
-                  className="h-2"
-                  aria-label="Profile readiness"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={profileCompletion.percentage}
-                />
-                <p className="text-xs leading-5 text-muted-foreground">
-                  {profileCompletion.nextStep}
-                </p>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onNavigate?.("profile")}
-                  className="w-full rounded-full font-semibold sm:w-fit"
-                >
-                  Open profile
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="rounded-2xl border-border/50 shadow-sm">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">
-                  Payment progress
-                </CardTitle>
-                {debtProgress.totalDebt > 0 ? (
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {Math.round(debtProgress.percentComplete * 100)}%
-                  </span>
-                ) : null}
-              </CardHeader>
-              <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                {debtProgress.totalDebt > 0 ? (
-                  <>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <MoneyText
-                        value={debtProgress.totalPaid}
-                        className="text-lg font-semibold"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        of {formatMoney(debtProgress.totalDebt)}
-                      </p>
-                    </div>
-                    <DashboardProgressBar
-                      value={debtProgress.percentComplete}
-                    />
-                  </>
-                ) : (
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Active loan progress will appear here.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-              <CardTitle className="text-sm font-semibold">Active loans</CardTitle>
-              {activeLoans.length > 0 ? (
-                <Button
-                  variant="link"
-                  onClick={() => onNavigate?.("loans")}
-                  className="h-auto p-0 text-xs font-semibold"
-                >
-                  View in Loans
-                </Button>
-              ) : null}
-            </CardHeader>
-            <CardContent className="grid gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-              {activeLoans.length > 0 ? (
-                <div className="grid gap-3">
-                  {activeLoans.map((loan) => (
-                    <DashboardLoanCard
-                      key={loan.id}
-                      loan={loan}
-                      onNavigate={onNavigate}
-                    />
-                  ))}
-                </div>
-              ) : (
-                <div className="grid gap-3">
-                  <p className="text-xs leading-5 text-muted-foreground">
-                    Accepted offers will appear here as active loans.
-                  </p>
-                  <Button
-                    onClick={() => onNavigate?.("offers")}
-                    className="h-10 w-full rounded-full font-semibold sm:w-fit"
-                  >
-                    Review offers
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
         </>
       )}
     </div>
@@ -1157,36 +1320,68 @@ function HomeSummary({
 
 function HomeDashboardSkeleton() {
   return (
-    <div className="grid gap-4">
+    <div className="grid gap-5">
       <Card className="rounded-2xl border-border/50 shadow-sm">
         <CardContent className="grid gap-3 p-4 sm:p-5">
           <Skeleton className="h-3 w-24" />
-          <div className="grid gap-2 sm:grid-cols-3">
+          <div className="grid gap-2 md:grid-cols-3">
             <Skeleton className="h-16 rounded-xl" />
             <Skeleton className="h-16 rounded-xl" />
             <Skeleton className="h-16 rounded-xl" />
           </div>
         </CardContent>
       </Card>
-      <Card className="rounded-3xl border-border/50 shadow-sm">
-        <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
-          <Skeleton className="h-3 w-28" />
-          <Skeleton className="h-5 w-40" />
-        </CardHeader>
-        <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-3 w-44" />
-          <Skeleton className="h-2 w-full rounded-full" />
-        </CardContent>
-      </Card>
-      <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-3 p-4 sm:p-5">
-          <Skeleton className="h-3 w-24" />
-          <Skeleton className="h-7 w-32" />
-          <Skeleton className="h-3 w-44" />
-          <Skeleton className="h-2 w-full rounded-full" />
-        </CardContent>
-      </Card>
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.4fr)_minmax(20rem,0.8fr)] lg:items-start">
+        <div className="grid gap-5">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardHeader className="px-5 pb-2 pt-4 sm:px-6 sm:pt-5">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-5 w-40" />
+            </CardHeader>
+            <CardContent className="grid gap-2 px-5 pb-4 sm:px-6 sm:pb-5">
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-3 w-44" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-16 rounded-xl" />
+            </CardContent>
+          </Card>
+        </div>
+        <div className="grid gap-5">
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-32" />
+              <Skeleton className="h-3 w-44" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <Skeleton className="h-3 w-28" />
+              <div className="flex items-center gap-4">
+                <Skeleton className="size-24 shrink-0 rounded-full" />
+                <div className="grid gap-1.5">
+                  <Skeleton className="h-3 w-40" />
+                  <Skeleton className="h-8 w-28 rounded-full" />
+                </div>
+              </div>
+              <Skeleton className="h-3 w-40" />
+            </CardContent>
+          </Card>
+          <Card className="rounded-2xl border-border/50 shadow-sm">
+            <CardContent className="grid gap-3 p-4 sm:p-5">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-5 w-20" />
+              <Skeleton className="h-2 w-full rounded-full" />
+            </CardContent>
+          </Card>
+        </div>
+      </div>
       <Card className="rounded-2xl border-border/50 shadow-sm">
         <CardContent className="grid gap-3 p-4 sm:p-5">
           <Skeleton className="h-3 w-32" />
@@ -1444,6 +1639,75 @@ function DashboardProgressBar({
   );
 }
 
+function ReadinessRing({ percentage }: { percentage: number }) {
+  const size = 120;
+  const strokeWidth = 10;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clamped = clamp(percentage, 0, 100);
+  const offset = circumference - (clamped / 100) * circumference;
+  const gradientId = "readiness-ring-gradient";
+  const glowId = "readiness-ring-glow";
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+        role="img"
+        aria-label={`${clamped}% complete`}
+      >
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="hsl(var(--primary))" />
+            <stop offset="100%" stopColor="hsl(var(--primary) / 0.6)" />
+          </linearGradient>
+          <filter id={glowId} x="-20%" y="-20%" width="140%" height="140%">
+            <feGaussianBlur stdDeviation="3" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          strokeWidth={strokeWidth}
+          className="stroke-muted/60"
+        />
+        {clamped > 0 ? (
+          <circle
+            cx={size / 2}
+            cy={size / 2}
+            r={radius}
+            fill="none"
+            strokeWidth={strokeWidth}
+            strokeLinecap="round"
+            strokeDasharray={circumference}
+            strokeDashoffset={offset}
+            stroke={`url(#${gradientId})`}
+            filter={`url(#${glowId})`}
+            className="transition-[stroke-dashoffset] duration-700 ease-out"
+          />
+        ) : null}
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5">
+        <span className="text-2xl font-bold tabular-nums tracking-tight text-foreground">
+          {clamped}%
+        </span>
+        <span className="text-[11px] font-medium text-muted-foreground">
+          complete
+        </span>
+      </div>
+    </div>
+  );
+}
+
 function DashboardLoanCard({
   loan,
   onNavigate,
@@ -1608,39 +1872,6 @@ function getProfileCompletion({
     nextStep,
     percentage: Math.min(percentage, 100),
   };
-}
-
-function getProfileWarning({
-  borrowerVerification,
-  hasPortfolio,
-  loadState,
-  readiness,
-}: {
-  borrowerVerification: BorrowerVerificationSummary | null;
-  hasPortfolio: boolean;
-  loadState: LoadState;
-  readiness: BorrowerReadinessResult | null;
-}): { message: string; showAction: boolean } | null {
-  if (loadState !== "ready" && loadState !== "blocked") {
-    return null;
-  }
-
-  if (!hasPortfolio) {
-    return {
-      message: "Save your business profile to unlock financing.",
-      showAction: true,
-    };
-  }
-
-  if (borrowerVerification && borrowerVerification.status !== "approved") {
-    return {
-      message:
-        readiness?.nextActions[0] ?? "Complete borrower verification before applying.",
-      showAction: true,
-    };
-  }
-
-  return null;
 }
 
 
@@ -2029,6 +2260,7 @@ function OfferList({
   onNavigate,
   onToggleOffer,
   pendingOffers,
+  highlightOfferId,
 }: {
   closedOffers: OfferListItem[];
   expandedOfferIds: Set<string>;
@@ -2038,6 +2270,7 @@ function OfferList({
   onNavigate?: (tab: BorrowerTab) => void;
   onToggleOffer: (offerId: string) => void;
   pendingOffers: OfferListItem[];
+  highlightOfferId?: string | null;
 }) {
   if (pendingOffers.length === 0 && closedOffers.length === 0) {
     return (
@@ -2065,6 +2298,7 @@ function OfferList({
                 onDeclineOffer={onDeclineOffer}
                 onNavigate={onNavigate}
                 onToggleOffer={onToggleOffer}
+                isHighlighted={item.offer.id === highlightOfferId}
               />
             ))}
           </div>
@@ -2087,6 +2321,7 @@ function OfferList({
                 onDeclineOffer={onDeclineOffer}
                 onNavigate={onNavigate}
                 onToggleOffer={onToggleOffer}
+                isHighlighted={item.offer.id === highlightOfferId}
               />
             ))}
           </div>
@@ -2190,6 +2425,7 @@ function OfferCard({
   onDeclineOffer,
   onNavigate,
   onToggleOffer,
+  isHighlighted,
 }: {
   isExpanded: boolean;
   isPending: boolean;
@@ -2198,13 +2434,20 @@ function OfferCard({
   onDeclineOffer: (applicationId: string, offerId: string) => void;
   onNavigate?: (tab: BorrowerTab) => void;
   onToggleOffer: (offerId: string) => void;
+  isHighlighted?: boolean;
 }) {
   const { application, offer } = item;
   const offerDetailsId = `offer-${offer.id}-details`;
   const isClosed = offer.status !== "pending";
 
   return (
-    <Card className="overflow-hidden rounded-2xl">
+    <Card
+      id={`offer-${offer.id}`}
+      className={cn(
+        "overflow-hidden rounded-2xl",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
       <BorrowerListCardHeader
         detailsId={offerDetailsId}
         isExpanded={isExpanded}
@@ -2327,6 +2570,8 @@ function BorrowerLoansPanel({
   onSubmitProof,
   onToggleRepayment,
   proofFeedback,
+  highlightRepaymentId,
+  highlightLoanId,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   expandedRepaymentIds: Set<string>;
@@ -2335,6 +2580,8 @@ function BorrowerLoansPanel({
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
   proofFeedback: Record<string, ProofFeedback>;
+  highlightRepaymentId?: string | null;
+  highlightLoanId?: string | null;
 }) {
   const activeLoans = applications.flatMap((application) =>
     application.activeLoan ? [application.activeLoan] : [],
@@ -2361,6 +2608,8 @@ function BorrowerLoansPanel({
           onSubmitProof={onSubmitProof}
           onToggleRepayment={onToggleRepayment}
           proofFeedback={proofFeedback}
+          isHighlighted={loan.id === highlightLoanId}
+          highlightRepaymentId={highlightRepaymentId}
         />
       ))}
     </div>
@@ -2374,6 +2623,8 @@ function ActiveLoanCard({
   onSubmitProof,
   onToggleRepayment,
   proofFeedback,
+  isHighlighted,
+  highlightRepaymentId,
 }: {
   expandedRepaymentIds: Set<string>;
   isPending: boolean;
@@ -2381,6 +2632,8 @@ function ActiveLoanCard({
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
   proofFeedback: Record<string, ProofFeedback>;
+  isHighlighted?: boolean;
+  highlightRepaymentId?: string | null;
 }) {
   const paidAmount = Math.max(loan.repaymentAmount - loan.outstandingBalance, 0);
   const progressPercent =
@@ -2393,8 +2646,8 @@ function ActiveLoanCard({
   const remainingAmount = isCompletedLoan ? 0 : loan.outstandingBalance;
 
   return (
-    <article className="grid gap-4">
-      <Card className="rounded-2xl">
+    <article id={`loan-${loan.id}`} className="grid gap-4">
+      <Card className={cn("rounded-2xl", isHighlighted && "ring-2 ring-primary/30")}>
         <CardContent className="grid gap-4 p-4 sm:p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
@@ -2484,6 +2737,7 @@ function ActiveLoanCard({
                     onSubmitProof={onSubmitProof}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     proofFeedback={proofFeedback[repayment.id] ?? null}
+                    isHighlighted={repayment.id === highlightRepaymentId}
                   />
                 ))}
               </div>
@@ -2506,6 +2760,7 @@ function RepaymentScheduleRow({
   repayment,
   onSubmitProof,
   proofFeedback,
+  isHighlighted,
 }: {
   isExpanded: boolean;
   isPending: boolean;
@@ -2513,6 +2768,7 @@ function RepaymentScheduleRow({
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
   onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
   proofFeedback: ProofFeedback | null;
+  isHighlighted?: boolean;
 }) {
   const latestProof = repayment.latestProof;
   const canUploadProof =
@@ -2530,7 +2786,10 @@ function RepaymentScheduleRow({
   const statusText = getRepaymentStatusText(repayment.status, latestProof?.status);
 
   return (
-    <div className="grid gap-3 bg-card px-4 py-4">
+    <div
+      id={`repayment-${repayment.id}`}
+      className={cn("grid gap-3 bg-card px-4 py-4", isHighlighted && "ring-2 ring-primary/30")}
+    >
       <button
         type="button"
         aria-expanded={isExpanded}

@@ -606,6 +606,15 @@ describe("role helper logic", () => {
         },
       }),
     ).toBe(false);
+    expect(
+      isApprovedLender({
+        role: "lender",
+        status: "active",
+        lenderProfile: {
+          verification_status: "incomplete",
+        },
+      }),
+    ).toBe(false);
   });
 });
 

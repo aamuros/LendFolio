@@ -331,6 +331,7 @@ export const managerStatusLabels = {
   pending_documents: "Pending documents",
   under_review: "Under review",
   needs_resubmission: "Needs resubmission",
+  incomplete: "Incomplete",
 } as const;
 
 export const managerPreferredTermLabels = {
@@ -1290,7 +1291,7 @@ export async function loadManagerLenders(
 
   if (
     filters.verificationStatus &&
-    ["pending", "approved", "rejected"].includes(filters.verificationStatus)
+    ["incomplete", "pending", "approved", "rejected"].includes(filters.verificationStatus)
   ) {
     query = query.eq(
       "verification_status",

@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useCallback, useRef, useState } from "react";
-import { useFormStatus } from "react-dom";
+import { useActionState, useState } from "react";
 import Link from "next/link";
 import { signupAction, type SignupState } from "@/app/signup/actions";
 import type { SignupRole } from "@/lib/signup";
@@ -22,27 +21,10 @@ const initialState: SignupState = {
 };
 
 export function SignupForm() {
-  const [state, serverAction] = useActionState(signupAction, initialState);
+  const [state, formAction, isPending] = useActionState(signupAction, initialState);
   const [role, setRole] = useState<SignupRole>("borrower");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
   const isSuccess = state.status === "success";
-
-  const handleSubmit = useCallback(
-    (formData: FormData) => {
-      const password = formData.get("password") as string;
-      const confirmPassword = formData.get("confirmPassword") as string;
-
-      if (password !== confirmPassword) {
-        setPasswordMismatch(true);
-        return;
-      }
-
-      setPasswordMismatch(false);
-      serverAction(formData);
-    },
-    [serverAction],
-  );
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
@@ -55,14 +37,29 @@ export function SignupForm() {
         <CardDescription>Get started with LendFolio</CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <form ref={formRef} action={handleSubmit}>
+        <form
+          action={formAction}
+          onSubmit={(e) => {
+            const form = e.currentTarget;
+            const formData = new FormData(form);
+            const password = formData.get("password") as string;
+            const confirmPassword = formData.get("confirmPassword") as string;
+
+            if (password !== confirmPassword) {
+              e.preventDefault();
+              setPasswordMismatch(true);
+              return;
+            }
+
+            setPasswordMismatch(false);
+          }}
+        >
           <FieldGroup className="gap-5">
             <fieldset className="grid gap-2">
+              <input type="hidden" name="role" value={role} />
               <RadioGroup
-                defaultValue="borrower"
                 value={role}
                 onValueChange={(val) => setRole(val as SignupRole)}
-                name="role"
                 className="grid grid-cols-2 gap-2"
               >
                 <RoleCard
@@ -182,7 +179,7 @@ export function SignupForm() {
             ) : null}
 
             <Field>
-              <SubmitButton />
+              <SubmitButton isPending={isPending} />
             </Field>
           </FieldGroup>
         </form>
@@ -270,12 +267,10 @@ function FieldErrorHelper({ messages }: { messages?: string[] }) {
   return <FieldError>{messages[0]}</FieldError>;
 }
 
-function SubmitButton() {
-  const { pending } = useFormStatus();
-
+function SubmitButton({ isPending }: { isPending: boolean }) {
   return (
-    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
-      {pending ? "Creating account..." : "Create account"}
+    <Button type="submit" disabled={isPending} className="h-12 w-full rounded-xl">
+      {isPending ? "Creating account..." : "Create account"}
     </Button>
   );
 }

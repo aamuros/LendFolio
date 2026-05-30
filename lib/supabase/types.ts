@@ -40,7 +40,7 @@ export type BorrowerVerificationDocumentType =
   | "address_proof"
   | "business_registration"
   | "other";
-export type LenderVerificationStatus = "pending" | "approved" | "rejected";
+export type LenderVerificationStatus = "incomplete" | "pending" | "approved" | "rejected";
 export type OfferStatus = "pending" | "accepted" | "declined" | "expired";
 export type PreferredTerm = "1_month" | "3_months" | "6_months" | "12_months";
 export type ProfileStatus = "active" | "pending" | "suspended";
@@ -926,6 +926,21 @@ export type Database = {
           p_file_name: string;
           p_file_type: string;
           p_file_size: number;
+        };
+        Returns: Json;
+      };
+      submit_lender_onboarding: {
+        Args: {
+          p_organization_name: string;
+          p_contact_person: string;
+          p_phone_number: string;
+          p_business_address: string;
+          p_operating_area: string;
+          p_business_registration_number?: string | null;
+          p_min_loan_amount: number;
+          p_max_loan_amount: number;
+          p_typical_repayment_terms: string;
+          p_lender_description: string;
         };
         Returns: Json;
       };

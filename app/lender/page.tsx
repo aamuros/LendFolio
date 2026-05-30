@@ -63,13 +63,22 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       "lender_review",
       await loadUserConsents(access.supabase, access.profile.id),
     );
+
+    if (
+      access.profile.role === "lender" &&
+      (access.profile.lenderProfile?.verification_status === "incomplete" ||
+        !access.profile.lenderProfile)
+    ) {
+      redirect("/lender/onboarding");
+    }
+
     const message =
       access.profile.role === "lender" &&
       access.profile.lenderProfile?.verification_status === "pending"
         ? "Your lender access is pending review. You will be able to continue when your account is approved."
         : access.profile.role === "lender" &&
             access.profile.lenderProfile?.verification_status === "rejected"
-          ? "Your lender access was not approved."
+          ? "Your lender access was not approved. Update your lender profile to resubmit."
           : "Your account does not have access to this workspace.";
 
     return (
@@ -77,6 +86,12 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <div className="mx-auto grid max-w-4xl gap-5">
           <LenderHeader activeTab={activeTab} showAccountLink={false} showNotifications={false} />
           <LenderApplicationsStatus message={message} tone="error" />
+          {access.profile.role === "lender" &&
+          access.profile.lenderProfile?.verification_status === "rejected" ? (
+            <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
+              <Link href="/lender/onboarding">Update lender profile</Link>
+            </Button>
+          ) : null}
           {access.profile.role === "lender" ? (
             <ConsentAcceptancePanel
               scope="lender_review"
@@ -320,13 +335,15 @@ function AccountTab({
     } | null;
   };
 }) {
-  const verificationStatus = access.lenderProfile?.verification_status ?? "pending";
+  const verificationStatus = access.lenderProfile?.verification_status ?? "incomplete";
   const verificationTone =
     verificationStatus === "approved"
       ? "success"
       : verificationStatus === "rejected"
         ? "danger"
-        : "attention";
+        : verificationStatus === "incomplete"
+          ? "neutral"
+          : "attention";
 
   return (
     <section className="grid gap-4">

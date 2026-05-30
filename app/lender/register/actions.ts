@@ -44,7 +44,7 @@ export async function lenderRegisterAction(
   }
 
   const input = parsed.data;
-  const destination = "/?auth=lender-pending";
+  const destination = "/lender/onboarding";
   let redirectTo: string | null = null;
 
   try {

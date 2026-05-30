@@ -135,11 +135,13 @@ export async function requireApprovedLender(
   if (!isApprovedLender(result.profile)) {
     const verificationStatus = result.profile.lenderProfile?.verification_status;
     const message =
-      result.profile.role === "lender" && verificationStatus === "pending"
-        ? "Your lender access is pending review. You will be able to continue when your account is approved."
-        : result.profile.role === "lender" && verificationStatus === "rejected"
-          ? "Your lender access was not approved."
-          : "Your account does not have access to this workspace.";
+      result.profile.role === "lender" && verificationStatus === "incomplete"
+        ? "Complete your lender profile to continue."
+        : result.profile.role === "lender" && verificationStatus === "pending"
+          ? "Your lender access is pending review. You will be able to continue when your account is approved."
+          : result.profile.role === "lender" && verificationStatus === "rejected"
+            ? "Your lender access was not approved. Update your lender profile to resubmit."
+            : "Your account does not have access to this workspace.";
 
     return {
       ok: false,

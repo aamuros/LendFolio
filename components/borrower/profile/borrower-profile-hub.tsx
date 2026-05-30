@@ -70,8 +70,9 @@ export function BorrowerProfileHub({
     verification && verification.status !== "missing"
       ? borrowerVerificationStatusLabels[verification.status]
       : "Not started";
+  const isLoadingProfile = loadState === "loading";
   const displayName =
-    portfolio?.businessName.trim() || "Borrower profile";
+    portfolio?.businessName.trim() || (isLoadingProfile ? "" : "Borrower profile");
 
   if (activeView === "business") {
     return (
@@ -210,6 +211,7 @@ export function BorrowerProfileHub({
       <ProfileIndexHeader
         email={accountEmail}
         displayName={displayName}
+        isLoading={isLoadingProfile}
         onBack={onNavigateHome}
         onEditProfile={() => onEditProfile("index")}
       />

@@ -4,19 +4,47 @@ import { requireBorrower } from "@/lib/access-control";
 import { redirect } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 
 export const dynamic = "force-dynamic";
+
+const validBorrowerTabs = new Set<BorrowerTab>([
+  "home",
+  "apply",
+  "offers",
+  "loans",
+  "profile",
+]);
 
 export default async function BorrowerPage({
   searchParams,
 }: {
-  searchParams: Promise<{ message?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    tab?: string;
+    offerId?: string;
+    applicationId?: string;
+    loanId?: string;
+    repaymentId?: string;
+    proofId?: string;
+  }>;
 }) {
-  const { message } = await searchParams;
+  const {
+    message,
+    tab,
+    offerId,
+    applicationId,
+    loanId,
+    repaymentId,
+    proofId,
+  } = await searchParams;
 
   if (message === "signed-in") {
     redirect("/borrower");
   }
+
+  const initialTab: BorrowerTab =
+    tab && validBorrowerTabs.has(tab as BorrowerTab) ? (tab as BorrowerTab) : "home";
 
   const access = await requireBorrower();
   const {
@@ -33,6 +61,12 @@ export default async function BorrowerPage({
           <BorrowerWorkspace
             accountEmail={user?.email ?? ""}
             initialLoanApplications={initialLoanApplications}
+            initialTab={initialTab}
+            highlightOfferId={offerId ?? null}
+            highlightApplicationId={applicationId ?? null}
+            highlightLoanId={loanId ?? null}
+            highlightRepaymentId={repaymentId ?? null}
+            highlightProofId={proofId ?? null}
           />
         ) : (
           <Alert variant="destructive" role="alert">

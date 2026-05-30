@@ -49,7 +49,7 @@ export async function signupAction(
 
   const input = parsed.data;
   const destination =
-    input.role === "borrower" ? "/borrower?message=account-created" : "/?auth=lender-pending";
+    input.role === "borrower" ? "/borrower?message=account-created" : "/lender/onboarding";
   let redirectTo: string | null = null;
 
   try {
@@ -114,7 +114,7 @@ export async function signupAction(
         profile.role === "borrower"
           ? "/borrower?message=account-created"
           : profile.role === "lender"
-            ? "/?auth=lender-pending"
+            ? "/lender/onboarding"
             : destination;
     } else {
       redirectTo = destination;

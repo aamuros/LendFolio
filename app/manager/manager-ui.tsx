@@ -239,7 +239,7 @@ export function DetailItem({
 const statusPositive = ["verified", "paid", "accepted", "active", "approved"];
 const statusWarning = ["submitted", "pending", "due", "open"];
 const statusDanger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
-const statusMuted = ["closed", "withdrawn", "expired"];
+  const statusMuted = ["closed", "withdrawn", "expired", "incomplete"];
 
 export function StatusBadge({ status }: { status: string }) {
   const variant = statusPositive.includes(status)
