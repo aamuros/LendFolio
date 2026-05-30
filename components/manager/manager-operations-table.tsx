@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -160,16 +160,25 @@ export function ManagerOperationsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant={isHighPriority ? "default" : "outline"}
-                            size="sm"
-                            asChild
-                          >
-                            <Link href={item.href}>
+                          {isHighPriority ? (
+                            <Link
+                              href={item.href}
+                              className={cn(
+                                buttonVariants({ variant: "default", size: "sm" }),
+                                "text-primary-foreground hover:text-primary-foreground [&_svg]:text-primary-foreground",
+                              )}
+                            >
                               Review
                               <ArrowUpRightIcon className="size-3" />
                             </Link>
-                          </Button>
+                          ) : (
+                            <Button variant="outline" size="sm" asChild>
+                              <Link href={item.href}>
+                                Review
+                                <ArrowUpRightIcon className="size-3" />
+                              </Link>
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     );
@@ -214,13 +223,21 @@ export function ManagerOperationsTable({
                         </Badge>
                       </div>
                     </div>
-                    <Button
-                      variant={isHighPriority ? "default" : "outline"}
-                      size="sm"
-                      asChild
-                    >
-                      <Link href={item.href}>Review</Link>
-                    </Button>
+                    {isHighPriority ? (
+                      <Link
+                        href={item.href}
+                        className={cn(
+                          buttonVariants({ variant: "default", size: "sm" }),
+                          "text-primary-foreground hover:text-primary-foreground [&_svg]:text-primary-foreground",
+                        )}
+                      >
+                        Review
+                      </Link>
+                    ) : (
+                      <Button variant="outline" size="sm" asChild>
+                        <Link href={item.href}>Review</Link>
+                      </Button>
+                    )}
                   </div>
                 );
               })}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 export type AppTabIcon =
   | "home"
@@ -187,15 +188,16 @@ export function AppBottomTabs<T extends string>({
         {floatingMenu}
       </div>
       <div
-        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-border/50 bg-background/95 p-2 shadow-lg backdrop-blur"
+        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-border/50 bg-card/95 p-2 shadow-lg backdrop-blur"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
-          const className = `flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] touch-manipulation motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
+          const tabClassName = cn(
+            "flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] touch-manipulation motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
             isActive
-              ? "bg-foreground text-background shadow-sm active:bg-foreground/80"
-              : "text-muted-foreground hover:bg-muted/70 hover:text-foreground active:bg-muted"
-          }`;
+              ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:bg-primary/90 [&>span]:text-primary-foreground [&_svg]:text-primary-foreground [&_svg]:stroke-current"
+              : "text-foreground hover:bg-muted/70 hover:text-foreground active:bg-muted [&_svg]:text-current [&_svg]:stroke-current",
+          );
           const content = (
             <>
               <TabIcon name={tab.icon} />
@@ -210,7 +212,7 @@ export function AppBottomTabs<T extends string>({
                 href={tab.href}
                 aria-current={isActive ? "page" : undefined}
                 onClick={() => onAnyTabPress?.(tab.id)}
-                className={className}
+                className={tabClassName}
               >
                 {content}
               </Link>
@@ -227,7 +229,7 @@ export function AppBottomTabs<T extends string>({
                 onAnyTabPress?.(tab.id);
                 onTabChange?.(tab.id);
               }}
-              className={className}
+              className={tabClassName}
             >
               {content}
             </button>
@@ -246,7 +248,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -258,14 +259,13 @@ function TabIcon({ name }: { name: AppTabIcon }) {
     );
   }
 
-  if (name === "profile" || name === "applications") {
+  if (name === "profile") {
     return (
       <svg
         aria-hidden="true"
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -277,6 +277,22 @@ function TabIcon({ name }: { name: AppTabIcon }) {
     );
   }
 
+  if (name === "applications") {
+    return (
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        className="size-5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M8 6h8M6 10h12M6 14h12M6 18h8" />
+      </svg>
+    );
+  }
+
   if (name === "loans") {
     return (
       <svg
@@ -284,7 +300,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -303,7 +318,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -323,7 +337,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -341,7 +354,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -360,7 +372,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -380,7 +391,6 @@ function TabIcon({ name }: { name: AppTabIcon }) {
         viewBox="0 0 24 24"
         className="size-5"
         fill="none"
-        stroke="currentColor"
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="2"
@@ -395,14 +405,13 @@ function TabIcon({ name }: { name: AppTabIcon }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className="size-5"
-      fill="none"
-      stroke="currentColor"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      strokeWidth="2"
-    >
-      <path d="M4 7h16v12H4z" />
+        className="size-5"
+        fill="none"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth="2"
+      >
+        <path d="M4 7h16v12H4z" />
       <path d="M4 10h16" />
       <path d="M8 15h4" />
     </svg>

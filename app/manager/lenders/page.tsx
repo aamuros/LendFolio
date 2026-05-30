@@ -2,17 +2,14 @@ import Link from "next/link";
 import { getManagerAccess } from "../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
-  getShortId,
   loadManagerLenders,
   type ManagerLenderRow,
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
   EmptyState,
-  FilterForm,
   ManagerShell,
   PersonLabel,
-  SelectFilter,
   StatusBadge,
   StatusMessage,
   formatCurrency,
@@ -35,9 +32,14 @@ import {
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
+import {
   CheckCircle2Icon,
   ChevronDownIcon,
   CircleDotIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -50,6 +52,14 @@ type PageProps = {
     status?: string;
   }>;
 };
+
+const STATUS_TABS = [
+  { value: undefined, label: "All" },
+  { value: "pending", label: "Pending" },
+  { value: "incomplete", label: "Incomplete" },
+  { value: "approved", label: "Approved" },
+  { value: "rejected", label: "Rejected" },
+] as const;
 
 export default async function ManagerLendersPage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -86,8 +96,13 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
   const pendingLenders = result.lenders.filter(
     (l) => l.verificationStatus === "pending",
   );
-  const completedLenders = result.lenders.filter(
-    (l) => l.verificationStatus !== "pending",
+  const incompleteLenders = result.lenders.filter(
+    (l) => l.verificationStatus === "incomplete",
+  );
+  const reviewedLenders = result.lenders.filter(
+    (l) =>
+      l.verificationStatus === "approved" ||
+      l.verificationStatus === "rejected",
   );
 
   return (
@@ -146,7 +161,7 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
           <StatusMessage message={result.message} tone="error" />
         ) : null}
 
-        <LenderFilters status={params.status} />
+        <StatusTabs activeStatus={params.status} />
 
         {result.lenders.length === 0 ? (
           <EmptyState
@@ -156,26 +171,45 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
         ) : null}
 
         {pendingLenders.length > 0 ? (
-          <section className="space-y-4">
+          <section className="space-y-3">
+            {!params.status || params.status === "pending" ? (
+              <SectionHeading
+                title="Pending review"
+                count={pendingLenders.length}
+              />
+            ) : null}
             {pendingLenders.map((lender) => (
               <PendingLenderCard key={lender.id} lender={lender} />
             ))}
           </section>
         ) : null}
 
-        {completedLenders.length > 0 ? (
+        {incompleteLenders.length > 0 ? (
           <section className="space-y-3">
-            {pendingLenders.length > 0 ? (
-              <div className="flex items-center gap-3">
-                <Separator className="flex-1" />
-                <span className="text-xs font-medium text-muted-foreground">
-                  Reviewed lenders
-                </span>
-                <Separator className="flex-1" />
-              </div>
+            {!params.status || params.status === "incomplete" ? (
+              <SectionHeading
+                title="Incomplete profiles"
+                count={incompleteLenders.length}
+              />
             ) : null}
-            {completedLenders.map((lender) => (
-              <CompletedLenderCard key={lender.id} lender={lender} />
+            {incompleteLenders.map((lender) => (
+              <IncompleteLenderCard key={lender.id} lender={lender} />
+            ))}
+          </section>
+        ) : null}
+
+        {reviewedLenders.length > 0 ? (
+          <section className="space-y-3">
+            {!params.status ||
+            params.status === "approved" ||
+            params.status === "rejected" ? (
+              <SectionHeading
+                title="Reviewed lenders"
+                count={reviewedLenders.length}
+              />
+            ) : null}
+            {reviewedLenders.map((lender) => (
+              <ReviewedLenderRow key={lender.id} lender={lender} />
             ))}
           </section>
         ) : null}
@@ -184,37 +218,49 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
   );
 }
 
-function LenderFilters({ status }: { status?: string }) {
-  const hasActiveFilters = Boolean(status);
-
+function StatusTabs({ activeStatus }: { activeStatus?: string }) {
   return (
-    <Card>
-      <CardContent>
-        <FilterForm className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[140px] flex-1">
-            <SelectFilter
-              label="Status"
-              name="status"
-              defaultValue={status}
-              options={[
-                { value: "incomplete", label: "Incomplete" },
-                { value: "pending", label: "Pending" },
-                { value: "approved", label: "Approved" },
-                { value: "rejected", label: "Rejected" },
-              ]}
-            />
-          </div>
-          <div className="flex items-end gap-2">
-            <Button type="submit">Apply</Button>
-            {hasActiveFilters ? (
-              <Button type="button" variant="outline" asChild>
-                <Link href="?">Clear</Link>
-              </Button>
-            ) : null}
-          </div>
-        </FilterForm>
-      </CardContent>
-    </Card>
+    <nav
+      className="flex gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1"
+      aria-label="Filter lenders by status"
+    >
+      {STATUS_TABS.map((tab) => {
+        const isActive = tab.value === activeStatus || (!tab.value && !activeStatus);
+        const href = tab.value ? `?status=${tab.value}` : "?";
+
+        return (
+          <Link
+            key={tab.label}
+            href={href}
+            className={`inline-flex shrink-0 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              isActive
+                ? "bg-background text-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
+            }`}
+            aria-current={isActive ? "page" : undefined}
+          >
+            {tab.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
+}
+
+function SectionHeading({
+  title,
+  count,
+}: {
+  title: string;
+  count: number;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <Badge variant="secondary" className="text-xs">
+        {count}
+      </Badge>
+    </div>
   );
 }
 
@@ -232,7 +278,9 @@ function ReviewStatus({ review }: { review?: string }) {
   }
 
   if (review === "error") {
-    return <StatusMessage message="Could not update lender review." tone="error" />;
+    return (
+      <StatusMessage message="Could not update lender review." tone="error" />
+    );
   }
 
   if (review === "consent-required") {
@@ -247,72 +295,119 @@ function ReviewStatus({ review }: { review?: string }) {
   return null;
 }
 
+function getReadinessBadge(lender: ManagerLenderRow): {
+  label: string;
+  variant: "default" | "secondary" | "destructive" | "outline";
+  className?: string;
+} {
+  const profileIncomplete =
+    !lender.organizationName ||
+    !lender.contactPerson ||
+    !lender.operatingArea;
+
+  if (profileIncomplete) {
+    return { label: "Incomplete profile", variant: "outline" };
+  }
+
+  if (!lender.consentStatus.isCurrent) {
+    return { label: "Missing disclosures", variant: "destructive" };
+  }
+
+  return {
+    label: "Ready for review",
+    variant: "default",
+    className:
+      "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50",
+  };
+}
+
+function formatLoanRange(min: number, max: number): string {
+  if (min === 0 && max === 0) return "Not provided";
+  return `${formatCurrency(min)} – ${formatCurrency(max)}`;
+}
+
 function PendingLenderCard({ lender }: { lender: ManagerLenderRow }) {
+  const readiness = getReadinessBadge(lender);
+  const disclosuresMissing = !lender.consentStatus.isCurrent;
+  const acceptedCount = lender.consentStatus.required.filter((req) =>
+    lender.consentStatus.accepted.some(
+      (a) => a.consentType === req.consentType && a.version === req.version,
+    ),
+  ).length;
+  const totalCount = lender.consentStatus.required.length;
+  const missingNames = lender.consentStatus.missing.map(
+    (m) => consentTypeLabels[m.consentType],
+  );
+
   return (
     <Card>
       <CardHeader>
         <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0">
-            <CardTitle className="text-base">
-              {lender.organizationName}
-            </CardTitle>
-            <p className="mt-0.5 text-xs text-muted-foreground">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <CardTitle className="text-base">
+                {lender.organizationName || "Not provided"}
+              </CardTitle>
+              <StatusBadge status={lender.verificationStatus} />
+              <Badge variant={readiness.variant} className={readiness.className}>
+                {readiness.label}
+              </Badge>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
               <PersonLabel person={lender.profile} />
             </p>
           </div>
-          <StatusBadge status={lender.verificationStatus} />
         </div>
-        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-          <MetaField label="Contact" value={lender.contactPerson} />
-          <MetaField label="Operating area" value={lender.operatingArea} />
+
+        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <MetaField
+            label="Contact"
+            value={lender.contactPerson || "Not provided"}
+          />
+          <MetaField
+            label="Operating area"
+            value={lender.operatingArea || "Not provided"}
+          />
           <MetaField
             label="Loan range"
-            value={`${formatCurrency(lender.minLoanAmount)} – ${formatCurrency(lender.maxLoanAmount)}`}
+            value={formatLoanRange(lender.minLoanAmount, lender.maxLoanAmount)}
           />
           <MetaField
             label="Requested at"
             value={formatDateTime(lender.createdAt)}
           />
+          <MetaField
+            label="Registration no."
+            value={lender.businessRegistrationNumber || "Not provided"}
+          />
         </dl>
       </CardHeader>
 
       <CardContent>
-        <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-          <div className="min-w-0 space-y-6">
-            <CompactConsentSummary status={lender.consentStatus} />
-
-            <Separator />
-
-            <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
-              <MetaField
-                label="Lender ID"
-                value={getShortId(lender.userId)}
-              />
-              <MetaField
-                label="Request ID"
-                value={getShortId(lender.id)}
-              />
-              <MetaField
-                label="Registration no."
-                value={lender.businessRegistrationNumber ?? "Not provided"}
-              />
-            </dl>
+        <div className="grid gap-4 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+          <div className="min-w-0 space-y-4">
+            <DisclosureSummary
+              status={lender.consentStatus}
+              acceptedCount={acceptedCount}
+              totalCount={totalCount}
+              missingNames={missingNames}
+            />
 
             {lender.lenderDescription ? (
-              <>
-                <Separator />
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    Lender description
-                  </p>
-                  <p className="text-sm">{lender.lenderDescription}</p>
-                </div>
-              </>
+              <div className="space-y-1">
+                <p className="text-xs font-medium text-muted-foreground">
+                  Lender description
+                </p>
+                <p className="text-sm">{lender.lenderDescription}</p>
+              </div>
             ) : null}
           </div>
 
-          <div className="space-y-4 lg:sticky lg:top-4 lg:self-start">
-            <PendingReviewActions lender={lender} />
+          <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
+            <PendingReviewActions
+              lender={lender}
+              disclosuresMissing={disclosuresMissing}
+            />
           </div>
         </div>
       </CardContent>
@@ -320,51 +415,82 @@ function PendingLenderCard({ lender }: { lender: ManagerLenderRow }) {
   );
 }
 
-function CompletedLenderCard({ lender }: { lender: ManagerLenderRow }) {
-  const isApproved = lender.verificationStatus === "approved";
-
+function DisclosureSummary({
+  status,
+  acceptedCount,
+  totalCount,
+  missingNames,
+}: {
+  status: ConsentStatus;
+  acceptedCount: number;
+  totalCount: number;
+  missingNames: string[];
+}) {
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold">
-              {lender.organizationName}
-            </p>
-            <StatusBadge status={lender.verificationStatus} />
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <ShieldCheckIcon className="size-4 text-muted-foreground" />
+        <span className="text-sm font-medium">
+          Disclosures: {acceptedCount}/{totalCount} complete
+        </span>
+        {!status.isCurrent && missingNames.length > 0 ? (
+          <span className="text-xs text-destructive">
+            Missing: {missingNames.join(", ")}
+          </span>
+        ) : null}
+      </div>
+
+      <Collapsible defaultOpen={false}>
+        <CollapsibleTrigger className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+          Show details
+          <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+            <div className="grid gap-1 text-xs text-muted-foreground">
+              {status.required.map((consent) => {
+                const accepted = status.accepted.find(
+                  (item) =>
+                    item.consentType === consent.consentType &&
+                    item.version === consent.version,
+                );
+
+                return (
+                  <div
+                    key={`${consent.consentType}-${consent.version}`}
+                    className="flex items-start gap-1.5"
+                  >
+                    {accepted ? (
+                      <CheckCircle2Icon className="mt-0.5 size-3 shrink-0 text-emerald-600" />
+                    ) : (
+                      <XCircleIcon className="mt-0.5 size-3 shrink-0 text-destructive" />
+                    )}
+                    <span>
+                      <span className="font-medium text-foreground">
+                        {consentTypeLabels[consent.consentType]}
+                      </span>
+                      {accepted
+                        ? ` \u00b7 ${consent.version}`
+                        : " \u00b7 Missing current version"}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            <span>{lender.contactPerson}</span>
-            <span>{lender.operatingArea}</span>
-            <span>
-              {formatCurrency(lender.minLoanAmount)} –{" "}
-              {formatCurrency(lender.maxLoanAmount)}
-            </span>
-            <span>
-              {isApproved ? "Approved" : "Rejected"}{" "}
-              {formatDateTime(
-                isApproved ? lender.approvedAt! : lender.rejectedAt!,
-              )}
-              {(isApproved ? lender.approvedBy : lender.rejectedBy)
-                ? ` by ${(isApproved ? lender.approvedBy : lender.rejectedBy)!.displayName}`
-                : ""}
-            </span>
-          </div>
-          {!isApproved && lender.rejectionReason ? (
-            <p className="mt-1 text-xs text-destructive">
-              {lender.rejectionReason}
-            </p>
-          ) : null}
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
-        </Button>
-      </CardContent>
-    </Card>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 }
 
-function PendingReviewActions({ lender }: { lender: ManagerLenderRow }) {
+function PendingReviewActions({
+  lender,
+  disclosuresMissing,
+}: {
+  lender: ManagerLenderRow;
+  disclosuresMissing: boolean;
+}) {
   const returnPath = `/manager/lenders`;
 
   return (
@@ -373,6 +499,15 @@ function PendingReviewActions({ lender }: { lender: ManagerLenderRow }) {
         <CardTitle className="text-sm">Review decision</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        {disclosuresMissing ? (
+          <Alert variant="destructive">
+            <ShieldAlertIcon />
+            <AlertDescription>
+              Cannot approve until required lender disclosures are accepted.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
         <form action={reviewLenderAction} className="grid gap-3">
           <input type="hidden" name="lenderProfileId" value={lender.id} />
           <input type="hidden" name="decision" value="approve" />
@@ -392,7 +527,11 @@ function PendingReviewActions({ lender }: { lender: ManagerLenderRow }) {
               placeholder="Optional note for this approval..."
             />
           </div>
-          <Button type="submit" className="w-full">
+          <Button
+            type="submit"
+            className="w-full"
+            disabled={disclosuresMissing}
+          >
             <CheckCircle2Icon className="size-4" />
             Approve lender
           </Button>
@@ -402,9 +541,80 @@ function PendingReviewActions({ lender }: { lender: ManagerLenderRow }) {
 
         <RejectLenderDialog
           lenderId={lender.id}
-          organizationName={lender.organizationName}
+          organizationName={lender.organizationName || "this lender"}
           returnPath={returnPath}
         />
+      </CardContent>
+    </Card>
+  );
+}
+
+function IncompleteLenderCard({ lender }: { lender: ManagerLenderRow }) {
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {lender.organizationName || lender.profile.displayName}
+            </p>
+            <StatusBadge status={lender.verificationStatus} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Profile incomplete. Waiting for the lender to complete onboarding
+            before manager review.
+          </p>
+          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+            {lender.contactPerson ? (
+              <span>{lender.contactPerson}</span>
+            ) : null}
+            {lender.operatingArea ? (
+              <span>{lender.operatingArea}</span>
+            ) : null}
+            <span>Requested {formatDateTime(lender.createdAt)}</span>
+          </div>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function ReviewedLenderRow({ lender }: { lender: ManagerLenderRow }) {
+  const isApproved = lender.verificationStatus === "approved";
+  const statusDate = isApproved ? lender.approvedAt : lender.rejectedAt;
+  const statusBy = isApproved ? lender.approvedBy : lender.rejectedBy;
+
+  return (
+    <Card>
+      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <p className="truncate text-sm font-semibold">
+              {lender.organizationName || lender.profile.displayName}
+            </p>
+            <StatusBadge status={lender.verificationStatus} />
+          </div>
+          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+            {statusDate ? (
+              <span>
+                {isApproved ? "Approved" : "Rejected"}{" "}
+                {formatDateTime(statusDate)}
+                {statusBy ? ` by ${statusBy.displayName}` : ""}
+              </span>
+            ) : null}
+          </div>
+          {!isApproved && lender.rejectionReason ? (
+            <p className="mt-1 text-xs text-destructive">
+              {lender.rejectionReason}
+            </p>
+          ) : null}
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
+        </Button>
       </CardContent>
     </Card>
   );
@@ -415,87 +625,6 @@ function MetaField({ label, value }: { label: string; value: string }) {
     <div className="grid gap-0.5">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium text-foreground">{value}</dd>
-    </div>
-  );
-}
-
-function CompactConsentSummary({ status }: { status: ConsentStatus }) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <ShieldCheckIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Lender disclosures</h3>
-        <Badge
-          variant={status.isCurrent ? "default" : "destructive"}
-          className={
-            status.isCurrent
-              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-              : undefined
-          }
-        >
-          {status.isCurrent ? "Current" : "Missing"}
-        </Badge>
-      </div>
-      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
-        <div className="grid gap-1 text-xs text-muted-foreground">
-          {status.required.map((consent) => {
-            const accepted = status.accepted.find(
-              (item) =>
-                item.consentType === consent.consentType &&
-                item.version === consent.version,
-            );
-
-            return (
-              <div
-                key={`${consent.consentType}-${consent.version}`}
-                className="flex items-start gap-1.5"
-              >
-                {accepted ? (
-                  <CheckCircle2Icon className="mt-0.5 size-3 shrink-0 text-emerald-600" />
-                ) : (
-                  <XCircleIcon className="mt-0.5 size-3 shrink-0 text-destructive" />
-                )}
-                <span>
-                  <span className="font-medium text-foreground">
-                    {consentTypeLabels[consent.consentType]}
-                  </span>
-                  {accepted
-                    ? ` \u00b7 ${consent.version}`
-                    : " \u00b7 Missing current version"}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-        <Collapsible defaultOpen={false}>
-          <CollapsibleTrigger className="mt-2 inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-            Show details
-            <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <div className="mt-2 grid gap-1 border-t border-border/60 pt-2 text-xs text-muted-foreground">
-              {status.required.map((consent) => {
-                const accepted = status.accepted.find(
-                  (item) =>
-                    item.consentType === consent.consentType &&
-                    item.version === consent.version,
-                );
-
-                return (
-                  <p key={`detail-${consent.consentType}-${consent.version}`}>
-                    <span className="font-medium text-foreground">
-                      {consentTypeLabels[consent.consentType]}
-                    </span>
-                    {accepted
-                      ? ` \u00b7 ${consent.version}, accepted ${formatDateTime(accepted.acceptedAt)}`
-                      : ` \u00b7 ${consent.version} not accepted`}
-                  </p>
-                );
-              })}
-            </div>
-          </CollapsibleContent>
-        </Collapsible>
-      </div>
     </div>
   );
 }

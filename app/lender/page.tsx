@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { signOutAction } from "@/app/login/actions";
 import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
   formatCurrency,
@@ -29,8 +28,8 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
-import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import { cn } from "@/lib/utils";
+import { LenderAccountTab } from "@/components/lender/profile/lender-account-tab";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +52,8 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
           <LenderHeader activeTab={activeTab} showNotifications={false} />
-          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
-            <LenderApplicationsStatus message={access.message} tone="error" />
+        <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+          <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />
@@ -91,7 +90,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
           <LenderHeader activeTab={activeTab} showNotifications={false} />
-          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+          <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
             <div className="grid gap-5">
               <LenderApplicationsStatus message={message} tone="error" />
               {access.profile.role === "lender" &&
@@ -135,7 +134,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       <div className="mx-auto max-w-7xl">
         <LenderHeader activeTab={activeTab} accountEmail={user?.email} />
 
-        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+        <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
           {activeTab === "home" ? (
             <HomeTab
               applications={applications}
@@ -150,7 +149,10 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           ) : null}
 
           {activeTab === "account" ? (
-            <AccountTab email={user?.email ?? ""} access={access.profile} />
+            <LenderAccountTab
+              email={user?.email ?? ""}
+              lenderProfile={access.profile.lenderProfile}
+            />
           ) : null}
         </div>
 
@@ -614,67 +616,6 @@ function OffersTab({
           </div>
         ) : null,
       )}
-    </section>
-  );
-}
-
-function AccountTab({
-  email,
-  access,
-}: {
-  email: string;
-  access: {
-    role: string;
-    status: string;
-    lenderProfile: {
-      organization_name: string | null;
-      verification_status: string;
-    } | null;
-  };
-}) {
-  const verificationStatus = access.lenderProfile?.verification_status ?? "incomplete";
-  const verificationTone =
-    verificationStatus === "approved"
-      ? "success"
-      : verificationStatus === "rejected"
-        ? "danger"
-        : verificationStatus === "incomplete"
-          ? "neutral"
-          : "attention";
-
-  return (
-    <section className="grid gap-5">
-      <div className="grid gap-1">
-        <h1 className="text-xl font-semibold sm:text-2xl">Account</h1>
-        <p className="break-words text-sm text-muted-foreground">
-          {email || "Signed in"}
-        </p>
-      </div>
-
-      <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-0 p-4">
-          <SummaryRow label="Role" value={access.role} />
-          <SummaryRow label="Account status" value={access.status} />
-          <SummaryRow
-            label="Organization"
-            value={access.lenderProfile?.organization_name ?? "Not provided"}
-          />
-          <div className="flex items-center justify-between gap-4 border-b border-border/40 py-3">
-            <p className="shrink-0 text-sm text-muted-foreground">Verification</p>
-            <ToneBadge tone={verificationTone}>{verificationStatus}</ToneBadge>
-          </div>
-        </CardContent>
-      </Card>
-
-      <form action={signOutAction}>
-        <Button
-          type="submit"
-          variant="outline"
-          className="h-11 w-full rounded-full font-semibold sm:w-fit"
-        >
-          Sign out
-        </Button>
-      </form>
     </section>
   );
 }

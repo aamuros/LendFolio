@@ -312,6 +312,68 @@ describe("manager operations helpers", () => {
     expect(lookupPage).not.toContain("/manager/users/${getShortId");
   });
 
+  it("uses primary color pair for active bottom tab contrast", () => {
+    const appBottomTabs = readFileSync(
+      "components/app-bottom-tabs.tsx",
+      "utf8",
+    );
+
+    expect(appBottomTabs).toContain("bg-primary");
+    expect(appBottomTabs).toContain("text-primary-foreground");
+    expect(appBottomTabs).toContain("[&>span]:text-primary-foreground");
+    expect(appBottomTabs).toContain("[&_svg]:text-primary-foreground");
+    expect(appBottomTabs).not.toContain("bg-foreground text-background");
+  });
+
+  it("forces high-priority operations queue action contrast with explicit primary classes", () => {
+    const operationsTable = readFileSync(
+      "components/manager/manager-operations-table.tsx",
+      "utf8",
+    );
+
+    expect(operationsTable).toContain("text-primary-foreground");
+    expect(operationsTable).toContain("buttonVariants");
+    expect(operationsTable).toContain(
+      'buttonVariants({ variant: "default", size: "sm" })',
+    );
+    expect(operationsTable).toContain("[&_svg]:text-primary-foreground");
+    expect(operationsTable).toContain("hover:text-primary-foreground");
+    expect(operationsTable).toContain("href={item.href}");
+    expect(operationsTable).toContain("ArrowUpRightIcon");
+    expect(operationsTable).toContain("md:hidden");
+    expect(operationsTable).toContain("isHighPriority");
+  });
+
+  it("keeps lender bottom navigation mobile-only on all lender pages", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/lender/applications/page.tsx",
+      "utf8",
+    );
+    const applicationDetailPage = readFileSync(
+      "app/lender/applications/[id]/page.tsx",
+      "utf8",
+    );
+    const applicationsErrorPage = readFileSync(
+      "app/lender/applications/error.tsx",
+      "utf8",
+    );
+
+    for (const page of [lenderPage, applicationsPage, applicationDetailPage, applicationsErrorPage]) {
+      expect(page).toContain('className="sm:hidden"');
+      expect(page).toContain("<LenderBottomTabs");
+    }
+  });
+
+  it("keeps borrower bottom navigation mobile-only in borrower-workspace", () => {
+    const borrowerWorkspace = readFileSync(
+      "components/borrower-workspace.tsx",
+      "utf8",
+    );
+
+    expect(borrowerWorkspace).toContain('<div className="sm:hidden">');
+  });
+
   it("keeps manager bottom navigation focused with an Others menu", () => {
     const appBottomTabs = readFileSync(
       "components/app-bottom-tabs.tsx",
@@ -953,5 +1015,163 @@ describe("consent status building", () => {
     const status = buildConsentStatus("borrower_loan_application", consents);
     expect(status.isCurrent).toBe(true);
     expect(status.missing.length).toBe(0);
+  });
+});
+
+describe("lender profile hub", () => {
+  it("imports LenderProfileHub from lender account tab", () => {
+    const lenderAccountTab = readFileSync(
+      "components/lender/profile/lender-account-tab.tsx",
+      "utf8",
+    );
+
+    expect(lenderAccountTab).toContain("LenderProfileHub");
+    expect(lenderAccountTab).toContain("LenderProfileView");
+  });
+
+  it("replaces old inline AccountTab with LenderAccountTab in lender page", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+
+    expect(lenderPage).toContain("LenderAccountTab");
+    expect(lenderPage).toContain("lenderProfile={access.profile.lenderProfile}");
+    expect(lenderPage).not.toContain("function AccountTab(");
+  });
+
+  it("contains all lender profile menu labels", () => {
+    const lenderProfileHub = readFileSync(
+      "components/lender/profile/lender-profile-hub.tsx",
+      "utf8",
+    );
+
+    expect(lenderProfileHub).toContain('"Organization Profile"');
+    expect(lenderProfileHub).toContain('"Lending Details"');
+    expect(lenderProfileHub).toContain('"Verification"');
+    expect(lenderProfileHub).toContain('"Account & Security"');
+    expect(lenderProfileHub).toContain('"Help & Support"');
+  });
+
+  it("contains all lender profile subview state names", () => {
+    const lenderProfileHub = readFileSync(
+      "components/lender/profile/lender-profile-hub.tsx",
+      "utf8",
+    );
+
+    expect(lenderProfileHub).toContain('"organization"');
+    expect(lenderProfileHub).toContain('"lending"');
+    expect(lenderProfileHub).toContain('"verification"');
+    expect(lenderProfileHub).toContain('"account"');
+    expect(lenderProfileHub).toContain('"support"');
+  });
+
+  it("uses signOutAction in lender account section", () => {
+    const lenderAccountSection = readFileSync(
+      "components/lender/profile/lender-account-section.tsx",
+      "utf8",
+    );
+
+    expect(lenderAccountSection).toContain("signOutAction");
+    expect(lenderAccountSection).toContain("Sign out");
+  });
+
+  it("leaves borrower profile implementation untouched", () => {
+    const borrowerProfileHub = readFileSync(
+      "components/borrower/profile/borrower-profile-hub.tsx",
+      "utf8",
+    );
+
+    expect(borrowerProfileHub).toContain("BorrowerProfileHub");
+    expect(borrowerProfileHub).toContain("Business Profile");
+    expect(borrowerProfileHub).toContain("Borrowing Power");
+    expect(borrowerProfileHub).toContain("Help & Support");
+  });
+});
+
+describe("manager lender review page", () => {
+  it("uses loadManagerLenders for the lender list page", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("loadManagerLenders");
+  });
+
+  it("renders status-tab links for filtering lenders", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("StatusTabs");
+    expect(lendersPage).toContain("STATUS_TABS");
+    expect(lendersPage).toContain('"All"');
+    expect(lendersPage).toContain('"Pending"');
+    expect(lendersPage).toContain('"Incomplete"');
+    expect(lendersPage).toContain('"Approved"');
+    expect(lendersPage).toContain('"Rejected"');
+    expect(lendersPage).toContain("?status=");
+  });
+
+  it("separates incomplete lenders from reviewed lenders", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("IncompleteLenderCard");
+    expect(lendersPage).toContain("ReviewedLenderRow");
+    expect(lendersPage).toContain("incompleteLenders");
+    expect(lendersPage).toContain("reviewedLenders");
+    expect(lendersPage).toContain('"Incomplete profiles"');
+    expect(lendersPage).toContain('"Reviewed lenders"');
+    expect(lendersPage).not.toContain("completedLenders");
+  });
+
+  it("gates approval when disclosures are missing", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("disclosuresMissing");
+    expect(lendersPage).toContain("disabled={disclosuresMissing}");
+    expect(lendersPage).toContain(
+      "Cannot approve until required lender disclosures are accepted.",
+    );
+  });
+
+  it("renders missing values as Not provided", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain('"Not provided"');
+    expect(lendersPage).toContain("formatLoanRange");
+  });
+
+  it("shows a compact disclosure summary with missing item names", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("DisclosureSummary");
+    expect(lendersPage).toContain("Disclosures:");
+    expect(lendersPage).toContain("/{totalCount} complete");
+    expect(lendersPage).toContain("missingNames");
+    expect(lendersPage).toContain("Show details");
+  });
+
+  it("renders readiness badges on pending lender cards", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("getReadinessBadge");
+    expect(lendersPage).toContain("Ready for review");
+    expect(lendersPage).toContain("Missing disclosures");
+    expect(lendersPage).toContain("Incomplete profile");
   });
 });
