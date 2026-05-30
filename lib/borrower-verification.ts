@@ -286,6 +286,73 @@ export function mapBorrowerVerificationDocumentRow(
   };
 }
 
+export type BorrowerFacingVerificationState =
+  | "missing_disclosures"
+  | "missing_documents"
+  | "waiting_review"
+  | "under_review"
+  | "needs_update"
+  | "approved";
+
+export const borrowerFacingVerificationStateLabels: Record<
+  BorrowerFacingVerificationState,
+  string
+> = {
+  missing_disclosures: "Accept disclosures",
+  missing_documents: "Documents needed",
+  waiting_review: "Waiting for review",
+  under_review: "Under review",
+  needs_update: "Needs update",
+  approved: "Approved",
+};
+
+export const borrowerFacingVerificationStateDescriptions: Record<
+  BorrowerFacingVerificationState,
+  string
+> = {
+  missing_disclosures:
+    "Accept the verification disclosures before uploading documents.",
+  missing_documents: "Upload your Valid ID and Business proof to continue.",
+  waiting_review:
+    "Your required documents are uploaded and waiting for manager review.",
+  under_review: "A manager is reviewing your verification documents.",
+  needs_update: "One or more documents need to be replaced.",
+  approved: "Your borrower verification is approved.",
+};
+
+export function getBorrowerFacingVerificationState(
+  verification: BorrowerVerificationSummary,
+  disclosuresCurrent: boolean,
+): BorrowerFacingVerificationState {
+  if (verification.status === "approved") {
+    return "approved";
+  }
+
+  if (
+    verification.status === "rejected" ||
+    verification.status === "needs_resubmission"
+  ) {
+    return "needs_update";
+  }
+
+  if (
+    verification.status === "submitted" ||
+    verification.status === "under_review"
+  ) {
+    return "under_review";
+  }
+
+  if (!disclosuresCurrent) {
+    return "missing_disclosures";
+  }
+
+  if (verification.documentPolicy.readyForManagerReview) {
+    return "waiting_review";
+  }
+
+  return "missing_documents";
+}
+
 export function isBorrowerVerificationDocumentType(
   value: FormDataEntryValue | null,
 ): value is BorrowerVerificationDocumentType {

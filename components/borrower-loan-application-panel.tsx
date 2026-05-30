@@ -83,7 +83,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Check, Circle } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
@@ -1355,19 +1355,22 @@ function HomeSummary({
 function ProgressRing({
   value,
   label,
+  size = 56,
+  strokeWidth = 4,
   className,
   "aria-label": ariaLabel,
 }: {
   value: number;
   label?: string;
+  size?: number;
+  strokeWidth?: number;
   className?: string;
   "aria-label"?: string;
 }) {
-  const size = 56;
-  const strokeWidth = 4;
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const offset = circumference - (clamp(value, 0, 100) / 100) * circumference;
+  const fontSize = size >= 100 ? "text-xl" : "text-xs";
 
   return (
     <div
@@ -1407,7 +1410,7 @@ function ProgressRing({
           strokeLinecap="round"
         />
       </svg>
-      <span className="absolute text-xs font-semibold tabular-nums">
+      <span className={cn("absolute font-bold tabular-nums", fontSize)}>
         {Math.round(clamp(value, 0, 100))}%
       </span>
     </div>
@@ -1425,91 +1428,72 @@ function ProfileReadinessCard({
   profileCompletion: ReturnType<typeof getProfileCompletion>;
   onNavigate?: (tab: BorrowerTab) => void;
 }) {
+  const statusLabel = isProfileComplete
+    ? needsVerification
+      ? "Verification needed"
+      : "Ready"
+    : "In progress";
+  const statusTone = isProfileComplete
+    ? needsVerification
+      ? "attention"
+      : "success"
+    : "attention";
+  const description = isProfileComplete
+    ? needsVerification
+      ? "Complete borrower verification before applying."
+      : "Your profile is ready for financing requests."
+    : profileCompletion.nextStep;
+  const ctaLabel = isProfileComplete
+    ? needsVerification
+      ? "Continue verification"
+      : "Review profile"
+    : "Complete profile";
+
   return (
-    <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
+    <Card className="col-span-12 flex flex-col rounded-2xl border-border/50 shadow-sm lg:col-span-4">
       <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
         <CardTitle className="text-sm font-semibold">
           Profile readiness
         </CardTitle>
-        {isProfileComplete ? (
-          <Badge
-            variant="secondary"
-            className={cn(
-              "text-[10px] font-semibold",
-              needsVerification
-                ? toneBadgeClassName("attention")
-                : toneBadgeClassName("success"),
-            )}
-          >
-            {needsVerification
-              ? "Verification needed"
-              : "Ready"}
-          </Badge>
-        ) : (
-          <Badge
-            variant="secondary"
-            className={cn(
-              "text-[10px] font-semibold",
-              toneBadgeClassName("attention"),
-            )}
-          >
-            In progress
-          </Badge>
-        )}
+        <Badge
+          variant="secondary"
+          className={cn("text-[10px] font-semibold", toneBadgeClassName(statusTone))}
+        >
+          {statusLabel}
+        </Badge>
       </CardHeader>
-      <CardContent className="grid gap-3 px-4 pt-2 pb-0 sm:px-5">
-        <div className="flex items-center gap-3">
-          <ProgressRing
-            value={profileCompletion.percentage}
-            aria-label="Profile completion"
-          />
-          <div className="grid gap-0.5">
-            <span className="text-sm font-semibold tabular-nums text-foreground">
-              {profileCompletion.percentage}% complete
-            </span>
-            <p className="text-xs text-muted-foreground">
-              {isProfileComplete
-                ? "Your profile is ready for financing requests."
-                : profileCompletion.nextStep}
-            </p>
-          </div>
-        </div>
-        <div className="grid gap-1.5">
-          {profileCompletion.steps.map((step) => (
-            <div
-              key={step.label}
-              className="flex items-center gap-2"
-            >
-              {step.done ? (
-                <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700">
-                  <Check className="size-2.5" />
-                </span>
-              ) : (
-                <Circle className="size-4 shrink-0 text-muted-foreground/40" />
-              )}
-              <span
-                className={cn(
-                  "text-xs",
-                  step.done
-                    ? "text-foreground"
-                    : "text-muted-foreground",
-                )}
-              >
-                {step.label}
-              </span>
-            </div>
-          ))}
+      <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-4 pt-4 pb-2 sm:px-5">
+        <ProgressRing
+          value={profileCompletion.percentage}
+          size={112}
+          strokeWidth={8}
+          aria-label="Profile completion"
+          className="sm:hidden"
+        />
+        <ProgressRing
+          value={profileCompletion.percentage}
+          size={128}
+          strokeWidth={9}
+          aria-label="Profile completion"
+          className="hidden sm:inline-flex"
+        />
+        <div className="grid gap-1 text-center">
+          <p className="text-sm font-semibold tabular-nums text-foreground">
+            {profileCompletion.percentage}% complete
+          </p>
+          <p className="text-xs text-muted-foreground">
+            {description}
+          </p>
         </div>
       </CardContent>
-      <CardFooter className="px-4 pb-4 pt-2 sm:px-5">
+      <CardFooter className="border-transparent px-4 pb-4 pt-2 sm:px-5">
         <Button
-          variant="ghost"
+          variant="outline"
           size="sm"
           onClick={() => onNavigate?.("profile")}
-          className="h-auto gap-1 p-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
+          className="w-full rounded-full font-semibold"
         >
-          Open profile
-          <ArrowRight className="size-3" />
+          {ctaLabel}
         </Button>
       </CardFooter>
     </Card>
@@ -1539,28 +1523,20 @@ function HomeDashboardSkeleton({ hasActiveLoans }: { hasActiveLoans: boolean }) 
           </CardContent>
         </Card>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
+        <Card className="col-span-12 flex flex-col rounded-2xl border-border/50 shadow-sm lg:col-span-4">
           <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-0 sm:px-5">
-            <div className="flex items-center gap-3">
-              <Skeleton className="size-14 shrink-0 rounded-full" />
-              <div className="grid gap-1">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-3 w-44" />
-              </div>
-            </div>
-            <div className="grid gap-1.5">
-              <Skeleton className="h-3 w-28" />
-              <Skeleton className="h-3 w-32" />
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-3 w-28" />
+          <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-4 pt-4 pb-2 sm:px-5">
+            <Skeleton className="size-28 shrink-0 rounded-full sm:size-32" />
+            <div className="grid w-full gap-1 place-self-center">
+              <Skeleton className="mx-auto h-4 w-28" />
+              <Skeleton className="mx-auto h-3 w-44" />
             </div>
           </CardContent>
           <div className="px-4 pb-4 pt-2 sm:px-5">
-            <Skeleton className="h-5 w-24" />
+            <Skeleton className="h-9 w-full rounded-full" />
           </div>
         </Card>
 
