@@ -81,7 +81,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     const message =
       access.profile.role === "lender" &&
       access.profile.lenderProfile?.verification_status === "pending"
-        ? "Your lender access is pending review. You will be able to continue when your account is approved."
+        ? "Your lender access is pending review. Accept the required disclosures below so a manager can complete your approval."
         : access.profile.role === "lender" &&
             access.profile.lenderProfile?.verification_status === "rejected"
           ? "Your lender access was not approved. Update your lender profile to resubmit."

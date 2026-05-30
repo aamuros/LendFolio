@@ -1,7 +1,15 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { lenderOnboardingSchema } from "@/lib/lender-onboarding";
+import {
+  getConsentRequestMetadata,
+} from "@/lib/consent-recording";
+import {
+  getRequiredConsentVersions,
+  toConsentRpcPayload,
+} from "@/lib/consents";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 
@@ -16,7 +24,8 @@ type LenderOnboardingFieldErrors = Partial<
     | "minLoanAmount"
     | "maxLoanAmount"
     | "typicalRepaymentTerms"
-    | "lenderDescription",
+    | "lenderDescription"
+    | "lenderReviewConsentAccepted",
     string[]
   >
 >;
@@ -42,6 +51,7 @@ export async function lenderOnboardingAction(
     maxLoanAmount: formData.get("maxLoanAmount"),
     typicalRepaymentTerms: formData.get("typicalRepaymentTerms"),
     lenderDescription: formData.get("lenderDescription"),
+    lenderReviewConsentAccepted: formData.get("lenderReviewConsentAccepted"),
   });
 
   if (!parsed.success) {
@@ -83,6 +93,24 @@ export async function lenderOnboardingAction(
           result?.message ?? "Could not submit your lender profile. Try again.",
       };
     }
+
+    const requiredConsents = getRequiredConsentVersions("lender_review");
+    const requestHeaders = await headers();
+    const { ipAddress, userAgent } = getConsentRequestMetadata(requestHeaders);
+
+    const { error: consentError } = await supabase.rpc("accept_user_consents", {
+      p_consents: toConsentRpcPayload(requiredConsents) as Json,
+      p_ip_address: ipAddress,
+      p_user_agent: userAgent,
+    });
+
+    if (consentError) {
+      return {
+        status: "error",
+        message:
+          "Your lender profile was submitted, but we could not record your disclosure acceptance. Please contact support.",
+      };
+    }
   } catch {
     return {
       status: "error",
@@ -90,5 +118,5 @@ export async function lenderOnboardingAction(
     };
   }
 
-  redirect("/?auth=lender-pending");
+  redirect("/lender");
 }

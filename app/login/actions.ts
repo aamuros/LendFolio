@@ -102,5 +102,5 @@ async function getPostLoginDestination(
     return "/lender/onboarding";
   }
 
-  return "/?auth=lender-pending";
+  return "/lender";
 }

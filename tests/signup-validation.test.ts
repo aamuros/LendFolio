@@ -329,6 +329,7 @@ describe("lender onboarding schema validation", () => {
     typicalRepaymentTerms: "1 to 6 months",
     lenderDescription:
       "We provide micro-business lending solutions for Filipino entrepreneurs in Metro Manila.",
+    lenderReviewConsentAccepted: true,
   };
 
   it("accepts valid lender onboarding input", () => {
@@ -338,6 +339,26 @@ describe("lender onboarding schema validation", () => {
       expect(result.data.organizationName).toBe("Lending Corp");
       expect(result.data.minLoanAmount).toBe(5000);
       expect(result.data.maxLoanAmount).toBe(50000);
+    }
+  });
+
+  it("accepts checkbox value 'on' as true for lender review consent", () => {
+    const result = lenderOnboardingSchema.safeParse({
+      ...validInput,
+      lenderReviewConsentAccepted: "on",
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects unchecked lender review consent", () => {
+    const result = lenderOnboardingSchema.safeParse({
+      ...validInput,
+      lenderReviewConsentAccepted: false,
+    });
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      expect(fieldErrors.lenderReviewConsentAccepted).toBeDefined();
     }
   });
 

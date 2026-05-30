@@ -25,6 +25,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 const initialState: LenderOnboardingState = {
   message: "",
@@ -301,6 +303,28 @@ export function LenderOnboardingForm({
                 <AlertDescription>{state.message}</AlertDescription>
               </Alert>
             ) : null}
+
+            <fieldset className="grid gap-3">
+              <legend className="text-sm font-semibold text-foreground">
+                Required disclosures
+              </legend>
+              <div className="flex items-start gap-3">
+                <Checkbox
+                  id="lenderReviewConsentAccepted"
+                  name="lenderReviewConsentAccepted"
+                  className="mt-0.5"
+                />
+                <Label
+                  htmlFor="lenderReviewConsentAccepted"
+                  className="text-sm font-semibold leading-snug cursor-pointer"
+                >
+                  I accept the required lender-review disclosures for manager review.
+                </Label>
+              </div>
+              <FieldErrorHelper
+                messages={state.fieldErrors?.lenderReviewConsentAccepted}
+              />
+            </fieldset>
 
             <Field>
               <Button

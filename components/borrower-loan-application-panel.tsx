@@ -1330,6 +1330,68 @@ function HomeSummary({
   );
 }
 
+function ProgressRing({
+  value,
+  label,
+  className,
+  "aria-label": ariaLabel,
+}: {
+  value: number;
+  label?: string;
+  className?: string;
+  "aria-label"?: string;
+}) {
+  const size = 56;
+  const strokeWidth = 4;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const offset = circumference - (clamp(value, 0, 100) / 100) * circumference;
+
+  return (
+    <div
+      className={cn(
+        "relative inline-flex shrink-0 items-center justify-center",
+        className,
+      )}
+      role="progressbar"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={Math.round(clamp(value, 0, 100))}
+      aria-label={ariaLabel ?? label}
+    >
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-muted"
+          strokeWidth={strokeWidth}
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          className="stroke-primary transition-[stroke-dashoffset] duration-500 ease-out"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+        />
+      </svg>
+      <span className="absolute text-xs font-semibold tabular-nums">
+        {Math.round(clamp(value, 0, 100))}%
+      </span>
+    </div>
+  );
+}
+
 function ProfileReadinessCard({
   isProfileComplete,
   needsVerification,
@@ -1373,26 +1435,23 @@ function ProfileReadinessCard({
           </Badge>
         )}
       </CardHeader>
-      <CardContent className="grid gap-2.5 px-4 pt-2 pb-0 sm:px-5">
-        <div className="flex items-baseline gap-2">
-          <span className="text-xl font-bold tabular-nums tracking-tight text-foreground">
-            {profileCompletion.percentage}%
-          </span>
-          <span className="text-xs font-medium text-muted-foreground">
-            complete
-          </span>
+      <CardContent className="grid gap-3 px-4 pt-2 pb-0 sm:px-5">
+        <div className="flex items-center gap-3">
+          <ProgressRing
+            value={profileCompletion.percentage}
+            aria-label="Profile completion"
+          />
+          <div className="grid gap-0.5">
+            <span className="text-sm font-semibold tabular-nums text-foreground">
+              {profileCompletion.percentage}% complete
+            </span>
+            <p className="text-xs text-muted-foreground">
+              {isProfileComplete
+                ? "Your profile is ready for financing requests."
+                : profileCompletion.nextStep}
+            </p>
+          </div>
         </div>
-        <Progress
-          value={profileCompletion.percentage}
-          className="h-1.5"
-          aria-label="Profile completion"
-        />
-        <p className="text-xs text-muted-foreground">
-          {isProfileComplete
-            ? "Your profile is ready for financing requests."
-            : profileCompletion.nextStep}
-        </p>
-        <Separator />
         <div className="grid gap-1.5">
           {profileCompletion.steps.map((step) => (
             <div
@@ -1420,12 +1479,12 @@ function ProfileReadinessCard({
           ))}
         </div>
       </CardContent>
-      <CardFooter className="mt-2 border-t px-4 py-2 sm:px-5">
+      <CardFooter className="px-4 pb-4 pt-2 sm:px-5">
         <Button
-          variant="link"
+          variant="ghost"
           size="sm"
           onClick={() => onNavigate?.("profile")}
-          className="h-auto p-0 text-xs font-semibold text-muted-foreground"
+          className="h-auto gap-1 p-0 text-xs font-semibold text-muted-foreground hover:text-foreground"
         >
           Open profile
           <ArrowRight className="size-3" />
@@ -1463,14 +1522,14 @@ function HomeDashboardSkeleton({ hasActiveLoans }: { hasActiveLoans: boolean }) 
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-5 w-20 rounded-full" />
           </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-2.5 px-4 pt-2 pb-0 sm:px-5">
-            <div className="flex items-baseline gap-2">
-              <Skeleton className="h-6 w-12" />
-              <Skeleton className="h-3 w-16" />
+          <CardContent className="flex flex-1 flex-col gap-3 px-4 pt-2 pb-0 sm:px-5">
+            <div className="flex items-center gap-3">
+              <Skeleton className="size-14 shrink-0 rounded-full" />
+              <div className="grid gap-1">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-3 w-44" />
+              </div>
             </div>
-            <Skeleton className="h-1.5 w-full rounded-full" />
-            <Skeleton className="h-3 w-44" />
-            <Skeleton className="h-px w-full" />
             <div className="grid gap-1.5">
               <Skeleton className="h-3 w-28" />
               <Skeleton className="h-3 w-32" />
@@ -1478,8 +1537,8 @@ function HomeDashboardSkeleton({ hasActiveLoans }: { hasActiveLoans: boolean }) 
               <Skeleton className="h-3 w-28" />
             </div>
           </CardContent>
-          <div className="mt-2 border-t px-4 py-2 sm:px-5">
-            <Skeleton className="h-5 w-20" />
+          <div className="px-4 pb-4 pt-2 sm:px-5">
+            <Skeleton className="h-5 w-24" />
           </div>
         </Card>
 

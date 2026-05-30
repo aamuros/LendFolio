@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const requiredConsentCheckbox = (message: string) =>
+  z.preprocess(
+    (value) => value === true || value === "on",
+    z.literal(true, { error: message }),
+  );
+
 export const lenderOnboardingSchema = z.object({
   organizationName: z
     .string()
@@ -68,6 +74,9 @@ export const lenderOnboardingSchema = z.object({
     .trim()
     .min(20, "Lender description must be at least 20 characters.")
     .max(800, "Lender description must be 800 characters or fewer."),
+  lenderReviewConsentAccepted: requiredConsentCheckbox(
+    "Accept the required lender-review disclosures before submitting.",
+  ),
 }).superRefine((value, context) => {
   if (value.maxLoanAmount < value.minLoanAmount) {
     context.addIssue({

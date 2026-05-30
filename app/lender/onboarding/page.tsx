@@ -24,7 +24,7 @@ export default async function LenderOnboardingPage() {
   }
 
   if (access.profile.lenderProfile?.verification_status === "pending") {
-    redirect("/?auth=lender-pending");
+    redirect("/lender");
   }
 
   const lenderProfile = access.profile.lenderProfile;
