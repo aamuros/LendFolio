@@ -10,15 +10,18 @@ import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
 export function VerificationDecisionForm({
   borrowerId,
   verificationId,
+  selected,
 }: {
   borrowerId: string;
   verificationId: string;
+  selected?: string;
 }) {
   const [rejectionReason, setRejectionReason] = useState("");
 
   return (
     <form action={reviewBorrowerVerificationAction} className="grid gap-3">
       <input type="hidden" name="borrowerId" value={borrowerId} />
+      {selected ? <input type="hidden" name="selected" value={selected} /> : null}
       <div className="grid gap-1.5">
         <Label
           htmlFor={`notes-${verificationId}`}

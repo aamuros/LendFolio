@@ -1,12 +1,10 @@
 import Link from "next/link";
-import {
-  reviewBorrowerVerificationDocumentAction,
-} from "@/app/manager/actions";
 import { getManagerAccess } from "../manager-access";
 import { borrowerVerificationDocumentTypeLabels } from "@/lib/borrower-verification";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
   getShortId,
+  loadManagerBorrowerVerification,
   loadManagerBorrowerVerifications,
   type ManagerBorrowerVerificationDocumentRow,
   type ManagerBorrowerVerificationRow,
@@ -24,6 +22,7 @@ import {
   formatDateTime,
 } from "../manager-ui";
 import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
+import { DocumentActionsCell } from "@/app/manager/document-review-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +32,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -95,15 +93,64 @@ export default async function ManagerBorrowerVerificationsPage({
     );
   }
 
+  if (params.selected) {
+    const selectedResult = await loadManagerBorrowerVerification(
+      access.supabase,
+      params.selected,
+    );
+
+    const filterParams = new URLSearchParams();
+    if (params.status) filterParams.set("status", params.status);
+    if (params.documentStatus)
+      filterParams.set("documentStatus", params.documentStatus);
+    if (params.borrower) filterParams.set("borrower", params.borrower);
+    const filterQueryString = filterParams.toString();
+    const backHref = filterQueryString
+      ? `/manager/borrower-verifications?${filterQueryString}`
+      : "/manager/borrower-verifications";
+
+    return (
+      <ManagerShell
+        title="Borrower review"
+        description="Review submitted borrower evidence before approving access."
+        showHeading={false}
+      >
+        <div className="space-y-4">
+          <ReviewStatus
+            review={params.review}
+            documentReview={params.documentReview}
+          />
+
+          {!selectedResult.ok || !selectedResult.verification ? (
+            <div className="space-y-3">
+              <StatusMessage
+                message={selectedResult.message || "Borrower verification not found."}
+                tone="error"
+              />
+              <Button variant="outline" size="sm" asChild>
+                <Link href={backHref}>
+                  <ChevronLeftIcon className="size-4" />
+                  Back to queue
+                </Link>
+              </Button>
+            </div>
+          ) : (
+            <SelectedBorrowerDetail
+              verification={selectedResult.verification}
+              backHref={backHref}
+              selected={params.selected}
+            />
+          )}
+        </div>
+      </ManagerShell>
+    );
+  }
+
   const result = await loadManagerBorrowerVerifications(access.supabase, {
     status: params.status,
     documentStatus: params.documentStatus,
     borrower: params.borrower,
   });
-
-  const selectedVerification = params.selected
-    ? result.verifications.find((v) => v.id === params.selected)
-    : undefined;
 
   const submittedCount = result.verifications.filter(
     (v) => v.verificationStatus === "submitted",
@@ -114,14 +161,6 @@ export default async function ManagerBorrowerVerificationsPage({
   const approvedCount = result.verifications.filter(
     (v) => v.verificationStatus === "approved",
   ).length;
-
-  const filterParams = new URLSearchParams();
-  if (params.status) filterParams.set("status", params.status);
-  if (params.documentStatus)
-    filterParams.set("documentStatus", params.documentStatus);
-  if (params.borrower) filterParams.set("borrower", params.borrower);
-  const filterQueryString = filterParams.toString();
-  const backHref = filterQueryString ? `?${filterQueryString}` : "?";
 
   return (
     <ManagerShell
@@ -181,13 +220,6 @@ export default async function ManagerBorrowerVerificationsPage({
           borrower={params.borrower}
         />
 
-        {selectedVerification ? (
-          <SelectedBorrowerDetail
-            verification={selectedVerification}
-            backHref={backHref}
-          />
-        ) : null}
-
         <section className="space-y-4">
           {result.verifications.length === 0 ? (
             <EmptyState
@@ -197,14 +229,26 @@ export default async function ManagerBorrowerVerificationsPage({
           ) : (
             <BorrowerQueueTable
               verifications={result.verifications}
-              selectedId={params.selected}
-              filterQueryString={filterQueryString}
+              filterQueryString={buildFilterQueryString(params)}
             />
           )}
         </section>
       </div>
     </ManagerShell>
   );
+}
+
+function buildFilterQueryString(params: {
+  status?: string;
+  documentStatus?: string;
+  borrower?: string;
+}) {
+  const filterParams = new URLSearchParams();
+  if (params.status) filterParams.set("status", params.status);
+  if (params.documentStatus)
+    filterParams.set("documentStatus", params.documentStatus);
+  if (params.borrower) filterParams.set("borrower", params.borrower);
+  return filterParams.toString();
 }
 
 function BorrowerReviewFilters({
@@ -337,11 +381,9 @@ function ReviewStatus({
 
 function BorrowerQueueTable({
   verifications,
-  selectedId,
   filterQueryString,
 }: {
   verifications: ManagerBorrowerVerificationRow[];
-  selectedId?: string;
   filterQueryString: string;
 }) {
   return (
@@ -364,7 +406,6 @@ function BorrowerQueueTable({
                 <BorrowerQueueRow
                   key={v.id}
                   verification={v}
-                  isSelected={v.id === selectedId}
                   filterQueryString={filterQueryString}
                 />
               ))}
@@ -378,7 +419,6 @@ function BorrowerQueueTable({
           <BorrowerQueueMobileCard
             key={v.id}
             verification={v}
-            isSelected={v.id === selectedId}
             filterQueryString={filterQueryString}
           />
         ))}
@@ -414,11 +454,9 @@ function buildQueueHref(
 
 function BorrowerQueueRow({
   verification,
-  isSelected,
   filterQueryString,
 }: {
   verification: ManagerBorrowerVerificationRow;
-  isSelected: boolean;
   filterQueryString: string;
 }) {
   const { acceptedRequired, totalRequired } =
@@ -426,7 +464,7 @@ function BorrowerQueueRow({
   const consentsCurrent = getQueueConsentStatus(verification);
 
   return (
-    <TableRow className={isSelected ? "bg-muted/50" : undefined}>
+    <TableRow>
       <TableCell>
         <PersonLabel person={verification.borrower} />
       </TableCell>
@@ -458,15 +496,9 @@ function BorrowerQueueRow({
           : "\u2014"}
       </TableCell>
       <TableCell className="text-right">
-        <Button
-          variant={isSelected ? "secondary" : "outline"}
-          size="sm"
-          asChild
-        >
-          <Link
-            href={buildQueueHref(filterQueryString, verification.id)}
-          >
-            {isSelected ? "Selected" : "Review"}
+        <Button variant="outline" size="sm" asChild>
+          <Link href={buildQueueHref(filterQueryString, verification.id)}>
+            Review
           </Link>
         </Button>
       </TableCell>
@@ -476,11 +508,9 @@ function BorrowerQueueRow({
 
 function BorrowerQueueMobileCard({
   verification,
-  isSelected,
   filterQueryString,
 }: {
   verification: ManagerBorrowerVerificationRow;
-  isSelected: boolean;
   filterQueryString: string;
 }) {
   const { acceptedRequired, totalRequired } =
@@ -488,7 +518,7 @@ function BorrowerQueueMobileCard({
   const consentsCurrent = getQueueConsentStatus(verification);
 
   return (
-    <Card size="sm" className={isSelected ? "border-primary" : undefined}>
+    <Card size="sm">
       <CardContent className="grid gap-2">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
@@ -513,15 +543,13 @@ function BorrowerQueueMobileCard({
           ) : null}
         </div>
         <Button
-          variant={isSelected ? "secondary" : "outline"}
+          variant="outline"
           size="sm"
           className="w-full"
           asChild
         >
-          <Link
-            href={buildQueueHref(filterQueryString, verification.id)}
-          >
-            {isSelected ? "Selected" : "Review"}
+          <Link href={buildQueueHref(filterQueryString, verification.id)}>
+            Review
           </Link>
         </Button>
       </CardContent>
@@ -532,9 +560,11 @@ function BorrowerQueueMobileCard({
 function SelectedBorrowerDetail({
   verification,
   backHref,
+  selected,
 }: {
   verification: ManagerBorrowerVerificationRow;
   backHref: string;
+  selected: string;
 }) {
   const hasNotes =
     verification.rejectionReason || verification.managerReviewNotes;
@@ -547,7 +577,10 @@ function SelectedBorrowerDetail({
 
   const mainContent = (
     <div className="min-w-0 space-y-6">
-      <RequiredDocumentsSection verification={verification} />
+      <RequiredDocumentsSection
+        verification={verification}
+        selected={selected}
+      />
 
       <Separator />
 
@@ -658,7 +691,10 @@ function SelectedBorrowerDetail({
           <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
             {mainContent}
             <div className="space-y-4 lg:sticky lg:top-16 lg:self-start">
-              <ManagerDecisionPanel verification={verification} />
+              <ManagerDecisionPanel
+                verification={verification}
+                selected={selected}
+              />
             </div>
           </div>
         ) : (
@@ -751,8 +787,10 @@ function DisclosureCard({
 
 function RequiredDocumentsSection({
   verification,
+  selected,
 }: {
   verification: ManagerBorrowerVerificationRow;
+  selected: string;
 }) {
   const { documentPolicy, documents } = verification;
 
@@ -823,7 +861,7 @@ function RequiredDocumentsSection({
                 <TableHead>File</TableHead>
                 <TableHead>Uploaded</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="w-[60px] text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -836,10 +874,15 @@ function RequiredDocumentsSection({
                 const isRejected =
                   documentPolicy.rejectedDocumentTypes.includes(docType);
 
+                const docLabel =
+                  borrowerVerificationDocumentTypeLabels[docType];
+                const canReview =
+                  latest?.status === "submitted" && !isAccepted;
+
                 return (
                   <TableRow key={docType}>
                     <TableCell className="font-medium">
-                      {borrowerVerificationDocumentTypeLabels[docType]}
+                      {docLabel}
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {latest ? (
@@ -866,10 +909,15 @@ function RequiredDocumentsSection({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <DocumentActions
-                        document={latest}
-                        isAccepted={isAccepted}
-                      />
+                      {latest ? (
+                        <DocumentActionsCell
+                          documentId={latest.id}
+                          documentLabel={docLabel}
+                          viewUrl={latest.viewUrl}
+                          canReview={canReview}
+                          selected={selected}
+                        />
+                      ) : null}
                     </TableCell>
                   </TableRow>
                 );
@@ -889,13 +937,14 @@ function RequiredDocumentsSection({
           const isRejected =
             documentPolicy.rejectedDocumentTypes.includes(docType);
 
+          const docLabel = borrowerVerificationDocumentTypeLabels[docType];
+          const canReview = latest?.status === "submitted" && !isAccepted;
+
           return (
             <Card key={docType} size="sm">
               <CardContent className="space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">
-                    {borrowerVerificationDocumentTypeLabels[docType]}
-                  </span>
+                  <span className="text-sm font-medium">{docLabel}</span>
                   <DocumentStatusBadge
                     isAccepted={isAccepted}
                     isSubmitted={isSubmitted}
@@ -914,7 +963,15 @@ function RequiredDocumentsSection({
                     Not uploaded
                   </p>
                 )}
-                <DocumentActions document={latest} isAccepted={isAccepted} />
+                {latest ? (
+                  <DocumentActionsCell
+                    documentId={latest.id}
+                    documentLabel={docLabel}
+                    viewUrl={latest.viewUrl}
+                    canReview={canReview}
+                    selected={selected}
+                  />
+                ) : null}
               </CardContent>
             </Card>
           );
@@ -971,68 +1028,6 @@ function DocumentStatusBadge({
       <CircleIcon className="size-3" />
       Missing
     </Badge>
-  );
-}
-
-function DocumentActions({
-  document,
-  isAccepted,
-}: {
-  document: ManagerBorrowerVerificationDocumentRow | undefined;
-  isAccepted: boolean;
-}) {
-  if (!document) {
-    return null;
-  }
-
-  const canReview = document.status === "submitted" && !isAccepted;
-
-  return (
-    <div className="flex items-center justify-end gap-1.5">
-      {document.viewUrl ? (
-        <Button variant="outline" size="sm" asChild>
-          <a href={document.viewUrl} target="_blank" rel="noreferrer">
-            <ExternalLinkIcon className="size-3.5" />
-            View
-          </a>
-        </Button>
-      ) : (
-        <span className="text-xs text-muted-foreground">
-          File unavailable
-        </span>
-      )}
-
-      {canReview ? (
-        <form
-          action={reviewBorrowerVerificationDocumentAction}
-          className="grid gap-1.5"
-        >
-          <input type="hidden" name="documentId" value={document.id} />
-          <Textarea
-            name="reviewNotes"
-            rows={1}
-            maxLength={1000}
-            placeholder="Optional note..."
-            className="min-h-0 resize-none text-xs"
-          />
-          <div className="flex items-center justify-end gap-1.5">
-            <Button type="submit" name="decision" value="accept" size="sm">
-              Accept
-            </Button>
-            <Button
-              type="submit"
-              name="decision"
-              value="reject"
-              variant="outline"
-              size="sm"
-              className="text-destructive hover:bg-destructive/10"
-            >
-              Reject
-            </Button>
-          </div>
-        </form>
-      ) : null}
-    </div>
   );
 }
 
@@ -1246,8 +1241,10 @@ function ReadinessSummaryCard({
 
 function ManagerDecisionPanel({
   verification,
+  selected,
 }: {
   verification: ManagerBorrowerVerificationRow;
+  selected: string;
 }) {
   return (
     <Card size="sm">
@@ -1258,6 +1255,7 @@ function ManagerDecisionPanel({
         <VerificationDecisionForm
           borrowerId={verification.borrower.id}
           verificationId={verification.id}
+          selected={selected}
         />
       </CardContent>
     </Card>

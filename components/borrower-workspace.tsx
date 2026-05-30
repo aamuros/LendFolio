@@ -80,9 +80,11 @@ export function BorrowerWorkspace({
     initialLoanApplications?.readiness ?? null,
   );
   const hasSavedPortfolioRef = useRef(portfolio !== null);
+  const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
   function navigateToVerification() {
+    setPostSaveVerification(false);
     setActiveTab("profile");
     setProfileMode("verification");
   }
@@ -136,6 +138,7 @@ export function BorrowerWorkspace({
 
   function changeTab(tab: BorrowerTab) {
     setActiveTab(tab);
+    setPostSaveVerification(false);
     if (tab !== "profile") {
       setProfileMode("index");
     }
@@ -177,6 +180,7 @@ export function BorrowerWorkspace({
   }, [activeTab, startTransition]);
 
   function openProfileEdit(returnMode: ProfileMode = "index") {
+    setPostSaveVerification(false);
     setEditReturnMode(returnMode);
     setProfileMode("edit");
     requestAnimationFrame(() => {
@@ -193,6 +197,15 @@ export function BorrowerWorkspace({
     setPortfolioMessage("");
     hasSavedPortfolioRef.current = true;
 
+    const verificationStatus =
+      initialLoanApplications?.borrowerVerification?.status ?? null;
+    const needsVerification =
+      verificationStatus !== null && verificationStatus !== "approved";
+
+    if (needsVerification) {
+      setPostSaveVerification(true);
+    }
+
     if (wasEmpty) {
       setProfileMode("verification");
     } else {
@@ -201,6 +214,11 @@ export function BorrowerWorkspace({
   }
 
   const showProfile = activeTab === "profile";
+
+  function handleProfileViewChange(view: ProfileMode) {
+    setPostSaveVerification(false);
+    setProfileMode(view);
+  }
 
   return (
     <div className={cn("grid", borrowerPageBottomPadding)}>
@@ -238,8 +256,9 @@ export function BorrowerWorkspace({
                 message={portfolioMessage}
                 onEditProfile={openProfileEdit}
                 onNavigateHome={() => changeTab("home")}
-                onProfileViewChange={setProfileMode}
+                onProfileViewChange={handleProfileViewChange}
                 portfolio={portfolio}
+                postSaveVerification={postSaveVerification}
                 readiness={readiness}
                 result={initialLoanApplications}
               />

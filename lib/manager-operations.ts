@@ -1528,6 +1528,84 @@ export async function loadManagerBorrowerVerifications(
   };
 }
 
+export async function loadManagerBorrowerVerification(
+  supabase: SupabaseServerClient,
+  verificationId: string,
+): Promise<{
+  ok: boolean;
+  message: string;
+  verification: ManagerBorrowerVerificationRow | null;
+}> {
+  const { data: row, error } = await supabase
+    .from("borrower_verifications")
+    .select(borrowerVerificationSelect)
+    .eq("id", verificationId)
+    .maybeSingle();
+
+  if (error) {
+    return { ok: false, message: "Could not load borrower verification.", verification: null };
+  }
+
+  if (!row) {
+    return { ok: true, message: "Borrower verification not found.", verification: null };
+  }
+
+  const [allDocumentRows, profiles, reviewerProfiles] = await Promise.all([
+    supabase
+      .from("borrower_verification_documents")
+      .select(borrowerVerificationDocumentSelect)
+      .eq("borrower_verification_id", row.id)
+      .order("uploaded_at", { ascending: false }),
+    loadProfilesByIds(supabase, [row.borrower_id]),
+    loadProfilesByIds(supabase, [row.reviewed_by].filter(Boolean) as string[]),
+  ]);
+
+  const rawDocs = allDocumentRows.data ?? [];
+  const mappedDocs: ManagerBorrowerVerificationDocumentRow[] = await Promise.all(
+    rawDocs.map(async (doc) => {
+      let viewUrl: string | null = null;
+      if (doc.storage_bucket && doc.storage_path) {
+        const { data: signed } = await supabase.storage
+          .from(doc.storage_bucket)
+          .createSignedUrl(doc.storage_path, 3600);
+        viewUrl = signed?.signedUrl ?? null;
+      }
+      return {
+        id: doc.id,
+        fileName: doc.file_name,
+        documentType: doc.document_type,
+        fileSize: doc.file_size,
+        status: doc.status,
+        uploadedAt: doc.uploaded_at,
+        reviewNotes: doc.review_notes,
+        viewUrl,
+      };
+    }),
+  );
+
+  const userConsents = await loadUserConsents(supabase, row.borrower_id);
+
+  const verification: ManagerBorrowerVerificationRow = {
+    id: row.id,
+    borrower: getProfileSummary(profiles, row.borrower_id),
+    verificationStatus: row.verification_status,
+    submittedAt: row.submitted_at,
+    createdAt: row.created_at,
+    reviewedAt: row.reviewed_at,
+    reviewedBy: row.reviewed_by
+      ? getProfileSummary(reviewerProfiles, row.reviewed_by)
+      : null,
+    rejectionReason: row.rejection_reason,
+    managerReviewNotes: row.manager_review_notes,
+    documentUploadConsentStatus: buildConsentStatus("borrower_document_upload", userConsents),
+    loanApplicationConsentStatus: buildConsentStatus("borrower_loan_application", userConsents),
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy(mappedDocs),
+    documents: mappedDocs,
+  };
+
+  return { ok: true, message: "Borrower verification loaded.", verification };
+}
+
 async function mapManagerRepaymentProofs(
   supabase: SupabaseServerClient,
   proofs: Database["public"]["Tables"]["repayment_proofs"]["Row"][],

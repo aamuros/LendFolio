@@ -1,4 +1,4 @@
-import { AlertCircle, Briefcase, ChartColumn, HelpCircle, Lock, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
@@ -9,6 +9,7 @@ import { ProfileMenuRow } from "./profile-menu-row";
 import { BorrowingPowerDetail } from "./borrowing-power-detail";
 import { AccountSection } from "./account-section";
 import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
@@ -44,6 +45,7 @@ export function BorrowerProfileHub({
   onNavigateHome,
   onProfileViewChange,
   portfolio,
+  postSaveVerification = false,
   readiness,
   result,
 }: {
@@ -56,6 +58,7 @@ export function BorrowerProfileHub({
   onNavigateHome: () => void;
   onProfileViewChange: (view: ProfileMode) => void;
   portfolio: BorrowerPortfolioInput | null;
+  postSaveVerification?: boolean;
   readiness: BorrowerReadinessResult | null;
   result: LoanApplicationsLoadResult | null;
 }) {
@@ -241,6 +244,24 @@ export function BorrowerProfileHub({
               onEditProfile("index");
             }}
           />
+
+          {postSaveVerification ? (
+            <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <div className="flex min-w-0 flex-1 flex-col gap-2">
+                <p className="text-sm font-medium text-foreground">
+                  Profile saved. Next, upload your verification documents.
+                </p>
+                <Button
+                  size="sm"
+                  onClick={() => onProfileViewChange("verification")}
+                  className="w-fit rounded-full font-semibold"
+                >
+                  Continue verification
+                </Button>
+              </div>
+            </div>
+          ) : null}
 
           <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
             <ProfileMenuRow

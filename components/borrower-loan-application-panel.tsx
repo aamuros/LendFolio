@@ -1118,6 +1118,7 @@ function HomeSummary({
               needsVerification={needsVerification === true}
               profileCompletion={profileCompletion}
               onNavigate={onNavigate}
+              onNavigateVerification={onNavigateVerification}
             />
 
             <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-6">
@@ -1422,11 +1423,13 @@ function ProfileReadinessCard({
   needsVerification,
   profileCompletion,
   onNavigate,
+  onNavigateVerification,
 }: {
   isProfileComplete: boolean;
   needsVerification: boolean;
   profileCompletion: ReturnType<typeof getProfileCompletion>;
   onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
 }) {
   const statusLabel = isProfileComplete
     ? needsVerification
@@ -1477,20 +1480,21 @@ function ProfileReadinessCard({
           aria-label="Profile completion"
           className="hidden sm:inline-flex"
         />
-        <div className="grid gap-1 text-center">
-          <p className="text-sm font-semibold tabular-nums text-foreground">
-            {profileCompletion.percentage}% complete
-          </p>
-          <p className="text-xs text-muted-foreground">
-            {description}
-          </p>
-        </div>
+        <p className="text-xs text-muted-foreground">
+          {description}
+        </p>
       </CardContent>
-      <CardFooter className="border-transparent px-4 pb-4 pt-2 sm:px-5">
+      <CardFooter className="border-transparent bg-transparent px-4 pb-4 pt-2 sm:px-5">
         <Button
           variant="outline"
           size="sm"
-          onClick={() => onNavigate?.("profile")}
+          onClick={() => {
+            if (needsVerification) {
+              onNavigateVerification?.();
+            } else {
+              onNavigate?.("profile");
+            }
+          }}
           className="w-full rounded-full font-semibold"
         >
           {ctaLabel}
