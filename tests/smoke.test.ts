@@ -1134,18 +1134,41 @@ describe("manager lender review page", () => {
     );
 
     expect(lendersPage).toContain("disclosuresMissing");
-    expect(lendersPage).toContain("disabled={disclosuresMissing}");
-    expect(lendersPage).toContain(
-      "Cannot approve until required lender disclosures are accepted.",
-    );
+    expect(lendersPage).toContain("Approval blocked");
+    expect(lendersPage).toContain("if (disclosuresMissing)");
   });
 
-  it("renders missing values as Not provided", () => {
+  it("hides approval textarea when disclosures are missing", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
+    // The approve form with textarea is only rendered when disclosures are NOT missing
+    expect(lendersPage).toContain("PendingCardActions");
+    expect(lendersPage).toContain("managerReviewNotes");
+    // No disabled={disclosuresMissing} pattern — the form is conditionally rendered instead
+    expect(lendersPage).not.toContain("disabled={disclosuresMissing}");
+  });
+
+  it("summarizes missing fields instead of repeating Not provided", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("getMissingProfileFields");
+    expect(lendersPage).toContain("Missing profile details:");
+    expect(lendersPage).toContain("missingFields.join");
+  });
+
+  it("renders missing org name as Not provided", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    // Org name fallback is the only remaining "Not provided" use in the card header
     expect(lendersPage).toContain('"Not provided"');
     expect(lendersPage).toContain("formatLoanRange");
   });
@@ -1173,5 +1196,78 @@ describe("manager lender review page", () => {
     expect(lendersPage).toContain("Ready for review");
     expect(lendersPage).toContain("Missing disclosures");
     expect(lendersPage).toContain("Incomplete profile");
+  });
+
+  it("keeps review action wiring intact", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("reviewLenderAction");
+    expect(lendersPage).toContain("RejectLenderDialog");
+    expect(lendersPage).toContain('name="lenderProfileId"');
+    expect(lendersPage).toContain('name="decision"');
+    expect(lendersPage).toContain('name="returnPath"');
+  });
+
+  it("does not render incomplete lenders as reviewed or rejected", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("incompleteLenders");
+    expect(lendersPage).toContain(
+      'l.verificationStatus === "incomplete"',
+    );
+    expect(lendersPage).toContain(
+      'l.verificationStatus === "approved"',
+    );
+    expect(lendersPage).toContain(
+      'l.verificationStatus === "rejected"',
+    );
+    expect(lendersPage).toContain(
+      "Profile incomplete. Waiting for the lender to complete onboarding",
+    );
+    expect(lendersPage).not.toContain("completedLenders");
+  });
+
+  it("uses compact card layout for lender rows", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("CompactField");
+    expect(lendersPage).toContain('Card size="sm"');
+    // No two-column action grid on the list page
+    expect(lendersPage).not.toContain("lg:grid-cols-[1fr_280px]");
+    expect(lendersPage).not.toContain("lg:grid-cols-[1fr_320px]");
+  });
+
+  it("shows compact blocker message instead of large alert box on pending cards", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    // PendingCardActions uses inline blocker text, not Alert variant="destructive"
+    expect(lendersPage).toContain("Approval blocked");
+    expect(lendersPage).toContain("ShieldAlertIcon");
+    // The page should not contain the old large alert message inside the card actions
+    expect(lendersPage).not.toContain(
+      "Cannot approve until required lender disclosures are accepted.",
+    );
+  });
+
+  it("keeps View details link available on all card types", () => {
+    const lendersPage = readFileSync(
+      "app/manager/lenders/page.tsx",
+      "utf8",
+    );
+
+    expect(lendersPage).toContain("View details");
+    expect(lendersPage).toContain("/manager/lenders/${lender.id}");
   });
 });

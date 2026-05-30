@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getManagerAccess } from "../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
+  getShortId,
   loadManagerLenders,
   type ManagerLenderRow,
 } from "@/lib/manager-operations";
@@ -9,7 +10,6 @@ import {
   AccessDenied,
   EmptyState,
   ManagerShell,
-  PersonLabel,
   StatusBadge,
   StatusMessage,
   formatCurrency,
@@ -20,8 +20,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -31,10 +29,6 @@ import {
 } from "@/components/ui/collapsible";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Alert,
-  AlertDescription,
-} from "@/components/ui/alert";
 import {
   CheckCircle2Icon,
   ChevronDownIcon,
@@ -321,8 +315,17 @@ function getReadinessBadge(lender: ManagerLenderRow): {
   };
 }
 
-function formatLoanRange(min: number, max: number): string {
-  if (min === 0 && max === 0) return "Not provided";
+function getMissingProfileFields(lender: ManagerLenderRow): string[] {
+  const fields: string[] = [];
+  if (!lender.contactPerson) fields.push("contact");
+  if (!lender.operatingArea) fields.push("area");
+  if (lender.minLoanAmount === 0 && lender.maxLoanAmount === 0) fields.push("loan range");
+  if (!lender.businessRegistrationNumber) fields.push("registration number");
+  return fields;
+}
+
+function formatLoanRange(min: number, max: number): string | null {
+  if (min === 0 && max === 0) return null;
   return `${formatCurrency(min)} – ${formatCurrency(max)}`;
 }
 
@@ -338,80 +341,66 @@ function PendingLenderCard({ lender }: { lender: ManagerLenderRow }) {
   const missingNames = lender.consentStatus.missing.map(
     (m) => consentTypeLabels[m.consentType],
   );
+  const missingFields = getMissingProfileFields(lender);
+  const loanRange = formatLoanRange(lender.minLoanAmount, lender.maxLoanAmount);
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <CardTitle className="text-base">
-                {lender.organizationName || "Not provided"}
-              </CardTitle>
-              <StatusBadge status={lender.verificationStatus} />
-              <Badge variant={readiness.variant} className={readiness.className}>
-                {readiness.label}
-              </Badge>
-            </div>
-            <p className="mt-1 text-xs text-muted-foreground">
-              <PersonLabel person={lender.profile} />
-            </p>
-          </div>
+    <Card size="sm">
+      <CardContent className="space-y-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <p className="truncate text-sm font-semibold">
+            {lender.organizationName || "Not provided"}
+          </p>
+          <StatusBadge status={lender.verificationStatus} />
+          <Badge variant={readiness.variant} className={readiness.className}>
+            {readiness.label}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {getShortId(lender.userId)}
+          </span>
         </div>
 
-        <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
-          <MetaField
-            label="Contact"
-            value={lender.contactPerson || "Not provided"}
-          />
-          <MetaField
-            label="Operating area"
-            value={lender.operatingArea || "Not provided"}
-          />
-          <MetaField
-            label="Loan range"
-            value={formatLoanRange(lender.minLoanAmount, lender.maxLoanAmount)}
-          />
-          <MetaField
-            label="Requested at"
-            value={formatDateTime(lender.createdAt)}
-          />
-          <MetaField
-            label="Registration no."
-            value={lender.businessRegistrationNumber || "Not provided"}
-          />
+        <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+          {lender.contactPerson ? (
+            <CompactField label="Contact" value={lender.contactPerson} />
+          ) : null}
+          {lender.operatingArea ? (
+            <CompactField label="Area" value={lender.operatingArea} />
+          ) : null}
+          {loanRange ? (
+            <CompactField label="Range" value={loanRange} />
+          ) : null}
+          <CompactField label="Requested" value={formatDateTime(lender.createdAt)} />
         </dl>
-      </CardHeader>
 
-      <CardContent>
-        <div className="grid gap-4 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-          <div className="min-w-0 space-y-4">
-            <DisclosureSummary
-              status={lender.consentStatus}
-              acceptedCount={acceptedCount}
-              totalCount={totalCount}
-              missingNames={missingNames}
-            />
+        {missingFields.length > 0 ? (
+          <p className="text-xs text-muted-foreground">
+            Missing profile details: {missingFields.join(", ")}
+          </p>
+        ) : null}
 
-            {lender.lenderDescription ? (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">
-                  Lender description
-                </p>
-                <p className="text-sm">{lender.lenderDescription}</p>
-              </div>
-            ) : null}
-          </div>
+        <DisclosureSummary
+          status={lender.consentStatus}
+          acceptedCount={acceptedCount}
+          totalCount={totalCount}
+          missingNames={missingNames}
+        />
 
-          <div className="space-y-3 lg:sticky lg:top-4 lg:self-start">
-            <PendingReviewActions
-              lender={lender}
-              disclosuresMissing={disclosuresMissing}
-            />
-          </div>
-        </div>
+        <PendingCardActions
+          lender={lender}
+          disclosuresMissing={disclosuresMissing}
+        />
       </CardContent>
     </Card>
+  );
+}
+
+function CompactField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="truncate font-medium text-foreground">{value}</dd>
+    </div>
   );
 }
 
@@ -427,10 +416,10 @@ function DisclosureSummary({
   missingNames: string[];
 }) {
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2">
-        <ShieldCheckIcon className="size-4 text-muted-foreground" />
-        <span className="text-sm font-medium">
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <ShieldCheckIcon className="size-3.5 shrink-0 text-muted-foreground" />
+        <span className="text-xs font-medium">
           Disclosures: {acceptedCount}/{totalCount} complete
         </span>
         {!status.isCurrent && missingNames.length > 0 ? (
@@ -446,7 +435,7 @@ function DisclosureSummary({
           <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
         </CollapsibleTrigger>
         <CollapsibleContent>
-          <div className="mt-2 rounded-lg border border-border/60 bg-muted/30 p-3">
+          <div className="mt-1.5 rounded-lg border border-border/60 bg-muted/30 p-2.5">
             <div className="grid gap-1 text-xs text-muted-foreground">
               {status.required.map((consent) => {
                 const accepted = status.accepted.find(
@@ -484,7 +473,7 @@ function DisclosureSummary({
   );
 }
 
-function PendingReviewActions({
+function PendingCardActions({
   lender,
   disclosuresMissing,
 }: {
@@ -493,67 +482,73 @@ function PendingReviewActions({
 }) {
   const returnPath = `/manager/lenders`;
 
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-sm">Review decision</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3">
-        {disclosuresMissing ? (
-          <Alert variant="destructive">
-            <ShieldAlertIcon />
-            <AlertDescription>
-              Cannot approve until required lender disclosures are accepted.
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        <form action={reviewLenderAction} className="grid gap-3">
-          <input type="hidden" name="lenderProfileId" value={lender.id} />
-          <input type="hidden" name="decision" value="approve" />
-          <input type="hidden" name="returnPath" value={returnPath} />
-          <div className="grid gap-1.5">
-            <Label
-              htmlFor={`notes-approve-${lender.id}`}
-              className="text-xs font-medium"
-            >
-              Review notes
-            </Label>
-            <Textarea
-              id={`notes-approve-${lender.id}`}
-              name="managerReviewNotes"
-              rows={2}
-              maxLength={1000}
-              placeholder="Optional note for this approval..."
-            />
-          </div>
-          <Button
-            type="submit"
-            className="w-full"
-            disabled={disclosuresMissing}
-          >
-            <CheckCircle2Icon className="size-4" />
-            Approve lender
-          </Button>
-        </form>
-
-        <Separator />
-
+  if (disclosuresMissing) {
+    return (
+      <div className="flex flex-wrap items-center gap-2 pt-1">
+        <Button variant="outline" size="sm" asChild>
+          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
+        </Button>
         <RejectLenderDialog
           lenderId={lender.id}
           organizationName={lender.organizationName || "this lender"}
           returnPath={returnPath}
         />
-      </CardContent>
-    </Card>
+        <Separator orientation="vertical" className="mx-1 h-5" />
+        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+          <ShieldAlertIcon className="size-3 text-destructive" />
+          Approval blocked
+        </span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2 pt-1">
+      <form action={reviewLenderAction} className="flex flex-col gap-2">
+        <input type="hidden" name="lenderProfileId" value={lender.id} />
+        <input type="hidden" name="decision" value="approve" />
+        <input type="hidden" name="returnPath" value={returnPath} />
+        <div className="grid gap-1.5">
+          <Label
+            htmlFor={`notes-approve-${lender.id}`}
+            className="text-xs font-medium"
+          >
+            Review notes
+          </Label>
+          <Textarea
+            id={`notes-approve-${lender.id}`}
+            name="managerReviewNotes"
+            rows={2}
+            maxLength={1000}
+            placeholder="Optional note for this approval..."
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Button type="submit" size="sm">
+            <CheckCircle2Icon className="size-4" />
+            Approve lender
+          </Button>
+          <RejectLenderDialog
+            lenderId={lender.id}
+            organizationName={lender.organizationName || "this lender"}
+            returnPath={returnPath}
+          />
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
+          </Button>
+        </div>
+      </form>
+    </div>
   );
 }
 
 function IncompleteLenderCard({ lender }: { lender: ManagerLenderRow }) {
+  const missingFields = getMissingProfileFields(lender);
+
   return (
-    <Card>
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1 space-y-2">
+    <Card size="sm">
+      <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex flex-wrap items-center gap-2">
             <p className="truncate text-sm font-semibold">
               {lender.organizationName || lender.profile.displayName}
@@ -564,15 +559,29 @@ function IncompleteLenderCard({ lender }: { lender: ManagerLenderRow }) {
             Profile incomplete. Waiting for the lender to complete onboarding
             before manager review.
           </p>
-          <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
+          <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
             {lender.contactPerson ? (
-              <span>{lender.contactPerson}</span>
+              <div className="flex gap-1">
+                <dt className="text-muted-foreground">Contact:</dt>
+                <dd className="font-medium">{lender.contactPerson}</dd>
+              </div>
             ) : null}
             {lender.operatingArea ? (
-              <span>{lender.operatingArea}</span>
+              <div className="flex gap-1">
+                <dt className="text-muted-foreground">Area:</dt>
+                <dd className="font-medium">{lender.operatingArea}</dd>
+              </div>
             ) : null}
-            <span>Requested {formatDateTime(lender.createdAt)}</span>
-          </div>
+            <div className="flex gap-1">
+              <dt className="text-muted-foreground">Requested:</dt>
+              <dd className="font-medium">{formatDateTime(lender.createdAt)}</dd>
+            </div>
+          </dl>
+          {missingFields.length > 0 ? (
+            <p className="text-xs text-muted-foreground">
+              Missing profile details: {missingFields.join(", ")}
+            </p>
+          ) : null}
         </div>
         <Button variant="outline" size="sm" asChild>
           <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
@@ -588,7 +597,7 @@ function ReviewedLenderRow({ lender }: { lender: ManagerLenderRow }) {
   const statusBy = isApproved ? lender.approvedBy : lender.rejectedBy;
 
   return (
-    <Card>
+    <Card size="sm">
       <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
@@ -617,14 +626,5 @@ function ReviewedLenderRow({ lender }: { lender: ManagerLenderRow }) {
         </Button>
       </CardContent>
     </Card>
-  );
-}
-
-function MetaField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="grid gap-0.5">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="font-medium text-foreground">{value}</dd>
-    </div>
   );
 }
