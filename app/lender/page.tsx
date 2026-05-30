@@ -8,6 +8,7 @@ import {
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
+import { LenderPendingReviewPanel } from "@/components/lender/lender-pending-review-panel";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   buildConsentStatus,
@@ -22,7 +23,10 @@ import {
   type LenderOfferReview,
 } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
-import { Card, CardContent } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -78,35 +82,51 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       redirect("/lender/onboarding");
     }
 
-    const message =
+    const isPendingReview =
       access.profile.role === "lender" &&
-      access.profile.lenderProfile?.verification_status === "pending"
-        ? "Your lender access is pending review. Accept the required disclosures below so a manager can complete your approval."
-        : access.profile.role === "lender" &&
-            access.profile.lenderProfile?.verification_status === "rejected"
-          ? "Your lender access was not approved. Update your lender profile to resubmit."
-          : "Your account does not have access to this workspace.";
+      access.profile.lenderProfile?.verification_status === "pending";
+
+    const isRejected =
+      access.profile.role === "lender" &&
+      access.profile.lenderProfile?.verification_status === "rejected";
 
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
           <LenderHeader activeTab={activeTab} showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
-            <div className="grid gap-5">
-              <LenderApplicationsStatus message={message} tone="error" />
-              {access.profile.role === "lender" &&
-              access.profile.lenderProfile?.verification_status === "rejected" ? (
+            {isPendingReview ? (
+              <LenderPendingReviewPanel
+                consentStatus={lenderConsentStatus}
+              />
+            ) : isRejected ? (
+              <div className="grid gap-5">
+                <LenderApplicationsStatus
+                  message="Your lender access was not approved. Update your lender profile to resubmit."
+                  tone="error"
+                />
                 <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
                   <Link href="/lender/onboarding">Update lender profile</Link>
                 </Button>
-              ) : null}
-              {access.profile.role === "lender" ? (
                 <ConsentAcceptancePanel
                   scope="lender_review"
                   status={lenderConsentStatus}
                 />
-              ) : null}
-            </div>
+              </div>
+            ) : (
+              <div className="grid gap-5">
+                <LenderApplicationsStatus
+                  message="Your account does not have access to this workspace."
+                  tone="error"
+                />
+                {access.profile.role === "lender" ? (
+                  <ConsentAcceptancePanel
+                    scope="lender_review"
+                    status={lenderConsentStatus}
+                  />
+                ) : null}
+              </div>
+            )}
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />

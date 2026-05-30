@@ -16,6 +16,7 @@ import {
 import { acceptUserConsentsAction } from "@/app/consents/actions";
 import {
   borrowerVerificationDocumentStatusLabels,
+  borrowerVerificationDocumentTypeDescriptions,
   borrowerVerificationDocumentTypeLabels,
   borrowerVerificationDocumentTypes,
   borrowerVerificationStatusLabels,
@@ -127,10 +128,10 @@ export function BorrowerVerificationDocumentsPanel({
         </VerificationSection>
 
         {consentStatus ? (
-          <VerificationSection
-            title="Required disclosures"
-            description="Accept these before uploading verification documents."
-          >
+        <VerificationSection
+          title="Step 1: Accept required disclosures"
+          description="Accept these before uploading verification documents."
+        >
             <div className="grid gap-1">
               {consentStatus.required.map((consent) => {
                 const accepted = consentStatus.accepted.find(
@@ -194,7 +195,10 @@ export function BorrowerVerificationDocumentsPanel({
           </VerificationSection>
         ) : null}
 
-        <VerificationSection title="Verification checklist">
+        <VerificationSection
+          title="Step 2: Upload required documents"
+          description="Upload both required documents. You can upload them one at a time."
+        >
           <div className="grid gap-1">
             <CompactRow
               label="Required disclosures"
@@ -226,7 +230,7 @@ export function BorrowerVerificationDocumentsPanel({
               );
             })}
             <CompactRow
-              label="Manager review"
+              label="Step 3: Manager review"
               detail={
                 verification.status === "approved"
                   ? "Manager review is complete."
@@ -308,7 +312,7 @@ export function BorrowerVerificationDocumentsPanel({
         </VerificationSection>
 
         <VerificationSection
-          title={canUpload ? "Upload document" : getActionSectionTitle(verification)}
+          title={canUpload ? "Upload a document" : getActionSectionTitle(verification)}
         >
           {canUpload ? (
             <form ref={formRef} action={formAction} className="grid gap-3">
@@ -325,10 +329,14 @@ export function BorrowerVerificationDocumentsPanel({
                     {borrowerVerificationDocumentTypes.map((type) => (
                       <SelectItem key={type} value={type}>
                         {borrowerVerificationDocumentTypeLabels[type]}
+                        {isRequiredDocumentType(type, verification) ? " (required)" : ""}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
+                <p className="text-xs text-muted-foreground">
+                  {borrowerVerificationDocumentTypeDescriptions[documentType as keyof typeof borrowerVerificationDocumentTypeDescriptions]}
+                </p>
               </div>
               <div className="grid gap-1.5">
                 <Label htmlFor="documentFile" className="text-sm font-semibold">
@@ -342,6 +350,9 @@ export function BorrowerVerificationDocumentsPanel({
                   className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   required
                 />
+                <p className="text-xs text-muted-foreground">
+                  JPG, PNG, WebP, or PDF. Up to 5 MB.
+                </p>
               </div>
               <Button
                 type="submit"
@@ -450,18 +461,23 @@ function getVerificationLabel(verification: BorrowerVerificationSummary) {
 
 function getVerificationDescription(verification: BorrowerVerificationSummary) {
   if (verification.status === "approved") {
-    return "Your borrower profile is complete.";
+    return "Your borrower verification is approved. You can now apply for financing.";
   }
 
-  if (
-    verification.status === "rejected" ||
-    verification.status === "needs_resubmission"
-  ) {
-    return "Upload the missing documents to continue.";
+  if (verification.status === "rejected") {
+    return "Your verification was rejected. Review the feedback and upload replacement documents.";
+  }
+
+  if (verification.status === "needs_resubmission") {
+    return "Your verification needs updates. Review the manager feedback and upload replacement documents for any rejected items.";
   }
 
   if (verification.documentPolicy.readyForManagerReview) {
-    return "Your documents are waiting for manager review.";
+    return "Your documents are uploaded and waiting for manager review.";
+  }
+
+  if (verification.documentPolicy.missingRequiredDocumentTypes.length > 0) {
+    return "Upload the required verification documents to continue. Both Valid ID and Business proof are required.";
   }
 
   return "Upload the missing documents to continue.";
@@ -538,6 +554,15 @@ function getActionSectionMessage(verification: BorrowerVerificationSummary) {
   return verification.status === "approved"
     ? "Your borrower verification is approved. No document upload is needed."
     : "Your documents are already submitted. No action is needed right now.";
+}
+
+function isRequiredDocumentType(
+  documentType: string,
+  verification: BorrowerVerificationSummary,
+): boolean {
+  return verification.documentPolicy.requiredDocumentTypes.includes(
+    documentType as BorrowerVerificationSummary["documentPolicy"]["requiredDocumentTypes"][number],
+  );
 }
 
 function formatFileSize(size: number) {

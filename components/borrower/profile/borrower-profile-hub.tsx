@@ -378,13 +378,21 @@ function getProfileStatus(
     verificationStatus !== "missing" &&
     verificationStatus !== "approved"
   ) {
+    const needsResubmission =
+      verificationStatus === "rejected" ||
+      verificationStatus === "needs_resubmission";
+
     return {
       tone: "attention" as const,
-      label: "Verification required",
-      title: "Complete verification",
-      description: "Verification approval is required before applying.",
+      label: needsResubmission ? "Resubmission needed" : "Verification required",
+      title: needsResubmission
+        ? "Update your verification documents"
+        : "Complete borrower verification",
+      description: needsResubmission
+        ? "Review the feedback and upload replacement documents."
+        : "Upload a valid ID and business proof to verify your borrower profile.",
       action: "verification" as const,
-      actionLabel: "Review profile",
+      actionLabel: "Go to verification",
     };
   }
 

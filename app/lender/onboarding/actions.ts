@@ -67,6 +67,24 @@ export async function lenderOnboardingAction(
   try {
     const supabase = await createSupabaseServerClient();
 
+    const requiredConsents = getRequiredConsentVersions("lender_review");
+    const requestHeaders = await headers();
+    const { ipAddress, userAgent } = getConsentRequestMetadata(requestHeaders);
+
+    const { error: consentError } = await supabase.rpc("accept_user_consents", {
+      p_consents: toConsentRpcPayload(requiredConsents) as Json,
+      p_ip_address: ipAddress,
+      p_user_agent: userAgent,
+    });
+
+    if (consentError) {
+      return {
+        status: "error",
+        message:
+          "We could not record your disclosure acceptance. Please try again.",
+      };
+    }
+
     const { data, error } = await supabase.rpc("submit_lender_onboarding", {
       p_organization_name: input.organizationName,
       p_contact_person: input.contactPerson,
@@ -91,24 +109,6 @@ export async function lenderOnboardingAction(
         status: "error",
         message:
           result?.message ?? "Could not submit your lender profile. Try again.",
-      };
-    }
-
-    const requiredConsents = getRequiredConsentVersions("lender_review");
-    const requestHeaders = await headers();
-    const { ipAddress, userAgent } = getConsentRequestMetadata(requestHeaders);
-
-    const { error: consentError } = await supabase.rpc("accept_user_consents", {
-      p_consents: toConsentRpcPayload(requiredConsents) as Json,
-      p_ip_address: ipAddress,
-      p_user_agent: userAgent,
-    });
-
-    if (consentError) {
-      return {
-        status: "error",
-        message:
-          "Your lender profile was submitted, but we could not record your disclosure acceptance. Please contact support.",
       };
     }
   } catch {

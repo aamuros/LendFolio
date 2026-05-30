@@ -54,6 +54,7 @@ import {
   ChevronDownIcon,
   ChevronLeftIcon,
   MessageSquareTextIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   XCircleIcon,
   CircleDotIcon,
@@ -837,6 +838,29 @@ function SelectedReviewActions({
   lender: ManagerLenderRow;
 }) {
   const returnPath = `/manager/lenders`;
+  const disclosuresMissing = !lender.consentStatus.isCurrent;
+
+  if (disclosuresMissing) {
+    return (
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-sm">Manager decision</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <RejectLenderDialog
+            lenderId={lender.id}
+            organizationName={lender.organizationName || "this lender"}
+            returnPath={returnPath}
+          />
+          <Separator orientation="vertical" className="mx-1 h-5" />
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <ShieldAlertIcon className="size-3 text-destructive" />
+            Approval blocked
+          </span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card size="sm">

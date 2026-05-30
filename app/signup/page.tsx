@@ -9,8 +9,8 @@ export default function SignupPage() {
       <div className="flex w-full max-w-lg flex-col gap-4">
         <Button
           variant="ghost"
-          size="sm"
-          className="-ml-2 w-fit rounded-full text-muted-foreground hover:text-foreground"
+          size="lg"
+          className="-ml-2 w-fit text-muted-foreground hover:text-foreground"
           asChild
         >
           <Link href="/">

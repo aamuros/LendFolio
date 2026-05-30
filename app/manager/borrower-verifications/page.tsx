@@ -767,6 +767,12 @@ function RequiredDocumentsSection({
     documentPolicy.acceptedDocumentTypes.includes(dt),
   ).length;
   const totalRequired = documentPolicy.requiredDocumentTypes.length;
+  const hasMissing = documentPolicy.missingRequiredDocumentTypes.length > 0;
+  const hasSubmittedNotAccepted = documentPolicy.requiredDocumentTypes.some(
+    (dt) =>
+      documentPolicy.submittedDocumentTypes.includes(dt) &&
+      !documentPolicy.acceptedDocumentTypes.includes(dt),
+  );
 
   return (
     <div className="space-y-3">
@@ -777,6 +783,36 @@ function RequiredDocumentsSection({
           {acceptedRequired}/{totalRequired} accepted
         </span>
       </div>
+
+      {hasMissing ? (
+        <Alert>
+          <AlertCircleIcon className="size-4" />
+          <AlertDescription>
+            The borrower must upload the missing required documents before this
+            verification can be approved.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {!hasMissing && hasSubmittedNotAccepted ? (
+        <Alert>
+          <AlertCircleIcon className="size-4" />
+          <AlertDescription>
+            All required documents are uploaded. Accept each document before
+            approving borrower verification.
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {documentPolicy.documentsAccepted ? (
+        <Alert>
+          <CheckCircle2Icon className="size-4" />
+          <AlertDescription>
+            All required documents are accepted. This verification is ready for
+            approval.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
       <div className="hidden sm:block">
         <Card className="py-0">
@@ -1144,6 +1180,9 @@ function ReadinessSummaryCard({
     documentPolicy.acceptedDocumentTypes.includes(dt),
   ).length;
   const totalRequired = documentPolicy.requiredDocumentTypes.length;
+  const canApprove = documentPolicy.documentsAccepted && consentsCurrent;
+  const hasMissingDocuments =
+    documentPolicy.missingRequiredDocumentTypes.length > 0;
 
   return (
     <Card size="sm">
@@ -1190,6 +1229,16 @@ function ReadinessSummaryCard({
           <span className="text-muted-foreground">Status</span>
           <StatusBadge status={verification.verificationStatus} />
         </div>
+
+        {!canApprove ? (
+          <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+            {hasMissingDocuments
+              ? "Borrower must upload all required documents before approval."
+              : !consentsCurrent
+                ? "Borrower must accept all required consents before approval."
+                : "Accept all required documents before approving this verification."}
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

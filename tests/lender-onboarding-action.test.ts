@@ -59,15 +59,15 @@ describe("lenderOnboardingAction", () => {
     expect(result.fieldErrors?.lenderReviewConsentAccepted).toBeDefined();
   });
 
-  it("records lender_review consent on successful submission", async () => {
+  it("records lender_review consent before profile submission", async () => {
     const rpc = vi
       .fn()
       .mockResolvedValueOnce({
-        data: { ok: true, message: "Profile submitted." },
+        data: { ok: true, message: "Required disclosures accepted." },
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { ok: true, message: "Required disclosures accepted." },
+        data: { ok: true, message: "Profile submitted." },
         error: null,
       });
 
@@ -85,8 +85,7 @@ describe("lenderOnboardingAction", () => {
     }
 
     expect(rpc).toHaveBeenCalledTimes(2);
-    expect(rpc).toHaveBeenNthCalledWith(1, "submit_lender_onboarding", expect.any(Object));
-    expect(rpc).toHaveBeenNthCalledWith(2, "accept_user_consents", {
+    expect(rpc).toHaveBeenNthCalledWith(1, "accept_user_consents", {
       p_consents: [
         { consent_type: "terms_of_service", version: "2026-05-terms-v1" },
         { consent_type: "privacy_notice", version: "2026-05-privacy-v1" },
@@ -95,17 +94,18 @@ describe("lenderOnboardingAction", () => {
       p_ip_address: "203.0.113.10",
       p_user_agent: "Vitest",
     });
+    expect(rpc).toHaveBeenNthCalledWith(2, "submit_lender_onboarding", expect.any(Object));
   });
 
   it("redirects to /lender after successful submission", async () => {
     const rpc = vi
       .fn()
       .mockResolvedValueOnce({
-        data: { ok: true, message: "Profile submitted." },
+        data: { ok: true, message: "Required disclosures accepted." },
         error: null,
       })
       .mockResolvedValueOnce({
-        data: { ok: true, message: "Required disclosures accepted." },
+        data: { ok: true, message: "Profile submitted." },
         error: null,
       });
 
@@ -123,13 +123,9 @@ describe("lenderOnboardingAction", () => {
     }
   });
 
-  it("returns error when consent recording fails after successful submission", async () => {
+  it("returns error when consent recording fails before profile submission", async () => {
     const rpc = vi
       .fn()
-      .mockResolvedValueOnce({
-        data: { ok: true, message: "Profile submitted." },
-        error: null,
-      })
       .mockResolvedValueOnce({
         data: null,
         error: { message: "consent failed" },
@@ -145,5 +141,7 @@ describe("lenderOnboardingAction", () => {
 
     expect(result.status).toBe("error");
     expect(result.message).toContain("disclosure acceptance");
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("accept_user_consents", expect.any(Object));
   });
 });

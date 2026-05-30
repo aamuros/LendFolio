@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   loadBorrowerPortfolio,
   loadBorrowerLoanApplications,
@@ -79,7 +79,13 @@ export function BorrowerWorkspace({
   const [readiness, setReadiness] = useState<BorrowerReadinessResult | null>(
     initialLoanApplications?.readiness ?? null,
   );
+  const hasSavedPortfolioRef = useRef(portfolio !== null);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
+
+  function navigateToVerification() {
+    setActiveTab("profile");
+    setProfileMode("verification");
+  }
 
   useEffect(() => {
     let isActive = true;
@@ -181,10 +187,17 @@ export function BorrowerWorkspace({
   }
 
   function handlePortfolioSaved(savedPortfolio: BorrowerPortfolioInput) {
+    const wasEmpty = !hasSavedPortfolioRef.current;
     setPortfolio(savedPortfolio);
     setPortfolioLoadState("ready");
     setPortfolioMessage("");
-    setProfileMode(editReturnMode);
+    hasSavedPortfolioRef.current = true;
+
+    if (wasEmpty) {
+      setProfileMode("verification");
+    } else {
+      setProfileMode(editReturnMode);
+    }
   }
 
   const showProfile = activeTab === "profile";
@@ -236,6 +249,7 @@ export function BorrowerWorkspace({
           <BorrowerLoanApplicationPanel
             view={workspaceTab}
             onNavigate={changeTab}
+            onNavigateVerification={navigateToVerification}
             initialLoadResult={initialLoanApplications}
             highlightOfferId={highlightOfferId}
             highlightApplicationId={highlightApplicationId}

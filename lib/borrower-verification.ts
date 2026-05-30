@@ -79,6 +79,19 @@ export const borrowerVerificationDocumentTypeLabels: Record<
   other: "Other",
 };
 
+export const borrowerVerificationDocumentTypeDescriptions: Record<
+  BorrowerVerificationDocumentType,
+  string
+> = {
+  valid_id:
+    "Government-issued ID, school ID, employee ID, or another accepted identity document.",
+  business_proof:
+    "Barangay business permit, DTI/SEC/CDA registration, mayor's permit, store photo with signage, supplier invoice, or sales record.",
+  address_proof: "Utility bill, lease agreement, or barangay certificate.",
+  business_registration: "DTI, SEC, or CDA registration certificate.",
+  other: "Other supporting documents.",
+};
+
 export const borrowerVerificationDocumentStatusLabels: Record<
   BorrowerVerificationDocumentStatus,
   string

@@ -68,6 +68,7 @@ export function SignupForm() {
                   icon={HandCoins}
                   label="Borrower"
                   description="Apply for loans and track repayments."
+                  isSelected={role === "borrower"}
                 />
                 <RoleCard
                   value="lender"
@@ -75,6 +76,7 @@ export function SignupForm() {
                   icon={Landmark}
                   label="Lender"
                   description="Review applications, send offers, and verify repayments."
+                  isSelected={role === "lender"}
                 />
               </RadioGroup>
               <FieldErrorHelper messages={state.fieldErrors?.role} />
@@ -137,9 +139,7 @@ export function SignupForm() {
               <FieldErrorHelper messages={confirmPasswordErrors} />
             </Field>
 
-            <fieldset className="rounded-lg border bg-muted/30 p-3">
-              <legend className="sr-only">Required disclosures</legend>
-              <div className="grid gap-2.5">
+            <div className="space-y-3 rounded-lg bg-muted/40 p-4" role="group" aria-label="Required disclosures">
                 <ConsentCheckbox
                   name="termsAccepted"
                   id="termsAccepted"
@@ -148,8 +148,7 @@ export function SignupForm() {
                       I agree to the{" "}
                       <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
                         Terms of Service
-                      </Link>
-                      .
+                      </Link>.
                     </>
                   }
                   error={state.fieldErrors?.termsAccepted}
@@ -162,14 +161,12 @@ export function SignupForm() {
                       I acknowledge the{" "}
                       <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
                         Privacy Notice
-                      </Link>
-                      .
+                      </Link>.
                     </>
                   }
                   error={state.fieldErrors?.privacyAccepted}
                 />
-              </div>
-            </fieldset>
+            </div>
 
             {!passwordMismatch && state.message ? (
               <Alert variant={isSuccess ? "default" : "destructive"}>
@@ -206,12 +203,14 @@ function RoleCard({
   icon: Icon,
   label,
   description,
+  isSelected,
 }: {
   value: string;
   id: string;
   icon: React.ComponentType<{ className?: string }>;
   label: string;
   description: string;
+  isSelected: boolean;
 }) {
   return (
     <div className="flex">
@@ -219,15 +218,16 @@ function RoleCard({
       <Label
         htmlFor={id}
         className={cn(
-          "flex w-full flex-col items-center gap-2.5 cursor-pointer rounded-xl border bg-card px-4 py-5 text-center transition-all",
-          "hover:bg-muted/50",
-          "peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5",
+          "flex w-full flex-col items-center gap-2.5 cursor-pointer rounded-xl border px-4 py-5 text-center transition-colors duration-150",
+          isSelected
+            ? "border-primary bg-primary/5 ring-1 ring-primary/20 shadow-sm"
+            : "border-border/50 bg-card shadow-sm hover:bg-muted/50 hover:border-border/80",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-ring peer-focus-visible:ring-offset-2"
         )}
       >
-        <Icon className="size-5 shrink-0 text-muted-foreground" />
+        <Icon className={cn("size-5 shrink-0 transition-colors duration-150", isSelected ? "text-primary" : "text-muted-foreground")} />
         <span className="text-sm font-semibold leading-none">{label}</span>
-        <p className="text-xs leading-relaxed text-muted-foreground">
+        <p className={cn("text-xs leading-relaxed transition-colors duration-150", isSelected ? "text-foreground/70" : "text-muted-foreground")}>
           {description}
         </p>
       </Label>

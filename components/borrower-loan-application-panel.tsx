@@ -117,6 +117,7 @@ type ProofFeedback = {
 type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers" | "loans";
   onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
   initialLoadResult?: LoanApplicationsLoadResult | null;
   highlightOfferId?: string | null;
   highlightApplicationId?: string | null;
@@ -128,6 +129,7 @@ type BorrowerLoanApplicationPanelProps = {
 export function BorrowerLoanApplicationPanel({
   view = "apply",
   onNavigate,
+  onNavigateVerification,
   initialLoadResult = null,
   highlightOfferId = null,
   highlightApplicationId = null,
@@ -764,6 +766,7 @@ export function BorrowerLoanApplicationPanel({
             hasPortfolio={hasPortfolio}
             loadState={loadState}
             onNavigate={onNavigate}
+            onNavigateVerification={onNavigateVerification}
             readiness={readiness}
           />
         ) : null}
@@ -789,6 +792,7 @@ export function BorrowerLoanApplicationPanel({
               <VerificationGateCard
                 borrowerVerification={borrowerVerification}
                 message={borrowerVerificationMessage}
+                onNavigateVerification={onNavigateVerification}
               />
             ) : loanConsentStatus && !loanConsentStatus.isCurrent ? (
               <ConsentAcceptancePanel
@@ -899,9 +903,11 @@ export function BorrowerLoanApplicationPanel({
 function VerificationGateCard({
   borrowerVerification,
   message,
+  onNavigateVerification,
 }: {
   borrowerVerification: BorrowerVerificationSummary | null;
   message: string;
+  onNavigateVerification?: () => void;
 }) {
   const managerNote =
     borrowerVerification?.managerReviewNotes ??
@@ -926,6 +932,14 @@ function VerificationGateCard({
             </CardContent>
           </Card>
         ) : null}
+        {onNavigateVerification ? (
+          <Button
+            onClick={onNavigateVerification}
+            className="w-fit rounded-full h-10 px-5 font-semibold"
+          >
+            Go to verification
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );
@@ -939,6 +953,7 @@ function HomeSummary({
   hasPortfolio,
   loadState,
   onNavigate,
+  onNavigateVerification,
   readiness,
 }: {
   applications: BorrowerLoanApplicationSummary[];
@@ -948,6 +963,7 @@ function HomeSummary({
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
   readiness: BorrowerReadinessResult | null;
 }) {
   const activeLoans = getActiveLoans(applications);
@@ -1015,7 +1031,13 @@ function HomeSummary({
               badge={!hasPortfolio ? "Required" : undefined}
               progressPercent={profileCompletion.percentage}
               progressLabel="Profile progress"
-              onAction={() => onNavigate?.("profile")}
+              onAction={() => {
+                if (needsVerification) {
+                  onNavigateVerification?.();
+                } else {
+                  onNavigate?.("profile");
+                }
+              }}
             />
           ) : null}
 

@@ -318,7 +318,7 @@ export async function saveBorrowerPortfolio(
     return {
       ok: true,
       mode: "supabase",
-      message: "Profile saved.",
+      message: "Profile saved. Next, verify your borrower profile by uploading a valid ID and business proof.",
     };
   } catch {
     return {
