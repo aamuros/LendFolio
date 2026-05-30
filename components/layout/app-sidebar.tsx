@@ -17,6 +17,7 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { UserMenu } from "@/components/layout/user-menu";
+import { NotificationUnreadBadge } from "@/components/layout/notification-unread-badge";
 import { getNavConfigForRole, isActiveHref } from "@/components/layout/dashboard-nav-data";
 
 export function AppSidebar({
@@ -81,6 +82,7 @@ export function AppSidebar({
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
+                    {item.showUnreadBadge ? <NotificationUnreadBadge /> : null}
                   </SidebarMenuItem>
                 ))}
               </SidebarMenu>

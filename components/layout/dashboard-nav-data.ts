@@ -2,6 +2,7 @@ import type { AppRole } from "@/lib/supabase/types";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
+  Inbox,
   FileText,
   Wallet,
   Receipt,
@@ -16,6 +17,7 @@ export type NavItem = {
   href: string;
   icon: LucideIcon;
   badge?: string;
+  showUnreadBadge?: boolean;
 };
 
 export type NavGroup = {
@@ -34,6 +36,7 @@ export const managerNavGroups: NavGroup[] = [
     title: "Platform",
     items: [
       { title: "Overview", href: "/manager", icon: LayoutDashboard },
+      { title: "Notifications", href: "/manager/notifications", icon: Inbox, showUnreadBadge: true },
       { title: "Applications", href: "/manager/applications", icon: FileText },
       { title: "Loans", href: "/manager/loans", icon: Wallet },
       { title: "Repayments", href: "/manager/repayments", icon: Receipt },

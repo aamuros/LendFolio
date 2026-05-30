@@ -11,11 +11,16 @@ type LenderReviewResult = {
   message?: string;
 };
 
-export async function refreshOverdueStatusesAction() {
+export async function refreshOverdueStatusesAction(formData?: FormData) {
+  const returnPath = String(formData?.get("returnPath") ?? "/manager");
+  const safeReturnPath = returnPath.startsWith("/manager")
+    ? returnPath
+    : "/manager";
+
   const access = await requireManager();
 
   if (!access.ok) {
-    redirect("/manager?overdueRefresh=error");
+    redirect(`${safeReturnPath}?overdueRefresh=error`);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -24,7 +29,7 @@ export async function refreshOverdueStatusesAction() {
   const result = data as { ok?: boolean } | null;
 
   if (error || !result?.ok) {
-    redirect("/manager?overdueRefresh=error");
+    redirect(`${safeReturnPath}?overdueRefresh=error`);
   }
 
   revalidatePath("/manager");
@@ -33,7 +38,7 @@ export async function refreshOverdueStatusesAction() {
   revalidatePath("/borrower");
   revalidatePath("/lender");
 
-  redirect("/manager?overdueRefresh=success");
+  redirect(`${safeReturnPath}?overdueRefresh=success`);
 }
 
 export async function reviewLenderAction(formData: FormData) {

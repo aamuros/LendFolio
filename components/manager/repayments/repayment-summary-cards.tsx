@@ -12,6 +12,7 @@ import {
   CircleXIcon,
   CalendarClockIcon,
 } from "lucide-react";
+import type { ManagerRepaymentProofRow } from "@/lib/manager-operations";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -23,39 +24,60 @@ type SummaryCardConfig = {
   badgeTone: "default" | "secondary" | "destructive";
 };
 
-const managerRepaymentSummaryMockData: SummaryCardConfig[] = [
-  {
-    label: "Pending review",
-    description: "Submitted proofs waiting for review.",
-    value: 0,
-    icon: ReceiptTextIcon,
-    badgeTone: "secondary",
-  },
-  {
-    label: "Verified proofs",
-    description: "Payment evidence approved by lenders.",
-    value: 0,
-    icon: CircleCheckIcon,
-    badgeTone: "default",
-  },
-  {
-    label: "Rejected proofs",
-    description: "Proofs that require borrower correction.",
-    value: 0,
-    icon: CircleXIcon,
-    badgeTone: "destructive",
-  },
-  {
-    label: "Overdue repayments",
-    description: "Repayments past their due date.",
-    value: 0,
-    icon: CalendarClockIcon,
-    badgeTone: "destructive",
-  },
-];
+function buildSummaryCards(
+  proofs: ManagerRepaymentProofRow[],
+): SummaryCardConfig[] {
+  const pendingReview = proofs.filter(
+    (p) => p.proofStatus === "submitted",
+  ).length;
+  const verifiedProofs = proofs.filter(
+    (p) => p.proofStatus === "verified",
+  ).length;
+  const rejectedProofs = proofs.filter(
+    (p) => p.proofStatus === "rejected",
+  ).length;
+  const overdueRepayments = proofs.filter(
+    (p) => p.repaymentStatus === "late",
+  ).length;
 
-export function RepaymentSummaryCards() {
-  const cards = managerRepaymentSummaryMockData;
+  return [
+    {
+      label: "Pending review",
+      description: "Submitted proofs waiting for review.",
+      value: pendingReview,
+      icon: ReceiptTextIcon,
+      badgeTone: "secondary",
+    },
+    {
+      label: "Verified proofs",
+      description: "Payment evidence approved by lenders.",
+      value: verifiedProofs,
+      icon: CircleCheckIcon,
+      badgeTone: "default",
+    },
+    {
+      label: "Rejected proofs",
+      description: "Proofs that require borrower correction.",
+      value: rejectedProofs,
+      icon: CircleXIcon,
+      badgeTone: "destructive",
+    },
+    {
+      label: "Overdue repayments",
+      description: "Repayments past their due date.",
+      value: overdueRepayments,
+      icon: CalendarClockIcon,
+      badgeTone: "destructive",
+    },
+  ];
+}
+
+export function RepaymentSummaryCards({
+  proofs,
+}: {
+  proofs: ManagerRepaymentProofRow[];
+}) {
+  const cards = buildSummaryCards(proofs);
 
   return (
     <section

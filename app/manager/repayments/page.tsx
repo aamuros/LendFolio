@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getManagerAccess } from "../manager-access";
 import { resolveSubmittedDateRangeFilters } from "@/lib/date-ranges";
 import { loadManagerRepayments } from "@/lib/manager-operations";
@@ -7,11 +6,11 @@ import {
   ManagerShell,
   StatusMessage,
 } from "../manager-ui";
-import { Button } from "@/components/ui/button";
-import { RefreshCwIcon } from "lucide-react";
+import { refreshOverdueStatusesAction } from "../actions";
 import { RepaymentSummaryCards } from "@/components/manager/repayments/repayment-summary-cards";
 import { RepaymentFilters } from "@/components/manager/repayments/repayment-filters";
 import { RepaymentProofsTable } from "@/components/manager/repayments/repayment-proofs-table";
+import { RefreshOverdueButton } from "@/components/manager/repayments/refresh-overdue-button";
 import { withServerTiming } from "@/lib/perf";
 
 
@@ -25,6 +24,7 @@ type PageProps = {
     range?: string;
     submittedFrom?: string;
     submittedTo?: string;
+    overdueRefresh?: string;
   }>;
 };
 
@@ -51,23 +51,34 @@ export default async function ManagerRepaymentsPage({ searchParams }: PageProps)
       ...submittedDateFilters,
     }),
   );
-  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const hasActiveFilters = Object.values(filters).some((v) => typeof v === "string" && Boolean(v));
+  const overdueRefreshMessage =
+    filters.overdueRefresh === "success"
+      ? "Overdue repayment statuses refreshed."
+      : filters.overdueRefresh === "error"
+        ? "Could not refresh overdue statuses."
+        : null;
 
   return (
     <ManagerShell
       title="Repayment proofs"
       description="Monitor submitted payment evidence, review status, due dates, and lender decisions."
       headerActions={
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/manager/repayments">
-            <RefreshCwIcon />
-            Refresh
-          </Link>
-        </Button>
+        <form action={refreshOverdueStatusesAction}>
+          <input type="hidden" name="returnPath" value="/manager/repayments" />
+          <RefreshOverdueButton />
+        </form>
       }
     >
       <div className="flex flex-col gap-6">
-        <RepaymentSummaryCards />
+        {overdueRefreshMessage ? (
+          <StatusMessage
+            message={overdueRefreshMessage}
+            tone={filters.overdueRefresh === "error" ? "error" : "neutral"}
+          />
+        ) : null}
+
+        <RepaymentSummaryCards proofs={result.ok ? result.proofs : []} />
 
         <RepaymentFilters
           filters={filters}
