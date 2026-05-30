@@ -1096,34 +1096,32 @@ describe("manager lender review page", () => {
     expect(lendersPage).toContain("loadManagerLenders");
   });
 
-  it("renders status-tab links for filtering lenders", () => {
+  it("renders filter form for filtering lenders", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("StatusTabs");
-    expect(lendersPage).toContain("STATUS_TABS");
-    expect(lendersPage).toContain('"All"');
+    expect(lendersPage).toContain("FilterForm");
+    expect(lendersPage).toContain("SelectFilter");
+    expect(lendersPage).toContain("TextFilter");
+    expect(lendersPage).toContain("LenderFilters");
     expect(lendersPage).toContain('"Pending"');
     expect(lendersPage).toContain('"Incomplete"');
     expect(lendersPage).toContain('"Approved"');
     expect(lendersPage).toContain('"Rejected"');
-    expect(lendersPage).toContain("?status=");
   });
 
-  it("separates incomplete lenders from reviewed lenders", () => {
+  it("uses a unified queue table with status and readiness columns", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("IncompleteLenderCard");
-    expect(lendersPage).toContain("ReviewedLenderRow");
-    expect(lendersPage).toContain("incompleteLenders");
-    expect(lendersPage).toContain("reviewedLenders");
-    expect(lendersPage).toContain('"Incomplete profiles"');
-    expect(lendersPage).toContain('"Reviewed lenders"');
+    expect(lendersPage).toContain("LenderQueueTable");
+    expect(lendersPage).toContain("LenderQueueRow");
+    expect(lendersPage).toContain("LenderQueueMobileCard");
+    expect(lendersPage).toContain("buildQueueHref");
     expect(lendersPage).not.toContain("completedLenders");
   });
 
@@ -1132,23 +1130,29 @@ describe("manager lender review page", () => {
       "app/manager/lenders/page.tsx",
       "utf8",
     );
-
-    expect(lendersPage).toContain("disclosuresMissing");
-    expect(lendersPage).toContain("Approval blocked");
-    expect(lendersPage).toContain("if (disclosuresMissing)");
-  });
-
-  it("hides approval textarea when disclosures are missing", () => {
-    const lendersPage = readFileSync(
-      "app/manager/lenders/page.tsx",
+    const lenderDetailPage = readFileSync(
+      "app/manager/lenders/[id]/page.tsx",
       "utf8",
     );
 
-    // The approve form with textarea is only rendered when disclosures are NOT missing
-    expect(lendersPage).toContain("PendingCardActions");
-    expect(lendersPage).toContain("managerReviewNotes");
+    expect(lendersPage).toContain("consentStatus.isCurrent");
+    expect(lenderDetailPage).toContain("consentStatus.isCurrent");
+    expect(lenderDetailPage).toContain("disclosuresMissing");
+    expect(lenderDetailPage).toContain("Approval blocked");
+  });
+
+  it("hides approval textarea when disclosures are missing", () => {
+    const lenderDetailPage = readFileSync(
+      "app/manager/lenders/[id]/page.tsx",
+      "utf8",
+    );
+
+    // The detail page conditionally renders review actions based on disclosure state
+    expect(lenderDetailPage).toContain("ReviewActions");
+    expect(lenderDetailPage).toContain("disclosuresMissing");
+    expect(lenderDetailPage).toContain("managerReviewNotes");
     // No disabled={disclosuresMissing} pattern — the form is conditionally rendered instead
-    expect(lendersPage).not.toContain("disabled={disclosuresMissing}");
+    expect(lenderDetailPage).not.toContain("disabled={disclosuresMissing}");
   });
 
   it("summarizes missing fields instead of repeating Not provided", () => {
@@ -1168,9 +1172,9 @@ describe("manager lender review page", () => {
       "utf8",
     );
 
-    // Org name fallback is the only remaining "Not provided" use in the card header
+    // Org name fallback is used in queue rows and selected detail
     expect(lendersPage).toContain('"Not provided"');
-    expect(lendersPage).toContain("formatLoanRange");
+    expect(lendersPage).toContain("getDisclosureProgress");
   });
 
   it("shows a compact disclosure summary with missing item names", () => {
@@ -1179,11 +1183,10 @@ describe("manager lender review page", () => {
       "utf8",
     );
 
-    expect(lendersPage).toContain("DisclosureSummary");
+    expect(lendersPage).toContain("ConsentDisclosureSection");
     expect(lendersPage).toContain("Disclosures:");
-    expect(lendersPage).toContain("/{totalCount} complete");
-    expect(lendersPage).toContain("missingNames");
-    expect(lendersPage).toContain("Show details");
+    expect(lendersPage).toContain("getDisclosureProgress");
+    expect(lendersPage).toContain("consentTypeLabels");
   });
 
   it("renders readiness badges on pending lender cards", () => {
@@ -1217,7 +1220,7 @@ describe("manager lender review page", () => {
       "utf8",
     );
 
-    expect(lendersPage).toContain("incompleteLenders");
+    expect(lendersPage).toContain("incompleteCount");
     expect(lendersPage).toContain(
       'l.verificationStatus === "incomplete"',
     );
@@ -1227,47 +1230,46 @@ describe("manager lender review page", () => {
     expect(lendersPage).toContain(
       'l.verificationStatus === "rejected"',
     );
-    expect(lendersPage).toContain(
-      "Profile incomplete. Waiting for the lender to complete onboarding",
-    );
     expect(lendersPage).not.toContain("completedLenders");
   });
 
-  it("uses compact card layout for lender rows", () => {
+  it("uses queue table and mobile card layout for lender rows", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("CompactField");
+    expect(lendersPage).toContain("LenderQueueTable");
     expect(lendersPage).toContain('Card size="sm"');
-    // No two-column action grid on the list page
-    expect(lendersPage).not.toContain("lg:grid-cols-[1fr_280px]");
-    expect(lendersPage).not.toContain("lg:grid-cols-[1fr_320px]");
+    expect(lendersPage).toContain("Table");
+    expect(lendersPage).toContain("TableHeader");
+    expect(lendersPage).toContain("TableBody");
   });
 
   it("shows compact blocker message instead of large alert box on pending cards", () => {
-    const lendersPage = readFileSync(
-      "app/manager/lenders/page.tsx",
+    const lenderDetailPage = readFileSync(
+      "app/manager/lenders/[id]/page.tsx",
       "utf8",
     );
 
-    // PendingCardActions uses inline blocker text, not Alert variant="destructive"
-    expect(lendersPage).toContain("Approval blocked");
-    expect(lendersPage).toContain("ShieldAlertIcon");
+    // The detail page uses inline blocker text, not Alert variant="destructive"
+    expect(lenderDetailPage).toContain("Approval blocked");
+    expect(lenderDetailPage).toContain("ShieldAlertIcon");
     // The page should not contain the old large alert message inside the card actions
-    expect(lendersPage).not.toContain(
+    expect(lenderDetailPage).not.toContain(
       "Cannot approve until required lender disclosures are accepted.",
     );
   });
 
-  it("keeps View details link available on all card types", () => {
+  it("keeps detail and review links available on lender queue", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("View details");
+    expect(lendersPage).toContain("Full details");
     expect(lendersPage).toContain("/manager/lenders/${lender.id}");
+    expect(lendersPage).toContain("buildQueueHref");
+    expect(lendersPage).toContain('isSelected ? "Selected" : "Review"');
   });
 });

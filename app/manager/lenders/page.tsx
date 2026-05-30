@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { reviewLenderAction } from "@/app/manager/actions";
 import { getManagerAccess } from "../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
@@ -9,9 +10,13 @@ import {
 import {
   AccessDenied,
   EmptyState,
+  FilterForm,
   ManagerShell,
+  PersonLabel,
+  SelectFilter,
   StatusBadge,
   StatusMessage,
+  TextFilter,
   formatCurrency,
   formatDateTime,
 } from "../manager-ui";
@@ -20,40 +25,49 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
+  CardHeader,
+  CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
+  Alert,
+  AlertDescription,
+} from "@/components/ui/alert";
+import {
+  AlertCircleIcon,
   CheckCircle2Icon,
   ChevronDownIcon,
-  CircleDotIcon,
-  ShieldAlertIcon,
+  ChevronLeftIcon,
+  MessageSquareTextIcon,
   ShieldCheckIcon,
   XCircleIcon,
+  CircleDotIcon,
 } from "lucide-react";
-import { reviewLenderAction } from "@/app/manager/actions";
 import { RejectLenderDialog } from "@/components/manager/lenders/reject-lender-dialog";
 
 type PageProps = {
   searchParams: Promise<{
     review?: string;
     status?: string;
+    q?: string;
+    selected?: string;
   }>;
 };
-
-const STATUS_TABS = [
-  { value: undefined, label: "All" },
-  { value: "pending", label: "Pending" },
-  { value: "incomplete", label: "Incomplete" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
-] as const;
 
 export default async function ManagerLendersPage({ searchParams }: PageProps) {
   const params = await searchParams;
@@ -74,30 +88,39 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     verificationStatus: params.status,
   });
 
-  const incompleteCount = result.lenders.filter(
+  const lenderResults = params.q
+    ? result.lenders.filter((l) => {
+        const q = params.q!.toLowerCase();
+        return (
+          l.organizationName.toLowerCase().includes(q) ||
+          l.contactPerson.toLowerCase().includes(q) ||
+          l.profile.displayName.toLowerCase().includes(q)
+        );
+      })
+    : result.lenders;
+
+  const selectedLender = params.selected
+    ? lenderResults.find((l) => l.id === params.selected)
+    : undefined;
+
+  const incompleteCount = lenderResults.filter(
     (l) => l.verificationStatus === "incomplete",
   ).length;
-  const pendingCount = result.lenders.filter(
+  const pendingCount = lenderResults.filter(
     (l) => l.verificationStatus === "pending",
   ).length;
-  const approvedCount = result.lenders.filter(
+  const approvedCount = lenderResults.filter(
     (l) => l.verificationStatus === "approved",
   ).length;
-  const rejectedCount = result.lenders.filter(
+  const rejectedCount = lenderResults.filter(
     (l) => l.verificationStatus === "rejected",
   ).length;
 
-  const pendingLenders = result.lenders.filter(
-    (l) => l.verificationStatus === "pending",
-  );
-  const incompleteLenders = result.lenders.filter(
-    (l) => l.verificationStatus === "incomplete",
-  );
-  const reviewedLenders = result.lenders.filter(
-    (l) =>
-      l.verificationStatus === "approved" ||
-      l.verificationStatus === "rejected",
-  );
+  const filterParams = new URLSearchParams();
+  if (params.status) filterParams.set("status", params.status);
+  if (params.q) filterParams.set("q", params.q);
+  const filterQueryString = filterParams.toString();
+  const backHref = filterQueryString ? `?${filterQueryString}` : "?";
 
   return (
     <ManagerShell
@@ -116,8 +139,8 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
               lender tools.
             </p>
           </div>
-          {result.lenders.length > 0 ? (
-            <div className="flex items-center gap-2">
+          {lenderResults.length > 0 ? (
+            <div className="flex flex-wrap items-center gap-2">
               {incompleteCount > 0 ? (
                 <Badge variant="outline" className="gap-1">
                   <CircleDotIcon className="size-3" />
@@ -155,106 +178,74 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
           <StatusMessage message={result.message} tone="error" />
         ) : null}
 
-        <StatusTabs activeStatus={params.status} />
+        <LenderFilters status={params.status} q={params.q} />
 
-        {result.lenders.length === 0 ? (
-          <EmptyState
-            title="No lenders found"
-            description="Lender signup requests will appear here."
+        {selectedLender ? (
+          <SelectedLenderDetail
+            lender={selectedLender}
+            backHref={backHref}
           />
         ) : null}
 
-        {pendingLenders.length > 0 ? (
-          <section className="space-y-3">
-            {!params.status || params.status === "pending" ? (
-              <SectionHeading
-                title="Pending review"
-                count={pendingLenders.length}
-              />
-            ) : null}
-            {pendingLenders.map((lender) => (
-              <PendingLenderCard key={lender.id} lender={lender} />
-            ))}
-          </section>
-        ) : null}
-
-        {incompleteLenders.length > 0 ? (
-          <section className="space-y-3">
-            {!params.status || params.status === "incomplete" ? (
-              <SectionHeading
-                title="Incomplete profiles"
-                count={incompleteLenders.length}
-              />
-            ) : null}
-            {incompleteLenders.map((lender) => (
-              <IncompleteLenderCard key={lender.id} lender={lender} />
-            ))}
-          </section>
-        ) : null}
-
-        {reviewedLenders.length > 0 ? (
-          <section className="space-y-3">
-            {!params.status ||
-            params.status === "approved" ||
-            params.status === "rejected" ? (
-              <SectionHeading
-                title="Reviewed lenders"
-                count={reviewedLenders.length}
-              />
-            ) : null}
-            {reviewedLenders.map((lender) => (
-              <ReviewedLenderRow key={lender.id} lender={lender} />
-            ))}
-          </section>
-        ) : null}
+        <section className="space-y-4">
+          {lenderResults.length === 0 ? (
+            <EmptyState
+              title="No lenders found"
+              description="Lender signup requests will appear here."
+            />
+          ) : (
+            <LenderQueueTable
+              lenders={lenderResults}
+              selectedId={params.selected}
+              filterQueryString={filterQueryString}
+            />
+          )}
+        </section>
       </div>
     </ManagerShell>
   );
 }
 
-function StatusTabs({ activeStatus }: { activeStatus?: string }) {
-  return (
-    <nav
-      className="flex gap-1 overflow-x-auto rounded-lg bg-muted/50 p-1"
-      aria-label="Filter lenders by status"
-    >
-      {STATUS_TABS.map((tab) => {
-        const isActive = tab.value === activeStatus || (!tab.value && !activeStatus);
-        const href = tab.value ? `?status=${tab.value}` : "?";
-
-        return (
-          <Link
-            key={tab.label}
-            href={href}
-            className={`inline-flex shrink-0 items-center rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-              isActive
-                ? "bg-background text-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-background/50 hover:text-foreground"
-            }`}
-            aria-current={isActive ? "page" : undefined}
-          >
-            {tab.label}
-          </Link>
-        );
-      })}
-    </nav>
-  );
-}
-
-function SectionHeading({
-  title,
-  count,
+function LenderFilters({
+  status,
+  q,
 }: {
-  title: string;
-  count: number;
+  status?: string;
+  q?: string;
 }) {
+  const hasFilters = Boolean(status || q);
+
   return (
-    <div className="flex items-center gap-2">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-      <Badge variant="secondary" className="text-xs">
-        {count}
-      </Badge>
-    </div>
+    <Card>
+      <CardContent>
+        <FilterForm className="flex flex-wrap items-end gap-3">
+          <div className="min-w-[140px] flex-1">
+            <SelectFilter
+              label="Status"
+              name="status"
+              defaultValue={status}
+              options={[
+                { value: "incomplete", label: "Incomplete" },
+                { value: "pending", label: "Pending" },
+                { value: "approved", label: "Approved" },
+                { value: "rejected", label: "Rejected" },
+              ]}
+            />
+          </div>
+          <div className="min-w-[140px] flex-1">
+            <TextFilter label="Lender" name="q" defaultValue={q} />
+          </div>
+          <div className="flex items-end gap-2">
+            <Button type="submit">Apply</Button>
+            {hasFilters ? (
+              <Button type="button" variant="outline" asChild>
+                <Link href="?">Clear</Link>
+              </Button>
+            ) : null}
+          </div>
+        </FilterForm>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -319,311 +310,615 @@ function getMissingProfileFields(lender: ManagerLenderRow): string[] {
   const fields: string[] = [];
   if (!lender.contactPerson) fields.push("contact");
   if (!lender.operatingArea) fields.push("area");
-  if (lender.minLoanAmount === 0 && lender.maxLoanAmount === 0) fields.push("loan range");
+  if (lender.minLoanAmount === 0 && lender.maxLoanAmount === 0)
+    fields.push("loan range");
   if (!lender.businessRegistrationNumber) fields.push("registration number");
   return fields;
 }
 
-function formatLoanRange(min: number, max: number): string | null {
-  if (min === 0 && max === 0) return null;
-  return `${formatCurrency(min)} – ${formatCurrency(max)}`;
-}
-
-function PendingLenderCard({ lender }: { lender: ManagerLenderRow }) {
-  const readiness = getReadinessBadge(lender);
-  const disclosuresMissing = !lender.consentStatus.isCurrent;
+function getDisclosureProgress(lender: ManagerLenderRow) {
   const acceptedCount = lender.consentStatus.required.filter((req) =>
     lender.consentStatus.accepted.some(
       (a) => a.consentType === req.consentType && a.version === req.version,
     ),
   ).length;
   const totalCount = lender.consentStatus.required.length;
-  const missingNames = lender.consentStatus.missing.map(
-    (m) => consentTypeLabels[m.consentType],
+  return { acceptedCount, totalCount };
+}
+
+function buildQueueHref(
+  filterQueryString: string,
+  lenderId: string,
+) {
+  const params = new URLSearchParams(filterQueryString);
+  params.set("selected", lenderId);
+  return `?${params.toString()}`;
+}
+
+function LenderQueueTable({
+  lenders,
+  selectedId,
+  filterQueryString,
+}: {
+  lenders: ManagerLenderRow[];
+  selectedId?: string;
+  filterQueryString: string;
+}) {
+  return (
+    <>
+      <div className="hidden sm:block">
+        <Card className="py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Lender</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Disclosures</TableHead>
+                <TableHead>Readiness</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="text-right">Action</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {lenders.map((lender) => (
+                <LenderQueueRow
+                  key={lender.id}
+                  lender={lender}
+                  isSelected={lender.id === selectedId}
+                  filterQueryString={filterQueryString}
+                />
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+
+      <div className="space-y-3 sm:hidden">
+        {lenders.map((lender) => (
+          <LenderQueueMobileCard
+            key={lender.id}
+            lender={lender}
+            isSelected={lender.id === selectedId}
+            filterQueryString={filterQueryString}
+          />
+        ))}
+      </div>
+    </>
   );
-  const missingFields = getMissingProfileFields(lender);
-  const loanRange = formatLoanRange(lender.minLoanAmount, lender.maxLoanAmount);
+}
+
+function LenderQueueRow({
+  lender,
+  isSelected,
+  filterQueryString,
+}: {
+  lender: ManagerLenderRow;
+  isSelected: boolean;
+  filterQueryString: string;
+}) {
+  const { acceptedCount, totalCount } = getDisclosureProgress(lender);
+  const readiness = getReadinessBadge(lender);
 
   return (
-    <Card size="sm">
-      <CardContent className="space-y-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <p className="truncate text-sm font-semibold">
-            {lender.organizationName || "Not provided"}
-          </p>
-          <StatusBadge status={lender.verificationStatus} />
-          <Badge variant={readiness.variant} className={readiness.className}>
-            {readiness.label}
+    <TableRow className={isSelected ? "bg-muted/50" : undefined}>
+      <TableCell>
+        <PersonLabel person={{ id: lender.userId, displayName: lender.organizationName || lender.profile.displayName }} />
+      </TableCell>
+      <TableCell>
+        <StatusBadge status={lender.verificationStatus} />
+      </TableCell>
+      <TableCell>
+        {lender.consentStatus.isCurrent ? (
+          <Badge
+            variant="default"
+            className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+          >
+            <CheckCircle2Icon className="size-3" />
+            Complete
           </Badge>
+        ) : (
           <span className="text-xs text-muted-foreground">
-            {getShortId(lender.userId)}
+            {acceptedCount}/{totalCount}
           </span>
+        )}
+      </TableCell>
+      <TableCell>
+        <Badge variant={readiness.variant} className={readiness.className}>
+          {readiness.label}
+        </Badge>
+      </TableCell>
+      <TableCell className="text-muted-foreground">
+        {formatDateTime(lender.createdAt)}
+      </TableCell>
+      <TableCell className="text-right">
+        <Button
+          variant={isSelected ? "secondary" : "outline"}
+          size="sm"
+          asChild
+        >
+          <Link
+            href={buildQueueHref(filterQueryString, lender.id)}
+          >
+            {isSelected ? "Selected" : "Review"}
+          </Link>
+        </Button>
+      </TableCell>
+    </TableRow>
+  );
+}
+
+function LenderQueueMobileCard({
+  lender,
+  isSelected,
+  filterQueryString,
+}: {
+  lender: ManagerLenderRow;
+  isSelected: boolean;
+  filterQueryString: string;
+}) {
+  const { acceptedCount, totalCount } = getDisclosureProgress(lender);
+  const readiness = getReadinessBadge(lender);
+
+  return (
+    <Card size="sm" className={isSelected ? "border-primary" : undefined}>
+      <CardContent className="grid gap-2">
+        <div className="flex items-start justify-between gap-2">
+          <div className="min-w-0">
+            <PersonLabel person={{ id: lender.userId, displayName: lender.organizationName || lender.profile.displayName }} />
+          </div>
+          <StatusBadge status={lender.verificationStatus} />
         </div>
-
-        <dl className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-          {lender.contactPerson ? (
-            <CompactField label="Contact" value={lender.contactPerson} />
-          ) : null}
-          {lender.operatingArea ? (
-            <CompactField label="Area" value={lender.operatingArea} />
-          ) : null}
-          {loanRange ? (
-            <CompactField label="Range" value={loanRange} />
-          ) : null}
-          <CompactField label="Requested" value={formatDateTime(lender.createdAt)} />
-        </dl>
-
-        {missingFields.length > 0 ? (
-          <p className="text-xs text-muted-foreground">
-            Missing profile details: {missingFields.join(", ")}
-          </p>
-        ) : null}
-
-        <DisclosureSummary
-          status={lender.consentStatus}
-          acceptedCount={acceptedCount}
-          totalCount={totalCount}
-          missingNames={missingNames}
-        />
-
-        <PendingCardActions
-          lender={lender}
-          disclosuresMissing={disclosuresMissing}
-        />
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            Disclosures:{" "}
+            {lender.consentStatus.isCurrent ? (
+              <span className="font-medium text-emerald-700">Complete</span>
+            ) : (
+              <span className="font-medium text-muted-foreground">
+                {acceptedCount}/{totalCount}
+              </span>
+            )}
+          </span>
+          <span>
+            <Badge variant={readiness.variant} className={readiness.className}>
+              {readiness.label}
+            </Badge>
+          </span>
+          <span>Created: {formatDateTime(lender.createdAt)}</span>
+        </div>
+        <Button
+          variant={isSelected ? "secondary" : "outline"}
+          size="sm"
+          className="w-full"
+          asChild
+        >
+          <Link
+            href={buildQueueHref(filterQueryString, lender.id)}
+          >
+            {isSelected ? "Selected" : "Review"}
+          </Link>
+        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function CompactField({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="min-w-0">
-      <dt className="text-muted-foreground">{label}</dt>
-      <dd className="truncate font-medium text-foreground">{value}</dd>
-    </div>
-  );
-}
-
-function DisclosureSummary({
-  status,
-  acceptedCount,
-  totalCount,
-  missingNames,
-}: {
-  status: ConsentStatus;
-  acceptedCount: number;
-  totalCount: number;
-  missingNames: string[];
-}) {
-  return (
-    <div className="space-y-1">
-      <div className="flex flex-wrap items-center gap-2">
-        <ShieldCheckIcon className="size-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-xs font-medium">
-          Disclosures: {acceptedCount}/{totalCount} complete
-        </span>
-        {!status.isCurrent && missingNames.length > 0 ? (
-          <span className="text-xs text-destructive">
-            Missing: {missingNames.join(", ")}
-          </span>
-        ) : null}
-      </div>
-
-      <Collapsible defaultOpen={false}>
-        <CollapsibleTrigger className="inline-flex h-6 items-center gap-1 rounded-md px-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
-          Show details
-          <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <div className="mt-1.5 rounded-lg border border-border/60 bg-muted/30 p-2.5">
-            <div className="grid gap-1 text-xs text-muted-foreground">
-              {status.required.map((consent) => {
-                const accepted = status.accepted.find(
-                  (item) =>
-                    item.consentType === consent.consentType &&
-                    item.version === consent.version,
-                );
-
-                return (
-                  <div
-                    key={`${consent.consentType}-${consent.version}`}
-                    className="flex items-start gap-1.5"
-                  >
-                    {accepted ? (
-                      <CheckCircle2Icon className="mt-0.5 size-3 shrink-0 text-emerald-600" />
-                    ) : (
-                      <XCircleIcon className="mt-0.5 size-3 shrink-0 text-destructive" />
-                    )}
-                    <span>
-                      <span className="font-medium text-foreground">
-                        {consentTypeLabels[consent.consentType]}
-                      </span>
-                      {accepted
-                        ? ` \u00b7 ${consent.version}`
-                        : " \u00b7 Missing current version"}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </CollapsibleContent>
-      </Collapsible>
-    </div>
-  );
-}
-
-function PendingCardActions({
+function SelectedLenderDetail({
   lender,
-  disclosuresMissing,
+  backHref,
 }: {
   lender: ManagerLenderRow;
-  disclosuresMissing: boolean;
+  backHref: string;
+}) {
+  const hasNotes = lender.rejectionReason || lender.managerReviewNotes;
+  const hasAction =
+    lender.verificationStatus === "pending" ||
+    lender.verificationStatus === "rejected";
+
+  const missingFields = getMissingProfileFields(lender);
+
+  const mainContent = (
+    <div className="min-w-0 space-y-6">
+      <LenderSummarySection lender={lender} />
+
+      <Separator />
+
+      <Collapsible defaultOpen={false}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <ShieldCheckIcon className="size-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">
+                Disclosures &amp; details
+              </h3>
+            </div>
+            <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              Show
+              <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <div className="space-y-4">
+              <ConsentDisclosureSection status={lender.consentStatus} />
+              <LenderDetailsInline lender={lender} />
+            </div>
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      {missingFields.length > 0 ? (
+        <p className="text-xs text-muted-foreground">
+          Missing profile details: {missingFields.join(", ")}
+        </p>
+      ) : null}
+
+      {hasNotes ? (
+        <>
+          <Separator />
+          <PreviousNotesSection
+            rejectionReason={lender.rejectionReason}
+            managerReviewNotes={lender.managerReviewNotes}
+          />
+        </>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="mb-2 -ml-2 gap-1"
+              asChild
+            >
+              <Link href={backHref}>
+                <ChevronLeftIcon className="size-4" />
+                Back to queue
+              </Link>
+            </Button>
+            <CardTitle className="text-base">
+              {lender.organizationName || lender.profile.displayName}
+            </CardTitle>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Lender ID: {getShortId(lender.userId)}
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <StatusBadge status={lender.verificationStatus} />
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/manager/lenders/${lender.id}`}>
+                Full details
+              </Link>
+            </Button>
+          </div>
+        </div>
+        <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
+          <MetaField
+            label="Organization"
+            value={lender.organizationName || "Not provided"}
+          />
+          <MetaField
+            label="Contact"
+            value={lender.contactPerson || "Not provided"}
+          />
+          <MetaField
+            label="Area"
+            value={lender.operatingArea || "Not provided"}
+          />
+          <MetaField
+            label="Created"
+            value={formatDateTime(lender.createdAt)}
+          />
+        </dl>
+      </CardHeader>
+
+      <CardContent>
+        {hasAction ? (
+          <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
+            {mainContent}
+            <div className="space-y-4 lg:sticky lg:top-16 lg:self-start">
+              {lender.verificationStatus === "pending" ? (
+                <SelectedReviewActions lender={lender} />
+              ) : null}
+              {lender.verificationStatus === "rejected" ? (
+                <SelectedReturnToPending lender={lender} />
+              ) : null}
+            </div>
+          </div>
+        ) : (
+          <div className="grid gap-6">{mainContent}</div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MetaField({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid gap-0.5">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function LenderSummarySection({ lender }: { lender: ManagerLenderRow }) {
+  const readiness = getReadinessBadge(lender);
+  const { acceptedCount, totalCount } = getDisclosureProgress(lender);
+
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Review readiness</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-2.5">
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Disclosures</span>
+          {lender.consentStatus.isCurrent ? (
+            <Badge
+              variant="default"
+              className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+            >
+              <CheckCircle2Icon className="size-3" />
+              Complete
+            </Badge>
+          ) : (
+            <Badge variant="destructive" className="gap-1">
+              <XCircleIcon className="size-3" />
+              {acceptedCount}/{totalCount}
+            </Badge>
+          )}
+        </div>
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Profile</span>
+          <Badge variant={readiness.variant} className={readiness.className}>
+            {readiness.label}
+          </Badge>
+        </div>
+        <Separator />
+        <div className="flex items-center justify-between gap-2 text-sm">
+          <span className="text-muted-foreground">Status</span>
+          <StatusBadge status={lender.verificationStatus} />
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function LenderDetailsInline({ lender }: { lender: ManagerLenderRow }) {
+  const loanRange =
+    lender.minLoanAmount === 0 && lender.maxLoanAmount === 0
+      ? null
+      : `${formatCurrency(lender.minLoanAmount)} \u2013 ${formatCurrency(lender.maxLoanAmount)}`;
+
+  return (
+    <div className="space-y-3">
+      <h4 className="text-xs font-semibold text-muted-foreground">
+        Profile &amp; lending details
+      </h4>
+      <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-3">
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">Contact person</dt>
+          <dd className="font-medium">{lender.contactPerson || "\u2014"}</dd>
+        </div>
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">Phone</dt>
+          <dd className="font-medium">{lender.phoneNumber || "\u2014"}</dd>
+        </div>
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">Business address</dt>
+          <dd className="font-medium">{lender.businessAddress || "\u2014"}</dd>
+        </div>
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">Registration number</dt>
+          <dd className="font-medium">{lender.businessRegistrationNumber || "\u2014"}</dd>
+        </div>
+        {loanRange ? (
+          <div className="grid gap-0.5">
+            <dt className="text-muted-foreground">Loan range</dt>
+            <dd className="font-medium">{loanRange}</dd>
+          </div>
+        ) : null}
+        <div className="grid gap-0.5">
+          <dt className="text-muted-foreground">Repayment terms</dt>
+          <dd className="font-medium">{lender.typicalRepaymentTerms || "\u2014"}</dd>
+        </div>
+      </dl>
+      {lender.lenderDescription ? (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">
+            Description
+          </p>
+          <p className="text-xs">{lender.lenderDescription}</p>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ConsentDisclosureSection({ status }: { status: ConsentStatus }) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium">
+          Disclosures: {status.accepted.length}/{status.required.length} complete
+        </span>
+        <Badge
+          variant={status.isCurrent ? "default" : "destructive"}
+          className={
+            status.isCurrent
+              ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+              : undefined
+          }
+        >
+          {status.isCurrent ? "Current" : "Missing"}
+        </Badge>
+      </div>
+      <div className="rounded-lg border border-border/60 bg-muted/30 p-3">
+        <div className="grid gap-1 text-xs text-muted-foreground">
+          {status.required.map((consent) => {
+            const accepted = status.accepted.find(
+              (item) =>
+                item.consentType === consent.consentType &&
+                item.version === consent.version,
+            );
+
+            return (
+              <div
+                key={`${consent.consentType}-${consent.version}`}
+                className="flex items-start gap-1.5"
+              >
+                {accepted ? (
+                  <CheckCircle2Icon className="mt-0.5 size-3 shrink-0 text-emerald-600" />
+                ) : (
+                  <XCircleIcon className="mt-0.5 size-3 shrink-0 text-destructive" />
+                )}
+                <span>
+                  <span className="font-medium text-foreground">
+                    {consentTypeLabels[consent.consentType]}
+                  </span>
+                  {accepted
+                    ? ` \u00b7 ${consent.version}, accepted ${formatDateTime(accepted.acceptedAt)}`
+                    : " \u00b7 Missing current version"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function PreviousNotesSection({
+  rejectionReason,
+  managerReviewNotes,
+}: {
+  rejectionReason: string | null;
+  managerReviewNotes: string | null;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <MessageSquareTextIcon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Previous notes</h3>
+      </div>
+      <div className="grid gap-2">
+        {rejectionReason ? (
+          <Alert variant="destructive">
+            <AlertCircleIcon />
+            <AlertDescription>
+              <span className="font-medium">Rejection reason:</span>{" "}
+              {rejectionReason}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {managerReviewNotes ? (
+          <Alert>
+            <MessageSquareTextIcon />
+            <AlertDescription>
+              <span className="font-medium">Manager note:</span>{" "}
+              {managerReviewNotes}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function SelectedReviewActions({
+  lender,
+}: {
+  lender: ManagerLenderRow;
 }) {
   const returnPath = `/manager/lenders`;
 
-  if (disclosuresMissing) {
-    return (
-      <div className="flex flex-wrap items-center gap-2 pt-1">
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
-        </Button>
+  return (
+    <Card size="sm">
+      <CardHeader>
+        <CardTitle className="text-sm">Manager decision</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <form action={reviewLenderAction} className="grid gap-3">
+          <input type="hidden" name="lenderProfileId" value={lender.id} />
+          <input type="hidden" name="decision" value="approve" />
+          <input type="hidden" name="returnPath" value={returnPath} />
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor={`notes-${lender.id}`}
+              className="text-xs font-medium"
+            >
+              Review notes
+            </Label>
+            <Textarea
+              id={`notes-${lender.id}`}
+              name="managerReviewNotes"
+              rows={2}
+              maxLength={1000}
+              placeholder="Optional note for this review..."
+            />
+          </div>
+          <Button type="submit" className="w-full">
+            <CheckCircle2Icon className="size-4" />
+            Approve lender
+          </Button>
+        </form>
+
+        <Separator />
+
         <RejectLenderDialog
           lenderId={lender.id}
           organizationName={lender.organizationName || "this lender"}
           returnPath={returnPath}
         />
-        <Separator orientation="vertical" className="mx-1 h-5" />
-        <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
-          <ShieldAlertIcon className="size-3 text-destructive" />
-          Approval blocked
-        </span>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-2 pt-1">
-      <form action={reviewLenderAction} className="flex flex-col gap-2">
-        <input type="hidden" name="lenderProfileId" value={lender.id} />
-        <input type="hidden" name="decision" value="approve" />
-        <input type="hidden" name="returnPath" value={returnPath} />
-        <div className="grid gap-1.5">
-          <Label
-            htmlFor={`notes-approve-${lender.id}`}
-            className="text-xs font-medium"
-          >
-            Review notes
-          </Label>
-          <Textarea
-            id={`notes-approve-${lender.id}`}
-            name="managerReviewNotes"
-            rows={2}
-            maxLength={1000}
-            placeholder="Optional note for this approval..."
-          />
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <Button type="submit" size="sm">
-            <CheckCircle2Icon className="size-4" />
-            Approve lender
-          </Button>
-          <RejectLenderDialog
-            lenderId={lender.id}
-            organizationName={lender.organizationName || "this lender"}
-            returnPath={returnPath}
-          />
-          <Button variant="outline" size="sm" asChild>
-            <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
-          </Button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-function IncompleteLenderCard({ lender }: { lender: ManagerLenderRow }) {
-  const missingFields = getMissingProfileFields(lender);
-
-  return (
-    <Card size="sm">
-      <CardContent className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1 space-y-1.5">
-          <div className="flex flex-wrap items-center gap-2">
-            <p className="truncate text-sm font-semibold">
-              {lender.organizationName || lender.profile.displayName}
-            </p>
-            <StatusBadge status={lender.verificationStatus} />
-          </div>
-          <p className="text-xs text-muted-foreground">
-            Profile incomplete. Waiting for the lender to complete onboarding
-            before manager review.
-          </p>
-          <dl className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs">
-            {lender.contactPerson ? (
-              <div className="flex gap-1">
-                <dt className="text-muted-foreground">Contact:</dt>
-                <dd className="font-medium">{lender.contactPerson}</dd>
-              </div>
-            ) : null}
-            {lender.operatingArea ? (
-              <div className="flex gap-1">
-                <dt className="text-muted-foreground">Area:</dt>
-                <dd className="font-medium">{lender.operatingArea}</dd>
-              </div>
-            ) : null}
-            <div className="flex gap-1">
-              <dt className="text-muted-foreground">Requested:</dt>
-              <dd className="font-medium">{formatDateTime(lender.createdAt)}</dd>
-            </div>
-          </dl>
-          {missingFields.length > 0 ? (
-            <p className="text-xs text-muted-foreground">
-              Missing profile details: {missingFields.join(", ")}
-            </p>
-          ) : null}
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
-        </Button>
       </CardContent>
     </Card>
   );
 }
 
-function ReviewedLenderRow({ lender }: { lender: ManagerLenderRow }) {
-  const isApproved = lender.verificationStatus === "approved";
-  const statusDate = isApproved ? lender.approvedAt : lender.rejectedAt;
-  const statusBy = isApproved ? lender.approvedBy : lender.rejectedBy;
-
+function SelectedReturnToPending({
+  lender,
+}: {
+  lender: ManagerLenderRow;
+}) {
   return (
     <Card size="sm">
-      <CardContent className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-semibold">
-              {lender.organizationName || lender.profile.displayName}
-            </p>
-            <StatusBadge status={lender.verificationStatus} />
+      <CardHeader>
+        <CardTitle className="text-sm">Return to pending</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <form action={reviewLenderAction} className="grid gap-3">
+          <input type="hidden" name="lenderProfileId" value={lender.id} />
+          <input type="hidden" name="decision" value="return_to_pending" />
+          <input
+            type="hidden"
+            name="returnPath"
+            value="/manager/lenders"
+          />
+          <div className="grid gap-1.5">
+            <Label
+              htmlFor={`notes-return-${lender.id}`}
+              className="text-xs font-medium"
+            >
+              Review notes
+            </Label>
+            <Textarea
+              id={`notes-return-${lender.id}`}
+              name="managerReviewNotes"
+              rows={2}
+              maxLength={1000}
+              placeholder="Optional note..."
+            />
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-muted-foreground">
-            {statusDate ? (
-              <span>
-                {isApproved ? "Approved" : "Rejected"}{" "}
-                {formatDateTime(statusDate)}
-                {statusBy ? ` by ${statusBy.displayName}` : ""}
-              </span>
-            ) : null}
-          </div>
-          {!isApproved && lender.rejectionReason ? (
-            <p className="mt-1 text-xs text-destructive">
-              {lender.rejectionReason}
-            </p>
-          ) : null}
-        </div>
-        <Button variant="outline" size="sm" asChild>
-          <Link href={`/manager/lenders/${lender.id}`}>View details</Link>
-        </Button>
+          <Button type="submit" variant="outline" className="w-full">
+            Return to pending
+          </Button>
+        </form>
       </CardContent>
     </Card>
   );

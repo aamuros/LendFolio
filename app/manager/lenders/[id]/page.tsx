@@ -40,6 +40,7 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   MessageSquareTextIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   XCircleIcon,
 } from "lucide-react";
@@ -496,6 +497,29 @@ function PreviousNotesSection({
 
 function ReviewActions({ lender }: { lender: ManagerLenderRow }) {
   const returnPath = `/manager/lenders/${lender.id}`;
+  const disclosuresMissing = !lender.consentStatus.isCurrent;
+
+  if (disclosuresMissing) {
+    return (
+      <Card size="sm">
+        <CardHeader>
+          <CardTitle className="text-sm">Review decision</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <RejectLenderDialog
+            lenderId={lender.id}
+            organizationName={lender.organizationName || "this lender"}
+            returnPath={returnPath}
+          />
+          <Separator orientation="vertical" className="mx-1 h-5" />
+          <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+            <ShieldAlertIcon className="size-3 text-destructive" />
+            Approval blocked
+          </span>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card size="sm">
@@ -532,7 +556,7 @@ function ReviewActions({ lender }: { lender: ManagerLenderRow }) {
 
         <RejectLenderDialog
           lenderId={lender.id}
-          organizationName={lender.organizationName}
+          organizationName={lender.organizationName || "this lender"}
           returnPath={returnPath}
         />
       </CardContent>
