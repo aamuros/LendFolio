@@ -313,6 +313,8 @@ export async function saveBorrowerPortfolio(
       };
     }
 
+    revalidatePath("/borrower");
+
     return {
       ok: true,
       mode: "supabase",
