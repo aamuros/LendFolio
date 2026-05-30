@@ -29,7 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
-import { LenderAccountTab } from "@/components/lender/profile/lender-account-tab";
+import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -149,7 +149,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           ) : null}
 
           {activeTab === "account" ? (
-            <LenderAccountTab
+            <LenderAccountTabWrapper
               email={user?.email ?? ""}
               lenderProfile={access.profile.lenderProfile}
             />
@@ -482,7 +482,7 @@ function HomeTab({
                       variant="ghost"
                       className="h-auto justify-between gap-3 rounded-xl px-3 py-2.5"
                     >
-                      <Link href="/lender/applications">
+                      <Link href={`/lender/applications/${app.id}`}>
                         <span className="grid gap-0.5 text-left">
                           <span className="text-sm font-semibold">{context}</span>
                           <span className="text-xs text-muted-foreground">
