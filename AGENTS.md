@@ -63,7 +63,7 @@ Use shadcn/ui as the default component system for all product UI.
 * Do not fork, duplicate, or feature-specialize shadcn/ui primitives inside feature folders.
 * Feature-specific components should live outside `components/ui` and compose shadcn/ui primitives.
 * When a needed shadcn/ui component is missing, add it with the shadcn CLI instead of manually recreating it.
-* Keep styling consistent with `components.json`: `new-york` style, zinc base color, CSS variables, TSX, RSC support, and configured aliases.
+* Keep styling consistent with `components.json`: `radix-nova` style, neutral base color, CSS variables, TSX, RSC support, and configured aliases.
 * Do not introduce another UI kit or design system for standard product UI.
 
 ### Migration expectations

@@ -40,8 +40,12 @@ app/
 ├── globals.css                  # Global styles
 ├── signup/                      # Self-serve borrower and lender registration
 ├── login/                       # Email/password sign-in
+├── forgot-password/             # Password reset request
+├── reset-password/              # Password reset confirmation
 ├── borrower/                    # Borrower workspace (profile, applications, offers, loans)
 ├── lender/                      # Lender workspace
+│   ├── onboarding/              # Lender profile onboarding
+│   ├── register/                # Lender registration
 │   └── applications/            # Application list and detail review
 │       └── [id]/                # Single application detail and offer form
 ├── manager/                     # Manager operations dashboard
@@ -55,6 +59,7 @@ app/
 │   ├── loans/                   # Active loan monitoring
 │   │   └── [id]/                # Loan detail
 │   ├── lookup/                  # Borrower record lookup
+│   ├── notifications/           # Notification actions
 │   ├── repayments/              # Repayment proof monitoring
 │   │   └── [id]/                # Repayment detail
 │   └── users/                   # User lookup
@@ -74,7 +79,7 @@ lib/                             # Business logic, Supabase clients, validation
 
 docs/                            # Design documents and setup guides
 supabase/
-├── migrations/                  # 31 applied SQL migrations
+├── migrations/                  # 34 applied SQL migrations
 ├── seed.sql                     # Local demo data
 └── config.toml                  # Supabase local config
 tests/                           # Vitest test suite (unit + database integration)
@@ -181,7 +186,6 @@ Supabase setup and design documents:
 | Document | Purpose |
 | --- | --- |
 | [supabase-setup.md](docs/supabase-setup.md) | Supabase project and auth configuration |
-| [database-schema-plan.md](docs/database-schema-plan.md) | Entity schema and migration history |
 | [application-offer-state-machine.md](docs/application-offer-state-machine.md) | Application, offer, loan, and repayment state transitions |
 | [rls-plan.md](docs/rls-plan.md) | Row Level Security policy design |
 | [storage-buckets-plan.md](docs/storage-buckets-plan.md) | Private Storage bucket design |
@@ -190,7 +194,6 @@ Supabase setup and design documents:
 | [demo-accounts.md](docs/demo-accounts.md) | Seeded local test accounts and QA flow |
 | [sprint-1-validation.md](docs/sprint-1-validation.md) | Manual QA checklist |
 | [vercel-deployment.md](docs/vercel-deployment.md) | Vercel deployment readiness |
-| [schema-draft.sql](docs/schema-draft.sql) | Review draft (not an applied migration) |
 
 Apply migrations before testing database-backed features:
 
@@ -291,10 +294,15 @@ Readiness failures return structured codes:
 | `/` | Public | Landing page |
 | `/signup` | Public | Self-serve borrower and lender registration |
 | `/login` | Public | Email/password sign-in |
+| `/forgot-password` | Public | Password reset request |
+| `/reset-password` | Public | Password reset confirmation |
 | `/terms` | Public | Terms of Service |
 | `/privacy` | Public | Privacy Notice |
+| `/notifications` | Authenticated | Notification actions |
 | `/borrower` | Borrower | Workspace: profile, verification, applications, offers, loans |
 | `/lender` | Lender | Workspace: overview and navigation |
+| `/lender/onboarding` | Lender | Lender profile onboarding |
+| `/lender/register` | Lender | Lender registration |
 | `/lender/applications` | Lender | Submitted application list |
 | `/lender/applications/[id]` | Lender | Application detail and offer form |
 | `/manager` | Manager | Operations dashboard |
@@ -310,6 +318,7 @@ Readiness failures return structured codes:
 | `/manager/lookup` | Manager | Borrower record lookup |
 | `/manager/repayments` | Manager | Repayment proof monitoring |
 | `/manager/repayments/[id]` | Manager | Repayment detail |
+| `/manager/notifications` | Manager | Notification actions |
 | `/manager/users/[id]` | Manager | User detail |
 
 ## Manual Test Flow

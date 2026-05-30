@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
+import { formatDateOnly } from "@/lib/manager-date-format";
 
 export const dynamic = "force-dynamic";
 
@@ -449,8 +450,4 @@ function getDefaultDueDate() {
   return date.toISOString().slice(0, 10);
 }
 
-function formatDateOnly(value: string) {
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-  }).format(new Date(`${value}T00:00:00`));
-}
+

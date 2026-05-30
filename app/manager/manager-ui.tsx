@@ -20,13 +20,6 @@ export { SelectFilter, FilterForm } from "./auto-filter-form";
 
 export { formatDateOnly, formatDateTime } from "@/lib/manager-date-format";
 
-export const managerNavItems = [
-  { href: "/manager/loans", title: "Active loans", description: "Track funded loans and repayment progress." },
-  { href: "/manager/repayments", title: "Repayment proofs", description: "Monitor submitted, verified, and rejected proof." },
-  { href: "/manager/audit-logs", title: "Audit logs", description: "Review workflow events across the platform." },
-  { href: "/manager/applications", title: "Applications & offers", description: "Follow application and offer lifecycles." },
-  { href: "/manager/lookup", title: "Users", description: "Search users, borrower records, applications, loans, and repayment activity." },
-];
 
 export function ManagerShell({
   title,

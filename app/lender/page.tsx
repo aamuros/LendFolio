@@ -29,6 +29,7 @@ import { Separator } from "@/components/ui/separator";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
+import { formatDateOnly } from "@/lib/manager-date-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 
 export const dynamic = "force-dynamic";
@@ -888,11 +889,7 @@ function MiniMetric({ label, value }: { label: string; value: string }) {
   );
 }
 
-function formatDateOnly(value: string) {
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-  }).format(new Date(`${value}T00:00:00`));
-}
+
 
 function formatProofStatus(status: string) {
   if (status === "submitted") {

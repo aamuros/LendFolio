@@ -14,7 +14,7 @@ import { LenderProfileMenuRow } from "./lender-profile-menu-row";
 import { LenderAccountSection } from "./lender-account-section";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Skeleton } from "@/components/ui/skeleton";
+
 import Link from "next/link";
 
 export type LenderProfileView =
@@ -234,20 +234,7 @@ export function LenderProfileHub({
   );
 }
 
-function LenderProfileSkeleton() {
-  return (
-    <div className="grid gap-6">
-      <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-      </div>
-    </div>
-  );
-}
+
 
 function LenderVerificationDetail({
   status,
@@ -427,4 +414,4 @@ function formatDate(value: string | null) {
   }
 }
 
-export { LenderProfileSkeleton };
+
