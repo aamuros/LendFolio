@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import { useCallback, useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   createLoanOffer,
   type CreateLoanOfferState,
@@ -24,6 +25,7 @@ export function LenderOfferForm({
   requestedAmount,
   defaultDueDate,
 }: LenderOfferFormProps) {
+  const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
   const initialState: CreateLoanOfferState = {
     ok: false,
@@ -45,6 +47,7 @@ export function LenderOfferForm({
       if (result.ok) {
         formRef.current?.reset();
         setToastMessage(result.message);
+        router.refresh();
       }
     });
   }

@@ -93,6 +93,8 @@ export async function createLoanOffer(
     revalidatePath(
       `/lender/applications/${result.loan_application_id ?? applicationId}`,
     );
+    revalidatePath("/lender");
+    revalidatePath("/lender/applications");
     revalidatePath("/borrower");
 
     return {

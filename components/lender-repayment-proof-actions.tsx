@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   rejectRepaymentProof,
   verifyRepaymentProof,
@@ -23,6 +24,7 @@ export function LenderRepaymentProofActions({
   proofStatus,
   proofUrl,
 }: LenderRepaymentProofActionsProps) {
+  const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [note, setNote] = useState("");
   const [message, setMessage] = useState("");
@@ -46,6 +48,7 @@ export function LenderRepaymentProofActions({
       setTone(result.ok ? "success" : "error");
       if (result.ok) {
         setReviewedStatus("verified");
+        router.refresh();
       }
     });
   }
@@ -66,6 +69,7 @@ export function LenderRepaymentProofActions({
       if (result.ok) {
         setNote("");
         setReviewedStatus("rejected");
+        router.refresh();
       }
     });
   }
