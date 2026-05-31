@@ -1,11 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import {
-  createLoanOfferSchema,
-  loanOfferSchema,
-  type LoanOfferInput,
-} from "@/lib/loan-offer";
+import { loanOfferSchema, type LoanOfferInput } from "@/lib/loan-offer";
 import type { Json } from "@/lib/supabase/types";
 import { requireApprovedLender } from "@/lib/access-control";
 
@@ -42,13 +38,9 @@ export async function createLoanOffer(
     };
   }
 
-  const requestedAmount = Number(formData.get("requestedAmount"));
-  const schema = Number.isFinite(requestedAmount)
-    ? createLoanOfferSchema(requestedAmount)
-    : loanOfferSchema;
-  const parsed = schema.safeParse({
+  const parsed = loanOfferSchema.safeParse({
     approvedAmount: formData.get("approvedAmount"),
-    repaymentAmount: formData.get("repaymentAmount"),
+    interestServiceCharge: formData.get("interestServiceCharge"),
     fees: formData.get("fees"),
     dueDate: formData.get("dueDate"),
     remarks: formData.get("remarks"),

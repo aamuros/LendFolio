@@ -7,8 +7,7 @@ import {
   formatDate,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
-import { LenderPendingReviewPanel } from "@/components/lender/lender-pending-review-panel";
+import { LenderAccessPanel } from "@/components/lender/lender-access-panel";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   buildConsentStatus,
@@ -17,6 +16,7 @@ import {
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import {
+  isApplicationActionableForOffer,
   loadLenderOffers,
   loadOpenLenderApplications,
   type LenderApplicationReview,
@@ -82,51 +82,15 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       redirect("/lender/onboarding");
     }
 
-    const isPendingReview =
-      access.profile.role === "lender" &&
-      access.profile.lenderProfile?.verification_status === "pending";
-
-    const isRejected =
-      access.profile.role === "lender" &&
-      access.profile.lenderProfile?.verification_status === "rejected";
-
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
           <LenderHeader activeTab={activeTab} showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
-            {isPendingReview ? (
-              <LenderPendingReviewPanel
-                consentStatus={lenderConsentStatus}
-              />
-            ) : isRejected ? (
-              <div className="grid gap-5">
-                <LenderApplicationsStatus
-                  message="Your lender access was not approved. Update your lender profile to resubmit."
-                  tone="error"
-                />
-                <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
-                  <Link href="/lender/onboarding">Update lender profile</Link>
-                </Button>
-                <ConsentAcceptancePanel
-                  scope="lender_review"
-                  status={lenderConsentStatus}
-                />
-              </div>
-            ) : (
-              <div className="grid gap-5">
-                <LenderApplicationsStatus
-                  message="Your account does not have access to this workspace."
-                  tone="error"
-                />
-                {access.profile.role === "lender" ? (
-                  <ConsentAcceptancePanel
-                    scope="lender_review"
-                    status={lenderConsentStatus}
-                  />
-                ) : null}
-              </div>
-            )}
+            <LenderAccessPanel
+              profile={access.profile}
+              consentStatus={lenderConsentStatus}
+            />
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />
@@ -217,9 +181,10 @@ function HomeTab({
   applicationsError: string;
   offersError: string;
 }) {
-  const needsReviewCount = applications.filter(
-    (application) => application.currentLenderOfferState === "not_offered",
-  ).length;
+  const actionableApplications = applications.filter(
+    isApplicationActionableForOffer,
+  );
+  const needsReviewCount = actionableApplications.length;
   const pendingOffers = offers.filter((offer) => offer.status === "pending").length;
   const activeLoans = offers.filter((offer) => offer.activeLoan).length;
   const repaymentProofsNeedingReview = offers.reduce(
@@ -281,9 +246,7 @@ function HomeTab({
     });
   }
 
-  const topApplications = applications
-    .filter((app) => app.currentLenderOfferState === "not_offered")
-    .slice(0, 3);
+  const topApplications = actionableApplications.slice(0, 3);
 
   const offersByStatus = {
     pending: offers.filter((o) => o.status === "pending").length,
@@ -694,8 +657,16 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
             value={`PHP ${formatCurrency(offer.approvedAmount)}`}
           />
           <MiniMetric
-            label="Repayment"
-            value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+            label="Interest/service charge"
+            value={`PHP ${formatCurrency(offer.interestAmount)}`}
+          />
+          <MiniMetric
+            label="Fees"
+            value={`PHP ${formatCurrency(offer.fees)}`}
+          />
+          <MiniMetric
+            label="Total repayment"
+            value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
           />
           {offer.application ? (
             <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} />
@@ -718,8 +689,16 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
                 value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
               />
               <MiniMetric
-                label="Repayment"
-                value={`PHP ${formatCurrency(activeLoan.repaymentAmount)}`}
+                label="Interest/service charge"
+                value={`PHP ${formatCurrency(activeLoan.interestAmount)}`}
+              />
+              <MiniMetric
+                label="Fees"
+                value={`PHP ${formatCurrency(activeLoan.fees)}`}
+              />
+              <MiniMetric
+                label="Total repayment"
+                value={`PHP ${formatCurrency(activeLoan.totalRepaymentAmount)}`}
               />
               <MiniMetric
                 label="Outstanding"

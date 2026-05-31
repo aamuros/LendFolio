@@ -195,7 +195,22 @@ export default async function ManagerApplicationDetailPage({
                   value={formatCurrency(acceptedOffer.approved_amount)}
                 />
                 <DetailItem
-                  label="Repayment amount"
+                  label="Interest/service charge"
+                  value={formatCurrency(
+                    Math.max(
+                      0,
+                      acceptedOffer.repayment_amount -
+                        acceptedOffer.approved_amount -
+                        acceptedOffer.fees,
+                    ),
+                  )}
+                />
+                <DetailItem
+                  label="Fees"
+                  value={formatCurrency(acceptedOffer.fees)}
+                />
+                <DetailItem
+                  label="Total repayment"
                   value={formatCurrency(acceptedOffer.repayment_amount)}
                 />
                 <DetailItem

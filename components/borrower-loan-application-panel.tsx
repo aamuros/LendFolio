@@ -2,7 +2,14 @@
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { FormEventHandler, ReactNode } from "react";
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useActionState,
+  useTransition,
+} from "react";
 import {
   Controller,
   useForm,
@@ -51,7 +58,6 @@ import {
   Card,
   CardContent,
   CardDescription,
-  CardFooter,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -83,13 +89,12 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowRight } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
   EmptyState,
   InlineStatus,
-  OnboardingCallout,
   PageHeader,
   StatusPill,
   SummaryItem,
@@ -109,10 +114,6 @@ const collapsedOffersStorageKey = "lendfolio.borrower.collapsedOffers";
 const collapsedRepaymentsStorageKey = "lendfolio.borrower.collapsedRepayments";
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
-type ProofFeedback = {
-  tone: "success" | "error";
-  message: string;
-};
 
 type BorrowerLoanApplicationPanelProps = {
   view?: "home" | "apply" | "offers" | "loans";
@@ -198,9 +199,6 @@ export function BorrowerLoanApplicationPanel({
   const [editingApplicationId, setEditingApplicationId] = useState<
     string | null
   >(null);
-  const [proofFeedback, setProofFeedback] = useState<
-    Record<string, ProofFeedback>
-  >({});
   const [pendingWithdrawId, setPendingWithdrawId] = useState<string | null>(
     null,
   );
@@ -652,33 +650,8 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  function onSubmitProof(repaymentScheduleId: string, formData: FormData) {
-    setMessage("");
-    setSuccessMessage("");
-    setProofFeedback((current) => ({
-      ...current,
-      [repaymentScheduleId]: {
-        tone: "success",
-        message: "Uploading proof...",
-      },
-    }));
-
-    startTransition(async () => {
-      const result = await submitRepaymentProof(repaymentScheduleId, formData);
-
-      if (!result.ok) {
-        setProofFeedback((current) => ({
-          ...current,
-          [repaymentScheduleId]: {
-            tone: "error",
-            message: result.message,
-          },
-        }));
-        return;
-      }
-
-      const refreshed = await loadBorrowerLoanApplications();
-
+  function loadApplications() {
+    void loadBorrowerLoanApplications().then((refreshed) => {
       if (refreshed.ok) {
         setApplications(refreshed.applications);
         setCreditSummary(refreshed.creditSummary);
@@ -689,14 +662,6 @@ export function BorrowerLoanApplicationPanel({
           ),
         );
       }
-
-      setProofFeedback((current) => ({
-        ...current,
-        [repaymentScheduleId]: {
-          tone: "success",
-          message: result.message,
-        },
-      }));
     });
   }
 
@@ -879,11 +844,9 @@ export function BorrowerLoanApplicationPanel({
             <BorrowerLoansPanel
               applications={applications}
               expandedRepaymentIds={expandedRepaymentIds}
-              isPending={isPending}
               onNavigate={onNavigate}
-              onSubmitProof={onSubmitProof}
+              onProofSubmitted={loadApplications}
               onToggleRepayment={toggleRepayment}
-              proofFeedback={proofFeedback}
               highlightRepaymentId={highlightRepaymentId}
               highlightLoanId={highlightLoanId}
             />
@@ -1002,6 +965,43 @@ function ProfileReadinessBlocker({
   );
 }
 
+type BorrowerDashboardState =
+  | "no-profile"
+  | "needs-update"
+  | "verification-needed"
+  | "verification-pending"
+  | "ready-to-apply"
+  | "active-loan";
+
+function getBorrowerDashboardState({
+  hasPortfolio,
+  profileNeedsUpdate,
+  borrowerVerification,
+  hasActiveLoans,
+}: {
+  hasPortfolio: boolean;
+  profileNeedsUpdate: boolean;
+  borrowerVerification: BorrowerVerificationSummary | null;
+  hasActiveLoans: boolean;
+}): BorrowerDashboardState {
+  if (!hasPortfolio) return "no-profile";
+  if (profileNeedsUpdate) return "needs-update";
+
+  const verificationStatus = borrowerVerification?.status ?? "missing";
+  if (verificationStatus !== "approved") {
+    if (
+      verificationStatus === "submitted" ||
+      verificationStatus === "under_review"
+    ) {
+      return "verification-pending";
+    }
+    return "verification-needed";
+  }
+
+  if (hasActiveLoans) return "active-loan";
+  return "ready-to-apply";
+}
+
 function HomeSummary({
   applications,
   borrowerVerification,
@@ -1024,7 +1024,7 @@ function HomeSummary({
   readiness: BorrowerReadinessResult | null;
 }) {
   const activeLoans = getActiveLoans(applications);
-  const dueThisMonth = getThisMonthDue(activeLoans);
+  const repaymentActionSummary = getRepaymentActionSummary(activeLoans);
   const debtProgress = getDebtProgress(activeLoans);
   const profileCompletion = getProfileCompletion({
     borrowerVerification,
@@ -1039,28 +1039,21 @@ function HomeSummary({
       creditSummary.calculatedCreditLimit,
     )
     : 0;
-  const dueCapacityRatio =
-    creditSummary && creditSummary.monthlyNetCashFlow > 0
-      ? dueThisMonth.totalDue / creditSummary.monthlyNetCashFlow
-      : null;
-  const dueCapacityStatus = getDueCapacityStatus(dueCapacityRatio);
-  const canSubmitApplication = canSubmitLoanApplicationForVerification(borrowerVerification);
-  const hasPendingOffers = applications.some((a) =>
-    a.offers.some((o) => o.status === "pending"),
-  );
-  const pendingOfferCount = applications.reduce(
-    (count, a) => count + a.offers.filter((o) => o.status === "pending").length,
-    0,
-  );
-
-  const isProfileComplete = profileCompletion.percentage >= 100;
-  const needsProfileUpdate = profileCompletion.profileNeedsUpdate;
-  const needsVerification = isProfileComplete && !needsProfileUpdate && borrowerVerification && borrowerVerification.status !== "approved";
-  const showOnboardingCallout = !hasPortfolio || needsProfileUpdate || needsVerification;
-
   const hasActiveLoans = activeLoans.length > 0;
   const hasDebt = debtProgress.totalDebt > 0;
-  const dueBadgeLabel = dueThisMonth.totalDue === 0 ? "No payments due" : dueCapacityStatus.label;
+  const pendingOfferCount = applications.reduce(
+    (count, a) =>
+      count + a.offers.filter((o) => o.status === "pending").length,
+    0,
+  );
+  const hasPendingOffers = pendingOfferCount > 0;
+
+  const borrowerState = getBorrowerDashboardState({
+    hasPortfolio,
+    profileNeedsUpdate: profileCompletion.profileNeedsUpdate,
+    borrowerVerification,
+    hasActiveLoans,
+  });
 
   return (
     <div className={cn("grid gap-5", borrowerPageBottomPadding)}>
@@ -1074,618 +1067,434 @@ function HomeSummary({
       </div>
 
       {loadState === "loading" ? (
-        <HomeDashboardSkeleton hasActiveLoans={false} />
+        <HomeDashboardSkeleton />
       ) : (
-        <>
-          {showOnboardingCallout ? (
-            <OnboardingCallout
-              title={
-                !hasPortfolio
-                  ? "Complete your business profile"
-                  : needsProfileUpdate
-                    ? "Update your business profile"
-                    : "Verify your borrower profile"
-              }
-              description={
-                !hasPortfolio
-                  ? "Save your business and cashflow details so LendFolio can calculate your request limit."
-                  : needsProfileUpdate
-                    ? profileCompletion.nextStep
-                    : "Your profile is saved. Complete verification before applying for financing."
-              }
-              cta={
-                !hasPortfolio
-                  ? "Complete profile"
-                  : needsProfileUpdate
-                    ? "Update profile"
-                    : "Continue verification"
-              }
-              badge={!hasPortfolio ? "Required" : undefined}
-              progressPercent={profileCompletion.percentage}
-              progressLabel="Profile progress"
-              onAction={() => {
-                if (needsVerification) {
-                  onNavigateVerification?.();
-                } else {
-                  onNavigate?.("profile");
-                }
-              }}
-            />
-          ) : null}
+        <div className="grid gap-4 lg:grid-cols-12">
+          <PrimaryActionCard
+            borrowerState={borrowerState}
+            profileCompletion={profileCompletion}
+            onNavigate={onNavigate}
+            onNavigateVerification={onNavigateVerification}
+          />
 
-          <div className="grid gap-4 lg:grid-cols-12">
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-              <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
-                <div className="flex items-center justify-between gap-2">
-                  <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Financing overview
-                  </CardDescription>
-                  {creditSummary ? (
-                    <Badge variant="secondary" className="text-[10px] font-semibold">
-                      {Math.round(usedCreditRatio * 100)}% utilized
-                    </Badge>
-                  ) : null}
+          <FinancingSummaryCard
+            className="col-span-12 lg:col-span-5"
+            creditSummary={creditSummary}
+            hasPortfolio={hasPortfolio}
+            usedCreditRatio={usedCreditRatio}
+            repaymentActionSummary={repaymentActionSummary}
+            debtProgress={debtProgress}
+            hasDebt={hasDebt}
+            hasActiveLoans={hasActiveLoans}
+          />
+
+          <RepaymentCalendarCard
+            activeLoans={activeLoans}
+            onNavigate={onNavigate}
+            className="col-span-12 lg:col-span-7"
+          />
+
+          <OffersLoansCard
+            className="col-span-12"
+            activeLoans={activeLoans}
+            hasActiveLoans={hasActiveLoans}
+            hasPendingOffers={hasPendingOffers}
+            pendingOfferCount={pendingOfferCount}
+            onNavigate={onNavigate}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PrimaryActionCard({
+  borrowerState,
+  profileCompletion,
+  onNavigate,
+  onNavigateVerification,
+}: {
+  borrowerState: BorrowerDashboardState;
+  profileCompletion: ReturnType<typeof getProfileCompletion>;
+  onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
+}) {
+  let title: string;
+  let description: string;
+  let cta: string | null;
+  let badge: string | undefined;
+  let showProgress: boolean;
+  let handleAction: () => void;
+
+  switch (borrowerState) {
+    case "no-profile":
+      title = "Complete your business profile";
+      description =
+        "Add your business and cashflow details to calculate your request limit.";
+      cta = "Complete profile";
+      badge = "Required";
+      showProgress = true;
+      handleAction = () => onNavigate?.("profile");
+      break;
+    case "needs-update":
+      title = "Update your business profile";
+      description = profileCompletion.nextStep;
+      cta = "Update profile";
+      showProgress = true;
+      handleAction = () => onNavigate?.("profile");
+      break;
+    case "verification-needed":
+      title = "Complete borrower verification";
+      description =
+        "Upload your required documents so your profile can be reviewed.";
+      cta = "Go to verification";
+      showProgress = true;
+      handleAction = () => onNavigateVerification?.();
+      break;
+    case "verification-pending":
+      title = "Verification in review";
+      description =
+        "Your documents are submitted. No action is needed right now.";
+      cta = "View verification";
+      showProgress = true;
+      handleAction = () => onNavigateVerification?.();
+      break;
+    case "ready-to-apply":
+      title = "Ready to request financing";
+      description = "Your profile and verification are ready.";
+      cta = "Apply for financing";
+      showProgress = false;
+      handleAction = () => onNavigate?.("apply");
+      break;
+    case "active-loan":
+      title = "Track your active loan";
+      description = "Review repayment dates and upload proof when needed.";
+      cta = "View loans";
+      showProgress = false;
+      handleAction = () => onNavigate?.("loans");
+      break;
+  }
+
+  return (
+    <Card className="col-span-12 rounded-2xl border-border/50 bg-muted/30 shadow-sm">
+      <CardContent className="grid gap-4 p-4 sm:p-5">
+        <div className="grid gap-2">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-foreground">{title}</p>
+            {badge ? (
+              <Badge variant="secondary" className="text-[10px] font-semibold">
+                {badge}
+              </Badge>
+            ) : null}
+          </div>
+          <p className="text-sm leading-6 text-muted-foreground">
+            {description}
+          </p>
+        </div>
+        {showProgress ? (
+          <div className="grid gap-1.5">
+            <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>Profile progress</span>
+              <span className="font-semibold">
+                {profileCompletion.percentage}%
+              </span>
+            </div>
+            <Progress
+              value={profileCompletion.percentage}
+              className="h-1.5"
+            />
+          </div>
+        ) : null}
+        {cta ? (
+          <Button
+            onClick={handleAction}
+            className="w-full rounded-full font-semibold sm:w-fit"
+          >
+            {cta}
+          </Button>
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function FinancingSummaryCard({
+  className,
+  creditSummary,
+  hasPortfolio,
+  usedCreditRatio,
+  repaymentActionSummary,
+  debtProgress,
+  hasDebt,
+  hasActiveLoans,
+}: {
+  className?: string;
+  creditSummary: BorrowerCreditSummary | null;
+  hasPortfolio: boolean;
+  usedCreditRatio: number;
+  repaymentActionSummary: RepaymentActionSummary;
+  debtProgress: {
+    totalDebt: number;
+    totalOutstanding: number;
+    totalPaid: number;
+    percentComplete: number;
+  };
+  hasDebt: boolean;
+  hasActiveLoans: boolean;
+}) {
+  const dueCapacityRatio =
+    creditSummary && creditSummary.monthlyNetCashFlow > 0
+      ? repaymentActionSummary.totalNeedsAction /
+        creditSummary.monthlyNetCashFlow
+      : null;
+  const dueCapacityStatus = getDueCapacityStatus(dueCapacityRatio);
+  const dueBadgeLabel =
+    repaymentActionSummary.totalNeedsAction === 0
+      ? "No payments due"
+      : dueCapacityStatus.label;
+
+  return (
+    <Card
+      className={cn(
+        "col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-5",
+        className,
+      )}
+    >
+      <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
+        <div className="flex items-center justify-between gap-2">
+          <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Financing overview
+          </CardDescription>
+          {creditSummary ? (
+            <Badge variant="secondary" className="text-[10px] font-semibold">
+              {Math.round(usedCreditRatio * 100)}% utilized
+            </Badge>
+          ) : null}
+        </div>
+        <CardTitle className="text-lg leading-tight sm:text-xl">
+          {creditSummary ? "Available to request" : "Financing summary"}
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+        {creditSummary ? (
+          <>
+            <MoneyText
+              value={creditSummary.availableCredit}
+              className="text-3xl font-semibold sm:text-4xl"
+            />
+            <p className="text-xs text-muted-foreground">
+              {formatMoney(creditSummary.availableCredit)} of{" "}
+              {formatMoney(creditSummary.calculatedCreditLimit)} limit
+            </p>
+            <Progress
+              value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
+              className="h-2"
+              aria-label="Available credit"
+            />
+            <Separator />
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Monthly cashflow
+                </p>
+                <p className="font-semibold tabular-nums">
+                  {formatMoney(creditSummary.monthlyNetCashFlow)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">Used credit</p>
+                <p className="font-semibold tabular-nums">
+                  {formatMoney(creditSummary.usedCredit)}
+                </p>
+              </div>
+              {hasDebt ? (
+                <div className="grid gap-0.5">
+                  <p className="text-xs text-muted-foreground">Outstanding</p>
+                  <p className="font-semibold tabular-nums">
+                    {formatMoney(debtProgress.totalOutstanding)}
+                  </p>
                 </div>
-                <CardTitle className="text-lg leading-tight sm:text-xl">
-                  Available to request
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                {creditSummary ? (
-                  <>
+              ) : null}
+            </div>
+            {hasActiveLoans && repaymentActionSummary.totalNeedsAction > 0 ? (
+              <>
+                <Separator />
+                <div className="flex items-start justify-between gap-2">
+                  <div className="grid gap-0.5">
+                    <p className="text-xs text-muted-foreground">
+                      Needs action
+                    </p>
                     <MoneyText
-                      value={creditSummary.availableCredit}
-                      className="text-3xl font-semibold sm:text-4xl"
+                      value={repaymentActionSummary.totalNeedsAction}
+                      className="text-lg font-semibold"
                     />
                     <p className="text-xs text-muted-foreground">
-                      {formatMoney(creditSummary.availableCredit)} of{" "}
-                      {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                      {formatMoney(repaymentActionSummary.overdueAmount)} overdue ·{" "}
+                      {formatMoney(repaymentActionSummary.dueThisMonthAmount)} due this month
                     </p>
-                    <Progress
-                      value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
-                      className="h-2"
-                      aria-label="Available credit"
-                    />
-                    <Separator />
-                    <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-                      <div className="grid gap-0.5">
-                        <p className="text-xs text-muted-foreground">Monthly cashflow</p>
-                        <p className="font-semibold tabular-nums">
-                          {formatMoney(creditSummary.monthlyNetCashFlow)}
-                        </p>
-                      </div>
-                      <div className="grid gap-0.5">
-                        <p className="text-xs text-muted-foreground">Used credit</p>
-                        <p className="font-semibold tabular-nums">
-                          {formatMoney(creditSummary.usedCredit)}
-                        </p>
-                      </div>
-                      {hasDebt ? (
-                        <div className="grid gap-0.5">
-                          <p className="text-xs text-muted-foreground">Outstanding</p>
-                          <p className="font-semibold tabular-nums">
-                            {formatMoney(debtProgress.totalOutstanding)}
-                          </p>
-                        </div>
-                      ) : null}
-                    </div>
-                  </>
-                ) : (
-                  <p className="text-sm text-muted-foreground">
-                    Complete your business profile to calculate your request limit.
-                  </p>
-                )}
-                <Button
-                  onClick={() => onNavigate?.("apply")}
-                  disabled={!hasPortfolio || !canSubmitApplication || needsProfileUpdate}
-                  className="mt-auto h-11 w-full rounded-full font-semibold sm:w-fit"
-                >
-                  Apply for financing
-                </Button>
-              </CardContent>
-            </Card>
-
-            <ProfileReadinessCard
-              isProfileComplete={isProfileComplete}
-              needsProfileUpdate={needsProfileUpdate}
-              needsVerification={needsVerification === true}
-              profileCompletion={profileCompletion}
-              onNavigate={onNavigate}
-              onNavigateVerification={onNavigateVerification}
-            />
-
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-6">
-              <CardHeader className="px-4 pb-2 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">Next actions</CardTitle>
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-0.5 px-4 pb-4 sm:px-5 sm:pb-5">
-                <Button
-                  variant="ghost"
-                  onClick={() => onNavigate?.("offers")}
-                  className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-2.5"
-                >
-                  <span className="grid gap-0.5 text-left">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">Review offers</span>
-                      {pendingOfferCount > 0 ? (
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                          {pendingOfferCount}
-                        </Badge>
-                      ) : null}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {hasPendingOffers ? "You have pending offers" : "No pending offers"}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Button>
-
-                <Separator className="my-0.5" />
-
-                <Button
-                  variant="ghost"
-                  onClick={() => onNavigate?.("loans")}
-                  className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-2.5"
-                >
-                  <span className="grid gap-0.5 text-left">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">
-                        {hasActiveLoans ? "Loans" : "View loans"}
-                      </span>
-                      {hasActiveLoans ? (
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                          {activeLoans.length}
-                        </Badge>
-                      ) : null}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {hasActiveLoans
-                        ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
-                        : "No active loans"}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Button>
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-3">
-              <CardContent className="flex flex-1 flex-col gap-2.5 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                    Due this month
-                  </p>
+                  </div>
                   <Badge
                     variant="secondary"
                     className={cn(
                       "text-[10px] font-semibold",
-                      dueThisMonth.totalDue === 0
-                        ? toneBadgeClassName("success")
-                        : dueCapacityStatus.badgeClassName,
+                      dueCapacityStatus.badgeClassName,
                     )}
                   >
                     {dueBadgeLabel}
                   </Badge>
                 </div>
-                <MoneyText
-                  value={dueThisMonth.totalDue}
-                  className="text-2xl font-semibold sm:text-3xl"
+                <DashboardProgressBar
+                  value={dueCapacityRatio ?? 0}
+                  barClassName={dueCapacityStatus.barClassName}
                 />
-                <p className="text-xs text-muted-foreground">
-                  {creditSummary && creditSummary.monthlyNetCashFlow > 0
-                    ? `${formatMoney(dueThisMonth.totalDue)} of ${formatMoney(creditSummary.monthlyNetCashFlow)} monthly cashflow`
-                    : "No cashflow data available"}
-                </p>
-                <div className="mt-auto">
-                  <DashboardProgressBar
-                    value={dueCapacityRatio ?? 0}
-                    barClassName={dueThisMonth.totalDue === 0 ? "bg-emerald-500" : dueCapacityStatus.barClassName}
-                  />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-3">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">Active loans</CardTitle>
-                {hasActiveLoans ? (
-                  <Button
-                    variant="link"
-                    onClick={() => onNavigate?.("loans")}
-                    className="h-auto p-0 text-xs font-semibold"
-                  >
-                    View in Loans
-                  </Button>
-                ) : null}
-              </CardHeader>
-              <CardContent className={cn(
-                "flex flex-1 flex-col px-4 pb-4 sm:px-5 sm:pb-5",
-                hasActiveLoans ? "gap-3" : "gap-2",
-              )}>
-                {hasActiveLoans ? (
-                  <div className="flex flex-1 flex-col gap-3">
-                    {activeLoans.slice(0, 2).map((loan) => (
-                      <DashboardLoanCard
-                        key={loan.id}
-                        loan={loan}
-                        onNavigate={onNavigate}
-                      />
-                    ))}
-                    {activeLoans.length > 2 ? (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => onNavigate?.("loans")}
-                        className="mt-auto w-full text-xs font-semibold text-muted-foreground"
-                      >
-                        +{activeLoans.length - 2} more
-                      </Button>
-                    ) : null}
-                  </div>
-                ) : (
-                  <>
-                    <p className="text-xs text-muted-foreground">
-                      No active loans yet.
-                    </p>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onNavigate?.(hasPendingOffers ? "offers" : "apply")}
-                      className="mt-auto w-full rounded-full font-semibold"
-                    >
-                      {hasPendingOffers ? "Review offers" : "Apply for financing"}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            {hasActiveLoans ? (
-              <RepaymentCalendarCard
-                activeLoans={activeLoans}
-                onNavigate={onNavigate}
-                className="col-span-12 lg:col-span-8"
-              />
-            ) : (
-              <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-                <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                  <div className="grid gap-1">
-                    <p className="text-sm font-semibold">Repayment calendar</p>
-                    <p className="text-xs text-muted-foreground">
-                      Repayment dates and schedule will appear here once you have an active loan.
-                    </p>
-                  </div>
-                  <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-border/60">
-                    <p className="text-xs text-muted-foreground">
-                      Accept a lender offer to see your repayment schedule.
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
-
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-              <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-1 pt-4 sm:px-5 sm:pt-5">
-                <CardTitle className="text-sm font-semibold">
-                  {hasDebt ? "Payment progress" : "Financial summary"}
-                </CardTitle>
-                {hasDebt ? (
-                  <span className="text-xs font-semibold text-muted-foreground">
-                    {Math.round(debtProgress.percentComplete * 100)}%
-                  </span>
-                ) : null}
-              </CardHeader>
-              <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-                {hasDebt ? (
-                  <>
-                    <div className="flex items-baseline justify-between gap-2">
-                      <MoneyText
-                        value={debtProgress.totalPaid}
-                        className="text-lg font-semibold"
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        of {formatMoney(debtProgress.totalDebt)}
-                      </p>
-                    </div>
-                    <DashboardProgressBar
-                      value={debtProgress.percentComplete}
-                    />
-                  </>
-                ) : creditSummary ? (
-                  <div className="flex flex-1 flex-col gap-3 text-sm">
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-muted-foreground">Credit limit</p>
-                      <p className="font-semibold tabular-nums">
-                        {formatMoney(creditSummary.calculatedCreditLimit)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-muted-foreground">Monthly cashflow</p>
-                      <p className="font-semibold tabular-nums">
-                        {formatMoney(creditSummary.monthlyNetCashFlow)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-muted-foreground">Applications</p>
-                      <p className="font-semibold tabular-nums">
-                        {applications.length}
-                      </p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Financial details will appear after your profile is evaluated.
-                  </p>
-                )}
-              </CardContent>
-            </Card>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-function ProgressRing({
-  value,
-  label,
-  size = 56,
-  strokeWidth = 4,
-  className,
-  "aria-label": ariaLabel,
-}: {
-  value: number;
-  label?: string;
-  size?: number;
-  strokeWidth?: number;
-  className?: string;
-  "aria-label"?: string;
-}) {
-  const radius = (size - strokeWidth) / 2;
-  const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (clamp(value, 0, 100) / 100) * circumference;
-  const fontSize = size >= 100 ? "text-xl" : "text-xs";
-
-  return (
-    <div
-      className={cn(
-        "relative inline-flex shrink-0 items-center justify-center",
-        className,
-      )}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(clamp(value, 0, 100))}
-      aria-label={ariaLabel ?? label}
-    >
-      <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
-        className="-rotate-90"
-      >
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          className="stroke-muted"
-          strokeWidth={strokeWidth}
-        />
-        <circle
-          cx={size / 2}
-          cy={size / 2}
-          r={radius}
-          fill="none"
-          className="stroke-primary transition-[stroke-dashoffset] duration-500 ease-out"
-          strokeWidth={strokeWidth}
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-        />
-      </svg>
-      <span className={cn("absolute font-bold tabular-nums", fontSize)}>
-        {Math.round(clamp(value, 0, 100))}%
-      </span>
-    </div>
-  );
-}
-
-function ProfileReadinessCard({
-  isProfileComplete,
-  needsProfileUpdate,
-  needsVerification,
-  profileCompletion,
-  onNavigate,
-  onNavigateVerification,
-}: {
-  isProfileComplete: boolean;
-  needsProfileUpdate: boolean;
-  needsVerification: boolean;
-  profileCompletion: ReturnType<typeof getProfileCompletion>;
-  onNavigate?: (tab: BorrowerTab) => void;
-  onNavigateVerification?: () => void;
-}) {
-  const statusLabel = isProfileComplete
-    ? needsProfileUpdate
-      ? "Update needed"
-      : needsVerification
-        ? "Verification needed"
-        : "Ready"
-    : "In progress";
-  const statusTone = isProfileComplete
-    ? needsProfileUpdate || needsVerification
-      ? "attention"
-      : "success"
-    : "attention";
-  const description = isProfileComplete
-    ? needsProfileUpdate
-      ? profileCompletion.nextStep
-      : needsVerification
-        ? "Complete borrower verification before applying."
-        : "Your profile is ready for financing requests."
-    : profileCompletion.nextStep;
-  const ctaLabel = isProfileComplete
-    ? needsProfileUpdate
-      ? "Update profile"
-      : needsVerification
-        ? "Continue verification"
-        : "Review profile"
-    : "Complete profile";
-
-  return (
-    <Card className="col-span-12 flex flex-col rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-      <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
-        <CardTitle className="text-sm font-semibold">
-          Profile readiness
-        </CardTitle>
-        <Badge
-          variant="secondary"
-          className={cn("text-[10px] font-semibold", toneBadgeClassName(statusTone))}
-        >
-          {statusLabel}
-        </Badge>
-      </CardHeader>
-      <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-4 pt-4 pb-2 sm:px-5">
-        <ProgressRing
-          value={profileCompletion.percentage}
-          size={112}
-          strokeWidth={8}
-          aria-label="Profile completion"
-          className="sm:hidden"
-        />
-        <ProgressRing
-          value={profileCompletion.percentage}
-          size={128}
-          strokeWidth={9}
-          aria-label="Profile completion"
-          className="hidden sm:inline-flex"
-        />
-        <p className="text-xs text-muted-foreground">
-          {description}
-        </p>
+              </>
+            ) : null}
+          </>
+        ) : hasPortfolio ? (
+          <p className="text-sm text-muted-foreground">
+            Your credit limit will appear after your profile is evaluated.
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Complete your business profile to calculate your request limit.
+          </p>
+        )}
       </CardContent>
-      <CardFooter className="border-transparent bg-transparent px-4 pb-4 pt-2 sm:px-5">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            if (needsVerification) {
-              onNavigateVerification?.();
-            } else {
-              onNavigate?.("profile");
-            }
-          }}
-          className="w-full rounded-full font-semibold"
-        >
-          {ctaLabel}
-        </Button>
-      </CardFooter>
     </Card>
   );
 }
 
-function HomeDashboardSkeleton({ hasActiveLoans }: { hasActiveLoans: boolean }) {
+function OffersLoansCard({
+  className,
+  activeLoans,
+  hasActiveLoans,
+  hasPendingOffers,
+  pendingOfferCount,
+  onNavigate,
+}: {
+  className?: string;
+  activeLoans: ActiveLoan[];
+  hasActiveLoans: boolean;
+  hasPendingOffers: boolean;
+  pendingOfferCount: number;
+  onNavigate?: (tab: BorrowerTab) => void;
+}) {
   return (
-    <div className="grid gap-4">
-      <div className="grid gap-4 lg:grid-cols-12">
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-          <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
-            <Skeleton className="h-3 w-28" />
-            <Skeleton className="h-5 w-40" />
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-            <Skeleton className="h-8 w-40" />
-            <Skeleton className="h-3 w-44" />
-            <Skeleton className="h-2 w-full rounded-full" />
-            <Skeleton className="h-px w-full" />
-            <div className="flex gap-6">
-              <Skeleton className="h-10 w-24" />
-              <Skeleton className="h-10 w-20" />
-              <Skeleton className="h-10 w-24" />
-            </div>
-            <Skeleton className="h-11 w-40 rounded-full" />
-          </CardContent>
-        </Card>
+    <Card
+      className={cn(
+        "col-span-12 rounded-2xl border-border/50 shadow-sm",
+        className,
+      )}
+    >
+      <CardHeader className="px-4 pb-2 pt-4 sm:px-5 sm:pt-5">
+        <CardTitle className="text-sm font-semibold">Offers & loans</CardTitle>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-0.5 px-4 pb-4 sm:px-5 sm:pb-5">
+        <Button
+          variant="ghost"
+          onClick={() => onNavigate?.("offers")}
+          className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-2.5"
+        >
+          <span className="grid gap-0.5 text-left">
+            <span className="flex items-center gap-2">
+              <span className="text-sm font-semibold">Offers</span>
+              {pendingOfferCount > 0 ? (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-semibold"
+                >
+                  {pendingOfferCount}
+                </Badge>
+              ) : null}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {hasPendingOffers
+                ? "You have pending offers"
+                : "No pending offers"}
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+        </Button>
+        <Separator className="my-0.5" />
+        <Button
+          variant="ghost"
+          onClick={() => onNavigate?.("loans")}
+          className="h-auto w-full justify-between gap-3 rounded-xl px-4 py-2.5"
+        >
+          <span className="grid gap-0.5 text-left">
+            <span className="flex items-center gap-2">
+              <span className="text-sm font-semibold">
+                {hasActiveLoans ? "Active loans" : "Loans"}
+              </span>
+              {hasActiveLoans ? (
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-semibold"
+                >
+                  {activeLoans.length}
+                </Badge>
+              ) : null}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {hasActiveLoans
+                ? `${activeLoans.length} active loan${activeLoans.length > 1 ? "s" : ""}`
+                : "No active loans"}
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
-        <Card className="col-span-12 flex flex-col rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-          <CardHeader className="flex flex-row items-center justify-between gap-2 px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
-            <Skeleton className="h-4 w-28" />
-            <Skeleton className="h-5 w-20 rounded-full" />
-          </CardHeader>
-          <CardContent className="flex flex-1 flex-col items-center justify-center gap-3 px-4 pt-4 pb-2 sm:px-5">
-            <Skeleton className="size-28 shrink-0 rounded-full sm:size-32" />
-            <div className="grid w-full gap-1 place-self-center">
-              <Skeleton className="mx-auto h-4 w-28" />
-              <Skeleton className="mx-auto h-3 w-44" />
-            </div>
-          </CardContent>
-          <div className="px-4 pb-4 pt-2 sm:px-5">
-            <Skeleton className="h-9 w-full rounded-full" />
+function HomeDashboardSkeleton() {
+  return (
+    <div className="grid gap-4 lg:grid-cols-12">
+      <Card className="col-span-12 rounded-2xl border-border/50 bg-muted/30 shadow-sm">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-4 w-72" />
+          <Skeleton className="h-1.5 w-full rounded-full" />
+          <Skeleton className="h-11 w-40 rounded-full" />
+        </CardContent>
+      </Card>
+
+      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-5">
+        <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
+          <Skeleton className="h-3 w-28" />
+          <Skeleton className="h-5 w-40" />
+        </CardHeader>
+        <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+          <Skeleton className="h-8 w-40" />
+          <Skeleton className="h-3 w-44" />
+          <Skeleton className="h-2 w-full rounded-full" />
+          <Skeleton className="h-px w-full" />
+          <div className="flex gap-6">
+            <Skeleton className="h-10 w-24" />
+            <Skeleton className="h-10 w-20" />
           </div>
-        </Card>
+        </CardContent>
+      </Card>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-6">
-          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 rounded-xl" />
-            <Skeleton className="h-px w-full" />
-            <Skeleton className="h-10 rounded-xl" />
-          </CardContent>
-        </Card>
+      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-7">
+        <CardHeader className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3 w-56" />
+        </CardHeader>
+        <CardContent className="px-4 pb-4 sm:px-5 sm:pb-5">
+          <Skeleton className="h-52 w-full rounded-xl" />
+        </CardContent>
+      </Card>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-3">
-          <CardContent className="flex flex-1 flex-col gap-2.5 p-4 sm:p-5">
-            <Skeleton className="h-3 w-24" />
-            <Skeleton className="h-7 w-32" />
-            <Skeleton className="h-3 w-44" />
-            <Skeleton className="h-2 w-full rounded-full" />
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-3">
-          <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-            <Skeleton className="h-4 w-24" />
-            <Skeleton className="h-10 rounded-xl" />
-          </CardContent>
-        </Card>
-
-        {hasActiveLoans ? (
-          <>
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-              <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                <Skeleton className="h-3 w-32" />
-                <Skeleton className="h-52 w-full rounded-xl" />
-              </CardContent>
-            </Card>
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-              <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                <Skeleton className="h-3 w-28" />
-                <Skeleton className="h-5 w-20" />
-                <Skeleton className="h-2 w-full rounded-full" />
-              </CardContent>
-            </Card>
-          </>
-        ) : (
-          <>
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
-              <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                <Skeleton className="h-4 w-32" />
-                <Skeleton className="h-3 w-56" />
-                <Skeleton className="h-24 w-full rounded-2xl" />
-              </CardContent>
-            </Card>
-            <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
-              <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-                <Skeleton className="h-4 w-28" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-full" />
-              </CardContent>
-            </Card>
-          </>
-        )}
-      </div>
+      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="h-10 rounded-xl" />
+          <Skeleton className="h-px w-full" />
+          <Skeleton className="h-10 rounded-xl" />
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -1701,6 +1510,7 @@ function RepaymentCalendarCard({
 }) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>();
   const today = useMemo(() => startOfLocalDay(new Date()), []);
+  const isEmpty = activeLoans.length === 0;
 
   const dueItemsByDate = useMemo(
     () => buildDueItemsByDate(activeLoans),
@@ -1733,12 +1543,20 @@ function RepaymentCalendarCard({
         <CardTitle className="text-sm font-semibold">
           Repayment calendar
         </CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Select a date to view repayment details.
-        </CardDescription>
+        {!isEmpty ? (
+          <CardDescription className="text-xs text-muted-foreground">
+            Select a date to view repayment details.
+          </CardDescription>
+        ) : null}
       </CardHeader>
-      <CardContent className="grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5 lg:grid-cols-[minmax(22rem,24rem)_minmax(16rem,1fr)] lg:items-start">
-        <div className="mx-auto w-full max-w-[22rem] lg:mx-0">
+        <CardContent
+          className={cn(
+            "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
+            !isEmpty &&
+              "xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:items-start",
+          )}
+        >
+          <div className="mx-auto w-full min-w-0 max-w-[22rem] xl:mx-0 xl:min-h-[26rem]">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -1747,169 +1565,182 @@ function RepaymentCalendarCard({
             showOutsideDays={true}
             className="w-full rounded-2xl border border-border/50 p-3 [--cell-size:2.75rem]"
             classNames={{ root: "w-full" }}
-            components={{
-              Day: ({ day, children, ...dayProps }) => {
-                const dateKey = formatDateKey(day.date);
-                const items = dueItemsByDate.get(dateKey);
-                const hasItems = items !== undefined && items.length > 0;
-                const isOverdue =
-                  hasItems &&
-                  items.some(
-                    (item) =>
-                      parseDateOnly(item.repayment.dueDate) < today &&
-                      !isRepaymentVerified(item.repayment),
-                  );
-                const isDueToday =
-                  hasItems &&
-                  items.some(
-                    (item) =>
-                      parseDateOnly(item.repayment.dueDate).getTime() ===
-                        today.getTime() &&
-                      !isRepaymentVerified(item.repayment),
-                  );
+            components={
+              !isEmpty
+                ? {
+                    Day: ({ day, children, ...dayProps }) => {
+                      const dateKey = formatDateKey(day.date);
+                      const items = dueItemsByDate.get(dateKey);
+                      const hasItems =
+                        items !== undefined && items.length > 0;
+                      const tone = hasItems
+                        ? getRepaymentCalendarDateTone(items, today)
+                        : null;
 
-                return (
-                  <td {...dayProps}>
-                    <div className="relative flex h-full w-full flex-col items-center justify-center">
-                      {children}
-                      {hasItems ? (
-                        <span
-                          className={cn(
-                            "absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full",
-                            isOverdue
-                              ? "bg-destructive"
-                              : isDueToday
-                                ? "bg-amber-500"
-                                : "bg-primary",
-                          )}
-                          aria-hidden="true"
-                        />
-                      ) : null}
-                    </div>
-                  </td>
-                );
-              },
-            }}
+                      return (
+                        <td {...dayProps}>
+                          <div className="relative flex h-full w-full flex-col items-center justify-center">
+                            {children}
+                            {hasItems ? (
+                              <span
+                                className={cn(
+                                  "absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full",
+                                  tone === "danger"
+                                    ? "bg-destructive"
+                                    : tone === "neutral"
+                                      ? "bg-muted-foreground"
+                                      : tone === "success"
+                                        ? "bg-emerald-500"
+                                        : "bg-amber-500",
+                                )}
+                                aria-hidden="true"
+                              />
+                            ) : null}
+                          </div>
+                        </td>
+                      );
+                    },
+                  }
+                : undefined
+            }
           />
         </div>
 
-        <div className="grid gap-3">
-          {selectedDate ? (
-            <div className="grid gap-3 rounded-2xl border border-border/50 p-4">
-              <p className="text-xs font-semibold text-muted-foreground">
-                {selectedDate.toLocaleDateString("en-PH", {
-                  weekday: "long",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </p>
-              {selectedItems.length > 0 ? (
+        {isEmpty ? (
+          <div className="grid gap-1 text-center">
+            <p className="text-sm text-muted-foreground">
+              No repayment dates yet
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Repayment dates will appear here after you accept an offer.
+            </p>
+          </div>
+        ) : (
+          <div className="grid min-w-0 gap-3">
+            {selectedDate ? (
+              <div className="grid gap-3 rounded-2xl border border-border/50 p-4">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  {selectedDate.toLocaleDateString("en-PH", {
+                    weekday: "long",
+                    month: "long",
+                    day: "numeric",
+                  })}
+                </p>
+                {selectedItems.length > 0 ? (
+                  <div className="grid gap-2">
+                    {selectedItems.map((item) => (
+                      <div
+                        key={item.repayment.id}
+                        className="grid gap-2 rounded-xl bg-muted/30 px-3 py-2.5 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold">
+                            Installment {item.repayment.installmentNumber}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDateOnly(item.repayment.dueDate)}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <MoneyText
+                            value={item.repayment.amountDue}
+                            className="font-semibold"
+                          />
+                          <RepaymentStatusPill
+                            status={item.repayment.status}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onNavigate?.("loans")}
+                      className="w-full rounded-full font-semibold sm:w-fit"
+                    >
+                      View in Loans
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    No repayments due on this date.
+                  </p>
+                )}
+              </div>
+            ) : nextRepayments.length > 0 ? (
+              <div className="grid gap-2">
+                <p className="text-xs font-semibold text-muted-foreground">
+                  Next repayments
+                </p>
                 <div className="grid gap-2">
-                  {selectedItems.map((item) => (
+                  {nextRepayments.map((item) => (
                     <div
                       key={item.repayment.id}
-                      className="flex items-center justify-between gap-3 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
+                      className="grid gap-1 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
                     >
-                      <div className="grid gap-0.5">
-                        <p className="font-semibold">
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="min-w-0 font-semibold">
                           Installment {item.repayment.installmentNumber}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        <Badge
+                          variant="secondary"
+                          className={cn(
+                            "shrink-0 text-[10px] font-semibold",
+                            toneBadgeClassName(
+                              getRepaymentCalendarTone(item.repayment, today),
+                            ),
+                          )}
+                        >
+                          {formatRepaymentStatus(item.repayment.status)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
+                        <p className="min-w-0 text-xs text-muted-foreground">
                           {formatDateOnly(item.repayment.dueDate)}
                         </p>
-                      </div>
-                      <div className="flex shrink-0 items-center gap-2">
                         <MoneyText
                           value={item.repayment.amountDue}
-                          className="font-semibold"
-                        />
-                        <RepaymentStatusPill
-                          status={item.repayment.status}
+                          className="shrink-0 text-xs font-semibold"
                         />
                       </div>
                     </div>
                   ))}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => onNavigate?.("loans")}
-                    className="w-full rounded-full font-semibold sm:w-fit"
-                  >
-                    View in Loans
-                  </Button>
                 </div>
-              ) : (
-                <p className="text-xs text-muted-foreground">
-                  No repayments due on this date.
-                </p>
-              )}
-            </div>
-          ) : nextRepayments.length > 0 ? (
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Next repayments
-              </p>
-              <div className="grid gap-2">
-                {nextRepayments.map((item) => (
-                  <div
-                    key={item.repayment.id}
-                    className="grid gap-1 rounded-xl bg-muted/30 px-3 py-2.5 text-sm"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="font-semibold">
-                        Installment {item.repayment.installmentNumber}
-                      </p>
-                      <Badge
-                        variant="secondary"
-                        className={cn(
-                          "text-[10px] font-semibold",
-                          toneBadgeClassName(
-                            getRepaymentCalendarTone(item.repayment, today),
-                          ),
-                        )}
-                      >
-                        {formatRepaymentStatus(item.repayment.status)}
-                      </Badge>
-                    </div>
-                    <div className="flex items-center justify-between gap-2">
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateOnly(item.repayment.dueDate)}
-                      </p>
-                      <MoneyText
-                        value={item.repayment.amountDue}
-                        className="text-xs font-semibold"
-                      />
-                    </div>
-                  </div>
-                ))}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onNavigate?.("loans")}
+                  className="w-full rounded-full font-semibold"
+                >
+                  View all in Loans
+                </Button>
               </div>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate?.("loans")}
-                className="w-full rounded-full font-semibold"
-              >
-                View all in Loans
-              </Button>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/60 p-6">
-              <p className="text-xs text-muted-foreground">
-                Select a date to see repayment details.
-              </p>
-            </div>
-          )}
-        </div>
+            ) : (
+              <div className="flex items-center justify-center rounded-2xl border border-dashed border-border/60 p-6">
+                <p className="text-xs text-muted-foreground">
+                  Select a date to see repayment details.
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 }
 
-type ActiveLoan = NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
-type RepaymentScheduleItem = ActiveLoan["schedule"][number];
-type DashboardDueItem = {
+export type ActiveLoan = NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+export type RepaymentScheduleItem = ActiveLoan["schedule"][number];
+export type DashboardDueItem = {
   loan: ActiveLoan;
   repayment: RepaymentScheduleItem;
+};
+export type RepaymentActionSummary = {
+  overdueAmount: number;
+  dueThisMonthAmount: number;
+  submittedAmount: number;
+  nextDueDate: string | null;
+  totalNeedsAction: number;
 };
 
 function DashboardProgressBar({
@@ -1937,96 +1768,50 @@ function DashboardProgressBar({
   );
 }
 
-function DashboardLoanCard({
-  loan,
-  onNavigate,
-}: {
-  loan: ActiveLoan;
-  onNavigate?: (tab: BorrowerTab) => void;
-}) {
-  const installmentProgress = getLoanInstallmentProgress(loan);
-
-  return (
-    <Card className="rounded-2xl">
-      <CardContent className="grid gap-4 p-4">
-        <div className="grid gap-3 sm:grid-cols-[1fr_auto]">
-          <div className="grid gap-1">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="text-base font-semibold">Loan</h3>
-              <LoanStatusPill status={loan.status} />
-            </div>
-            <p className="text-sm text-muted-foreground">
-              Final due {formatDateOnly(loan.dueDate)}
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            onClick={() => onNavigate?.("loans")}
-            className="h-10 rounded-full font-semibold"
-          >
-            View in Loans
-          </Button>
-        </div>
-
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
-          <SummaryItem
-            label="Outstanding"
-            value={formatMoney(loan.outstandingBalance)}
-          />
-        </dl>
-
-        <div className="grid gap-2">
-          <div className="flex items-center justify-between gap-3 text-sm">
-            <p className="font-semibold">
-              {installmentProgress.completed}/{installmentProgress.total} installments
-              complete
-            </p>
-            <p className="text-muted-foreground">
-              {Math.round(installmentProgress.ratio * 100)}%
-            </p>
-          </div>
-          <DashboardProgressBar value={installmentProgress.ratio} />
-        </div>
-
-        {installmentProgress.nextRepayment ? (
-          <div className="grid gap-1 rounded-2xl bg-muted px-3 py-3 text-sm">
-            <p className="font-semibold">Next unpaid installment</p>
-            <p className="text-muted-foreground">
-              Installment {installmentProgress.nextRepayment.installmentNumber} ·{" "}
-              {formatMoney(installmentProgress.nextRepayment.amountDue)} · Due{" "}
-              {formatDateOnly(installmentProgress.nextRepayment.dueDate)}
-            </p>
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
 function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
   return applications.flatMap((application) =>
     application.activeLoan ? [application.activeLoan] : [],
   );
 }
 
-function getThisMonthDue(activeLoans: ActiveLoan[]) {
+export function getRepaymentActionSummary(
+  activeLoans: ActiveLoan[],
+): RepaymentActionSummary {
   const today = new Date();
-  const dueItems = activeLoans
+  const startOfToday = startOfLocalDay(today);
+  const unpaidItems = activeLoans
     .flatMap((loan) =>
       loan.schedule.map((repayment) => ({ loan, repayment })),
     )
+    .filter(({ repayment }) => !isRepaymentVerified(repayment));
+  const actionableItems = unpaidItems.filter(
+    ({ repayment }) => repayment.status !== "submitted",
+  );
+  const overdueAmount = actionableItems
+    .filter(({ repayment }) => parseDateOnly(repayment.dueDate) < startOfToday)
+    .reduce((total, item) => total + item.repayment.amountDue, 0);
+  const dueThisMonthAmount = actionableItems
     .filter(
       ({ repayment }) =>
-        isSameMonth(repayment.dueDate, today) && !isRepaymentVerified(repayment),
-    );
+        isSameMonth(repayment.dueDate, today) &&
+        parseDateOnly(repayment.dueDate) >= startOfToday,
+    )
+    .reduce((total, item) => total + item.repayment.amountDue, 0);
+  const submittedAmount = unpaidItems
+    .filter(({ repayment }) => repayment.status === "submitted")
+    .reduce((total, item) => total + item.repayment.amountDue, 0);
+  const nextDueDate =
+    actionableItems
+      .map(({ repayment }) => repayment.dueDate)
+      .sort((a, b) => parseDateOnly(a).getTime() - parseDateOnly(b).getTime())[0] ??
+    null;
 
   return {
-    dueItems,
-    totalDue: dueItems.reduce(
-      (total, item) => total + item.repayment.amountDue,
-      0,
-    ),
+    overdueAmount,
+    dueThisMonthAmount,
+    submittedAmount,
+    nextDueDate,
+    totalNeedsAction: overdueAmount + dueThisMonthAmount,
   };
 }
 
@@ -2047,18 +1832,6 @@ function getDebtProgress(activeLoans: ActiveLoan[]) {
     totalDebt,
     totalOutstanding,
     totalPaid,
-  };
-}
-
-function getLoanInstallmentProgress(loan: ActiveLoan) {
-  const completed = loan.schedule.filter(isRepaymentVerified).length;
-  const total = loan.schedule.length;
-
-  return {
-    completed,
-    nextRepayment: getNextRepayment(loan.schedule),
-    ratio: getProgressRatio(completed, total),
-    total,
   };
 }
 
@@ -2199,17 +1972,13 @@ function formatDateKey(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
-function buildDueItemsByDate(
+export function buildDueItemsByDate(
   activeLoans: ActiveLoan[],
 ): Map<string, DashboardDueItem[]> {
   const map = new Map<string, DashboardDueItem[]>();
 
   for (const loan of activeLoans) {
     for (const repayment of loan.schedule) {
-      if (isRepaymentVerified(repayment)) {
-        continue;
-      }
-
       const existing = map.get(repayment.dueDate) ?? [];
       existing.push({ loan, repayment });
       map.set(repayment.dueDate, existing);
@@ -2219,7 +1988,30 @@ function buildDueItemsByDate(
   return map;
 }
 
-function getRepaymentCalendarTone(
+export function getRepaymentCalendarDateTone(
+  items: DashboardDueItem[],
+  today: Date,
+): "success" | "danger" | "attention" | "neutral" {
+  const tones = items.map((item) =>
+    getRepaymentCalendarTone(item.repayment, today),
+  );
+
+  if (tones.includes("danger")) {
+    return "danger";
+  }
+
+  if (tones.includes("neutral")) {
+    return "neutral";
+  }
+
+  if (tones.includes("attention")) {
+    return "attention";
+  }
+
+  return "success";
+}
+
+export function getRepaymentCalendarTone(
   repayment: RepaymentScheduleItem,
   today: Date,
 ): "success" | "danger" | "attention" | "neutral" {
@@ -2276,18 +2068,33 @@ function ApplicationForm({
           aria-describedby="loan-application-state"
         >
           {creditSummary ? (
-            <div className="flex items-baseline justify-between gap-3 rounded-xl bg-muted/30 p-4">
-              <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">
+            <div
+              className={cn(
+                "grid gap-3 rounded-xl p-4",
+                isOverAvailableCredit
+                  ? "border border-destructive/30 bg-destructive/5"
+                  : "bg-muted/30",
+              )}
+            >
+              <div className="grid gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Available to request
                 </p>
+                <p className="text-xl font-semibold tabular-nums sm:text-2xl">
+                  {formatCreditAmount(creditSummary.availableCredit)}
+                </p>
                 <p className="text-xs text-muted-foreground">
-                  Based on your credit profile
+                  Based on your verified profile and active credit usage.
                 </p>
               </div>
-              <p className="text-lg font-semibold tabular-nums whitespace-nowrap">
-                {formatCreditAmount(creditSummary.availableCredit)}
-              </p>
+              {isOverAvailableCredit ? (
+                <div className="flex items-start gap-1.5 text-sm font-semibold text-destructive">
+                  <AlertCircle className="mt-0.5 size-4 shrink-0" />
+                  <span>
+                    Requested amount exceeds your available credit.
+                  </span>
+                </div>
+              ) : null}
             </div>
           ) : null}
 
@@ -2701,7 +2508,7 @@ function OfferCard({
         label={offer.lenderName}
         amount={offer.approvedAmount}
         metadata={[
-          `Repay ${formatMoney(offer.repaymentAmount)}`,
+          `Total repayment ${formatMoney(offer.totalRepaymentAmount)}`,
           `Due ${formatDateOnly(offer.dueDate)}`,
         ]}
         status={<StatusBadge value={offer.status} />}
@@ -2712,10 +2519,16 @@ function OfferCard({
         <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <SummaryItem label="Application" value={application.purpose} />
+            <SummaryItem label="Principal" value={formatMoney(offer.principalAmount)} />
+            <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
             <SummaryItem label="Fees" value={formatMoney(offer.fees)} />
+            <SummaryItem label="Total repayment" value={formatMoney(offer.totalRepaymentAmount)} />
             <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
             <SummaryItem label="Remarks" value={offer.remarks || "None"} />
           </dl>
+          <p className="mt-3 text-sm leading-6 text-muted-foreground">
+            Total repayment includes principal, fees, and financing charge.
+          </p>
 
           {offer.status === "accepted" && application.activeLoan ? (
             <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -2812,21 +2625,17 @@ function InlineFeedback({
 function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
-  isPending,
   onNavigate,
-  onSubmitProof,
+  onProofSubmitted,
   onToggleRepayment,
-  proofFeedback,
   highlightRepaymentId,
   highlightLoanId,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   expandedRepaymentIds: Set<string>;
-  isPending: boolean;
   onNavigate?: (tab: BorrowerTab) => void;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  onProofSubmitted: () => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
-  proofFeedback: Record<string, ProofFeedback>;
   highlightRepaymentId?: string | null;
   highlightLoanId?: string | null;
 }) {
@@ -2850,11 +2659,9 @@ function BorrowerLoansPanel({
         <ActiveLoanCard
           key={loan.id}
           expandedRepaymentIds={expandedRepaymentIds}
-          isPending={isPending}
           loan={loan}
-          onSubmitProof={onSubmitProof}
+          onProofSubmitted={onProofSubmitted}
           onToggleRepayment={onToggleRepayment}
-          proofFeedback={proofFeedback}
           isHighlighted={loan.id === highlightLoanId}
           highlightRepaymentId={highlightRepaymentId}
         />
@@ -2865,20 +2672,16 @@ function BorrowerLoansPanel({
 
 function ActiveLoanCard({
   expandedRepaymentIds,
-  isPending,
   loan,
-  onSubmitProof,
+  onProofSubmitted,
   onToggleRepayment,
-  proofFeedback,
   isHighlighted,
   highlightRepaymentId,
 }: {
   expandedRepaymentIds: Set<string>;
-  isPending: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
+  onProofSubmitted: () => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
-  proofFeedback: Record<string, ProofFeedback>;
   isHighlighted?: boolean;
   highlightRepaymentId?: string | null;
 }) {
@@ -2891,6 +2694,10 @@ function ActiveLoanCard({
   const isCompletedLoan = loan.status === "paid" || loan.status === "closed";
   const primaryAmount = isCompletedLoan ? paidAmount : loan.outstandingBalance;
   const remainingAmount = isCompletedLoan ? 0 : loan.outstandingBalance;
+  const scheduleTotal = loan.schedule.reduce(
+    (total, repayment) => total + repayment.amountDue,
+    0,
+  );
 
   return (
     <article id={`loan-${loan.id}`} className="grid gap-4">
@@ -2911,11 +2718,17 @@ function ActiveLoanCard({
 
           <Separator />
 
-          <div className="grid grid-cols-3 gap-3 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
-            <SummaryItem label="Total repayment" value={formatMoney(loan.repaymentAmount)} />
+            <SummaryItem label="Interest/service charge" value={formatMoney(loan.interestAmount)} />
+            <SummaryItem label="Fees" value={formatMoney(loan.fees)} />
+            <SummaryItem label="Total repayment" value={formatMoney(loan.totalRepaymentAmount)} />
+            <SummaryItem label="Schedule total" value={formatMoney(scheduleTotal)} />
             <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
           </div>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Total repayment includes principal, fees, and financing charge.
+          </p>
 
           <div className="grid gap-2">
             <div className="flex items-center justify-between gap-3 text-sm">
@@ -2979,11 +2792,9 @@ function ActiveLoanCard({
                   <RepaymentScheduleRow
                     key={repayment.id}
                     isExpanded={expandedRepaymentIds.has(repayment.id)}
-                    isPending={isPending}
                     repayment={repayment}
-                    onSubmitProof={onSubmitProof}
+                    onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
-                    proofFeedback={proofFeedback[repayment.id] ?? null}
                     isHighlighted={repayment.id === highlightRepaymentId}
                   />
                 ))}
@@ -3002,19 +2813,15 @@ function ActiveLoanCard({
 
 function RepaymentScheduleRow({
   isExpanded,
-  isPending,
   onToggle,
   repayment,
-  onSubmitProof,
-  proofFeedback,
+  onProofSubmitted,
   isHighlighted,
 }: {
   isExpanded: boolean;
-  isPending: boolean;
   onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
-  proofFeedback: ProofFeedback | null;
+  onProofSubmitted: () => void;
   isHighlighted?: boolean;
 }) {
   const latestProof = repayment.latestProof;
@@ -3111,11 +2918,9 @@ function RepaymentScheduleRow({
 
           {canUploadProof ? (
             <RepaymentProofForm
-              isPending={isPending}
               isRejected={isRejected}
               repaymentId={repayment.id}
-              proofFeedback={proofFeedback}
-              onSubmitProof={onSubmitProof}
+              onSuccess={onProofSubmitted}
             />
           ) : null}
         </div>
@@ -3161,23 +2966,28 @@ function ProofHistory({
 }
 
 function RepaymentProofForm({
-  isPending,
   isRejected,
-  onSubmitProof,
-  proofFeedback,
   repaymentId,
+  onSuccess,
 }: {
-  isPending: boolean;
   isRejected: boolean;
-  onSubmitProof: (repaymentScheduleId: string, formData: FormData) => void;
-  proofFeedback: ProofFeedback | null;
   repaymentId: string;
+  onSuccess: () => void;
 }) {
+  const [state, formAction, isPending] = useActionState(
+    submitRepaymentProof,
+    null,
+  );
+
+  useEffect(() => {
+    if (state?.ok) {
+      onSuccess();
+    }
+  }, [state, onSuccess]);
+
   return (
-    <form
-      action={(formData) => onSubmitProof(repaymentId, formData)}
-      className="grid gap-3 border-t border-border pt-3"
-    >
+    <form action={formAction} className="grid gap-3 border-t border-border pt-3">
+      <input type="hidden" name="repaymentScheduleId" value={repaymentId} />
       <div className="grid gap-1.5">
         <Label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
           {isRejected ? "Upload corrected proof" : "Upload proof"}
@@ -3186,12 +2996,12 @@ function RepaymentProofForm({
           id={`proof-${repaymentId}`}
           name="proofFile"
           type="file"
-          accept="image/jpeg,image/png,image/webp,application/pdf"
+          accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
           disabled={isPending}
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
         />
         <p className="text-xs leading-5 text-muted-foreground">
-          JPG, PNG, WebP, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
+          JPG, PNG, WebP, HEIC, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
         </p>
       </div>
       <Button
@@ -3205,10 +3015,10 @@ function RepaymentProofForm({
             ? "Submit corrected proof"
             : "Upload proof"}
       </Button>
-      {proofFeedback ? (
+      {state ? (
         <InlineStatus
-          message={proofFeedback.message}
-          tone={proofFeedback.tone}
+          message={state.message}
+          tone={state.ok ? "success" : "error"}
         />
       ) : null}
     </form>

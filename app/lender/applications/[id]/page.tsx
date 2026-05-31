@@ -10,10 +10,10 @@ import {
 import { LenderOfferForm } from "@/components/lender-offer-form";
 import {
   formatPreferredTerm,
+  isApplicationActionableForOffer,
   loadLenderApplicationDetail,
 } from "@/lib/lender-applications";
 import type { LoanOfferSummary } from "@/lib/loan-offer";
-import { openApplicationStatuses } from "@/lib/workflow-rules";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/borrower-status-badge";
@@ -59,15 +59,11 @@ export default async function LenderApplicationDetailPage({
   }
 
   const { application } = result;
-  const hasAcceptedOffer = application.offers.some(
-    (offer) => offer.status === "accepted",
-  );
+  const hasAcceptedOffer = application.hasAcceptedOffer;
   const pendingOffer = application.offers.find(
     (offer) => offer.status === "pending",
   );
-  const isOpenForOffers = openApplicationStatuses.includes(
-    application.status as (typeof openApplicationStatuses)[number],
-  );
+  const isOpenForOffers = isApplicationActionableForOffer(application);
   const hasAcceptedApplication =
     application.status === "accepted" || hasAcceptedOffer;
 
@@ -273,12 +269,16 @@ export default async function LenderApplicationDetailPage({
                     </div>
                     <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
                       <ReviewItem
-                        label="Repayment"
-                        value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+                        label="Interest/service charge"
+                        value={`PHP ${formatCurrency(offer.interestAmount)}`}
                       />
                       <ReviewItem
                         label="Fees"
                         value={`PHP ${formatCurrency(offer.fees)}`}
+                      />
+                      <ReviewItem
+                        label="Total repayment"
+                        value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
                       />
                       <ReviewItem label="Due" value={formatDateOnly(offer.dueDate)} />
                       <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
@@ -370,8 +370,13 @@ function OfferSummary({
         value={`PHP ${formatCurrency(offer.approvedAmount)}`}
       />
       <ReviewItem
-        label="Repayment"
-        value={`PHP ${formatCurrency(offer.repaymentAmount)}`}
+        label="Interest/service charge"
+        value={`PHP ${formatCurrency(offer.interestAmount)}`}
+      />
+      <ReviewItem label="Fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+      <ReviewItem
+        label="Total repayment"
+        value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
       />
       <ReviewItem label="Due" value={formatDateOnly(offer.dueDate)} />
       <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
@@ -449,5 +454,3 @@ function getDefaultDueDate() {
 
   return date.toISOString().slice(0, 10);
 }
-
-

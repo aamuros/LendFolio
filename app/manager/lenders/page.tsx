@@ -313,7 +313,6 @@ function getMissingProfileFields(lender: ManagerLenderRow): string[] {
   if (!lender.operatingArea) fields.push("area");
   if (lender.minLoanAmount === 0 && lender.maxLoanAmount === 0)
     fields.push("loan range");
-  if (!lender.businessRegistrationNumber) fields.push("registration number");
   return fields;
 }
 
@@ -715,8 +714,10 @@ function LenderDetailsInline({ lender }: { lender: ManagerLenderRow }) {
           <dd className="font-medium">{lender.businessAddress || "\u2014"}</dd>
         </div>
         <div className="grid gap-0.5">
-          <dt className="text-muted-foreground">Registration number</dt>
-          <dd className="font-medium">{lender.businessRegistrationNumber || "\u2014"}</dd>
+          <dt className="text-muted-foreground">Registration number (optional)</dt>
+          <dd className="font-medium">
+            {lender.businessRegistrationNumber || "Not provided"}
+          </dd>
         </div>
         {loanRange ? (
           <div className="grid gap-0.5">

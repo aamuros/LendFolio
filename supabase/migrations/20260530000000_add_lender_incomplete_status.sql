@@ -30,7 +30,7 @@ alter table public.lender_profiles
         and rejected_by is null
       )
       or (
-        verification_status = 'incomplete'
+        verification_status::text = 'incomplete'
         and approved_at is null
         and approved_by is null
         and rejected_at is null
@@ -330,7 +330,7 @@ begin
     );
   end if;
 
-  if v_lender_profile.verification_status = 'incomplete' then
+  if v_lender_profile.verification_status::text = 'incomplete' then
     return jsonb_build_object(
       'ok', false,
       'message', 'This lender has not completed their profile. Wait for them to submit before reviewing.'
@@ -462,7 +462,7 @@ create or replace function app_private.submit_lender_onboarding(
   p_phone_number text,
   p_business_address text,
   p_operating_area text,
-  p_business_registration_number text default null,
+  p_business_registration_number text,
   p_min_loan_amount numeric(12, 2),
   p_max_loan_amount numeric(12, 2),
   p_typical_repayment_terms text,
@@ -498,7 +498,7 @@ begin
     );
   end if;
 
-  if v_lender_profile.verification_status not in ('incomplete', 'rejected') then
+  if v_lender_profile.verification_status::text not in ('incomplete', 'rejected') then
     return jsonb_build_object(
       'ok', false,
       'message', 'Your lender profile cannot be updated at this time.'
@@ -596,7 +596,7 @@ create or replace function public.submit_lender_onboarding(
   p_phone_number text,
   p_business_address text,
   p_operating_area text,
-  p_business_registration_number text default null,
+  p_business_registration_number text,
   p_min_loan_amount numeric(12, 2),
   p_max_loan_amount numeric(12, 2),
   p_typical_repayment_terms text,
@@ -643,10 +643,10 @@ select
       and borrower_verifications.id is not null then 'ready_for_review'
     when profiles.role = 'lender'
       and lender_profiles.id is not null
-      and lender_profiles.verification_status <> 'incomplete' then 'ready_for_review'
+      and lender_profiles.verification_status::text <> 'incomplete' then 'ready_for_review'
     when profiles.role = 'lender'
       and lender_profiles.id is not null
-      and lender_profiles.verification_status = 'incomplete' then 'onboarding_incomplete'
+      and lender_profiles.verification_status::text = 'incomplete' then 'onboarding_incomplete'
     else 'incomplete'
   end as provisioning_state,
   case
@@ -660,7 +660,7 @@ select
     when profiles.role = 'lender'
       and lender_profiles.verification_status = 'rejected' then 'lender_review_rejected'
     when profiles.role = 'lender'
-      and lender_profiles.verification_status = 'incomplete' then 'lender_onboarding_incomplete'
+      and lender_profiles.verification_status::text = 'incomplete' then 'lender_onboarding_incomplete'
     when profiles.role = 'lender' then 'lender_review_pending'
     else 'not_applicable'
   end as onboarding_state,

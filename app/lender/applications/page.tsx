@@ -1,13 +1,10 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
 import {
   LenderApplicationsList,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
-import { LenderPendingReviewPanel } from "@/components/lender/lender-pending-review-panel";
-import { Button } from "@/components/ui/button";
+import { LenderAccessPanel } from "@/components/lender/lender-access-panel";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   buildConsentStatus,
@@ -52,51 +49,15 @@ export default async function LenderApplicationsPage() {
       await loadUserConsents(access.supabase, access.profile.id),
     );
 
-    const isPendingReview =
-      access.profile.role === "lender" &&
-      access.profile.lenderProfile?.verification_status === "pending";
-
-    const isRejected =
-      access.profile.role === "lender" &&
-      access.profile.lenderProfile?.verification_status === "rejected";
-
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
           <LenderHeader activeTab="applications" showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
-            {isPendingReview ? (
-              <LenderPendingReviewPanel
-                consentStatus={lenderConsentStatus}
-              />
-            ) : isRejected ? (
-              <div className="grid gap-5">
-                <LenderApplicationsStatus
-                  message="Your lender access was not approved. Update your lender profile to resubmit."
-                  tone="error"
-                />
-                <Button asChild className="h-11 w-full rounded-full font-semibold sm:w-fit">
-                  <Link href="/lender/onboarding">Update lender profile</Link>
-                </Button>
-                <ConsentAcceptancePanel
-                  scope="lender_review"
-                  status={lenderConsentStatus}
-                />
-              </div>
-            ) : (
-              <div className="grid gap-5">
-                <LenderApplicationsStatus
-                  message="Your account does not have access to this workspace."
-                  tone="error"
-                />
-                {access.profile.role === "lender" ? (
-                  <ConsentAcceptancePanel
-                    scope="lender_review"
-                    status={lenderConsentStatus}
-                  />
-                ) : null}
-              </div>
-            )}
+            <LenderAccessPanel
+              profile={access.profile}
+              consentStatus={lenderConsentStatus}
+            />
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab="applications" />

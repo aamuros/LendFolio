@@ -51,7 +51,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
       <CardHeader className="p-0 text-center">
         <CardTitle className="text-xl">Sign in</CardTitle>
         <CardDescription>
-          Enter your email and password to access your account
+          Enter your credentials to continue
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">

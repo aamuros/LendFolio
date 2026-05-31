@@ -66,6 +66,12 @@ type OfferRpcResult = {
   offer_id?: string;
   loan_application_id?: string;
 };
+type LenderReviewRpcResult = {
+  ok: boolean;
+  message?: string;
+  lender_profile_id?: string;
+  verification_status?: string;
+};
 type RepaymentProofResult = {
   ok: boolean;
   message?: string;
@@ -126,6 +132,32 @@ async function cleanWorkflowRows(admin: TestClient) {
     ids.otherBorrower,
   ]);
   await admin.from("audit_logs").delete().neq("action", "__keep_none__");
+  await admin
+    .from("lender_profiles")
+    .update({
+      min_loan_amount: 5000,
+      max_loan_amount: 50000,
+      verification_status: "approved",
+      approved_at: "2026-05-26T00:00:00.000Z",
+      approved_by: null,
+      rejected_at: null,
+      rejected_by: null,
+      rejection_reason: null,
+      manager_review_notes: null,
+    })
+    .in("user_id", [ids.approvedLender, ids.partnerLender]);
+  await admin
+    .from("lender_profiles")
+    .update({
+      verification_status: "pending",
+      approved_at: null,
+      approved_by: null,
+      rejected_at: null,
+      rejected_by: null,
+      rejection_reason: null,
+      manager_review_notes: null,
+    })
+    .eq("user_id", ids.pendingLender);
 }
 
 async function createPortfolioAndApplication(
@@ -372,6 +404,152 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     await cleanWorkflowRows(admin);
   });
 
+  it("provisions minimal lender signup as incomplete when review details are absent", async () => {
+    const email = `minimal-lender-${crypto.randomUUID()}@lendfolio.local`;
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        lendfolio_role: "lender",
+        display_name: "Minimal Lender",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data.user?.id).toBeTruthy();
+    const userId = data.user?.id;
+    if (!userId) {
+      throw new Error("Expected created lender user.");
+    }
+
+    try {
+      const { data: lenderProfile, error: lenderProfileError } = await admin
+        .from("lender_profiles")
+        .select("verification_status, organization_name, min_loan_amount, max_loan_amount")
+        .eq("user_id", userId)
+        .single();
+
+      expect(lenderProfileError).toBeNull();
+      expect(lenderProfile).toMatchObject({
+        verification_status: "incomplete",
+        organization_name: null,
+        min_loan_amount: null,
+        max_loan_amount: null,
+      });
+    } finally {
+      await admin.auth.admin.deleteUser(userId);
+    }
+  });
+
+  it.each(["incomplete", "rejected"] as const)(
+    "moves %s lender onboarding to pending and logs the real previous status",
+    async (previousStatus) => {
+      const { data: lenderProfile, error: profileError } = await admin
+        .from("lender_profiles")
+        .update({
+          verification_status: previousStatus,
+          rejection_reason:
+            previousStatus === "rejected" ? "Needs updated details." : null,
+          rejected_at:
+            previousStatus === "rejected"
+              ? "2026-05-26T00:00:00.000Z"
+              : null,
+        })
+        .eq("user_id", ids.pendingLender)
+        .select("id")
+        .single();
+
+      expect(profileError).toBeNull();
+      expect(lenderProfile?.id).toBeTruthy();
+
+      const submission = await pendingLender.rpc("submit_lender_onboarding", {
+        p_organization_name: "Resubmitted Lending",
+        p_contact_person: "Maria Santos",
+        p_phone_number: "+63 917 000 0000",
+        p_business_address: "123 Review Street, Quezon City",
+        p_operating_area: "Metro Manila",
+        p_business_registration_number: null,
+        p_min_loan_amount: 5000,
+        p_max_loan_amount: 50000,
+        p_typical_repayment_terms: "1 to 6 months",
+        p_lender_description:
+          "We support micro-business borrowers with documented working capital loans.",
+      });
+
+      expect(submission.error).toBeNull();
+      expect(submission.data as Json as LenderReviewRpcResult).toMatchObject({
+        ok: true,
+        verification_status: "pending",
+      });
+
+      const { data: updatedProfile, error: updatedProfileError } = await admin
+        .from("lender_profiles")
+        .select("verification_status")
+        .eq("id", lenderProfile?.id ?? "")
+        .single();
+
+      expect(updatedProfileError).toBeNull();
+      expect(updatedProfile?.verification_status).toBe("pending");
+
+      const { data: auditLog, error: auditLogError } = await admin
+        .from("audit_logs")
+        .select("metadata")
+        .eq("action", "lender_onboarding_submitted")
+        .eq("target_id", lenderProfile?.id ?? "")
+        .single();
+
+      expect(auditLogError).toBeNull();
+      expect(auditLog?.metadata).toMatchObject({
+        previous_status: previousStatus,
+        new_status: "pending",
+      });
+    },
+  );
+
+  it("prevents manager approval without current lender review consent", async () => {
+    const { data: lenderProfile, error: profileError } = await admin
+      .from("lender_profiles")
+      .update({
+        organization_name: "Pending Lending",
+        contact_person: "Pending Contact",
+        phone_number: "+63 917 111 1111",
+        business_address: "456 Review Street, Makati",
+        operating_area: "Metro Manila",
+        min_loan_amount: 5000,
+        max_loan_amount: 50000,
+        typical_repayment_terms: "1 to 6 months",
+        lender_description:
+          "Pending lender profile with sufficient information for manager review.",
+        verification_status: "pending",
+      })
+      .eq("user_id", ids.pendingLender)
+      .select("id")
+      .single();
+
+    expect(profileError).toBeNull();
+    expect(lenderProfile?.id).toBeTruthy();
+
+    await admin
+      .from("user_consents")
+      .delete()
+      .eq("user_id", ids.pendingLender)
+      .eq("consent_type", "lender_review_consent");
+
+    const review = await manager.rpc("review_lender_verification", {
+      p_lender_profile_id: lenderProfile?.id ?? "",
+      p_decision: "approve",
+      p_manager_review_notes: "Looks ready.",
+      p_rejection_reason: null,
+    });
+
+    expect(review.error).toBeNull();
+    expect(review.data as Json as LenderReviewRpcResult).toMatchObject({
+      ok: false,
+      message: "Lender must accept the required disclosures before approval.",
+    });
+  });
+
   it("enforces borrower isolation, lender approval, manager visibility, and audit creation", async () => {
     const { portfolioId, applicationId } =
       await createPortfolioAndApplication(borrower);
@@ -532,21 +710,79 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       message: "Choose a future due date.",
     });
 
-    const repaymentBelowApproved = await approvedLender.rpc(
+    const repaymentBelowPrincipalAndFees = await approvedLender.rpc(
       "create_loan_offer",
       {
         p_loan_application_id: applicationId,
-        p_approved_amount: 24000,
-        p_repayment_amount: 23000,
+        p_approved_amount: 23000,
+        p_repayment_amount: 23200,
         p_fees: 500,
         p_due_date: "2026-08-24",
         p_remarks: "",
       },
     );
-    expect(repaymentBelowApproved.error).toBeNull();
-    expect(repaymentBelowApproved.data as Json as OfferRpcResult).toMatchObject({
+    expect(repaymentBelowPrincipalAndFees.error).toBeNull();
+    expect(
+      repaymentBelowPrincipalAndFees.data as Json as OfferRpcResult,
+    ).toMatchObject({
       ok: false,
-      message: "Repayment amount must be at least the approved amount.",
+      message: "Total repayment must include the approved amount and fees.",
+    });
+  });
+
+  it("enforces the approved lender configured min and max loan range", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const { error: rangeUpdateError } = await admin
+      .from("lender_profiles")
+      .update({
+        min_loan_amount: 10000,
+        max_loan_amount: 20000,
+      })
+      .eq("user_id", ids.approvedLender);
+
+    expect(rangeUpdateError).toBeNull();
+
+    const belowMin = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 8000,
+      p_repayment_amount: 9000,
+      p_fees: 500,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(belowMin.error).toBeNull();
+    expect(belowMin.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Approved amount is below your configured minimum loan amount.",
+    });
+
+    const aboveMax = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 22000,
+      p_repayment_amount: 23800,
+      p_fees: 500,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(aboveMax.error).toBeNull();
+    expect(aboveMax.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message: "Approved amount exceeds your configured maximum loan amount.",
+    });
+
+    const withinRange = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 18000,
+      p_repayment_amount: 19800,
+      p_fees: 500,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(withinRange.error).toBeNull();
+    expect(withinRange.data as Json as OfferRpcResult).toMatchObject({
+      ok: true,
+      loan_application_id: applicationId,
     });
   });
 
@@ -634,7 +870,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     const { data: activeLoans, error: activeLoansError } = await borrower
       .from("active_loans")
       .select(
-        "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, outstanding_balance, status, due_date",
+        "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, due_date",
       )
       .eq("loan_application_id", applicationId);
 
@@ -646,11 +882,15 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       borrower_id: ids.borrower,
       lender_id: acceptedOffer?.lender_id,
       principal_amount: acceptedOffer?.id === firstOffer.data.id ? 22000 : 23000,
+      fees: 500,
       status: "active",
       due_date: "2026-08-24",
     });
     expect(Number(activeLoans?.[0].repayment_amount)).toBe(
       Number(activeLoans?.[0].outstanding_balance),
+    );
+    expect(Number(activeLoans?.[0].repayment_amount)).toBe(
+      Number(activeLoans?.[0].principal_amount) + 1800,
     );
 
     const activeLoanId = activeLoans?.[0].id;

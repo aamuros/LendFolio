@@ -7,7 +7,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -86,6 +86,16 @@ const priorityConfig: Record<
   low: { label: "Low", variant: "outline" },
 };
 
+function reviewActionClassName(isHighPriority: boolean) {
+  return cn(
+    isHighPriority
+      ? buttonVariants({ variant: "default", size: "sm" })
+      : buttonVariants({ variant: "outline", size: "sm" }),
+    isHighPriority &&
+      "text-primary-foreground hover:text-primary-foreground [&_svg]:text-primary-foreground",
+  );
+}
+
 export function ManagerOperationsTable({
   items,
 }: {
@@ -160,16 +170,13 @@ export function ManagerOperationsTable({
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <Button
-                            variant={isHighPriority ? "default" : "outline"}
-                            size="sm"
-                            asChild
+                          <Link
+                            href={item.href}
+                            className={reviewActionClassName(isHighPriority)}
                           >
-                            <Link href={item.href}>
-                              Review
-                              <ArrowUpRightIcon className="size-3" />
-                            </Link>
-                          </Button>
+                            Review
+                            <ArrowUpRightIcon className="size-3" />
+                          </Link>
                         </TableCell>
                       </TableRow>
                     );
@@ -214,13 +221,12 @@ export function ManagerOperationsTable({
                         </Badge>
                       </div>
                     </div>
-                    <Button
-                      variant={isHighPriority ? "default" : "outline"}
-                      size="sm"
-                      asChild
+                    <Link
+                      href={item.href}
+                      className={reviewActionClassName(isHighPriority)}
                     >
-                      <Link href={item.href}>Review</Link>
-                    </Button>
+                      Review
+                    </Link>
                   </div>
                 );
               })}

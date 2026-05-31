@@ -13,6 +13,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { termsContent, privacyContent } from "@/components/legal/legal-content";
 import { CheckCircle2, AlertCircle, HandCoins, Landmark } from "lucide-react";
 
 const initialState: SignupState = {
@@ -83,7 +85,7 @@ export function SignupForm() {
             </fieldset>
 
             <Field>
-              <FieldLabel htmlFor="displayName">Full name</FieldLabel>
+              <FieldLabel htmlFor="displayName">Full name <span className="text-destructive">*</span></FieldLabel>
               <Input
                 id="displayName"
                 name="displayName"
@@ -96,7 +98,7 @@ export function SignupForm() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email">Email <span className="text-destructive">*</span></FieldLabel>
               <Input
                 id="email"
                 name="email"
@@ -110,7 +112,7 @@ export function SignupForm() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <FieldLabel htmlFor="password">Password <span className="text-destructive">*</span></FieldLabel>
               <Input
                 id="password"
                 name="password"
@@ -125,7 +127,7 @@ export function SignupForm() {
             </Field>
 
             <Field>
-              <FieldLabel htmlFor="confirmPassword">Confirm password</FieldLabel>
+              <FieldLabel htmlFor="confirmPassword">Confirm password <span className="text-destructive">*</span></FieldLabel>
               <Input
                 id="confirmPassword"
                 name="confirmPassword"
@@ -145,10 +147,16 @@ export function SignupForm() {
                   id="termsAccepted"
                   label={
                     <>
-                      I agree to the{" "}
-                      <Link href="/terms?from=signup" className="underline underline-offset-4 hover:text-primary">
-                        Terms of Service
-                      </Link>.
+                      {"I agree to the "}
+                      <LegalDialog
+                        trigger={
+                          <button type="button" className="underline underline-offset-4 hover:text-primary">
+                            Terms of Service
+                          </button>
+                        }
+                        content={termsContent}
+                      />
+                      {"."}
                     </>
                   }
                   error={state.fieldErrors?.termsAccepted}
@@ -158,10 +166,16 @@ export function SignupForm() {
                   id="privacyAccepted"
                   label={
                     <>
-                      I acknowledge the{" "}
-                      <Link href="/privacy?from=signup" className="underline underline-offset-4 hover:text-primary">
-                        Privacy Notice
-                      </Link>.
+                      {"I acknowledge the "}
+                      <LegalDialog
+                        trigger={
+                          <button type="button" className="underline underline-offset-4 hover:text-primary">
+                            Privacy Notice
+                          </button>
+                        }
+                        content={privacyContent}
+                      />
+                      {"."}
                     </>
                   }
                   error={state.fieldErrors?.privacyAccepted}

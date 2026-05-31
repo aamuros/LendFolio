@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   formatPreferredTerm,
+  isApplicationActionableForOffer,
   type LenderApplicationReview,
 } from "@/lib/lender-applications";
 import { Card, CardContent } from "@/components/ui/card";
@@ -108,7 +109,7 @@ export function LenderApplicationsList({
                 className="h-11 rounded-full font-semibold"
               >
                 <Link href={`/lender/applications/${application.id}`}>
-                  {application.currentLenderOfferState === "not_offered"
+                  {isApplicationActionableForOffer(application)
                     ? "Review"
                     : "View"}
                 </Link>

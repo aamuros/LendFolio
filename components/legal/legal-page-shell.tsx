@@ -10,23 +10,14 @@ import {
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import type { ReactNode } from "react";
+import type { LegalContent } from "@/components/legal/legal-content";
 
 type LegalPageShellProps = {
-  title: string;
-  version: string;
-  description: string;
+  content: LegalContent;
   from?: string;
-  children: ReactNode;
 };
 
-export function LegalPageShell({
-  title,
-  version,
-  description,
-  from,
-  children,
-}: LegalPageShellProps) {
+export function LegalPageShell({ content, from }: LegalPageShellProps) {
   const backHref = from === "signup" ? "/signup" : "/";
   const backLabel = from === "signup" ? "Back to signup" : "Back to LendFolio";
 
@@ -75,16 +66,32 @@ export function LegalPageShell({
         <Card>
           <CardHeader>
             <CardTitle className="text-2xl leading-tight sm:text-3xl">
-              {title}
+              {content.title}
             </CardTitle>
-            <CardDescription>{description}</CardDescription>
+            <CardDescription>{content.description}</CardDescription>
             <p className="text-xs text-muted-foreground">
-              Current version: {version}
+              {content.displayVersion} &middot; {content.lastUpdated}
             </p>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 text-sm leading-7 text-muted-foreground">
-              {children}
+            <div className="space-y-6">
+              {content.sections.map((section) => (
+                <section key={section.heading} className="space-y-2">
+                  <h3 className="text-sm font-semibold text-foreground">
+                    {section.heading}
+                  </h3>
+                  <div className="space-y-2">
+                    {section.paragraphs.map((paragraph, i) => (
+                      <p
+                        key={i}
+                        className="text-sm leading-relaxed text-muted-foreground"
+                      >
+                        {paragraph}
+                      </p>
+                    ))}
+                  </div>
+                </section>
+              ))}
             </div>
           </CardContent>
         </Card>

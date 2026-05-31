@@ -21,6 +21,7 @@ type ApprovedLenderAccess = Extract<
 
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
+type SupabaseServerClient = ApprovedLenderAccess["supabase"];
 
 export type LenderApplicationReview = LoanApplicationSummary & {
   borrowerId: string;
@@ -30,6 +31,7 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     | "offer_accepted"
     | "offer_declined"
     | "offer_expired";
+  hasAcceptedOffer: boolean;
   portfolio: {
     businessType: BorrowerPortfolioRow["business_type"];
     businessTypeLabel: string;
@@ -173,10 +175,14 @@ export async function loadOpenLenderApplications(
       };
     }
 
-    const { data: portfolios, error: portfoliosError } = await supabase
-      .from("borrower_portfolios")
-      .select(lenderReviewPortfolioSelect)
-      .in("id", profileIds);
+    const [portfoliosResult, offerFlagsResult] = await Promise.all([
+      supabase
+        .from("borrower_portfolios")
+        .select(lenderReviewPortfolioSelect)
+        .in("id", profileIds),
+      loadAcceptedOfferFlags(supabase, applicationIds),
+    ]);
+    const { data: portfolios, error: portfoliosError } = portfoliosResult;
 
     if (portfoliosError) {
       return {
@@ -187,6 +193,15 @@ export async function loadOpenLenderApplications(
       };
     }
 
+    if (!offerFlagsResult.ok) {
+      return {
+        ok: false,
+        mode: "supabase",
+        applications: [],
+        message: "Could not load offer availability.",
+      };
+    }
+
     return {
       ok: true,
       mode: "supabase",
@@ -194,6 +209,7 @@ export async function loadOpenLenderApplications(
         applications,
         portfolios,
         lenderOffers,
+        offerFlagsResult.flags,
       ),
       message: "Applications loaded.",
     };
@@ -279,10 +295,28 @@ export async function loadLenderApplicationDetail(
       };
     }
 
+    const offerFlagsResult = await loadAcceptedOfferFlags(supabase, [
+      application.id,
+    ]);
+
+    if (!offerFlagsResult.ok) {
+      return {
+        ok: false,
+        mode: "supabase",
+        application: null,
+        message: "Could not load offer availability.",
+      };
+    }
+
     return {
       ok: true,
       mode: "supabase",
-      application: toLenderApplicationReview(application, portfolio, offers),
+      application: toLenderApplicationReview(
+        application,
+        portfolio,
+        offers,
+        offerFlagsResult.flags.get(application.id) ?? false,
+      ),
       message: "Application loaded.",
     };
   } catch {
@@ -410,10 +444,27 @@ export function formatPreferredTerm(
   return preferredTermLabels[term];
 }
 
+export function isApplicationActionableForOffer(
+  application: Pick<
+    LenderApplicationReview,
+    "status" | "currentLenderOfferState" | "hasAcceptedOffer"
+  >,
+) {
+  return (
+    openApplicationStatuses.includes(
+      application.status as (typeof openApplicationStatuses)[number],
+    ) &&
+    !application.hasAcceptedOffer &&
+    application.currentLenderOfferState !== "offer_pending" &&
+    application.currentLenderOfferState !== "offer_accepted"
+  );
+}
+
 function combineApplicationsWithPortfolios(
   applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
   portfolios: BorrowerPortfolioRow[],
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  acceptedOfferFlags = new Map<string, boolean>(),
 ) {
   const portfoliosById = new Map(
     portfolios.map((portfolio) => [portfolio.id, portfolio]),
@@ -432,6 +483,7 @@ function combineApplicationsWithPortfolios(
         application,
         portfolio,
         offersByApplicationId.get(application.id) ?? [],
+        acceptedOfferFlags.get(application.id) ?? false,
       ),
     ];
   });
@@ -441,6 +493,7 @@ function toLenderApplicationReview(
   application: Database["public"]["Tables"]["loan_applications"]["Row"],
   portfolio: BorrowerPortfolioRow,
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  hasAcceptedOffer = offers.some((offer) => offer.status === "accepted"),
 ): LenderApplicationReview {
   const mappedApplication = mapLoanApplicationRow(application);
   const reviewPortfolio = getSubmittedPortfolio(application, portfolio);
@@ -451,6 +504,7 @@ function toLenderApplicationReview(
     ...mappedApplication,
     borrowerId: application.borrower_id,
     currentLenderOfferState: getCurrentLenderOfferState(offers),
+    hasAcceptedOffer,
     portfolio: {
       businessType: reviewPortfolio.business_type,
       businessTypeLabel: businessTypeLabels[reviewPortfolio.business_type],
@@ -467,6 +521,36 @@ function toLenderApplicationReview(
         estimatedNetMonthlyRevenue - reviewPortfolio.existing_loan_payments,
     },
     offers: offers.map(mapLoanOfferRow),
+  };
+}
+
+async function loadAcceptedOfferFlags(
+  supabase: SupabaseServerClient,
+  applicationIds: string[],
+): Promise<
+  | { ok: true; flags: Map<string, boolean> }
+  | { ok: false; flags: Map<string, boolean> }
+> {
+  if (applicationIds.length === 0) {
+    return { ok: true, flags: new Map() };
+  }
+
+  const { data, error } = await supabase.rpc(
+    "get_lender_application_offer_flags",
+    {
+      p_loan_application_ids: applicationIds,
+    },
+  );
+
+  if (error) {
+    return { ok: false, flags: new Map() };
+  }
+
+  return {
+    ok: true,
+    flags: new Map(
+      data.map((row) => [row.loan_application_id, row.has_accepted_offer]),
+    ),
   };
 }
 

@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { termsContent, privacyContent } from "@/components/legal/legal-content";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 const initialState: LenderRegisterState = {
@@ -177,20 +179,23 @@ export function LenderRegisterForm() {
       </Card>
       <FieldDescription className="px-6 text-center">
         By clicking continue, you agree to our{" "}
-        <Link
-          href="/terms?from=signup"
-          className="underline underline-offset-4 hover:text-primary"
-        >
-          Terms of Service
-        </Link>{" "}
+        <LegalDialog
+          trigger={
+            <button type="button" className="underline underline-offset-4 hover:text-primary">
+              Terms of Service
+            </button>
+          }
+          content={termsContent}
+        />{" "}
         and{" "}
-        <Link
-          href="/privacy?from=signup"
-          className="underline underline-offset-4 hover:text-primary"
-        >
-          Privacy Policy
-        </Link>
-        .
+        <LegalDialog
+          trigger={
+            <button type="button" className="underline underline-offset-4 hover:text-primary">
+              Privacy Policy
+            </button>
+          }
+          content={privacyContent}
+        />.
       </FieldDescription>
     </div>
   );

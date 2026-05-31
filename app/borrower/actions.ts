@@ -204,6 +204,8 @@ const repaymentProofAllowedTypes = new Set([
   "image/jpeg",
   "image/png",
   "image/webp",
+  "image/heic",
+  "image/heif",
   "application/pdf",
 ]);
 
@@ -876,7 +878,7 @@ export async function declineLoanOffer(
 }
 
 export async function submitRepaymentProof(
-  repaymentScheduleId: string,
+  _previousState: RepaymentProofSubmitResult | null,
   formData: FormData,
 ): Promise<RepaymentProofSubmitResult> {
   try {
@@ -887,6 +889,15 @@ export async function submitRepaymentProof(
       return {
         ok: false,
         message: access.message,
+      };
+    }
+
+    const repaymentScheduleId = formData.get("repaymentScheduleId");
+
+    if (typeof repaymentScheduleId !== "string" || repaymentScheduleId.length === 0) {
+      return {
+        ok: false,
+        message: "Missing repayment reference.",
       };
     }
 
@@ -902,7 +913,7 @@ export async function submitRepaymentProof(
     if (!repaymentProofAllowedTypes.has(proofFile.type)) {
       return {
         ok: false,
-        message: "Upload a JPG, PNG, WebP, or PDF file.",
+        message: "Upload a JPG, PNG, WebP, HEIC, or PDF file.",
       };
     }
 

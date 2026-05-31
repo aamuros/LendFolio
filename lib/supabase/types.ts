@@ -860,6 +860,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      get_lender_application_offer_flags: {
+        Args: {
+          p_loan_application_ids: string[];
+        };
+        Returns: {
+          loan_application_id: string;
+          has_accepted_offer: boolean;
+        }[];
+      };
       review_repayment_proof: {
         Args: {
           p_proof_id: string;

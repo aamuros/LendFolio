@@ -17,7 +17,13 @@ import {
   resolveSubmittedDateRangeFilters,
 } from "../lib/date-ranges";
 import { loanApplicationSchema } from "../lib/loan-application";
+import { isApplicationActionableForOffer } from "../lib/lender-applications";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
+import {
+  buildDueItemsByDate,
+  getRepaymentActionSummary,
+  getRepaymentCalendarDateTone,
+} from "../components/borrower-loan-application-panel";
 import {
   createMetadataPreview,
   createScheduleSummary,
@@ -521,25 +527,162 @@ describe("loan offer schema", () => {
   it("accepts pending offer fields", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      repaymentAmount: 22_000,
+      interestServiceCharge: 1_500,
       fees: 500,
       dueDate: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
     });
 
     expect(result.success).toBe(true);
+    if (!result.success) {
+      throw new Error("Expected offer schema to accept valid fields.");
+    }
+    expect(result.data.repaymentAmount).toBe(22_000);
   });
 
-  it("rejects repayment below approved amount", () => {
+  it("rejects negative interest or service charge", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      repaymentAmount: 19_000,
+      interestServiceCharge: -1_000,
       fees: 0,
       dueDate: "2026-07-24",
       remarks: "",
     });
 
     expect(result.success).toBe(false);
+  });
+});
+
+describe("borrower repayment calendar helpers", () => {
+  const today = new Date("2026-05-31T00:00:00");
+
+  function repayment(
+    id: string,
+    status: "due" | "late" | "submitted" | "verified" | "rejected",
+    dueDate: string,
+    amountDue = 1000,
+  ) {
+    return {
+      id,
+      activeLoanId: "loan-1",
+      borrowerId: "borrower-1",
+      lenderId: "lender-1",
+      installmentNumber: 1,
+      amountDue,
+      dueDate,
+      status,
+      latestProof: status === "verified" ? { status: "verified" } : null,
+      proofs: [],
+    };
+  }
+
+  function loan(schedule: ReturnType<typeof repayment>[]) {
+    return {
+      id: "loan-1",
+      applicationId: "application-1",
+      acceptedOfferId: "offer-1",
+      borrowerId: "borrower-1",
+      lenderId: "lender-1",
+      principalAmount: 20000,
+      repaymentAmount: 22000,
+      totalRepaymentAmount: 22000,
+      fees: 500,
+      interestAmount: 1500,
+      outstandingBalance: 22000,
+      status: "active",
+      startedAt: "2026-05-01T00:00:00.000Z",
+      dueDate: "2026-07-31",
+      schedule,
+    };
+  }
+
+  it("includes verified repayments in calendar date items", () => {
+    const itemsByDate = buildDueItemsByDate([
+      loan([repayment("repayment-1", "verified", "2026-06-30")]),
+    ] as never);
+
+    expect(itemsByDate.get("2026-06-30")).toHaveLength(1);
+  });
+
+  it("prioritizes calendar date tone by repayment state", () => {
+    expect(
+      getRepaymentCalendarDateTone(
+        [{ loan: loan([]), repayment: repayment("paid", "verified", "2026-06-30") }] as never,
+        today,
+      ),
+    ).toBe("success");
+    expect(
+      getRepaymentCalendarDateTone(
+        [{ loan: loan([]), repayment: repayment("review", "submitted", "2026-06-30") }] as never,
+        today,
+      ),
+    ).toBe("neutral");
+    expect(
+      getRepaymentCalendarDateTone(
+        [{ loan: loan([]), repayment: repayment("upcoming", "due", "2026-06-30") }] as never,
+        today,
+      ),
+    ).toBe("attention");
+    expect(
+      getRepaymentCalendarDateTone(
+        [
+          { loan: loan([]), repayment: repayment("paid", "verified", "2026-06-30") },
+          { loan: loan([]), repayment: repayment("late", "late", "2026-06-30") },
+        ] as never,
+        today,
+      ),
+    ).toBe("danger");
+  });
+
+  it("includes prior-month overdue repayments in needs-action total", () => {
+    const summary = getRepaymentActionSummary([
+      loan([
+        repayment("overdue", "due", "2026-04-30", 1200),
+        repayment("current", "due", "2026-05-31", 1500),
+        repayment("submitted", "submitted", "2026-05-20", 900),
+      ]),
+    ] as never);
+
+    expect(summary.overdueAmount).toBe(1200);
+    expect(summary.dueThisMonthAmount).toBe(1500);
+    expect(summary.submittedAmount).toBe(900);
+    expect(summary.totalNeedsAction).toBe(2700);
+  });
+});
+
+describe("lender application offer actionability", () => {
+  it("treats declined and expired offers as actionable re-offer opportunities", () => {
+    expect(
+      isApplicationActionableForOffer({
+        status: "open",
+        currentLenderOfferState: "offer_declined",
+        hasAcceptedOffer: false,
+      }),
+    ).toBe(true);
+    expect(
+      isApplicationActionableForOffer({
+        status: "submitted",
+        currentLenderOfferState: "offer_expired",
+        hasAcceptedOffer: false,
+      }),
+    ).toBe(true);
+  });
+
+  it("blocks actionability when an offer is pending or any offer is accepted", () => {
+    expect(
+      isApplicationActionableForOffer({
+        status: "open",
+        currentLenderOfferState: "offer_pending",
+        hasAcceptedOffer: false,
+      }),
+    ).toBe(false);
+    expect(
+      isApplicationActionableForOffer({
+        status: "open",
+        currentLenderOfferState: "not_offered",
+        hasAcceptedOffer: true,
+      }),
+    ).toBe(false);
   });
 });
 
@@ -759,6 +902,26 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("'loan_balance_updated'");
   });
 
+  it("allows mobile HEIC repayment proof uploads", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260531023738_allow_heic_repayment_proofs.sql",
+      "utf8",
+    );
+    const borrowerActions = readFileSync("app/borrower/actions.ts", "utf8");
+    const borrowerPanel = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(migration).toContain("'image/heic'");
+    expect(migration).toContain("'image/heif'");
+    expect(migration).toContain("allowed_mime_types");
+    expect(migration).toContain("repayment_proofs_file_type_check");
+    expect(borrowerActions).toContain("\"image/heic\"");
+    expect(borrowerActions).toContain("\"image/heif\"");
+    expect(borrowerPanel).toContain("image/heic,image/heif");
+  });
+
   it("moves offer creation into an approved-lender RPC", () => {
     const migration = readFileSync(
       "supabase/migrations/20260525013039_harden_offer_workflow_and_repayment_schedules.sql",
@@ -785,6 +948,26 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("borrower_portfolios_select_access");
     expect(migration).toContain("v_installment_count := case");
     expect(migration).toContain("repayment_schedule_created");
+  });
+
+  it("hardens lender offer range, availability, and onboarding audit state", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260531023059_harden_lender_offer_workflow.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "Approved amount is below your configured minimum loan amount.",
+    );
+    expect(migration).toContain(
+      "Approved amount exceeds your configured maximum loan amount.",
+    );
+    expect(migration).toContain(
+      "function app_private.get_lender_application_offer_flags",
+    );
+    expect(migration).toContain("has_accepted_offer");
+    expect(migration).toContain("v_previous_status :=");
+    expect(migration).toContain("'previous_status', v_previous_status");
   });
 });
 

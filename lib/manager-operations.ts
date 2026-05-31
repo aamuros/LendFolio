@@ -10,6 +10,7 @@ import {
 } from "./consents";
 import { loadUserConsents } from "./user-consents";
 import { isUuid } from "./validation/uuid";
+import { deriveInterestAmount } from "./loan-offer";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -57,6 +58,9 @@ export type ManagerLoanRow = {
   lender: ManagerProfileSummary;
   principalAmount: number;
   repaymentAmount: number;
+  totalRepaymentAmount: number;
+  fees: number;
+  interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
   startedAt: string | null;
@@ -175,6 +179,9 @@ export type ManagerApplicationRow = {
     lenderName: string;
     approvedAmount: number;
     repaymentAmount: number;
+    fees: number;
+    interestAmount: number;
+    totalRepaymentAmount: number;
     dueDate: string;
   } | null;
 };
@@ -1746,18 +1753,29 @@ async function mapManagerLoans(
     loans.map((loan) => loan.id),
   );
 
-  return loans.map((loan) => ({
-    id: loan.id,
-    borrower: getProfileSummary(profiles, loan.borrower_id),
-    lender: getProfileSummary(profiles, loan.lender_id),
-    principalAmount: loan.principal_amount,
-    repaymentAmount: loan.repayment_amount,
-    outstandingBalance: loan.outstanding_balance,
-    status: loan.status,
-    startedAt: loan.started_at ?? null,
-    dueDate: loan.due_date ?? null,
-    schedule: createScheduleSummary(schedules.get(loan.id) ?? []),
-  }));
+  return loans.map((loan) => {
+    const interestAmount = deriveInterestAmount({
+      principalAmount: loan.principal_amount,
+      repaymentAmount: loan.repayment_amount,
+      fees: loan.fees,
+    });
+
+    return {
+      id: loan.id,
+      borrower: getProfileSummary(profiles, loan.borrower_id),
+      lender: getProfileSummary(profiles, loan.lender_id),
+      principalAmount: loan.principal_amount,
+      repaymentAmount: loan.repayment_amount,
+      totalRepaymentAmount: loan.repayment_amount,
+      fees: loan.fees,
+      interestAmount,
+      outstandingBalance: loan.outstanding_balance,
+      status: loan.status,
+      startedAt: loan.started_at ?? null,
+      dueDate: loan.due_date ?? null,
+      schedule: createScheduleSummary(schedules.get(loan.id) ?? []),
+    };
+  });
 }
 
 async function mapManagerUsers(
@@ -1871,6 +1889,13 @@ async function mapManagerApplications(
             lenderName: acceptedOffer.lender_name,
             approvedAmount: acceptedOffer.approved_amount,
             repaymentAmount: acceptedOffer.repayment_amount,
+            fees: acceptedOffer.fees,
+            interestAmount: deriveInterestAmount({
+              principalAmount: acceptedOffer.approved_amount,
+              repaymentAmount: acceptedOffer.repayment_amount,
+              fees: acceptedOffer.fees,
+            }),
+            totalRepaymentAmount: acceptedOffer.repayment_amount,
             dueDate: acceptedOffer.due_date,
           }
         : null,

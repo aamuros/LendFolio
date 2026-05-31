@@ -34,6 +34,13 @@ export function LenderOfferForm({
   const [state, setState] = useState<CreateLoanOfferState>(initialState);
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
+  const [approvedAmount, setApprovedAmount] = useState(String(requestedAmount));
+  const [interestServiceCharge, setInterestServiceCharge] = useState("0");
+  const [fees, setFees] = useState("0");
+  const totalRepaymentAmount =
+    parseCurrencyValue(approvedAmount) +
+    parseCurrencyValue(interestServiceCharge) +
+    parseCurrencyValue(fees);
 
   const dismissToast = useCallback(() => {
     setToastMessage("");
@@ -46,6 +53,9 @@ export function LenderOfferForm({
 
       if (result.ok) {
         formRef.current?.reset();
+        setApprovedAmount(String(requestedAmount));
+        setInterestServiceCharge("0");
+        setFees("0");
         setToastMessage(result.message);
         router.refresh();
       }
@@ -55,7 +65,6 @@ export function LenderOfferForm({
   return (
     <form ref={formRef} action={onSubmit} className="grid gap-3">
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
-      <input type="hidden" name="requestedAmount" value={requestedAmount} />
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
           label="Approved amount"
@@ -65,17 +74,22 @@ export function LenderOfferForm({
             name="approvedAmount"
             defaultValue={requestedAmount}
             disabled={isPending}
+            onChange={(event) => setApprovedAmount(event.currentTarget.value)}
           />
         </Field>
 
         <Field
-          label="Repayment amount"
-          error={state.fieldErrors?.repaymentAmount?.[0]}
+          label="Interest / service charge"
+          error={state.fieldErrors?.interestServiceCharge?.[0]}
         >
           <CurrencyInput
-            name="repaymentAmount"
-            defaultValue={requestedAmount}
+            name="interestServiceCharge"
+            defaultValue={0}
             disabled={isPending}
+            emptyValue={0}
+            onChange={(event) =>
+              setInterestServiceCharge(event.currentTarget.value)
+            }
           />
         </Field>
       </div>
@@ -87,6 +101,7 @@ export function LenderOfferForm({
             defaultValue={0}
             disabled={isPending}
             emptyValue={0}
+            onChange={(event) => setFees(event.currentTarget.value)}
           />
         </Field>
 
@@ -109,6 +124,19 @@ export function LenderOfferForm({
           placeholder="Optional offer notes for the borrower."
         />
       </Field>
+
+      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className="text-sm font-semibold">Total repayment</p>
+          <p className="text-lg font-semibold">
+            PHP {formatCurrency(totalRepaymentAmount)}
+          </p>
+        </div>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Total repayment is calculated from the approved amount, interest/service charge,
+          and fees. Borrower installments will add up to this total.
+        </p>
+      </div>
 
       {state.message && !state.ok ? (
         <p
@@ -133,6 +161,19 @@ export function LenderOfferForm({
       </div>
     </form>
   );
+}
+
+function parseCurrencyValue(value: string) {
+  const parsed = Number(value.replace(/,/g, "").trim());
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatCurrency(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
 }
 
 function Field({

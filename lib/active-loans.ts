@@ -3,6 +3,7 @@ import {
   requireBorrower,
   requireManager,
 } from "@/lib/access-control";
+import { deriveInterestAmount } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
@@ -53,7 +54,9 @@ export type ActiveLoanSummary = {
   lenderId: string;
   principalAmount: number;
   repaymentAmount: number;
+  totalRepaymentAmount: number;
   fees: number;
+  interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
   startedAt: string;
@@ -183,6 +186,12 @@ export function mapActiveLoanRow(
   row: ActiveLoanRow,
   schedule: RepaymentScheduleSummary[] = [],
 ): ActiveLoanSummary {
+  const interestAmount = deriveInterestAmount({
+    principalAmount: row.principal_amount,
+    repaymentAmount: row.repayment_amount,
+    fees: row.fees,
+  });
+
   return {
     id: row.id,
     applicationId: row.loan_application_id,
@@ -191,7 +200,9 @@ export function mapActiveLoanRow(
     lenderId: row.lender_id,
     principalAmount: row.principal_amount,
     repaymentAmount: row.repayment_amount,
+    totalRepaymentAmount: row.repayment_amount,
     fees: row.fees,
+    interestAmount,
     outstandingBalance: row.outstanding_balance,
     status: row.status,
     startedAt: row.started_at,

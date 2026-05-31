@@ -50,7 +50,14 @@ export function ForgotPasswordForm() {
             </Field>
 
             {state.message ? (
-              <Alert variant={isSuccess ? "default" : "destructive"}>
+              <Alert
+                variant={isSuccess ? "default" : "destructive"}
+                className={
+                  isSuccess
+                    ? "border-green-200 bg-green-50 text-green-800 *:[svg]:text-green-600 [&_[data-slot=alert-description]]:text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-200 dark:*:[svg]:text-green-400 dark:[&_[data-slot=alert-description]]:text-green-300"
+                    : undefined
+                }
+              >
                 {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
                 <AlertDescription>{state.message}</AlertDescription>
               </Alert>
