@@ -15,6 +15,7 @@ import {
 } from "@/lib/consents";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
+import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import {
   isApplicationActionableForOffer,
   loadLenderOffers,
@@ -817,13 +818,17 @@ function LenderProofHistory({
               proofId={proof.id}
               proofStatus={proof.status}
               proofUrl={proof.viewUrl}
+              proofFileName={proof.fileName}
+              proofFileSize={proof.fileSize}
+              proofFileType={proof.fileType}
             />
           ) : proof.viewUrl ? (
-            <Button variant="outline" asChild className="h-10 w-full rounded-full font-semibold sm:w-fit">
-              <a href={proof.viewUrl} target="_blank" rel="noreferrer">
-                View proof
-              </a>
-            </Button>
+            <ProofPreviewButton
+              fileName={proof.fileName}
+              fileSize={proof.fileSize}
+              fileType={proof.fileType}
+              viewUrl={proof.viewUrl}
+            />
           ) : null}
         </div>
       ))}

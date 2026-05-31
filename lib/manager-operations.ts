@@ -262,6 +262,7 @@ export type ManagerLenderRow = {
 export type ManagerBorrowerVerificationDocumentRow = {
   id: string;
   fileName: string;
+  fileType: string;
   documentType: Database["public"]["Enums"]["borrower_verification_document_type"];
   fileSize: number;
   status: Database["public"]["Enums"]["borrower_verification_document_status"];
@@ -1488,6 +1489,7 @@ export async function loadManagerBorrowerVerifications(
             return {
               id: doc.id,
               fileName: doc.file_name,
+              fileType: doc.file_type,
               documentType: doc.document_type,
               fileSize: doc.file_size,
               status: doc.status,
@@ -1580,6 +1582,7 @@ export async function loadManagerBorrowerVerification(
       return {
         id: doc.id,
         fileName: doc.file_name,
+        fileType: doc.file_type,
         documentType: doc.document_type,
         fileSize: doc.file_size,
         status: doc.status,

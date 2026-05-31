@@ -28,8 +28,8 @@ export function NotificationPanelContent({
   onMarkAllRead: () => void;
 }) {
   return (
-    <>
-      <div className="sticky top-0 z-10 bg-popover">
+    <div className="flex max-h-[min(32rem,calc(100svh-6rem))] flex-col">
+      <div className="shrink-0 bg-popover">
         <div className="flex items-center justify-between gap-3 px-4 py-3">
           <div className="grid gap-0.5">
             <h2 className="text-sm font-semibold">Notifications</h2>
@@ -56,7 +56,7 @@ export function NotificationPanelContent({
       </div>
 
       {message ? (
-        <div className="px-4 py-3">
+        <div className="shrink-0 px-4 py-3">
           <Alert variant="destructive">
             <AlertCircle className="size-4" />
             <AlertDescription>{message}</AlertDescription>
@@ -73,7 +73,7 @@ export function NotificationPanelContent({
       ) : null}
 
       {!message && notifications.length > 0 ? (
-        <ScrollArea className="max-h-[min(28rem,calc(100svh-10rem))]">
+        <ScrollArea className="min-h-0 flex-1">
           <NotificationList
             notifications={notifications}
             activeNotificationId={activeNotificationId}
@@ -81,6 +81,6 @@ export function NotificationPanelContent({
           />
         </ScrollArea>
       ) : null}
-    </>
+    </div>
   );
 }

@@ -1,7 +1,4 @@
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { signOutAction } from "@/app/login/actions";
-import { LogOut } from "lucide-react";
 
 export function LenderAccountSection({ email }: { email: string }) {
   return (
@@ -14,22 +11,6 @@ export function LenderAccountSection({ email }: { email: string }) {
           </p>
         </div>
       </Card>
-
-      <div className="grid gap-3">
-        <p className="text-sm text-muted-foreground">
-          Sign out of this account on this device.
-        </p>
-        <form action={signOutAction}>
-          <Button
-            type="submit"
-            variant="outline"
-            className="gap-2"
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </Button>
-        </form>
-      </div>
     </div>
   );
 }

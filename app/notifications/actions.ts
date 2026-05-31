@@ -1,6 +1,7 @@
 "use server";
 
 import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   mapNotificationRows,
@@ -158,6 +159,11 @@ export async function markNotificationReadAction(
     };
   }
 
+  revalidatePath("/");
+  revalidatePath("/manager");
+  revalidatePath("/borrower");
+  revalidatePath("/lender");
+
   return {
     ok: true,
     readAt: data.read_at ?? readAt,
@@ -188,6 +194,11 @@ export async function markAllNotificationsReadAction(): Promise<NotificationMuta
       message: "Could not update notifications.",
     };
   }
+
+  revalidatePath("/");
+  revalidatePath("/manager");
+  revalidatePath("/borrower");
+  revalidatePath("/lender");
 
   return {
     ok: true,

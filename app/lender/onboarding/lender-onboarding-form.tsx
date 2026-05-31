@@ -1,11 +1,12 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
   lenderOnboardingAction,
   type LenderOnboardingState,
 } from "@/app/lender/onboarding/actions";
 import type { LenderVerificationStatus } from "@/lib/supabase/types";
+import { typicalRepaymentTermOptions } from "@/lib/lender-onboarding";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -22,6 +23,13 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
@@ -63,6 +71,9 @@ export function LenderOnboardingForm({
   );
   const isSuccess = state.status === "success";
   const isRejected = verificationStatus === "rejected";
+  const [repaymentTerms, setRepaymentTerms] = useState(
+    defaultValues.typicalRepaymentTerms,
+  );
 
   return (
     <Card className="rounded-2xl">
@@ -262,14 +273,29 @@ export function LenderOnboardingForm({
                 <FieldLabel htmlFor="typicalRepaymentTerms">
                   Typical repayment terms
                 </FieldLabel>
-                <Input
-                  id="typicalRepaymentTerms"
+                <input
+                  type="hidden"
                   name="typicalRepaymentTerms"
-                  defaultValue={defaultValues.typicalRepaymentTerms}
-                  placeholder="1 to 6 months"
-                  className="h-12 rounded-xl bg-background"
-                  required
+                  value={repaymentTerms}
                 />
+                <Select
+                  value={repaymentTerms}
+                  onValueChange={setRepaymentTerms}
+                >
+                  <SelectTrigger
+                    id="typicalRepaymentTerms"
+                    className="h-12 rounded-xl bg-background"
+                  >
+                    <SelectValue placeholder="Select typical repayment terms" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {typicalRepaymentTermOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <FieldErrorHelper
                   messages={state.fieldErrors?.typicalRepaymentTerms}
                 />

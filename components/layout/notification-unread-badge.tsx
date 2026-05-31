@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState, useTransition } from "react";
+import { usePathname } from "next/navigation";
 import { getUnreadNotificationsCountAction } from "@/app/notifications/actions";
 import { SidebarMenuBadge } from "@/components/ui/sidebar";
 
 export function NotificationUnreadBadge() {
+  const pathname = usePathname();
   const [unreadCount, setUnreadCount] = useState(0);
   const [, startTransition] = useTransition();
 
@@ -20,6 +22,13 @@ export function NotificationUnreadBadge() {
 
   useEffect(() => {
     loadCount();
+  }, [loadCount, pathname]);
+
+  useEffect(() => {
+    const handleNotificationsUpdated = () => loadCount();
+    window.addEventListener("notifications-updated", handleNotificationsUpdated);
+    return () =>
+      window.removeEventListener("notifications-updated", handleNotificationsUpdated);
   }, [loadCount]);
 
   if (unreadCount <= 0) {

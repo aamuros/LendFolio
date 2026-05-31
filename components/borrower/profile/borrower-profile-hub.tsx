@@ -1,4 +1,4 @@
-import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Info, Lock, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Info, Lock, LogOut, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
@@ -11,6 +11,7 @@ import { AccountSection } from "./account-section";
 import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { signOutAction } from "@/app/login/actions";
 
 import {
   businessTypeLabels,
@@ -67,7 +68,6 @@ export function BorrowerProfileHub({
     loadState,
     portfolio,
     readiness,
-    verification?.status ?? null,
   );
   const verificationLabel =
     verification && verification.status !== "missing"
@@ -78,10 +78,23 @@ export function BorrowerProfileHub({
     portfolio?.businessName.trim() || (isLoadingProfile ? "" : "Borrower profile");
 
   if (activeView === "business") {
+    const businessHeaderSubtitle = portfolio
+      ? [
+          businessTypeLabels[portfolio.businessType],
+          portfolio.location,
+          formatYearsInOperation(portfolio.yearsInOperation),
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : undefined;
+
     return (
       <ProfileSubview title="Business Profile" onBack={() => onProfileViewChange("index")}>
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={portfolio?.businessName || undefined}
+          headerSubtitle={businessHeaderSubtitle}
           onAction={() => onEditProfile("business")}
         >
           <SummaryRow
@@ -116,10 +129,25 @@ export function BorrowerProfileHub({
   }
 
   if (activeView === "financial") {
+    const financialHeaderTitle = portfolio
+      ? formatCreditAmount(portfolio.monthlyGrossRevenue)
+      : undefined;
+    const financialHeaderSubtitle = portfolio
+      ? [
+          `${formatCreditAmount(portfolio.monthlyExpenses)} expenses`,
+          readiness ? formatReadinessStatus(readiness.readinessStatus) : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : undefined;
+
     return (
       <ProfileSubview title="Financials" onBack={() => onProfileViewChange("index")}>
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Financial summary"
+          headerTitle={financialHeaderTitle}
+          headerSubtitle={financialHeaderSubtitle}
           onAction={() => onEditProfile("financial")}
         >
           <SummaryRow
@@ -180,6 +208,7 @@ export function BorrowerProfileHub({
           verification={result?.borrowerVerification ?? null}
           consentStatus={result?.consentStatuses?.borrowerDocumentUpload ?? null}
           readinessStatus={readiness?.readinessStatus ?? null}
+          onClose={() => onProfileViewChange("index")}
         />
       </ProfileSubview>
     );
@@ -198,7 +227,12 @@ export function BorrowerProfileHub({
       <ProfileSubview title="Help & Support" onBack={() => onProfileViewChange("index")}>
         <BorrowerCard>
           <div className="px-5 pt-5 pb-4">
-            <h3 className="text-sm font-medium text-foreground">Support</h3>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Help & Support
+            </p>
+            <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
+              Contact support
+            </p>
             <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
               For questions about your borrower profile, verification, or loan
               applications, contact LendFolio support through your registered
@@ -237,11 +271,6 @@ export function BorrowerProfileHub({
           <ProfileStatusBanner
             status={profileStatus}
             onAction={() => {
-              if (profileStatus.action === "verification") {
-                onProfileViewChange("verification");
-                return;
-              }
-
               onEditProfile("index");
             }}
           />
@@ -315,6 +344,14 @@ export function BorrowerProfileHub({
               onClick={() => onProfileViewChange("support")}
             />
           </div>
+          <form action={signOutAction}>
+            <ProfileMenuRow
+              icon={LogOut}
+              label="Sign out"
+              subtitle="Sign out of this account on this device"
+              submit
+            />
+          </form>
         </>
       )}
     </div>
@@ -341,7 +378,6 @@ function getProfileStatus(
   loadState: PortfolioLoadState,
   portfolio: BorrowerPortfolioInput | null,
   readiness: BorrowerReadinessResult | null,
-  verificationStatus: string | null = null,
 ) {
   if (loadState === "loading") {
     return {
@@ -409,29 +445,6 @@ function getProfileStatus(
         readiness.nextActions[0] ?? "A few required details are still missing.",
       action: "edit" as const,
       actionLabel: "Update profile details",
-    };
-  }
-
-  if (
-    verificationStatus &&
-    verificationStatus !== "missing" &&
-    verificationStatus !== "approved"
-  ) {
-    const needsResubmission =
-      verificationStatus === "rejected" ||
-      verificationStatus === "needs_resubmission";
-
-    return {
-      tone: "attention" as const,
-      label: needsResubmission ? "Resubmission needed" : "Verification required",
-      title: needsResubmission
-        ? "Update your verification documents"
-        : "Complete borrower verification",
-      description: needsResubmission
-        ? "Review the feedback and upload replacement documents."
-        : "Upload a valid ID and business proof to verify your borrower profile.",
-      action: "verification" as const,
-      actionLabel: "Go to verification",
     };
   }
 

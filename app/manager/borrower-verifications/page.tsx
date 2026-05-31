@@ -25,6 +25,7 @@ import {
 import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
 import { VerificationToast } from "@/app/manager/borrower-verifications/verification-toast";
 import { DocumentActionsCell } from "@/app/manager/document-review-dialog";
+import { EvidenceDocumentRow } from "@/app/manager/evidence-document-row";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +34,7 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+
 import {
   Table,
   TableBody,
@@ -61,7 +62,6 @@ import {
   ClipboardListIcon,
   HistoryIcon,
   MessageSquareTextIcon,
-  ExternalLinkIcon,
   CircleDotIcon,
   CircleIcon,
   XCircleIcon,
@@ -517,9 +517,7 @@ function SelectedBorrowerDetail({
         selected={selected}
       />
 
-      <ReadinessSummaryCard verification={verification} />
-
-      <Collapsible defaultOpen={false}>
+      <Collapsible defaultOpen={true}>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -819,6 +817,9 @@ function RequiredDocumentsSection({
                         <DocumentActionsCell
                           documentId={latest.id}
                           documentLabel={docLabel}
+                          fileName={latest.fileName}
+                          fileSize={latest.fileSize}
+                          fileType={latest.fileType}
                           viewUrl={latest.viewUrl}
                           canReview={canReview}
                           selected={selected}
@@ -873,6 +874,9 @@ function RequiredDocumentsSection({
                   <DocumentActionsCell
                     documentId={latest.id}
                     documentLabel={docLabel}
+                    fileName={latest.fileName}
+                    fileSize={latest.fileSize}
+                    fileType={latest.fileType}
                     viewUrl={latest.viewUrl}
                     canReview={canReview}
                     selected={selected}
@@ -976,53 +980,17 @@ function EvidenceHistorySection({
         <CollapsibleContent>
           <div className="space-y-1.5">
             {documents.map((doc) => (
-              <div
+              <EvidenceDocumentRow
                 key={doc.id}
-                className="flex items-start gap-3 rounded-md border border-border/50 px-3 py-2 sm:items-center"
-              >
-                <FileTextIcon className="mt-0.5 size-3.5 shrink-0 text-muted-foreground sm:mt-0" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-xs font-medium">
-                    {doc.fileName}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {
-                      borrowerVerificationDocumentTypeLabels[
-                        doc.documentType
-                      ]
-                    }
-                    {" \u00b7 "}
-                    {formatFileSize(doc.fileSize)}
-                    {" \u00b7 "}
-                    {formatDateTime(doc.uploadedAt)}
-                  </p>
-                  {doc.reviewNotes ? (
-                    <p className="mt-0.5 text-xs text-muted-foreground">
-                      Note: {doc.reviewNotes}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="flex shrink-0 items-center gap-2">
-                  <StatusBadge status={doc.status} />
-                  {doc.viewUrl ? (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="shrink-0"
-                      asChild
-                    >
-                      <a
-                        href={doc.viewUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        aria-label="View document"
-                      >
-                        <ExternalLinkIcon className="size-3.5" />
-                      </a>
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
+                fileName={doc.fileName}
+                fileSize={doc.fileSize}
+                fileType={doc.fileType}
+                documentType={doc.documentType}
+                uploadedAt={doc.uploadedAt}
+                reviewNotes={doc.reviewNotes}
+                viewUrl={doc.viewUrl}
+                statusBadge={<StatusBadge status={doc.status} />}
+              />
             ))}
           </div>
         </CollapsibleContent>
@@ -1068,83 +1036,6 @@ function ExistingNotesSection({
   );
 }
 
-function ReadinessSummaryCard({
-  verification,
-}: {
-  verification: ManagerBorrowerVerificationRow;
-}) {
-  const { documentPolicy } = verification;
-  const consentsCurrent =
-    verification.documentUploadConsentStatus.isCurrent &&
-    verification.loanApplicationConsentStatus.isCurrent;
-  const acceptedRequired = documentPolicy.requiredDocumentTypes.filter((dt) =>
-    documentPolicy.acceptedDocumentTypes.includes(dt),
-  ).length;
-  const totalRequired = documentPolicy.requiredDocumentTypes.length;
-  const canApprove = documentPolicy.documentsAccepted && consentsCurrent;
-  const hasMissingDocuments =
-    documentPolicy.missingRequiredDocumentTypes.length > 0;
-
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-sm">Review readiness</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2.5">
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-muted-foreground">Consents</span>
-          {consentsCurrent ? (
-            <Badge
-              variant="default"
-              className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-            >
-              <CheckCircle2Icon className="size-3" />
-              Complete
-            </Badge>
-          ) : (
-            <Badge variant="destructive" className="gap-1">
-              <XCircleIcon className="size-3" />
-              Missing
-            </Badge>
-          )}
-        </div>
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-muted-foreground">Documents</span>
-          {documentPolicy.documentsAccepted ? (
-            <Badge
-              variant="default"
-              className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
-            >
-              <CheckCircle2Icon className="size-3" />
-              {acceptedRequired}/{totalRequired}
-            </Badge>
-          ) : (
-            <Badge variant="secondary" className="gap-1">
-              <CircleDotIcon className="size-3" />
-              {acceptedRequired}/{totalRequired}
-            </Badge>
-          )}
-        </div>
-        <Separator />
-        <div className="flex items-center justify-between gap-2 text-sm">
-          <span className="text-muted-foreground">Status</span>
-          <StatusBadge status={verification.verificationStatus} />
-        </div>
-
-        {!canApprove ? (
-          <div className="rounded-md bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
-            {hasMissingDocuments
-              ? "Borrower must upload all required documents before approval."
-              : !consentsCurrent
-                ? "Borrower must accept all required consents before approval."
-                : "Accept all required documents before approving this verification."}
-          </div>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
-}
-
 function ManagerDecisionPanel({
   verification,
   selected,
@@ -1168,10 +1059,3 @@ function ManagerDecisionPanel({
   );
 }
 
-function formatFileSize(size: number) {
-  if (size >= 1024 * 1024) {
-    return `${(size / 1024 / 1024).toFixed(1)} MB`;
-  }
-
-  return `${Math.max(1, Math.round(size / 1024))} KB`;
-}

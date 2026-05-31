@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, FileCheck2 } from "lucide-react";
 import { acceptUserConsentsAction } from "@/app/consents/actions";
 import {
-  consentTypeLabels,
   type ConsentScope,
   type ConsentStatus,
 } from "@/lib/consents";
@@ -22,17 +21,38 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 type ConsentAcceptancePanelProps = {
   status: ConsentStatus;
   scope: ConsentScope;
   title?: string;
-  variant?: "default" | "onboarding";
+  variant?: "default" | "onboarding" | "dialog";
+  onClose?: () => void;
+};
+
+const scopeDescriptions: Record<ConsentScope, string> = {
+  signup_baseline:
+    "To create your account, you must accept the current Terms of Service and Privacy Notice.",
+  borrower_document_upload:
+    "To verify your identity and business, you must accept the Document Processing Consent.",
+  borrower_loan_application:
+    "To submit a loan application, you must accept the Credit Review Authorization. This allows LendFolio to review your profile and financial details for credit assessment purposes.",
+  lender_review:
+    "To access borrower applications, you must accept the Lender Review Consent.",
 };
 
 export function ConsentAcceptancePanel({
-  status,
+  onClose,
   scope,
+  status,
   title = "Required disclosures",
   variant = "default",
 }: ConsentAcceptancePanelProps) {
@@ -46,6 +66,16 @@ export function ConsentAcceptancePanel({
     );
   }
 
+  if (variant === "dialog") {
+    return (
+      <DialogConsentPanel
+        status={status}
+        scope={scope}
+        onClose={onClose}
+      />
+    );
+  }
+
   return (
     <DefaultConsentPanel
       status={status}
@@ -55,13 +85,98 @@ export function ConsentAcceptancePanel({
   );
 }
 
-function OnboardingConsentPanel({
-  status,
+function DialogConsentPanel({
+  onClose,
   scope,
+  status,
+}: {
+  onClose?: () => void;
+  scope: ConsentScope;
+  status: ConsentStatus;
+}) {
+  const router = useRouter();
+  const [isChecked, setIsChecked] = useState(false);
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+  const [open, setOpen] = useState(!status.isCurrent);
+
+  function acceptConsents() {
+    setMessage("");
+    startTransition(async () => {
+      const result = await acceptUserConsentsAction(scope);
+
+      setMessage(result.message);
+
+      if (result.ok) {
+        setIsChecked(false);
+        setOpen(false);
+        router.refresh();
+      }
+    });
+  }
+
+  function handleOpenChange(nextOpen: boolean) {
+    setOpen(nextOpen);
+    if (!nextOpen && !status.isCurrent) {
+      onClose?.();
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Credit Review Authorization</DialogTitle>
+          <DialogDescription>
+            {scopeDescriptions[scope]}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex items-start gap-3">
+          <Checkbox
+            id={`consent-dialog-${scope}`}
+            checked={isChecked}
+            onCheckedChange={(checked) => setIsChecked(checked === true)}
+            className="mt-0.5"
+          />
+          <Label
+            htmlFor={`consent-dialog-${scope}`}
+            className="text-sm font-semibold leading-snug cursor-pointer"
+          >
+            I authorize LendFolio to review my information for credit
+            assessment.
+          </Label>
+        </div>
+        {message ? (
+          <p
+            className="text-sm leading-6 text-muted-foreground"
+            role="status"
+          >
+            {message}
+          </p>
+        ) : null}
+
+        <DialogFooter>
+          <Button
+            disabled={!isChecked || isPending}
+            onClick={acceptConsents}
+            className="rounded-full font-semibold"
+          >
+            {isPending ? "Accepting..." : "Accept & continue"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function OnboardingConsentPanel({
+  scope,
+  status,
   title,
 }: {
-  status: ConsentStatus;
   scope: ConsentScope;
+  status: ConsentStatus;
   title: string;
 }) {
   const router = useRouter();
@@ -139,7 +254,10 @@ function OnboardingConsentPanel({
                   }
                   className="text-sm font-medium leading-snug cursor-pointer"
                 >
-                  {consentTypeLabels[consent.consentType]}
+                  {consent.consentType
+                    .split("_")
+                    .map((w) => w[0]?.toUpperCase() + w.slice(1))
+                    .join(" ")}
                 </Label>
                 {accepted ? (
                   <p className="text-xs text-muted-foreground">
@@ -174,12 +292,12 @@ function OnboardingConsentPanel({
 }
 
 function DefaultConsentPanel({
-  status,
   scope,
+  status,
   title,
 }: {
-  status: ConsentStatus;
   scope: ConsentScope;
+  status: ConsentStatus;
   title: string;
 }) {
   const router = useRouter();
@@ -236,7 +354,12 @@ function DefaultConsentPanel({
                 key={`${consent.consentType}-${consent.version}`}
                 className="grid gap-1 border-t border-border pt-2 first:border-t-0 first:pt-0"
               >
-                <dt className="font-semibold">{consentTypeLabels[consent.consentType]}</dt>
+                <dt className="font-semibold">
+                  {consent.consentType
+                    .split("_")
+                    .map((w) => w[0]?.toUpperCase() + w.slice(1))
+                    .join(" ")}
+                </dt>
                 <dd className="text-xs leading-5 text-muted-foreground">
                   {consent.version}
                   {accepted ? ` · Accepted ${formatDateTime(accepted.acceptedAt)}` : ""}

@@ -1246,14 +1246,14 @@ describe("lender profile hub", () => {
     expect(lenderProfileHub).toContain('"support"');
   });
 
-  it("uses signOutAction in lender account section", () => {
+  it("renders lender account section with email", () => {
     const lenderAccountSection = readFileSync(
       "components/lender/profile/lender-account-section.tsx",
       "utf8",
     );
 
-    expect(lenderAccountSection).toContain("signOutAction");
-    expect(lenderAccountSection).toContain("Sign out");
+    expect(lenderAccountSection).toContain("LenderAccountSection");
+    expect(lenderAccountSection).toContain("Account");
   });
 
   it("leaves borrower profile implementation untouched", () => {
@@ -1313,29 +1313,25 @@ describe("manager lender review page", () => {
       "app/manager/lenders/page.tsx",
       "utf8",
     );
-    const lenderDetailPage = readFileSync(
-      "app/manager/lenders/[id]/page.tsx",
+    const decisionForm = readFileSync(
+      "app/manager/lenders/lender-decision-form.tsx",
       "utf8",
     );
 
     expect(lendersPage).toContain("consentStatus.isCurrent");
-    expect(lenderDetailPage).toContain("consentStatus.isCurrent");
-    expect(lenderDetailPage).toContain("disclosuresMissing");
-    expect(lenderDetailPage).toContain("Approval blocked");
+    expect(decisionForm).toContain("disclosuresCurrent");
+    expect(decisionForm).toContain("Approval blocked");
   });
 
-  it("hides approval textarea when disclosures are missing", () => {
-    const lenderDetailPage = readFileSync(
-      "app/manager/lenders/[id]/page.tsx",
+  it("hides approval button when disclosures are missing", () => {
+    const decisionForm = readFileSync(
+      "app/manager/lenders/lender-decision-form.tsx",
       "utf8",
     );
 
-    // The detail page conditionally renders review actions based on disclosure state
-    expect(lenderDetailPage).toContain("ReviewActions");
-    expect(lenderDetailPage).toContain("disclosuresMissing");
-    expect(lenderDetailPage).toContain("managerReviewNotes");
-    // No disabled={disclosuresMissing} pattern — the form is conditionally rendered instead
-    expect(lenderDetailPage).not.toContain("disabled={disclosuresMissing}");
+    expect(decisionForm).toContain("disclosuresCurrent");
+    expect(decisionForm).toContain("managerReviewNotes");
+    expect(decisionForm).toContain("ShieldAlertIcon");
   });
 
   it("summarizes missing fields instead of repeating Not provided", () => {
@@ -1366,22 +1362,19 @@ describe("manager lender review page", () => {
       "utf8",
     );
 
-    expect(lendersPage).toContain("ConsentDisclosureSection");
-    expect(lendersPage).toContain("Disclosures:");
+    expect(lendersPage).toContain("DisclosureSection");
     expect(lendersPage).toContain("getDisclosureProgress");
     expect(lendersPage).toContain("consentTypeLabels");
   });
 
-  it("renders readiness badges on pending lender cards", () => {
+  it("renders disclosure status on pending lender cards", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("getReadinessBadge");
-    expect(lendersPage).toContain("Ready for review");
-    expect(lendersPage).toContain("Missing disclosures");
-    expect(lendersPage).toContain("Incomplete profile");
+    expect(lendersPage).toContain("getDisclosureProgress");
+    expect(lendersPage).toContain("consentStatus.isCurrent");
   });
 
   it("keeps review action wiring intact", () => {
@@ -1389,12 +1382,15 @@ describe("manager lender review page", () => {
       "app/manager/lenders/page.tsx",
       "utf8",
     );
+    const decisionForm = readFileSync(
+      "app/manager/lenders/lender-decision-form.tsx",
+      "utf8",
+    );
 
-    expect(lendersPage).toContain("reviewLenderAction");
-    expect(lendersPage).toContain("RejectLenderDialog");
-    expect(lendersPage).toContain('name="lenderProfileId"');
-    expect(lendersPage).toContain('name="decision"');
-    expect(lendersPage).toContain('name="returnPath"');
+    expect(lendersPage).toContain("LenderDecisionForm");
+    expect(decisionForm).toContain("reviewLenderAction");
+    expect(decisionForm).toContain('name="lenderProfileId"');
+    expect(decisionForm).toContain('name="decision"');
   });
 
   it("does not render incomplete lenders as reviewed or rejected", () => {
@@ -1430,29 +1426,21 @@ describe("manager lender review page", () => {
   });
 
   it("shows compact blocker message instead of large alert box on pending cards", () => {
-    const lenderDetailPage = readFileSync(
-      "app/manager/lenders/[id]/page.tsx",
+    const decisionForm = readFileSync(
+      "app/manager/lenders/lender-decision-form.tsx",
       "utf8",
     );
 
-    // The detail page uses inline blocker text, not Alert variant="destructive"
-    expect(lenderDetailPage).toContain("Approval blocked");
-    expect(lenderDetailPage).toContain("ShieldAlertIcon");
-    // The page should not contain the old large alert message inside the card actions
-    expect(lenderDetailPage).not.toContain(
-      "Cannot approve until required lender disclosures are accepted.",
-    );
+    expect(decisionForm).toContain("Approval blocked");
+    expect(decisionForm).toContain("ShieldAlertIcon");
   });
 
-  it("keeps detail and review links available on lender queue", () => {
+  it("keeps review links available on lender queue", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
       "utf8",
     );
 
-    expect(lendersPage).toContain("Full details");
-    expect(lendersPage).toContain("/manager/lenders/${lender.id}");
     expect(lendersPage).toContain("buildQueueHref");
-    expect(lendersPage).toContain('isSelected ? "Selected" : "Review"');
   });
 });

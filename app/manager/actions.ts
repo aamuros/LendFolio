@@ -54,16 +54,12 @@ export async function reviewLenderAction(formData: FormData) {
   const decision = String(formData.get("decision") ?? "");
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
-  const requestedReturnPath = String(
-    formData.get("returnPath") ?? "/manager/lenders",
-  );
-  const returnPath = requestedReturnPath.startsWith("/manager/lenders")
-    ? requestedReturnPath
-    : "/manager/lenders";
+  const selected = String(formData.get("selected") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !lenderProfileId) {
-    redirect(`${returnPath}?review=error`);
+    const qs = buildReturnQuery({ review: "error", selected });
+    redirect(`/manager/lenders?${qs}`);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -78,16 +74,14 @@ export async function reviewLenderAction(formData: FormData) {
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    redirect(
-      `${returnPath}?review=${
-        result?.code === "consent_required" ? "consent-required" : "error"
-      }`,
-    );
+    const reviewCode =
+      result?.code === "consent_required" ? "consent-required" : "error";
+    const qs = buildReturnQuery({ review: reviewCode, selected });
+    redirect(`/manager/lenders?${qs}`);
   }
 
   revalidatePath("/manager");
   revalidatePath("/manager/lenders");
-  revalidatePath(`/manager/lenders/${lenderProfileId}`);
   revalidatePath("/lender");
 
   const review =
@@ -97,7 +91,8 @@ export async function reviewLenderAction(formData: FormData) {
         ? "pending"
         : "rejected";
 
-  redirect(`${returnPath}?review=${review}`);
+  const qs = buildReturnQuery({ review, selected });
+  redirect(`/manager/lenders?${qs}`);
 }
 
 export async function reviewBorrowerVerificationAction(formData: FormData) {

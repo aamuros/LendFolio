@@ -1,15 +1,24 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { useEffect } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 
 export function VerificationToast() {
   const searchParams = useSearchParams();
+  const router = useRouter();
+  const pathname = usePathname();
+  const firedRef = useRef(false);
+
   const review = searchParams.get("review");
   const documentReview = searchParams.get("documentReview");
 
   useEffect(() => {
+    if (firedRef.current) return;
+    if (!review && !documentReview) return;
+
+    firedRef.current = true;
+
     if (review === "approved") {
       toast.success("Borrower verification approved.");
     } else if (review === "rejected") {
@@ -33,7 +42,13 @@ export function VerificationToast() {
     } else if (documentReview === "error") {
       toast.error("Could not update verification document.");
     }
-  }, [review, documentReview]);
+
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("review");
+    params.delete("documentReview");
+    const next = params.toString();
+    router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
+  }, [review, documentReview, searchParams, router, pathname]);
 
   return null;
 }

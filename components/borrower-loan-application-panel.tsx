@@ -777,6 +777,8 @@ export function BorrowerLoanApplicationPanel({
               <ConsentAcceptancePanel
                 scope="borrower_loan_application"
                 status={loanConsentStatus}
+                variant="dialog"
+                onClose={() => onNavigate?.("home")}
               />
             ) : readiness &&
               (readiness.readinessStatus === "needs_review" ||
@@ -1024,7 +1026,6 @@ function HomeSummary({
   readiness: BorrowerReadinessResult | null;
 }) {
   const activeLoans = getActiveLoans(applications);
-  const repaymentActionSummary = getRepaymentActionSummary(activeLoans);
   const debtProgress = getDebtProgress(activeLoans);
   const profileCompletion = getProfileCompletion({
     borrowerVerification,
@@ -1082,10 +1083,10 @@ function HomeSummary({
             creditSummary={creditSummary}
             hasPortfolio={hasPortfolio}
             usedCreditRatio={usedCreditRatio}
-            repaymentActionSummary={repaymentActionSummary}
             debtProgress={debtProgress}
             hasDebt={hasDebt}
-            hasActiveLoans={hasActiveLoans}
+            readiness={readiness}
+            onNavigate={onNavigate}
           />
 
           <RepaymentCalendarCard
@@ -1218,21 +1219,76 @@ function PrimaryActionCard({
   );
 }
 
+function UtilizationRing({ ratio }: { ratio: number }) {
+  const size = 56;
+  const strokeWidth = 5;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const clampedRatio = clamp(ratio, 0, 1);
+  const offset = circumference * (1 - clampedRatio);
+  const percentLabel = Math.round(clampedRatio * 100);
+
+  const strokeColor =
+    clampedRatio === 0
+      ? "text-muted-foreground/40"
+      : clampedRatio <= 0.5
+        ? "text-emerald-500"
+        : clampedRatio <= 0.75
+          ? "text-amber-500"
+          : "text-destructive";
+
+  return (
+    <div className="relative flex flex-col items-center">
+      <svg
+        width={size}
+        height={size}
+        viewBox={`0 0 ${size} ${size}`}
+        className="-rotate-90"
+        aria-hidden="true"
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          className="text-muted"
+        />
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={strokeWidth}
+          strokeDasharray={circumference}
+          strokeDashoffset={offset}
+          strokeLinecap="round"
+          className={cn("transition-all duration-500", strokeColor)}
+        />
+      </svg>
+      <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold tabular-nums">
+        {percentLabel}%
+      </span>
+    </div>
+  );
+}
+
 function FinancingSummaryCard({
   className,
   creditSummary,
   hasPortfolio,
   usedCreditRatio,
-  repaymentActionSummary,
   debtProgress,
   hasDebt,
-  hasActiveLoans,
+  readiness,
+  onNavigate,
 }: {
   className?: string;
   creditSummary: BorrowerCreditSummary | null;
   hasPortfolio: boolean;
   usedCreditRatio: number;
-  repaymentActionSummary: RepaymentActionSummary;
   debtProgress: {
     totalDebt: number;
     totalOutstanding: number;
@@ -1240,18 +1296,30 @@ function FinancingSummaryCard({
     percentComplete: number;
   };
   hasDebt: boolean;
-  hasActiveLoans: boolean;
+  readiness: BorrowerReadinessResult | null;
+  onNavigate?: (tab: BorrowerTab) => void;
 }) {
-  const dueCapacityRatio =
-    creditSummary && creditSummary.monthlyNetCashFlow > 0
-      ? repaymentActionSummary.totalNeedsAction /
-        creditSummary.monthlyNetCashFlow
-      : null;
-  const dueCapacityStatus = getDueCapacityStatus(dueCapacityRatio);
-  const dueBadgeLabel =
-    repaymentActionSummary.totalNeedsAction === 0
-      ? "No payments due"
-      : dueCapacityStatus.label;
+  const readinessLabel = !readiness
+    ? "Pending"
+    : readiness.readinessStatus === "complete" ||
+        readiness.readinessStatus === "eligible_to_apply"
+      ? "Complete"
+      : readiness.readinessStatus === "needs_review"
+        ? "Needs review"
+        : readiness.readinessStatus === "not_eligible"
+          ? "Not eligible"
+          : "In progress";
+
+  const readinessTone = !readiness
+    ? "neutral"
+    : readiness.readinessStatus === "complete" ||
+        readiness.readinessStatus === "eligible_to_apply"
+      ? "success"
+      : readiness.readinessStatus === "not_eligible"
+        ? "danger"
+        : readiness.readinessStatus === "needs_review"
+          ? "warning"
+          : "neutral";
 
   return (
     <Card
@@ -1261,94 +1329,112 @@ function FinancingSummaryCard({
       )}
     >
       <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
-        <div className="flex items-center justify-between gap-2">
-          <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            Financing overview
-          </CardDescription>
-          {creditSummary ? (
-            <Badge variant="secondary" className="text-[10px] font-semibold">
-              {Math.round(usedCreditRatio * 100)}% utilized
-            </Badge>
-          ) : null}
-        </div>
+        <CardDescription className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Financing overview
+        </CardDescription>
         <CardTitle className="text-lg leading-tight sm:text-xl">
           {creditSummary ? "Available to request" : "Financing summary"}
         </CardTitle>
       </CardHeader>
-      <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
+      <CardContent className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
         {creditSummary ? (
           <>
-            <MoneyText
-              value={creditSummary.availableCredit}
-              className="text-3xl font-semibold sm:text-4xl"
-            />
-            <p className="text-xs text-muted-foreground">
-              {formatMoney(creditSummary.availableCredit)} of{" "}
-              {formatMoney(creditSummary.calculatedCreditLimit)} limit
-            </p>
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <MoneyText
+                  value={creditSummary.availableCredit}
+                  className="text-3xl font-semibold sm:text-4xl"
+                />
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {formatMoney(creditSummary.availableCredit)} of{" "}
+                  {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                </p>
+              </div>
+              <div className="flex flex-col items-center gap-0.5">
+                <UtilizationRing ratio={usedCreditRatio} />
+                <span className="text-[10px] text-muted-foreground">
+                  Credit utilization
+                </span>
+              </div>
+            </div>
+
             <Progress
               value={clamp((1 - usedCreditRatio) * 100, 0, 100)}
               className="h-2"
               aria-label="Available credit"
             />
+
             <Separator />
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+
+            <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">
-                  Monthly cashflow
-                </p>
-                <p className="font-semibold tabular-nums">
-                  {formatMoney(creditSummary.monthlyNetCashFlow)}
+                <p className="text-xs text-muted-foreground">Credit limit</p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.calculatedCreditLimit)}
                 </p>
               </div>
               <div className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">Used credit</p>
-                <p className="font-semibold tabular-nums">
+                <p className="text-sm font-semibold tabular-nums">
                   {formatMoney(creditSummary.usedCredit)}
                 </p>
               </div>
-              {hasDebt ? (
-                <div className="grid gap-0.5">
-                  <p className="text-xs text-muted-foreground">Outstanding</p>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Monthly cash flow
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.monthlyNetCashFlow)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">Readiness</p>
+                <div className="flex items-center gap-1.5">
+                  <span
+                    className={cn(
+                      "inline-block size-1.5 rounded-full",
+                      readinessTone === "success"
+                        ? "bg-emerald-500"
+                        : readinessTone === "danger"
+                          ? "bg-destructive"
+                          : readinessTone === "warning"
+                            ? "bg-amber-500"
+                            : "bg-muted-foreground",
+                    )}
+                    aria-hidden="true"
+                  />
+                  <p className="text-sm font-semibold">{readinessLabel}</p>
+                </div>
+              </div>
+            </div>
+
+            {hasDebt ? (
+              <>
+                <Separator />
+                <div className="flex items-center justify-between text-sm">
+                  <p className="text-xs text-muted-foreground">
+                    Outstanding debt
+                  </p>
                   <p className="font-semibold tabular-nums">
                     {formatMoney(debtProgress.totalOutstanding)}
                   </p>
                 </div>
-              ) : null}
-            </div>
-            {hasActiveLoans && repaymentActionSummary.totalNeedsAction > 0 ? (
-              <>
-                <Separator />
-                <div className="flex items-start justify-between gap-2">
-                  <div className="grid gap-0.5">
-                    <p className="text-xs text-muted-foreground">
-                      Needs action
-                    </p>
-                    <MoneyText
-                      value={repaymentActionSummary.totalNeedsAction}
-                      className="text-lg font-semibold"
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      {formatMoney(repaymentActionSummary.overdueAmount)} overdue ·{" "}
-                      {formatMoney(repaymentActionSummary.dueThisMonthAmount)} due this month
-                    </p>
-                  </div>
-                  <Badge
-                    variant="secondary"
-                    className={cn(
-                      "text-[10px] font-semibold",
-                      dueCapacityStatus.badgeClassName,
-                    )}
-                  >
-                    {dueBadgeLabel}
-                  </Badge>
-                </div>
-                <DashboardProgressBar
-                  value={dueCapacityRatio ?? 0}
-                  barClassName={dueCapacityStatus.barClassName}
-                />
               </>
             ) : null}
+
+            <div className="mt-auto pt-1">
+              <Separator className="mb-3" />
+              <Button
+                variant="ghost"
+                className="h-auto w-full justify-between rounded-xl px-3 py-2 text-sm"
+                onClick={() => onNavigate?.("profile")}
+              >
+                <span className="text-muted-foreground">
+                  View borrowing power
+                </span>
+                <ArrowRight className="size-4 text-muted-foreground" />
+              </Button>
+            </div>
           </>
         ) : hasPortfolio ? (
           <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
@@ -1469,14 +1555,25 @@ function HomeDashboardSkeleton() {
           <Skeleton className="h-3 w-28" />
           <Skeleton className="h-5 w-40" />
         </CardHeader>
-        <CardContent className="flex flex-1 flex-col gap-3 px-4 pb-4 sm:px-5 sm:pb-5">
-          <Skeleton className="h-8 w-40" />
-          <Skeleton className="h-3 w-44" />
+        <CardContent className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="grid gap-1">
+              <Skeleton className="h-8 w-40" />
+              <Skeleton className="h-3 w-44" />
+            </div>
+            <Skeleton className="size-14 rounded-full" />
+          </div>
           <Skeleton className="h-2 w-full rounded-full" />
           <Skeleton className="h-px w-full" />
-          <div className="flex gap-6">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
             <Skeleton className="h-10 w-24" />
             <Skeleton className="h-10 w-20" />
+            <Skeleton className="h-10 w-28" />
+            <Skeleton className="h-10 w-20" />
+          </div>
+          <div className="mt-auto pt-1">
+            <Skeleton className="mb-3 h-px w-full" />
+            <Skeleton className="h-9 w-full rounded-xl" />
           </div>
         </CardContent>
       </Card>
@@ -1746,31 +1843,6 @@ export type RepaymentActionSummary = {
   totalNeedsAction: number;
 };
 
-function DashboardProgressBar({
-  barClassName = "bg-primary",
-  trackClassName = "bg-muted",
-  value,
-}: {
-  barClassName?: string;
-  trackClassName?: string;
-  value: number;
-}) {
-  return (
-    <div
-      className={cn("h-2 overflow-hidden rounded-full", trackClassName)}
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={100}
-      aria-valuenow={Math.round(clamp(value, 0, 1) * 100)}
-    >
-      <div
-        className={cn("h-full rounded-full", barClassName)}
-        style={{ width: `${clamp(value, 0, 1) * 100}%` }}
-      />
-    </div>
-  );
-}
-
 function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
   return applications.flatMap((application) =>
     application.activeLoan ? [application.activeLoan] : [],
@@ -1894,39 +1966,6 @@ function getProfileCompletion({
     percentage: Math.min(percentage, 100),
     steps,
     profileNeedsUpdate,
-  };
-}
-
-
-function getDueCapacityStatus(ratio: number | null) {
-  if (ratio === null) {
-    return {
-      barClassName: "bg-muted",
-      badgeClassName: toneBadgeClassName("neutral"),
-      label: "No data",
-    };
-  }
-
-  if (ratio > 0.7) {
-    return {
-      barClassName: "bg-destructive",
-      badgeClassName: toneBadgeClassName("danger"),
-      label: "Danger",
-    };
-  }
-
-  if (ratio > 0.4) {
-    return {
-      barClassName: "bg-amber-500",
-      badgeClassName: toneBadgeClassName("attention"),
-      label: "Caution",
-    };
-  }
-
-  return {
-    barClassName: "bg-emerald-500",
-    badgeClassName: toneBadgeClassName("success"),
-    label: "Safe",
   };
 }
 
@@ -2169,8 +2208,6 @@ function ApplicationForm({
             />
           </Field>
 
-          <Separator />
-
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
             <p
               id="loan-application-state"
@@ -2273,7 +2310,7 @@ function ApplicationList({
                         />
                       </dl>
 
-                      <div className="mt-4 grid gap-2 border-t border-border pt-4 sm:flex sm:items-center">
+                      <div className="mt-4 grid gap-2 sm:flex sm:items-center">
                         <Button
                           variant="outline"
                           disabled={!isEditable || isPending}

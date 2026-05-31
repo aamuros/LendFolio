@@ -65,9 +65,11 @@ export function ManagerNotificationsContent() {
             isUnread: false,
           })),
         );
+        window.dispatchEvent(new CustomEvent("notifications-updated"));
+        router.refresh();
       });
     });
-  }, []);
+  }, [router]);
 
   const openNotification = useCallback(
     async (notification: AppNotification) => {
@@ -95,6 +97,8 @@ export function ManagerNotificationsContent() {
               : item,
           ),
         );
+        window.dispatchEvent(new CustomEvent("notifications-updated"));
+        router.refresh();
       }
 
       setActiveNotificationId(null);
@@ -139,7 +143,7 @@ export function ManagerNotificationsContent() {
       ) : null}
 
       {!message && notifications.length > 0 ? (
-        <div className="rounded-lg border">
+        <div className="rounded-lg">
           <NotificationList
             notifications={notifications}
             activeNotificationId={activeNotificationId}

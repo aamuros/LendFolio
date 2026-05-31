@@ -18,7 +18,7 @@ export function NotificationsSkeleton({ count = 5 }: { count?: number }) {
           key={i}
           className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3"
         >
-          <Skeleton className="mt-1 size-2.5 rounded-full" />
+          <Skeleton className="mt-0.5 size-8 rounded-full" />
           <div className="grid gap-2">
             <div className="flex items-center gap-2">
               <Skeleton className="h-4 w-32" />

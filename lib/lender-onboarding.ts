@@ -1,5 +1,15 @@
 import { z } from "zod";
 
+export const typicalRepaymentTermOptions = [
+  "1 month",
+  "1 to 3 months",
+  "1 to 6 months",
+  "3 to 6 months",
+  "3 to 12 months",
+  "6 to 12 months",
+  "1 to 12 months",
+] as const;
+
 const requiredConsentCheckbox = (message: string) =>
   z.preprocess(
     (value) => value === true || value === "on",
@@ -64,11 +74,9 @@ export const lenderOnboardingSchema = z.object({
         .positive("Maximum loan amount must be greater than zero.")
         .max(999_999_999.99, "Maximum loan amount is too large."),
     ),
-  typicalRepaymentTerms: z
-    .string()
-    .trim()
-    .min(2, "Repayment terms must be at least 2 characters.")
-    .max(240, "Repayment terms must be 240 characters or fewer."),
+  typicalRepaymentTerms: z.enum(typicalRepaymentTermOptions, {
+    error: "Select your typical repayment terms.",
+  }),
   lenderDescription: z
     .string()
     .trim()

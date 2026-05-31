@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { reviewBorrowerVerificationDocumentAction } from "@/app/manager/actions";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,37 +20,40 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 import {
   CheckCircle2Icon,
-  ExternalLinkIcon,
+  Eye,
   MoreHorizontalIcon,
   XCircleIcon,
 } from "lucide-react";
 
-type DocumentReviewDecision = "accept" | "reject";
-
 export function DocumentActionsCell({
   documentId,
   documentLabel,
+  fileName,
+  fileSize,
+  fileType,
   viewUrl,
   canReview,
   selected,
 }: {
   documentId: string;
   documentLabel: string;
+  fileName: string;
+  fileSize: number;
+  fileType: string;
   viewUrl: string | null;
   canReview: boolean;
   selected?: string;
 }) {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [decision, setDecision] = useState<DocumentReviewDecision | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const acceptFormRef = useRef<HTMLFormElement>(null);
 
-  function handleReviewAction(decision: DocumentReviewDecision) {
-    setDecision(decision);
-    setDialogOpen(true);
+  function handleAccept() {
+    acceptFormRef.current?.requestSubmit();
   }
-
-  const isReject = decision === "reject";
 
   return (
     <>
@@ -63,22 +66,20 @@ export function DocumentActionsCell({
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           {viewUrl ? (
-            <DropdownMenuItem asChild>
-              <a href={viewUrl} target="_blank" rel="noreferrer">
-                <ExternalLinkIcon className="size-3.5" />
-                View
-              </a>
+            <DropdownMenuItem onSelect={() => setPreviewOpen(true)}>
+              <Eye className="size-3.5" />
+              Preview
             </DropdownMenuItem>
           ) : null}
           {canReview ? (
             <>
               {viewUrl ? <DropdownMenuSeparator /> : null}
-              <DropdownMenuItem onSelect={() => handleReviewAction("accept")}>
+              <DropdownMenuItem onSelect={handleAccept}>
                 <CheckCircle2Icon className="size-3.5" />
                 Accept
               </DropdownMenuItem>
               <DropdownMenuItem
-                onSelect={() => handleReviewAction("reject")}
+                onSelect={() => setDialogOpen(true)}
                 className="text-destructive focus:text-destructive"
               >
                 <XCircleIcon className="size-3.5" />
@@ -92,12 +93,23 @@ export function DocumentActionsCell({
         </DropdownMenuContent>
       </DropdownMenu>
 
+      <form
+        ref={acceptFormRef}
+        action={reviewBorrowerVerificationDocumentAction}
+        className="hidden"
+      >
+        <input type="hidden" name="documentId" value={documentId} />
+        <input type="hidden" name="decision" value="accept" />
+        <input type="hidden" name="reviewNotes" value="" />
+        {selected ? (
+          <input type="hidden" name="selected" value={selected} />
+        ) : null}
+      </form>
+
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>
-              {isReject ? "Reject document" : "Accept document"}
-            </DialogTitle>
+            <DialogTitle>Reject document</DialogTitle>
             <DialogDescription>{documentLabel}</DialogDescription>
           </DialogHeader>
 
@@ -107,7 +119,7 @@ export function DocumentActionsCell({
             onSubmit={() => setDialogOpen(false)}
           >
             <input type="hidden" name="documentId" value={documentId} />
-            <input type="hidden" name="decision" value={decision ?? ""} />
+            <input type="hidden" name="decision" value="reject" />
             {selected ? (
               <input type="hidden" name="selected" value={selected} />
             ) : null}
@@ -117,18 +129,14 @@ export function DocumentActionsCell({
                 htmlFor={`review-note-${documentId}`}
                 className="text-xs font-medium"
               >
-                Note {isReject ? "(recommended)" : "(optional)"}
+                Note (recommended)
               </Label>
               <Textarea
                 id={`review-note-${documentId}`}
                 name="reviewNotes"
                 rows={3}
                 maxLength={1000}
-                placeholder={
-                  isReject
-                    ? "Explain why this document is being rejected..."
-                    : "Add an optional note..."
-                }
+                placeholder="Explain why this document is being rejected..."
               />
             </div>
 
@@ -140,16 +148,23 @@ export function DocumentActionsCell({
               >
                 Cancel
               </Button>
-              <Button
-                type="submit"
-                variant={isReject ? "destructive" : "default"}
-              >
-                {isReject ? "Reject" : "Accept"}
+              <Button type="submit" variant="destructive">
+                Reject
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
+
+      <DocumentPreviewDialog
+        title={`${documentLabel} Preview`}
+        fileName={fileName}
+        fileSize={fileSize}
+        fileType={fileType}
+        viewUrl={viewUrl}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </>
   );
 }

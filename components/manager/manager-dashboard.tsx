@@ -1,15 +1,4 @@
-import Link from "next/link";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import type {
-  ManagerDashboardKpi,
-  ManagerDashboardOverview,
-} from "@/lib/manager-dashboard";
+import type { ManagerDashboardOverview } from "@/lib/manager-dashboard";
 import { BorrowerReadinessPanel } from "@/app/manager/borrower-readiness-panel";
 import { LenderPerformancePanel } from "@/app/manager/lender-performance-panel";
 import { ManagerMetricCards } from "./manager-metric-cards";
@@ -17,16 +6,6 @@ import {
   ManagerOperationsTable,
   type OperationsQueueItem,
 } from "./manager-operations-table";
-import { Wallet, Users, UserPlus, FileText } from "lucide-react";
-
-const numberFormatter = new Intl.NumberFormat("en-US");
-
-const kpiIcons: Record<string, React.ComponentType<{ className?: string }>> = {
-  "Total Active Loans": Wallet,
-  "Total Lenders": Users,
-  "Total Borrowers": UserPlus,
-  "Total Applications": FileText,
-};
 
 function buildOperationsQueue(
   dashboard: ManagerDashboardOverview,
@@ -93,54 +72,10 @@ export function ManagerDashboard({
 
       <ManagerOperationsTable items={queueItems} />
 
-      <DashboardKpiOverview kpis={dashboard.kpis} />
-
       <section aria-label="Performance signals" className="grid gap-4 md:gap-6 lg:grid-cols-2">
         <LenderPerformancePanel rows={dashboard.lenderPerformance} />
         <BorrowerReadinessPanel rows={dashboard.borrowerPerformance} />
       </section>
     </div>
-  );
-}
-
-function DashboardKpiOverview({ kpis }: { kpis: ManagerDashboardKpi[] }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Portfolio overview</CardTitle>
-        <CardDescription>
-          High-level platform metrics across all statuses.
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {kpis.map((kpi) => {
-            const IconComponent = kpiIcons[kpi.label] ?? FileText;
-            return (
-              <Link
-                key={kpi.label}
-                href={kpi.href}
-                className="group flex items-start gap-3 rounded-lg border border-border/60 bg-muted/30 p-3 transition-colors hover:bg-muted/50"
-              >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <IconComponent className="size-4" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-xs font-medium text-muted-foreground">
-                    {kpi.label}
-                  </p>
-                  <p className="text-xl font-semibold tracking-tight tabular-nums">
-                    {numberFormatter.format(kpi.value)}
-                  </p>
-                  <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {kpi.description}
-                  </p>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      </CardContent>
-    </Card>
   );
 }

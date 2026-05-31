@@ -12,17 +12,24 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 
 type LenderRepaymentProofActionsProps = {
   proofId: string;
   proofStatus: RepaymentProofStatus;
   proofUrl: string | null;
+  proofFileName: string;
+  proofFileSize: number;
+  proofFileType: string;
 };
 
 export function LenderRepaymentProofActions({
   proofId,
   proofStatus,
   proofUrl,
+  proofFileName,
+  proofFileSize,
+  proofFileType,
 }: LenderRepaymentProofActionsProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -31,6 +38,7 @@ export function LenderRepaymentProofActions({
   const [tone, setTone] = useState<"success" | "error">("success");
   const [reviewedStatus, setReviewedStatus] =
     useState<RepaymentProofStatus | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const canReview = canReviewRepaymentProof(reviewedStatus ?? proofStatus);
 
   function onVerify() {
@@ -80,12 +88,10 @@ export function LenderRepaymentProofActions({
         {proofUrl ? (
           <Button
             variant="outline"
-            asChild
             className="h-10 rounded-full font-semibold"
+            onClick={() => setPreviewOpen(true)}
           >
-            <a href={proofUrl} target="_blank" rel="noreferrer">
-              View proof
-            </a>
+            Preview proof
           </Button>
         ) : null}
         <Button
@@ -145,6 +151,16 @@ export function LenderRepaymentProofActions({
           {message}
         </p>
       ) : null}
+
+      <DocumentPreviewDialog
+        title="Repayment Proof Preview"
+        fileName={proofFileName}
+        fileSize={proofFileSize}
+        fileType={proofFileType}
+        viewUrl={proofUrl}
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+      />
     </div>
   );
 }
