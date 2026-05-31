@@ -156,7 +156,6 @@ export function SignupForm() {
                         }
                         content={termsContent}
                       />
-                      {"."}
                     </>
                   }
                   error={state.fieldErrors?.termsAccepted}
@@ -175,7 +174,6 @@ export function SignupForm() {
                         }
                         content={privacyContent}
                       />
-                      {"."}
                     </>
                   }
                   error={state.fieldErrors?.privacyAccepted}
