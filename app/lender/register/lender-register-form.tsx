@@ -178,14 +178,14 @@ export function LenderRegisterForm() {
       <FieldDescription className="px-6 text-center">
         By clicking continue, you agree to our{" "}
         <Link
-          href="/terms"
+          href="/terms?from=signup"
           className="underline underline-offset-4 hover:text-primary"
         >
           Terms of Service
         </Link>{" "}
         and{" "}
         <Link
-          href="/privacy"
+          href="/privacy?from=signup"
           className="underline underline-offset-4 hover:text-primary"
         >
           Privacy Policy

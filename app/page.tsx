@@ -159,13 +159,13 @@ export default async function Home({ searchParams }: HomeProps) {
             </div>
             <nav className="flex items-center gap-4">
               <Link
-                href="/terms"
+                href="/terms?from=home"
                 className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Terms
               </Link>
               <Link
-                href="/privacy"
+                href="/privacy?from=home"
                 className="text-xs text-muted-foreground transition-colors hover:text-foreground"
               >
                 Privacy

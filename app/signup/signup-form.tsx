@@ -146,7 +146,7 @@ export function SignupForm() {
                   label={
                     <>
                       I agree to the{" "}
-                      <Link href="/terms" className="underline underline-offset-4 hover:text-primary">
+                      <Link href="/terms?from=signup" className="underline underline-offset-4 hover:text-primary">
                         Terms of Service
                       </Link>.
                     </>
@@ -159,7 +159,7 @@ export function SignupForm() {
                   label={
                     <>
                       I acknowledge the{" "}
-                      <Link href="/privacy" className="underline underline-offset-4 hover:text-primary">
+                      <Link href="/privacy?from=signup" className="underline underline-offset-4 hover:text-primary">
                         Privacy Notice
                       </Link>.
                     </>
