@@ -1,4 +1,4 @@
-import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Lock, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Info, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
 import { ProfileIndexHeader } from "./profile-index-header";
@@ -246,6 +246,15 @@ export function BorrowerProfileHub({
             }}
           />
 
+          {verification?.status !== "approved" ? (
+            <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
+              <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                Loan applications unlock after verification approval.
+              </p>
+            </div>
+          ) : null}
+
           {postSaveVerification ? (
             <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
               <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
@@ -264,7 +273,7 @@ export function BorrowerProfileHub({
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+          <div className="grid gap-3">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -278,6 +287,12 @@ export function BorrowerProfileHub({
               onClick={() => onProfileViewChange("financial")}
             />
             <ProfileMenuRow
+              icon={ShieldCheck}
+              label="Verification"
+              subtitle={verificationLabel}
+              onClick={() => onProfileViewChange("verification")}
+            />
+            <ProfileMenuRow
               icon={Wallet}
               label="Borrowing Power"
               subtitle={
@@ -286,12 +301,6 @@ export function BorrowerProfileHub({
                   : "Amount available to request"
               }
               onClick={() => onProfileViewChange("borrowingPower")}
-            />
-            <ProfileMenuRow
-              icon={ShieldCheck}
-              label="Verification"
-              subtitle={verificationLabel}
-              onClick={() => onProfileViewChange("verification")}
             />
             <ProfileMenuRow
               icon={Lock}
@@ -316,13 +325,13 @@ function ProfileHubSkeleton() {
   return (
     <div className="grid gap-6">
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
-        <Skeleton className="h-14 w-full rounded-none" />
+      <div className="grid gap-3">
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
       </div>
     </div>
   );

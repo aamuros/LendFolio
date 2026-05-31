@@ -18,7 +18,6 @@ import {
   type OperationsQueueItem,
 } from "./manager-operations-table";
 import { Wallet, Users, UserPlus, FileText } from "lucide-react";
-import { ManagerEmptyState } from "./manager-empty-state";
 
 const numberFormatter = new Intl.NumberFormat("en-US");
 
@@ -100,22 +99,6 @@ export function ManagerDashboard({
         <LenderPerformancePanel rows={dashboard.lenderPerformance} />
         <BorrowerReadinessPanel rows={dashboard.borrowerPerformance} />
       </section>
-
-      <Card>
-        <CardHeader>
-          <CardTitle>Analytics</CardTitle>
-          <CardDescription>
-            Platform activity charts will appear once real activity metrics are
-            wired.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ManagerEmptyState
-            title="Coming soon"
-            description="Application trends, approval rates, and repayment activity will appear here once platform analytics are connected."
-          />
-        </CardContent>
-      </Card>
     </div>
   );
 }

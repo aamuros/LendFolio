@@ -131,21 +131,8 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
         <div className="hidden md:block">
           <Card className="py-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Loan ID</TableHead>
-                  <TableHead>Borrower</TableHead>
-                  <TableHead>Lender</TableHead>
-                  <TableHead>Principal</TableHead>
-                  <TableHead>Outstanding balance</TableHead>
-                  <TableHead>Next due date</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Repayment progress</TableHead>
-                <TableHead className="w-[96px] text-center">Action</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              <EmptyTableState hasActiveFilters={hasActiveFilters} />
+              <TableBody>
+                <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
           </Card>

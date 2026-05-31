@@ -84,7 +84,7 @@ export function LenderPerformancePanel({
             </CardDescription>
           </div>
         </div>
-        <div className="pt-2">
+        <div className="h-10">
           <Select
             value={selectedBusinessType}
             onValueChange={(value) =>
@@ -105,19 +105,19 @@ export function LenderPerformancePanel({
           </Select>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {rows.length > 0 ? (
           visibleRows.length > 0 ? (
             <>
               <div className="hidden md:block">
-                <Table>
+                <Table className="table-fixed">
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12">#</TableHead>
                       <TableHead>Lender</TableHead>
-                      <TableHead className="text-center">Completed</TableHead>
-                      <TableHead className="text-right">Accepted</TableHead>
-                      <TableHead className="text-right">Active</TableHead>
+                      <TableHead className="w-[100px] text-center">Completed</TableHead>
+                      <TableHead className="w-[84px] text-right">Accepted</TableHead>
+                      <TableHead className="w-[84px] text-right">Active</TableHead>
                       <TableHead className="w-12" />
                     </TableRow>
                   </TableHeader>
@@ -218,6 +218,7 @@ export function LenderPerformancePanel({
           <ManagerEmptyState
             title="No lender activity yet"
             description="Lender performance will appear after offers are accepted and loans are activated."
+            className="min-h-[240px]"
           />
         )}
       </CardContent>

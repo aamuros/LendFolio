@@ -230,26 +230,36 @@ export function DetailItem({
 }
 
 const statusPositive = ["verified", "paid", "accepted", "active", "approved"];
-const statusWarning = ["submitted", "pending", "due", "open"];
+const statusInfo = ["submitted", "open", "pending", "under_review", "pending_documents"];
+const statusWarning = ["due"];
+const statusRose = ["needs_resubmission"];
 const statusDanger = ["rejected", "overdue", "defaulted", "declined", "late", "suspended"];
-  const statusMuted = ["closed", "withdrawn", "expired", "incomplete"];
+const statusMuted = ["closed", "withdrawn", "expired", "incomplete", "not_started"];
 
 export function StatusBadge({ status }: { status: string }) {
   const variant = statusPositive.includes(status)
     ? "default"
-    : statusWarning.includes(status)
+    : statusInfo.includes(status)
       ? "secondary"
-      : statusDanger.includes(status)
-        ? "destructive"
-        : statusMuted.includes(status)
-          ? "outline"
-          : "secondary";
+      : statusWarning.includes(status)
+        ? "secondary"
+        : statusRose.includes(status)
+          ? "secondary"
+          : statusDanger.includes(status)
+            ? "destructive"
+            : statusMuted.includes(status)
+              ? "outline"
+              : "secondary";
 
   const className = statusPositive.includes(status)
     ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-950"
-    : statusWarning.includes(status)
-      ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-950"
-      : undefined;
+    : statusInfo.includes(status)
+      ? "border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50 dark:border-sky-800 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-950"
+      : statusWarning.includes(status)
+        ? "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-950"
+        : statusRose.includes(status)
+          ? "border-rose-200 bg-rose-50 text-rose-700 hover:bg-rose-50 dark:border-rose-800 dark:bg-rose-950 dark:text-rose-300 dark:hover:bg-rose-950"
+          : undefined;
 
   return (
     <Badge variant={variant as "default" | "secondary" | "destructive" | "outline"} className={className}>

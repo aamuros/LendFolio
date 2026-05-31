@@ -28,7 +28,7 @@ export function ToneBadge({
     <Badge
       variant="secondary"
       className={cn(
-        "min-w-16 justify-center text-xs font-semibold",
+        "shrink-0 whitespace-normal break-words text-center text-xs font-semibold leading-tight",
         toneBadgeClassName(tone),
       )}
     >

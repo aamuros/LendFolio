@@ -71,13 +71,18 @@ export function BorrowerReadinessPanel({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Borrower readiness</CardTitle>
-        <CardDescription>
-          Credit scoring is planned; this preview uses current repayment and
-          application activity.
-        </CardDescription>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <CardTitle>Borrower readiness</CardTitle>
+            <CardDescription>
+              Credit scoring is planned; this preview uses current repayment and
+              application activity.
+            </CardDescription>
+          </div>
+        </div>
+        <div aria-hidden className="h-10" />
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex-1">
         {rows.length > 0 ? (
           <div className="grid gap-3">
             <Input
@@ -89,15 +94,15 @@ export function BorrowerReadinessPanel({
             {filteredRows.length > 0 ? (
               <>
                 <div className="hidden md:block">
-                  <Table>
+                  <Table className="table-fixed">
                     <TableHeader>
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>Borrower</TableHead>
-                        <TableHead className="text-center">Score</TableHead>
-                        <TableHead className="text-right">Accepted</TableHead>
-                        <TableHead className="text-right">Verified</TableHead>
-                        <TableHead className="text-right">Risk</TableHead>
+                        <TableHead className="w-[72px] text-center">Score</TableHead>
+                        <TableHead className="w-[84px] text-right">Accepted</TableHead>
+                        <TableHead className="w-[84px] text-right">Verified</TableHead>
+                        <TableHead className="w-[64px] text-right">Risk</TableHead>
                         <TableHead className="w-12" />
                       </TableRow>
                     </TableHeader>
@@ -237,6 +242,7 @@ export function BorrowerReadinessPanel({
           <ManagerEmptyState
             title="No borrower activity yet"
             description="Borrower readiness will appear after applications, loans, or repayment activity exist."
+            className="min-h-[240px]"
           />
         )}
       </CardContent>

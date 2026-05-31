@@ -132,11 +132,21 @@ export function calculateBorrowerVerificationDocumentPolicy(
     "documentType" | "status"
   >[],
 ): BorrowerVerificationDocumentPolicy {
+  const latestByType = new Map<
+    BorrowerVerificationDocumentType,
+    (typeof documents)[number]
+  >();
+  for (const doc of documents) {
+    if (!latestByType.has(doc.documentType)) {
+      latestByType.set(doc.documentType, doc);
+    }
+  }
+
   const submitted = new Set<BorrowerVerificationDocumentType>();
   const accepted = new Set<BorrowerVerificationDocumentType>();
   const rejected = new Set<BorrowerVerificationDocumentType>();
 
-  for (const document of documents) {
+  for (const document of latestByType.values()) {
     if (document.status === "submitted" || document.status === "accepted") {
       submitted.add(document.documentType);
     }

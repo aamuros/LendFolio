@@ -9,6 +9,14 @@ const notificationTypeLabels: Record<string, string> = {
   repayment_rejected: "Rejected",
   repayment_late: "Late",
   loan_overdue: "Overdue",
+  verification_approved: "Verified",
+  verification_rejected: "Rejected",
+  verification_update: "Verification",
+  lender_approved: "Approved",
+  lender_rejected: "Rejected",
+  lender_review_update: "Verification",
+  document_accepted: "Document",
+  document_rejected: "Document",
 };
 
 const notificationTypeTones: Record<
@@ -23,6 +31,14 @@ const notificationTypeTones: Record<
   repayment_rejected: "destructive",
   repayment_late: "destructive",
   loan_overdue: "destructive",
+  verification_approved: "secondary",
+  verification_rejected: "destructive",
+  verification_update: "outline",
+  lender_approved: "secondary",
+  lender_rejected: "destructive",
+  lender_review_update: "outline",
+  document_accepted: "secondary",
+  document_rejected: "destructive",
 };
 
 export function NotificationTypeBadge({ type }: { type: string }) {

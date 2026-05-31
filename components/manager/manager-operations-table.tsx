@@ -120,15 +120,15 @@ export function ManagerOperationsTable({
           </div>
         ) : (
           <>
-            <div className="hidden md:block">
-              <Table>
+            <div className="hidden md:block overflow-x-auto px-4">
+              <Table className="w-full">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Type</TableHead>
+                    <TableHead className="w-[180px]">Type</TableHead>
                     <TableHead>Subject</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
+                    <TableHead className="w-[130px]">Status</TableHead>
+                    <TableHead className="w-[110px]">Priority</TableHead>
+                    <TableHead className="w-[100px] text-right">Action</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -141,10 +141,6 @@ export function ManagerOperationsTable({
                     return (
                       <TableRow
                         key={item.id}
-                        className={cn(
-                          isHighPriority &&
-                            "bg-destructive/5",
-                        )}
                       >
                         <TableCell>
                           <div className="flex items-center gap-2">
@@ -195,12 +191,7 @@ export function ManagerOperationsTable({
                 return (
                   <div
                     key={item.id}
-                    className={cn(
-                      "flex items-start justify-between gap-3 rounded-lg border bg-card p-3",
-                      isHighPriority
-                        ? "border-destructive/20 bg-destructive/5"
-                        : "border-border/60",
-                    )}
+                    className="flex items-start justify-between gap-3 rounded-lg border border-border/60 bg-card p-3"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

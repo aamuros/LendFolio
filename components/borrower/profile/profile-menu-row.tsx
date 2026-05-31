@@ -18,7 +18,7 @@ export function ProfileMenuRow({
     <button
       type={submit ? "submit" : "button"}
       onClick={onClick}
-      className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring cursor-pointer touch-manipulation"
+      className="group flex w-full items-center gap-4 rounded-2xl bg-muted/40 px-5 py-4 text-left transition-colors hover:bg-muted/60 active:bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring cursor-pointer touch-manipulation"
     >
       <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-muted-foreground/10">
         <Icon className="size-5" />

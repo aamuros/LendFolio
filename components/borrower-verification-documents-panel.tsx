@@ -37,6 +37,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   ExternalLinkIcon,
   UploadIcon,
   CheckCircle2,
@@ -63,6 +72,7 @@ export function BorrowerVerificationDocumentsPanel({
   const router = useRouter();
   const [consentChecked, setConsentChecked] = useState(false);
   const [consentMessage, setConsentMessage] = useState("");
+  const [consentDialogOpen, setConsentDialogOpen] = useState(false);
   const [isConsentPending, startConsentTransition] = useTransition();
   const [supportingOpen, setSupportingOpen] = useState(false);
   const [supportingDocType, setSupportingDocType] =
@@ -110,6 +120,7 @@ export function BorrowerVerificationDocumentsPanel({
 
       if (result.ok) {
         setConsentChecked(false);
+        setConsentDialogOpen(false);
         router.refresh();
       }
     });
@@ -129,6 +140,8 @@ export function BorrowerVerificationDocumentsPanel({
         isConsentPending={isConsentPending}
         onConsentCheckedChange={setConsentChecked}
         onAccept={acceptDisclosures}
+        dialogOpen={consentDialogOpen}
+        onDialogOpenChange={setConsentDialogOpen}
       />
 
       <RequiredDocumentsSection
@@ -136,8 +149,6 @@ export function BorrowerVerificationDocumentsPanel({
         canUpload={canUpload}
         disclosuresCurrent={disclosuresCurrent}
       />
-
-      <WhatNextSection facingState={facingState} readinessStatus={readinessStatus} />
 
       <SupportingDocumentsSection
         verification={verification}
@@ -166,47 +177,40 @@ function HeaderCard({
   verification: BorrowerVerificationSummary;
 }) {
   const tone = getFacingStateTone(facingState);
+  const isWaiting = facingState === "waiting_review" || facingState === "under_review";
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <CardTitle>Borrower verification</CardTitle>
-          <ToneBadge tone={tone}>
-            {borrowerFacingVerificationStateLabels[facingState]}
-          </ToneBadge>
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-base font-semibold">Borrower verification</h2>
+        <ToneBadge tone={tone}>
+          {borrowerFacingVerificationStateLabels[facingState]}
+        </ToneBadge>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        {borrowerFacingVerificationStateDescriptions[facingState]}
+      </p>
+      {isWaiting ? (
+        <div className="flex items-center gap-2.5 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <Clock className="size-4 shrink-0" />
+          No action needed right now.
         </div>
-        <CardDescription>
-          {borrowerFacingVerificationStateDescriptions[facingState]}
-        </CardDescription>
-      </CardHeader>
-      {facingState === "waiting_review" ? (
-        <CardContent>
-          <div className="flex items-center gap-2 rounded-xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
-            <Clock className="size-4 shrink-0" />
-            No action needed right now.
-          </div>
-        </CardContent>
       ) : null}
       {verification.rejectionReason ? (
-        <CardContent>
-          <Alert variant="destructive">
-            <AlertDescription>
-              {verification.rejectionReason}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
+        <Alert variant="destructive">
+          <AlertDescription>
+            {verification.rejectionReason}
+          </AlertDescription>
+        </Alert>
       ) : null}
       {verification.managerReviewNotes ? (
-        <CardContent>
-          <Alert>
-            <AlertDescription>
-              {verification.managerReviewNotes}
-            </AlertDescription>
-          </Alert>
-        </CardContent>
+        <Alert>
+          <AlertDescription>
+            {verification.managerReviewNotes}
+          </AlertDescription>
+        </Alert>
       ) : null}
-    </Card>
+    </div>
   );
 }
 
@@ -217,6 +221,8 @@ function DisclosuresSection({
   isConsentPending,
   onConsentCheckedChange,
   onAccept,
+  dialogOpen,
+  onDialogOpenChange,
 }: {
   consentStatus: ConsentStatus | null;
   consentChecked: boolean;
@@ -224,109 +230,110 @@ function DisclosuresSection({
   isConsentPending: boolean;
   onConsentCheckedChange: (checked: boolean) => void;
   onAccept: () => void;
+  dialogOpen: boolean;
+  onDialogOpenChange: (open: boolean) => void;
 }) {
   if (!consentStatus) {
     return null;
   }
 
   if (consentStatus.isCurrent) {
-    return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Disclosures</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center justify-between gap-3 rounded-xl bg-muted/50 px-4 py-3">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
-              <div className="min-w-0">
-                <p className="text-sm font-medium">Disclosures accepted</p>
-                <p className="text-xs text-muted-foreground">
-                  Terms, Privacy Notice, and Document Processing Consent are
-                  current.
-                </p>
-              </div>
-            </div>
-            <ToneBadge tone="success">Done</ToneBadge>
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return null;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Disclosures</CardTitle>
-        <CardDescription>
-          Accept these before uploading verification documents.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-3">
-        <div className="grid gap-1">
-          {consentStatus.required.map((consent) => {
-            const accepted = consentStatus.accepted.find(
-              (item) =>
-                item.consentType === consent.consentType &&
-                item.version === consent.version,
-            );
-
-            return (
-              <CompactRow
-                key={`${consent.consentType}-${consent.version}`}
-                label={consentTypeLabels[consent.consentType]}
-                detail={
-                  accepted
-                    ? `Accepted ${formatDateTime(accepted.acceptedAt)}`
-                    : "Not accepted"
-                }
-                badge={
-                  <ToneBadge tone={accepted ? "success" : "attention"}>
-                    {accepted ? "Accepted" : "Missing"}
-                  </ToneBadge>
-                }
-              />
-            );
-          })}
+    <div className="grid gap-3 rounded-2xl bg-muted/40 px-5 py-4 sm:flex sm:items-center sm:justify-between">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <AlertCircle className="size-4 shrink-0 text-amber-600" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Disclosures required</p>
+          <p className="text-xs text-muted-foreground">
+            Accept before uploading verification documents.
+          </p>
         </div>
-
-        <Separator />
-
-        <div className="grid gap-3 rounded-xl bg-background px-4 py-3">
-          <div className="flex items-start gap-3">
-            <Checkbox
-              id="verification-consent"
-              checked={consentChecked}
-              onCheckedChange={(checked) =>
-                onConsentCheckedChange(checked === true)
-              }
-              className="mt-0.5"
-            />
-            <Label
-              htmlFor="verification-consent"
-              className="text-sm font-semibold leading-snug cursor-pointer"
-            >
-              I accept the required disclosures for verification.
-            </Label>
-          </div>
-          <Button
-            disabled={!consentChecked || isConsentPending}
-            onClick={onAccept}
-            className="w-fit rounded-full h-10 px-5 font-semibold"
-          >
-            {isConsentPending ? "Accepting..." : "Accept disclosures"}
+      </div>
+      <Dialog open={dialogOpen} onOpenChange={onDialogOpenChange}>
+        <DialogTrigger asChild>
+          <Button size="sm" className="rounded-full font-semibold sm:shrink-0">
+            Review &amp; accept
           </Button>
-          {consentMessage ? (
-            <p
-              className="text-sm leading-6 text-muted-foreground"
-              role="status"
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Disclosures</DialogTitle>
+            <DialogDescription>
+              Accept these before uploading verification documents.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid gap-1">
+            {consentStatus.required.map((consent) => {
+              const accepted = consentStatus.accepted.find(
+                (item) =>
+                  item.consentType === consent.consentType &&
+                  item.version === consent.version,
+              );
+
+              return (
+                <CompactRow
+                  key={`${consent.consentType}-${consent.version}`}
+                  label={consentTypeLabels[consent.consentType]}
+                  detail={
+                    accepted
+                      ? `Accepted ${formatDateTime(accepted.acceptedAt)}`
+                      : "Not accepted"
+                  }
+                  badge={
+                    <ToneBadge tone={accepted ? "success" : "attention"}>
+                      {accepted ? "Accepted" : "Missing"}
+                    </ToneBadge>
+                  }
+                />
+              );
+            })}
+          </div>
+
+          <Separator />
+
+          <div className="grid gap-3">
+            <div className="flex items-start gap-3">
+              <Checkbox
+                id="verification-consent-dialog"
+                checked={consentChecked}
+                onCheckedChange={(checked) =>
+                  onConsentCheckedChange(checked === true)
+                }
+                className="mt-0.5"
+              />
+              <Label
+                htmlFor="verification-consent-dialog"
+                className="text-sm font-semibold leading-snug cursor-pointer"
+              >
+                I accept the required disclosures for verification.
+              </Label>
+            </div>
+            {consentMessage ? (
+              <p
+                className="text-sm leading-6 text-muted-foreground"
+                role="status"
+              >
+                {consentMessage}
+              </p>
+            ) : null}
+          </div>
+
+          <DialogFooter>
+            <Button
+              disabled={!consentChecked || isConsentPending}
+              onClick={onAccept}
+              className="rounded-full font-semibold"
             >
-              {consentMessage}
-            </p>
-          ) : null}
-        </div>
-      </CardContent>
-    </Card>
+              {isConsentPending ? "Accepting..." : "Accept disclosures"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   );
 }
 
@@ -347,7 +354,7 @@ function RequiredDocumentsSection({
           Upload both required documents to proceed with verification.
         </CardDescription>
       </CardHeader>
-      <CardContent className="grid gap-3">
+      <CardContent className="grid gap-4">
         {requiredBorrowerVerificationDocumentTypes.map((docType) => (
           <RequiredDocumentCard
             key={docType}
@@ -394,13 +401,13 @@ function RequiredDocumentCard({
   const showUpload = canUpload && docStatus.state !== "accepted";
 
   return (
-    <div className="rounded-xl border border-border/60 p-4 grid gap-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 grid gap-0.5">
+    <div className="rounded-xl border border-border/60 p-4 grid gap-4">
+      <div className="grid gap-2">
+        <div className="min-w-0">
           <p className="text-sm font-semibold">
             {borrowerVerificationDocumentTypeLabels[documentType]}
           </p>
-          <p className="text-xs text-muted-foreground">
+          <p className="mt-0.5 text-xs text-muted-foreground">
             {borrowerVerificationDocumentTypeDescriptions[documentType]}
           </p>
         </div>
@@ -408,20 +415,22 @@ function RequiredDocumentCard({
       </div>
 
       {latestDoc ? (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <FileText className="size-3.5 shrink-0" />
-          <span className="truncate">{latestDoc.fileName}</span>
-          <span className="shrink-0">
-            {formatFileSize(latestDoc.fileSize)}
-          </span>
-          {latestDoc.viewUrl ? (
-            <Button variant="outline" size="sm" className="ml-auto h-7 text-xs" asChild>
-              <a href={latestDoc.viewUrl} target="_blank" rel="noreferrer">
-                <ExternalLinkIcon className="size-3" />
-                View
-              </a>
-            </Button>
-          ) : null}
+        <div className="grid gap-1.5 rounded-lg bg-muted/40 px-3 py-2.5">
+          <div className="flex items-center gap-2 text-xs">
+            <FileText className="size-3.5 shrink-0 text-muted-foreground" />
+            <span className="min-w-0 truncate font-medium">{latestDoc.fileName}</span>
+          </div>
+          <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span>{formatFileSize(latestDoc.fileSize)}</span>
+            {latestDoc.viewUrl ? (
+              <Button variant="outline" size="sm" className="h-7 shrink-0 text-xs" asChild>
+                <a href={latestDoc.viewUrl} target="_blank" rel="noreferrer">
+                  <ExternalLinkIcon className="size-3" />
+                  View
+                </a>
+              </Button>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -434,7 +443,7 @@ function RequiredDocumentCard({
       {showUpload ? (
         <>
           <Separator />
-          <form ref={formRef} action={formAction} className="grid gap-2">
+          <form ref={formRef} action={formAction} className="grid gap-3">
             <input type="hidden" name="documentType" value={documentType} />
             <input
               name="documentFile"
@@ -449,7 +458,6 @@ function RequiredDocumentCard({
             <Button
               type="submit"
               disabled={isPending}
-              variant={docStatus.state === "rejected" ? "default" : "default"}
               className="w-fit rounded-full h-9 px-4 text-sm font-semibold"
             >
               <UploadIcon className="size-3.5" />
@@ -478,43 +486,6 @@ function RequiredDocumentCard({
         </p>
       ) : null}
     </div>
-  );
-}
-
-function WhatNextSection({
-  facingState,
-  readinessStatus,
-}: {
-  facingState: BorrowerFacingVerificationState;
-  readinessStatus?: BorrowerReadinessStatus | null;
-}) {
-  const profileBlocksApply =
-    readinessStatus === "needs_review" ||
-    readinessStatus === "not_eligible" ||
-    readinessStatus === "incomplete";
-
-  const messages: Record<BorrowerFacingVerificationState, string> = {
-    missing_disclosures: "Accept the required disclosures first.",
-    missing_documents: "Upload the required documents.",
-    waiting_review: "A manager will review your documents.",
-    under_review: "A manager is reviewing your documents.",
-    needs_update: "Replace the rejected document.",
-    approved: profileBlocksApply
-      ? "Verification is approved. Update your borrower profile before applying."
-      : "You can now apply for financing.",
-  };
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>What happens next</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-sm text-muted-foreground">
-          {messages[facingState]}
-        </p>
-      </CardContent>
-    </Card>
   );
 }
 
@@ -558,7 +529,7 @@ function SupportingDocumentsSection({
       <button
         type="button"
         onClick={onToggle}
-        className="flex w-full items-center justify-between px-4 py-3 text-left"
+        className="flex w-full items-center justify-between px-5 py-4 text-left"
       >
         <div className="grid gap-0.5">
           <p className="text-sm font-medium">Supporting documents</p>
@@ -574,34 +545,36 @@ function SupportingDocumentsSection({
       </button>
 
       {isOpen ? (
-        <div className="px-4 pb-4 grid gap-3">
-          <Separator />
+        <div className="px-5 pb-4 grid gap-4">
 
           {supportingDocs.length > 0 ? (
             <div className="grid gap-2">
               {supportingDocs.map((doc) => (
                 <div
                   key={doc.id}
-                  className="flex items-center justify-between gap-3 rounded-lg border border-border/60 px-3 py-2"
+                  className="rounded-lg border border-border/60 px-3 py-2.5 grid gap-1.5"
                 >
-                  <div className="min-w-0 grid gap-0.5">
-                    <p className="text-xs font-medium truncate">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="min-w-0 truncate text-xs font-medium">
                       {doc.fileName}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <ToneBadge tone={getDocumentTone(doc.status)}>
+                      {borrowerVerificationDocumentStatusLabels[doc.status]}
+                    </ToneBadge>
+                  </div>
+                  <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                    <span>
                       {
                         borrowerVerificationDocumentTypeLabels[
                           doc.documentType
                         ]
                       }
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
+                    </span>
                     {doc.viewUrl ? (
                       <Button
                         variant="outline"
                         size="sm"
-                        className="h-7 text-xs"
+                        className="h-7 shrink-0 text-xs"
                         asChild
                       >
                         <a href={doc.viewUrl} target="_blank" rel="noreferrer">
@@ -610,9 +583,6 @@ function SupportingDocumentsSection({
                         </a>
                       </Button>
                     ) : null}
-                    <ToneBadge tone={getDocumentTone(doc.status)}>
-                      {borrowerVerificationDocumentStatusLabels[doc.status]}
-                    </ToneBadge>
                   </div>
                 </div>
               ))}
@@ -625,11 +595,10 @@ function SupportingDocumentsSection({
 
           {canAddSupporting ? (
             <>
-              <Separator />
               <form
                 ref={formRef}
                 action={formAction}
-                className="grid gap-2"
+                className="grid gap-3"
               >
                 <div className="grid gap-1.5">
                   <Label

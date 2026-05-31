@@ -154,11 +154,7 @@ export function BorrowerPortfolioForm({
         </Alert>
       ) : null}
 
-      {loadState === "empty" ? (
-        <Alert className="border-dashed">
-          <AlertDescription>Add your business details to continue.</AlertDescription>
-        </Alert>
-      ) : null}
+
 
       <FormSection
         title="Business details"
@@ -274,21 +270,18 @@ export function BorrowerPortfolioForm({
         title="Loan use"
         description="Describe how the financing would support the business."
       >
-        <div className="sm:col-span-2">
-          <Field
-            label="Loan purpose"
-            error={errors.loanPurposeContext?.message}
+        <div className="sm:col-span-2 grid gap-1.5">
+          <Textarea
             id="loanPurposeContext"
-          >
-            <Textarea
-              id="loanPurposeContext"
-              aria-invalid={Boolean(errors.loanPurposeContext)}
-              aria-describedby={errors.loanPurposeContext ? "loanPurposeContext-error" : undefined}
-              {...register("loanPurposeContext")}
-              rows={3}
-              placeholder="Describe the loan purpose in at least 40 characters, including what the funds will be used for and how it supports the business."
-            />
-          </Field>
+            aria-invalid={Boolean(errors.loanPurposeContext)}
+            aria-describedby={errors.loanPurposeContext ? "loanPurposeContext-error" : undefined}
+            {...register("loanPurposeContext")}
+            rows={3}
+            placeholder="Describe the loan purpose in at least 40 characters, including what the funds will be used for and how it supports the business."
+          />
+          {errors.loanPurposeContext?.message ? (
+            <span id="loanPurposeContext-error" className="text-sm leading-5 text-destructive">{errors.loanPurposeContext.message}</span>
+          ) : null}
         </div>
       </FormSection>
 
@@ -354,7 +347,7 @@ function FormSection({
   children: ReactNode;
 }) {
   return (
-    <section className="grid gap-3 border-b border-border pb-5 last:border-b-0 last:pb-0">
+    <section className="grid gap-3">
       <div className="grid gap-1">
         <h3 className="text-base font-semibold">{title}</h3>
         {description ? (

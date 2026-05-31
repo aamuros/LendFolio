@@ -66,7 +66,7 @@ export function DocumentActionsCell({
             <DropdownMenuItem asChild>
               <a href={viewUrl} target="_blank" rel="noreferrer">
                 <ExternalLinkIcon className="size-3.5" />
-                View document
+                View
               </a>
             </DropdownMenuItem>
           ) : null}

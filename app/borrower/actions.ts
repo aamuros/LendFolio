@@ -247,7 +247,7 @@ export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResu
       ok: true,
       mode: "supabase",
       data: data ? mapBorrowerPortfolioRow(data) : null,
-      message: data ? "Profile loaded." : "Add your business details to continue.",
+      message: data ? "Profile loaded." : "",
     };
   } catch {
     return {

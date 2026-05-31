@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { getManagerAccess } from "../manager-access";
 import { borrowerVerificationDocumentTypeLabels } from "@/lib/borrower-verification";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
@@ -22,6 +23,7 @@ import {
   formatDateTime,
 } from "../manager-ui";
 import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
+import { VerificationToast } from "@/app/manager/borrower-verifications/verification-toast";
 import { DocumentActionsCell } from "@/app/manager/document-review-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -116,10 +118,9 @@ export default async function ManagerBorrowerVerificationsPage({
         showHeading={false}
       >
         <div className="space-y-4">
-          <ReviewStatus
-            review={params.review}
-            documentReview={params.documentReview}
-          />
+          <Suspense>
+            <VerificationToast />
+          </Suspense>
 
           {!selectedResult.ok || !selectedResult.verification ? (
             <div className="space-y-3">
@@ -205,10 +206,9 @@ export default async function ManagerBorrowerVerificationsPage({
           ) : null}
         </div>
 
-        <ReviewStatus
-          review={params.review}
-          documentReview={params.documentReview}
-        />
+        <Suspense>
+          <VerificationToast />
+        </Suspense>
 
         {!result.ok ? (
           <StatusMessage message={result.message} tone="error" />
@@ -312,71 +312,6 @@ function BorrowerReviewFilters({
       </CardContent>
     </Card>
   );
-}
-
-function ReviewStatus({
-  review,
-  documentReview,
-}: {
-  review?: string;
-  documentReview?: string;
-}) {
-  if (review === "approved") {
-    return <StatusMessage message="Borrower verification approved." />;
-  }
-
-  if (review === "rejected") {
-    return <StatusMessage message="Borrower verification rejected." />;
-  }
-
-  if (review === "pending") {
-    return (
-      <StatusMessage message="Borrower verification returned to pending." />
-    );
-  }
-
-  if (review === "needs-resubmission") {
-    return (
-      <StatusMessage message="Borrower verification marked for resubmission." />
-    );
-  }
-
-  if (review === "documents-required") {
-    return (
-      <StatusMessage
-        message="Accept the required documents before approving verification."
-        tone="error"
-      />
-    );
-  }
-
-  if (review === "error") {
-    return (
-      <StatusMessage
-        message="Could not update borrower verification."
-        tone="error"
-      />
-    );
-  }
-
-  if (documentReview === "accepted") {
-    return <StatusMessage message="Verification document accepted." />;
-  }
-
-  if (documentReview === "rejected") {
-    return <StatusMessage message="Verification document rejected." />;
-  }
-
-  if (documentReview === "error") {
-    return (
-      <StatusMessage
-        message="Could not update verification document."
-        tone="error"
-      />
-    );
-  }
-
-  return null;
 }
 
 function BorrowerQueueTable({
@@ -582,11 +517,7 @@ function SelectedBorrowerDetail({
         selected={selected}
       />
 
-      <Separator />
-
       <ReadinessSummaryCard verification={verification} />
-
-      <Separator />
 
       <Collapsible defaultOpen={false}>
         <div className="space-y-3">
@@ -615,18 +546,13 @@ function SelectedBorrowerDetail({
         </div>
       </Collapsible>
 
-      <Separator />
-
       <EvidenceHistorySection documents={verification.documents} />
 
       {hasNotes ? (
-        <>
-          <Separator />
-          <ExistingNotesSection
-            rejectionReason={verification.rejectionReason}
-            managerReviewNotes={verification.managerReviewNotes}
-          />
-        </>
+        <ExistingNotesSection
+          rejectionReason={verification.rejectionReason}
+          managerReviewNotes={verification.managerReviewNotes}
+        />
       ) : null}
     </div>
   );
@@ -690,7 +616,7 @@ function SelectedBorrowerDetail({
         {hasAction ? (
           <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
             {mainContent}
-            <div className="space-y-4 lg:sticky lg:top-16 lg:self-start">
+            <div className="space-y-4 lg:sticky lg:top-16 lg:self-start lg:mt-7">
               <ManagerDecisionPanel
                 verification={verification}
                 selected={selected}
@@ -822,34 +748,14 @@ function RequiredDocumentsSection({
         </span>
       </div>
 
-      {hasMissing ? (
-        <Alert>
-          <AlertCircleIcon className="size-4" />
-          <AlertDescription>
-            The borrower must upload the missing required documents before this
-            verification can be approved.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
       {!hasMissing && hasSubmittedNotAccepted ? (
-        <Alert>
-          <AlertCircleIcon className="size-4" />
-          <AlertDescription>
+        <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <span>
             All required documents are uploaded. Accept each document before
             approving borrower verification.
-          </AlertDescription>
-        </Alert>
-      ) : null}
-
-      {documentPolicy.documentsAccepted ? (
-        <Alert>
-          <CheckCircle2Icon className="size-4" />
-          <AlertDescription>
-            All required documents are accepted. This verification is ready for
-            approval.
-          </AlertDescription>
-        </Alert>
+          </span>
+        </div>
       ) : null}
 
       <div className="hidden sm:block">

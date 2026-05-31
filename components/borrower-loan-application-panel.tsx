@@ -1351,13 +1351,17 @@ function FinancingSummaryCard({
             ) : null}
           </>
         ) : hasPortfolio ? (
-          <p className="text-sm text-muted-foreground">
-            Your credit limit will appear after your profile is evaluated.
-          </p>
+          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              Your credit limit will appear after your profile is evaluated.
+            </p>
+          </div>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            Complete your business profile to calculate your request limit.
-          </p>
+          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
+            <p className="text-xs text-muted-foreground">
+              Complete your business profile to calculate your request limit.
+            </p>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -1552,8 +1556,7 @@ function RepaymentCalendarCard({
         <CardContent
           className={cn(
             "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
-            !isEmpty &&
-              "xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:items-start",
+            "xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:items-start",
           )}
         >
           <div className="mx-auto w-full min-w-0 max-w-[22rem] xl:mx-0 xl:min-h-[26rem]">
@@ -1607,7 +1610,7 @@ function RepaymentCalendarCard({
         </div>
 
         {isEmpty ? (
-          <div className="grid gap-1 text-center">
+          <div className="flex flex-col items-center justify-center gap-1 text-center xl:min-h-[26rem]">
             <p className="text-sm text-muted-foreground">
               No repayment dates yet
             </p>
