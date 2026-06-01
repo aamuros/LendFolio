@@ -40,15 +40,21 @@ import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
+import { LenderOffersHighlighter } from "@/components/lender/lender-offers-highlighter";
 
 export const dynamic = "force-dynamic";
 
 type LenderPageProps = {
-  searchParams: Promise<{ message?: string; tab?: string }>;
+  searchParams: Promise<{
+    message?: string;
+    tab?: string;
+    offerId?: string;
+    proofId?: string;
+  }>;
 };
 
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab } = await searchParams;
+  const { message, tab, offerId, proofId } = await searchParams;
 
   if (message === "signed-in") {
     redirect("/lender");
@@ -200,7 +206,12 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           ) : null}
 
           {activeTab === "offers" ? (
-            <OffersTab offers={offers} error={!offersResult.ok ? offersResult.message : ""} />
+            <OffersTab
+              offers={offers}
+              error={!offersResult.ok ? offersResult.message : ""}
+              highlightOfferId={offerId ?? null}
+              highlightProofId={proofId ?? null}
+            />
           ) : null}
 
           {activeTab === "account" ? (
@@ -503,9 +514,13 @@ function HomeTab({
 function OffersTab({
   offers,
   error,
+  highlightOfferId,
+  highlightProofId,
 }: {
   offers: LenderOfferReview[];
   error: string;
+  highlightOfferId: string | null;
+  highlightProofId: string | null;
 }) {
   const knownStatuses = new Set(["pending", "accepted", "declined", "expired"]);
   const groups = [
@@ -518,6 +533,18 @@ function OffersTab({
       offers: offers.filter((offer) => !knownStatuses.has(offer.status)),
     },
   ];
+
+  let resolvedHighlightOfferId = highlightOfferId;
+
+  if (highlightProofId && !resolvedHighlightOfferId) {
+    for (const offer of offers) {
+      const schedule = offer.activeLoan?.schedule;
+      if (schedule?.some((repayment) => repayment.proofs.some((proof) => proof.id === highlightProofId))) {
+        resolvedHighlightOfferId = offer.id;
+        break;
+      }
+    }
+  }
 
   return (
     <section className="grid gap-5">
@@ -548,11 +575,20 @@ function OffersTab({
               {group.label}
             </h2>
             {group.offers.map((offer) => (
-              <OfferCard key={offer.id} offer={offer} />
+              <div key={offer.id} id={`offer-${offer.id}`}>
+                <OfferCard
+                  offer={offer}
+                  isHighlighted={offer.id === resolvedHighlightOfferId}
+                />
+              </div>
             ))}
           </div>
         ) : null,
       )}
+
+      {resolvedHighlightOfferId ? (
+        <LenderOffersHighlighter highlightOfferId={resolvedHighlightOfferId} />
+      ) : null}
     </section>
   );
 }
@@ -572,9 +608,12 @@ function offerStatusTone(status: string) {
   }
 }
 
-function OfferCard({ offer }: { offer: LenderOfferReview }) {
-  const isQuiet = offer.status !== "pending";
+function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview; isHighlighted?: boolean }) {
   const activeLoan = offer.activeLoan;
+  const hasActionableProofs = activeLoan?.schedule.some(
+    (r) => r.latestProof?.status === "submitted",
+  );
+  const isQuiet = offer.status !== "pending" && !isHighlighted && !hasActionableProofs;
   const context = offer.application?.portfolio
     ? `${offer.application.portfolio.businessTypeLabel} in ${offer.application.portfolio.location}`
     : "Application context unavailable";
@@ -582,7 +621,8 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
   return (
     <Card
       className={cn(
-        "rounded-2xl border-border/50 shadow-sm",
+        "rounded-2xl border-border/50 shadow-sm transition",
+        isHighlighted && "ring-2 ring-primary/30",
         isQuiet && "opacity-75",
       )}
     >
@@ -660,68 +700,66 @@ function OfferCard({ offer }: { offer: LenderOfferReview }) {
               <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
             </dl>
             {activeLoan.schedule.length > 0 ? (
-              <CollapsibleSection triggerLabel="Repayment schedule">
-                <Card className="rounded-xl bg-muted/30">
-                  <CardContent className="grid gap-3 p-4">
-                    {activeLoan.schedule.map((repayment) => {
-                      const latestProof = repayment.latestProof;
-                      const currentSubmittedProof =
-                        latestProof?.status === "submitted" ? latestProof : null;
+              <CollapsibleSection
+                triggerLabel="Repayment schedule"
+                defaultOpen={activeLoan.schedule.some((r) => r.latestProof?.status === "submitted")}
+              >
+                <div className="divide-y divide-border/60">
+                  {activeLoan.schedule.map((repayment) => {
+                    const latestProof = repayment.latestProof;
+                    const needsReview = latestProof?.status === "submitted";
 
-                      return (
-                        <div
-                          key={repayment.id}
-                          className="grid gap-3 border-t border-border pt-3 first:border-t-0 first:pt-0"
-                        >
-                          <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                            <MiniMetric
-                              label="Installment"
-                              value={`#${repayment.installmentNumber}`}
-                            />
-                            <MiniMetric
-                              label="Amount due"
-                              value={`PHP ${formatCurrency(repayment.amountDue)}`}
-                            />
-                            <MiniMetric
-                              label="Due"
-                              value={formatDateOnly(repayment.dueDate)}
-                            />
-                            <MiniMetric
-                              label="Repayment"
-                              value={formatRepaymentStatus(repayment.status)}
-                            />
-                            <MiniMetric
-                              label="Proof"
-                              value={
-                                latestProof
-                                  ? formatProofStatus(latestProof.status)
-                                  : "Not submitted"
-                              }
-                            />
-                          </dl>
-                          {latestProof ? (
-                            <ProofReviewState
-                              proofStatus={latestProof.status}
-                              reviewNotes={latestProof.reviewNotes}
-                            />
+                    return (
+                      <div
+                        key={repayment.id}
+                        className="py-2.5 first:pt-0 last:pb-0"
+                      >
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="text-sm font-medium">
+                            #{repayment.installmentNumber}
+                          </span>
+                          <span className="text-sm font-semibold tabular-nums">
+                            PHP {formatCurrency(repayment.amountDue)}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Due {formatDateOnly(repayment.dueDate)}
+                          {needsReview ? (
+                            <span className="font-medium text-foreground">
+                              {" · "}Needs review
+                            </span>
+                          ) : latestProof ? (
+                            ` · ${formatRepaymentStatus(repayment.status)}`
                           ) : (
-                            <p className="rounded-xl border border-border bg-card px-3 py-2 text-sm leading-6 text-muted-foreground">
-                              Waiting for the borrower to upload proof for this installment.
-                            </p>
+                            " · Awaiting borrower proof"
                           )}
-                          {repayment.proofs.length > 0 ? (
-                            <CollapsibleSection triggerLabel="Proof attempts">
+                        </p>
+
+                        {needsReview && latestProof ? (
+                          <div className="mt-2">
+                            <LenderRepaymentProofActions
+                              proofId={latestProof.id}
+                              proofStatus={latestProof.status}
+                              proofUrl={latestProof.viewUrl}
+                              proofFileName={latestProof.fileName}
+                              proofFileSize={latestProof.fileSize}
+                              proofFileType={latestProof.fileType}
+                            />
+                          </div>
+                        ) : !needsReview && repayment.proofs.length > 0 ? (
+                          <div className="mt-1.5">
+                            <CollapsibleSection triggerLabel="Proof history">
                               <LenderProofHistory
-                                currentSubmittedProofId={currentSubmittedProof?.id ?? null}
+                                currentSubmittedProofId={null}
                                 proofs={repayment.proofs}
                               />
                             </CollapsibleSection>
-                          ) : null}
-                        </div>
-                      );
-                    })}
-                  </CardContent>
-                </Card>
+                          </div>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
               </CollapsibleSection>
             ) : null}
           </div>
@@ -761,8 +799,8 @@ function LenderProofHistory({
             <ProofStatusBadge status={proof.status} />
           </div>
           {proof.reviewNotes ? (
-            <p className="rounded-xl bg-muted/50 px-3 py-2 text-sm leading-6 text-muted-foreground">
-              {proof.reviewNotes}
+            <p className="text-xs text-muted-foreground">
+              Note: {proof.reviewNotes}
             </p>
           ) : null}
           {proof.id === currentSubmittedProofId ? (
@@ -786,41 +824,6 @@ function LenderProofHistory({
       ))}
     </div>
   );
-}
-
-function ProofReviewState({
-  proofStatus,
-  reviewNotes,
-}: {
-  proofStatus: string;
-  reviewNotes: string | null;
-}) {
-  if (proofStatus === "submitted") {
-    return (
-      <p className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm leading-6 text-foreground">
-        Review the submitted proof, then verify the repayment or reject it with a note.
-      </p>
-    );
-  }
-
-  if (proofStatus === "verified") {
-    return (
-      <p className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-700">
-        Proof verified. This installment is marked paid.
-      </p>
-    );
-  }
-
-  if (proofStatus === "rejected") {
-    return (
-      <p className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive">
-        Proof rejected. The borrower can upload a corrected proof.
-        {reviewNotes ? ` Note: ${reviewNotes}` : ""}
-      </p>
-    );
-  }
-
-  return null;
 }
 
 function ProofStatusBadge({ status }: { status: string }) {

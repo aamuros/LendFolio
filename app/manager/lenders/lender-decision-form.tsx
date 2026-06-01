@@ -23,7 +23,7 @@ export function LenderDecisionForm({
   const [rejectionReason, setRejectionReason] = useState("");
 
   const isBlocked = blocked ?? !disclosuresCurrent;
-  const reason = blockerReason ?? "Approval blocked until required disclosures are accepted.";
+  const reason = blockerReason ?? "Approval is on hold until required disclosures are accepted.";
 
   return (
     <form action={reviewLenderAction} className="grid gap-3">
@@ -62,7 +62,7 @@ export function LenderDecisionForm({
         />
       </div>
       {isBlocked ? (
-        <div className="flex items-start gap-2 rounded-md border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">
+        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
           <ShieldAlertIcon className="mt-0.5 size-3.5 shrink-0" />
           <span>{reason}</span>
         </div>

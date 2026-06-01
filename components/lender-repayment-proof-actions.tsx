@@ -10,7 +10,6 @@ import type { RepaymentProofStatus } from "@/lib/supabase/types";
 import { canReviewRepaymentProof } from "@/lib/workflow-rules";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 
@@ -39,6 +38,7 @@ export function LenderRepaymentProofActions({
   const [reviewedStatus, setReviewedStatus] =
     useState<RepaymentProofStatus | null>(null);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [showRejectForm, setShowRejectForm] = useState(false);
   const canReview = canReviewRepaymentProof(reviewedStatus ?? proofStatus);
 
   function onVerify() {
@@ -77,74 +77,84 @@ export function LenderRepaymentProofActions({
       if (result.ok) {
         setNote("");
         setReviewedStatus("rejected");
+        setShowRejectForm(false);
         router.refresh();
       }
     });
   }
 
   return (
-    <div className="grid gap-3 border-t border-border pt-3">
-      <div className="grid gap-2 sm:flex sm:flex-wrap">
+    <div className="grid gap-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          onClick={onVerify}
+          disabled={isPending || !canReview}
+        >
+          {reviewedStatus === "verified" ? "Verified" : "Verify repayment"}
+        </Button>
         {proofUrl ? (
           <Button
+            size="sm"
             variant="outline"
-            className="h-10 rounded-full font-semibold"
             onClick={() => setPreviewOpen(true)}
           >
             Preview proof
           </Button>
         ) : null}
-        <Button
-          onClick={onVerify}
-          disabled={isPending || !canReview}
-          className="h-10 rounded-full font-semibold"
-        >
-          {reviewedStatus === "verified" ? "Verified" : "Verify repayment"}
-        </Button>
+        {!showRejectForm && canReview ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="text-muted-foreground hover:text-destructive"
+            onClick={() => setShowRejectForm(true)}
+            disabled={isPending}
+          >
+            Reject
+          </Button>
+        ) : null}
       </div>
 
-      <div className="grid gap-2">
-        <Label htmlFor={`reject-note-${proofId}`} className="text-sm font-semibold">
-          Rejection note
-        </Label>
-        <Textarea
-          id={`reject-note-${proofId}`}
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          rows={2}
-          maxLength={280}
-          disabled={isPending || !canReview}
-          placeholder="Tell the borrower what to correct."
-        />
-        <p className="text-xs leading-5 text-muted-foreground">
-          Rejection notes are shown to the borrower with the corrected upload step.
-        </p>
-        <Button
-          variant="outline"
-          onClick={onReject}
-          disabled={isPending || !canReview}
-          className="h-10 w-full rounded-full font-semibold text-destructive hover:text-destructive sm:w-fit"
-        >
-          {reviewedStatus === "rejected" ? "Rejected" : "Reject proof"}
-        </Button>
-      </div>
-
-      {!canReview && !message ? (
-        <p
-          className="rounded-xl border border-border bg-muted/30 px-3 py-2 text-sm leading-6 text-foreground"
-          role="status"
-        >
-          This proof has already been reviewed.
-        </p>
+      {showRejectForm ? (
+        <div className="grid gap-1.5">
+          <Textarea
+            id={`reject-note-${proofId}`}
+            value={note}
+            onChange={(event) => setNote(event.target.value)}
+            rows={2}
+            maxLength={280}
+            disabled={isPending || !canReview}
+            placeholder="Reason for rejection (optional)"
+          />
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShowRejectForm(false);
+                setNote("");
+              }}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              variant="destructive"
+              onClick={onReject}
+              disabled={isPending || !canReview}
+            >
+              {reviewedStatus === "rejected" ? "Rejected" : "Confirm rejection"}
+            </Button>
+          </div>
+        </div>
       ) : null}
 
       {message ? (
         <p
           className={cn(
-            "rounded-xl border px-3 py-2 text-sm leading-6",
-            tone === "error"
-              ? "border-destructive/30 bg-destructive/10 text-destructive"
-              : "border-emerald-200 bg-emerald-50 text-emerald-700",
+            "text-xs",
+            tone === "error" ? "text-destructive" : "text-emerald-700",
           )}
           role="status"
         >

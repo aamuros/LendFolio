@@ -503,9 +503,9 @@ function SelectedLenderDetail({
   const blocked = !profileComplete || !documentsComplete || !disclosuresCurrent;
   const blockerReason = blocked
     ? [
-        !profileComplete ? `Missing profile: ${missingFields.join(", ")}` : null,
-        !documentsComplete ? `Missing documents: ${missingDocuments.map((dt: LenderVerificationDocumentType) => lenderVerificationDocumentTypeLabels[dt]).join(", ")}` : null,
-        !disclosuresCurrent ? "Disclosures not current" : null,
+        !profileComplete ? `Needs profile: ${missingFields.join(", ")}` : null,
+        !documentsComplete ? `Needs documents: ${missingDocuments.map((dt: LenderVerificationDocumentType) => lenderVerificationDocumentTypeLabels[dt]).join(", ")}` : null,
+        !disclosuresCurrent ? "Needs disclosures" : null,
       ]
         .filter(Boolean)
         .join(". ")
@@ -751,7 +751,7 @@ function ReviewReadinessSummary({
         </div>
         <div className="border-t border-border/60 pt-2">
           {blocked ? (
-            <div className="flex items-start gap-2 text-xs text-destructive">
+            <div className="flex items-start gap-2 text-xs text-amber-700">
               <ShieldAlertIcon className="mt-0.5 size-3.5 shrink-0" />
               <span className="font-medium">{blockerReason}</span>
             </div>

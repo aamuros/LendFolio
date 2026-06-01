@@ -6,7 +6,7 @@ import {
   type LenderOnboardingState,
 } from "@/app/lender/onboarding/actions";
 import type { LenderVerificationStatus } from "@/lib/supabase/types";
-import { typicalRepaymentTermOptions } from "@/lib/lender-onboarding";
+import { philippineOperatingAreas, typicalRepaymentTermOptions } from "@/lib/lender-onboarding";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -74,6 +74,9 @@ export function LenderOnboardingForm({
   const [repaymentTerms, setRepaymentTerms] = useState(
     defaultValues.typicalRepaymentTerms,
   );
+  const [operatingArea, setOperatingArea] = useState(
+    defaultValues.operatingArea,
+  );
 
   return (
     <Card className="rounded-2xl">
@@ -118,7 +121,7 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="organizationName">
-                  Company / Organization name
+                  Company / Organization name <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Input
                   id="organizationName"
@@ -134,7 +137,7 @@ export function LenderOnboardingForm({
               </Field>
 
               <Field>
-                <FieldLabel htmlFor="contactPerson">Contact person</FieldLabel>
+                <FieldLabel htmlFor="contactPerson">Contact person <span className="text-destructive">*</span></FieldLabel>
                 <Input
                   id="contactPerson"
                   name="contactPerson"
@@ -151,7 +154,7 @@ export function LenderOnboardingForm({
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
-                  <FieldLabel htmlFor="phoneNumber">Phone number</FieldLabel>
+                  <FieldLabel htmlFor="phoneNumber">Phone number <span className="text-destructive">*</span></FieldLabel>
                   <Input
                     id="phoneNumber"
                     name="phoneNumber"
@@ -168,15 +171,30 @@ export function LenderOnboardingForm({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="operatingArea">Operating area</FieldLabel>
-                  <Input
-                    id="operatingArea"
+                  <FieldLabel htmlFor="operatingArea">Operating area <span className="text-destructive">*</span></FieldLabel>
+                  <input
+                    type="hidden"
                     name="operatingArea"
-                    defaultValue={defaultValues.operatingArea}
-                    placeholder="Metro Manila"
-                    className="h-12 rounded-xl bg-background"
-                    required
+                    value={operatingArea}
                   />
+                  <Select
+                    value={operatingArea}
+                    onValueChange={setOperatingArea}
+                  >
+                    <SelectTrigger
+                      id="operatingArea"
+                      className="h-12 rounded-xl bg-background"
+                    >
+                      <SelectValue placeholder="Select operating area" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {philippineOperatingAreas.map((area) => (
+                        <SelectItem key={area} value={area}>
+                          {area}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FieldErrorHelper
                     messages={state.fieldErrors?.operatingArea}
                   />
@@ -185,7 +203,7 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="businessAddress">
-                  Business address
+                  Business address <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Input
                   id="businessAddress"
@@ -228,7 +246,7 @@ export function LenderOnboardingForm({
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field>
                   <FieldLabel htmlFor="minLoanAmount">
-                    Minimum loan amount (PHP)
+                    Minimum loan amount (PHP) <span className="text-destructive">*</span>
                   </FieldLabel>
                   <Input
                     id="minLoanAmount"
@@ -249,7 +267,7 @@ export function LenderOnboardingForm({
 
                 <Field>
                   <FieldLabel htmlFor="maxLoanAmount">
-                    Maximum loan amount (PHP)
+                    Maximum loan amount (PHP) <span className="text-destructive">*</span>
                   </FieldLabel>
                   <Input
                     id="maxLoanAmount"
@@ -271,7 +289,7 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="typicalRepaymentTerms">
-                  Typical repayment terms
+                  Typical repayment terms <span className="text-destructive">*</span>
                 </FieldLabel>
                 <input
                   type="hidden"
@@ -303,7 +321,7 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="lenderDescription">
-                  Lender description
+                  Lender description <span className="text-destructive">*</span>
                 </FieldLabel>
                 <Textarea
                   id="lenderDescription"

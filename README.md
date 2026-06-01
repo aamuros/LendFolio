@@ -27,8 +27,7 @@ user lookup.
 | Forms | React Hook Form 7 + Zod 4 |
 | Testing | Vitest 4 |
 | CI | GitHub Actions |
-| Hosting | Vercel (approved, not yet active) |
-| Email | Resend (approved, not yet active) |
+| Hosting | Vercel |
 | E2E Testing | Playwright (approved, not yet active) |
 
 ## Project Structure

@@ -31,7 +31,7 @@ function createValidOnboardingFormData() {
   formData.set("contactPerson", "Juan dela Cruz");
   formData.set("phoneNumber", "+63 900 000 0000");
   formData.set("businessAddress", "123 Main Street, Quezon City");
-  formData.set("operatingArea", "Metro Manila");
+  formData.set("operatingArea", "NCR - National Capital Region");
   formData.set("businessRegistrationNumber", "SEC-12345");
   formData.set("minLoanAmount", "5000");
   formData.set("maxLoanAmount", "50000");

@@ -11,10 +11,11 @@ export function LenderToast() {
   const firedRef = useRef(false);
 
   const review = searchParams.get("review");
+  const documentReview = searchParams.get("documentReview");
 
   useEffect(() => {
     if (firedRef.current) return;
-    if (!review) return;
+    if (!review && !documentReview) return;
 
     firedRef.current = true;
 
@@ -32,11 +33,20 @@ export function LenderToast() {
       );
     }
 
+    if (documentReview === "accepted") {
+      toast.success("Document accepted.");
+    } else if (documentReview === "rejected") {
+      toast.error("Document rejected.");
+    } else if (documentReview === "error") {
+      toast.error("Could not update document.");
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     params.delete("review");
+    params.delete("documentReview");
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [review, searchParams, router, pathname]);
+  }, [review, documentReview, searchParams, router, pathname]);
 
   return null;
 }

@@ -322,7 +322,7 @@ describe("lender onboarding schema validation", () => {
     contactPerson: "Juan dela Cruz",
     phoneNumber: "+63 900 000 0000",
     businessAddress: "123 Main Street, Quezon City",
-    operatingArea: "Metro Manila",
+    operatingArea: "NCR - National Capital Region",
     businessRegistrationNumber: "SEC-12345",
     minLoanAmount: "5000",
     maxLoanAmount: "50000",

@@ -1,5 +1,25 @@
 import { z } from "zod";
 
+export const philippineOperatingAreas = [
+  "NCR - National Capital Region",
+  "CAR - Cordillera Administrative Region",
+  "Region I - Ilocos Region",
+  "Region II - Cagayan Valley",
+  "Region III - Central Luzon",
+  "Region IV-A - CALABARZON",
+  "Region IV-B - MIMAROPA",
+  "Region V - Bicol Region",
+  "Region VI - Western Visayas",
+  "Region VII - Central Visayas",
+  "Region VIII - Eastern Visayas",
+  "Region IX - Zamboanga Peninsula",
+  "Region X - Northern Mindanao",
+  "Region XI - Davao Region",
+  "Region XII - SOCCSKSARGEN",
+  "Region XIII - Caraga",
+  "BARMM - Bangsamoro Autonomous Region in Muslim Mindanao",
+] as const;
+
 export const typicalRepaymentTermOptions = [
   "1 month",
   "1 to 3 months",
@@ -37,11 +57,9 @@ export const lenderOnboardingSchema = z.object({
     .trim()
     .min(5, "Business address must be at least 5 characters.")
     .max(240, "Business address must be 240 characters or fewer."),
-  operatingArea: z
-    .string()
-    .trim()
-    .min(2, "Operating area must be at least 2 characters.")
-    .max(160, "Operating area must be 160 characters or fewer."),
+  operatingArea: z.enum(philippineOperatingAreas, {
+    error: "Select your operating area.",
+  }),
   businessRegistrationNumber: z
     .string()
     .trim()

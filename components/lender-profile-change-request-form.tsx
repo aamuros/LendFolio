@@ -11,6 +11,13 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +36,7 @@ import {
   XIcon,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/manager-date-format";
+import { philippineOperatingAreas } from "@/lib/lender-onboarding";
 
 type LenderProfileChangeRequest = {
   id: string;
@@ -73,6 +81,7 @@ export function LenderProfileChangeRequestForm({
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
+  const [operatingArea, setOperatingArea] = useState("");
 
   const pendingRequest = changeRequests.find((r) => r.status === "pending");
 
@@ -80,11 +89,16 @@ export function LenderProfileChangeRequestForm({
     setIsSubmitting(true);
     setMessage("");
 
+    if (formData.get("operatingArea") === "__keep__") {
+      formData.set("operatingArea", "");
+    }
+
     const result = await submitLenderProfileChangeRequest(formData);
     setMessage(result.message);
 
     if (result.ok) {
       setIsOpen(false);
+      setOperatingArea("");
     }
 
     setIsSubmitting(false);
@@ -228,12 +242,38 @@ export function LenderProfileChangeRequestForm({
                     <Label htmlFor="cr-area" className="text-xs font-medium">
                       Operating area
                     </Label>
-                    <Input
-                      id="cr-area"
+                    <input
+                      type="hidden"
                       name="operatingArea"
-                      placeholder={currentProfile.operating_area ?? ""}
-                      maxLength={160}
+                      value={operatingArea}
                     />
+                    <Select
+                      value={operatingArea}
+                      onValueChange={setOperatingArea}
+                    >
+                      <SelectTrigger
+                        id="cr-area"
+                        className="h-9 bg-background"
+                      >
+                        <SelectValue
+                          placeholder={
+                            currentProfile.operating_area
+                              ? `Current: ${currentProfile.operating_area}`
+                              : "Select operating area"
+                          }
+                        />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="__keep__">
+                          Keep current value
+                        </SelectItem>
+                        {philippineOperatingAreas.map((area) => (
+                          <SelectItem key={area} value={area}>
+                            {area}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
 
                   <div className="grid gap-1.5">

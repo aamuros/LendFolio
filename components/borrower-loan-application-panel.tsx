@@ -2681,11 +2681,12 @@ function InlineFeedback({
 
   if (successMessage) {
     return (
-      <Alert>
-        <AlertDescription role="status" className="text-foreground font-semibold">
-          {successMessage}
-        </AlertDescription>
-      </Alert>
+      <p
+        role="status"
+        className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+      >
+        {successMessage}
+      </p>
     );
   }
 
