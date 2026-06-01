@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ArrowRight } from "lucide-react";
-import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
+import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
+import { LenderPageHeader } from "@/components/lender-page-header";
 import {
   formatCurrency,
   formatDate,
@@ -67,7 +68,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
-          <LenderHeader activeTab={activeTab} showNotifications={false} />
+          <LenderPageHeader activeTab={activeTab} showNotifications={false} />
         <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
           <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
@@ -110,7 +111,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
-          <LenderHeader activeTab={activeTab} showNotifications={false} />
+          <LenderPageHeader activeTab={activeTab} showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
             <LenderAccessPanel
               profile={access.profile}
@@ -193,7 +194,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto max-w-7xl">
-        <LenderHeader activeTab={activeTab} accountEmail={user?.email} />
+        <LenderPageHeader activeTab={activeTab} />
 
         <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
           {activeTab === "home" ? (

@@ -443,7 +443,7 @@ export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLo
       supabase
         .from("loan_offers")
         .select(
-          "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, created_at, updated_at",
+          "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at",
         )
         .in("loan_application_id", applicationIds)
         .order("sent_at", { ascending: false }),

@@ -45,17 +45,38 @@ export const loanOfferSchema = z
     dueDate: z
       .string()
       .trim()
-      .min(1, "Select a due date.")
+      .min(1, "Select a final repayment date.")
       .refine((value) => !Number.isNaN(Date.parse(`${value}T00:00:00`)), {
-        message: "Select a valid due date.",
+        message: "Select a valid repayment date.",
       })
       .refine((value) => value > new Date().toISOString().slice(0, 10), {
-        message: "Choose a future due date.",
+        message: "Choose a future repayment date.",
       }),
     remarks: z
       .string()
       .trim()
       .max(500, "Keep remarks under 500 characters.")
+      .optional()
+      .or(z.literal("")),
+    repaymentChannel: z
+      .string()
+      .trim()
+      .min(1, "Enter a repayment channel.")
+      .max(100, "Keep repayment channel under 100 characters."),
+    repaymentAccountName: z
+      .string()
+      .trim()
+      .min(1, "Enter the account name for repayment.")
+      .max(200, "Keep account name under 200 characters."),
+    repaymentAccountNumber: z
+      .string()
+      .trim()
+      .min(1, "Enter the account number for repayment.")
+      .max(100, "Keep account number under 100 characters."),
+    repaymentInstructions: z
+      .string()
+      .trim()
+      .max(500, "Keep repayment instructions under 500 characters.")
       .optional()
       .or(z.literal("")),
   })
@@ -87,6 +108,10 @@ export type LoanOfferSummary = {
   remarks: string | null;
   status: LoanOfferStatus;
   sentAt: string;
+  repaymentChannel: string | null;
+  repaymentAccountName: string | null;
+  repaymentAccountNumber: string | null;
+  repaymentInstructions: string | null;
 };
 
 export function deriveInterestAmount({
@@ -121,5 +146,9 @@ export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
     remarks: row.remarks,
     status: row.status,
     sentAt: row.sent_at,
+    repaymentChannel: row.repayment_channel,
+    repaymentAccountName: row.repayment_account_name,
+    repaymentAccountNumber: row.repayment_account_number,
+    repaymentInstructions: row.repayment_instructions,
   };
 }

@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 
 type LenderOfferFormProps = {
@@ -20,6 +27,8 @@ type LenderOfferFormProps = {
   requestedAmount: number;
   availableCreditAtSubmission: number | null;
   defaultDueDate: string;
+  preferredTerm: string;
+  preferredTermLabel: string;
 };
 
 export function LenderOfferForm({
@@ -27,6 +36,7 @@ export function LenderOfferForm({
   requestedAmount,
   availableCreditAtSubmission,
   defaultDueDate,
+  preferredTermLabel,
 }: LenderOfferFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -40,6 +50,7 @@ export function LenderOfferForm({
   const [approvedAmount, setApprovedAmount] = useState(String(requestedAmount));
   const [interestServiceCharge, setInterestServiceCharge] = useState("0");
   const [fees, setFees] = useState("0");
+  const [repaymentChannel, setRepaymentChannel] = useState("");
   const totalRepaymentAmount =
     parseCurrencyValue(approvedAmount) +
     parseCurrencyValue(interestServiceCharge) +
@@ -49,6 +60,8 @@ export function LenderOfferForm({
     availableCreditAtSubmission ?? requestedAmount;
   const remainingCredit = maxTotalRepayment - totalRepaymentAmount;
   const exceedsAvailableCredit = totalRepaymentAmount > maxTotalRepayment;
+  const parsedApprovedAmount = parseCurrencyValue(approvedAmount);
+  const exceedsRequestedAmount = parsedApprovedAmount > requestedAmount;
 
   const dismissToast = useCallback(() => {
     setToastMessage("");
@@ -64,6 +77,7 @@ export function LenderOfferForm({
         setApprovedAmount(String(requestedAmount));
         setInterestServiceCharge("0");
         setFees("0");
+        setRepaymentChannel("");
         setToastMessage(result.message);
         router.refresh();
       }
@@ -115,7 +129,7 @@ export function LenderOfferForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Borrower-paid fees" error={state.fieldErrors?.fees?.[0]}>
+        <Field label="Other borrower-paid fees (optional)" error={state.fieldErrors?.fees?.[0]}>
           <CurrencyInput
             name="fees"
             defaultValue={0}
@@ -123,9 +137,12 @@ export function LenderOfferForm({
             emptyValue={0}
             onChange={(event) => setFees(event.currentTarget.value)}
           />
+          <span className="text-xs text-muted-foreground">
+            Use 0 if there are no additional fees.
+          </span>
         </Field>
 
-        <Field label="Due date" error={state.fieldErrors?.dueDate?.[0]}>
+        <Field label="Final repayment date" error={state.fieldErrors?.dueDate?.[0]}>
           <Input
             type="date"
             name="dueDate"
@@ -133,6 +150,10 @@ export function LenderOfferForm({
             disabled={isPending}
             className="h-9"
           />
+          <span className="text-xs text-muted-foreground">
+            The borrower prefers {preferredTermLabel}. This date sets the final
+            installment due date. Earlier installments are spaced monthly.
+          </span>
         </Field>
       </div>
 
@@ -144,6 +165,83 @@ export function LenderOfferForm({
           placeholder="Optional offer notes for the borrower."
         />
       </Field>
+
+      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
+        <p className="text-sm font-semibold">Repayment destination</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          Tell the borrower where to send the repayment. These details will be
+          shown to the borrower and saved with the active loan.
+        </p>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label="Repayment channel"
+          error={state.fieldErrors?.repaymentChannel?.[0]}
+        >
+          <input type="hidden" name="repaymentChannel" value={repaymentChannel} />
+          <Select
+            value={repaymentChannel}
+            onValueChange={setRepaymentChannel}
+            disabled={isPending}
+          >
+            <SelectTrigger className="h-9 w-full">
+              <SelectValue placeholder="Select channel" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="GCash">GCash</SelectItem>
+              <SelectItem value="Maya">Maya</SelectItem>
+              <SelectItem value="BPI">BPI</SelectItem>
+              <SelectItem value="BDO">BDO</SelectItem>
+              <SelectItem value="Metrobank">Metrobank</SelectItem>
+              <SelectItem value="UnionBank">UnionBank</SelectItem>
+              <SelectItem value="Landbank">Landbank</SelectItem>
+              <SelectItem value="BDO Online">BDO Online</SelectItem>
+              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+              <SelectItem value="Cash">Cash</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field
+          label="Account name"
+          error={state.fieldErrors?.repaymentAccountName?.[0]}
+        >
+          <Input
+            name="repaymentAccountName"
+            disabled={isPending}
+            placeholder="Account holder name"
+            className="h-9"
+          />
+        </Field>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field
+          label="Account / wallet number"
+          error={state.fieldErrors?.repaymentAccountNumber?.[0]}
+        >
+          <Input
+            name="repaymentAccountNumber"
+            disabled={isPending}
+            placeholder="Account or wallet number"
+            className="h-9"
+          />
+        </Field>
+
+        <Field
+          label="Additional instructions (optional)"
+          error={state.fieldErrors?.repaymentInstructions?.[0]}
+        >
+          <Input
+            name="repaymentInstructions"
+            disabled={isPending}
+            placeholder="e.g. Include loan ID in the note"
+            className="h-9"
+          />
+        </Field>
+      </div>
 
       <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -159,7 +257,7 @@ export function LenderOfferForm({
         </div>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Total repayment is calculated from the approved amount, interest/service charge,
-          and borrower-paid fees. Borrower installments will add up to this total.
+          and other fees. Borrower installments will add up to this total.
         </p>
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
           <div>
@@ -191,6 +289,16 @@ export function LenderOfferForm({
         </dl>
       </div>
 
+      {exceedsRequestedAmount ? (
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+          role="alert"
+        >
+          Approved amount cannot exceed the borrower&apos;s requested amount of
+          PHP {formatCurrency(requestedAmount)}.
+        </p>
+      ) : null}
+
       {exceedsAvailableCredit ? (
         <p
           className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
@@ -210,13 +318,10 @@ export function LenderOfferForm({
         </p>
       ) : null}
 
-      <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-between">
-        <p className="text-sm leading-6 text-muted-foreground">
-          The borrower can review and accept this offer.
-        </p>
+      <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-end">
         <Button
           type="submit"
-          disabled={isPending}
+          disabled={isPending || exceedsAvailableCredit || exceedsRequestedAmount}
           className="h-11 rounded-full font-semibold"
         >
           {isPending ? "Sending..." : "Send offer"}

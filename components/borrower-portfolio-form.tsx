@@ -175,7 +175,7 @@ export function BorrowerPortfolioForm({
             name="businessType"
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger id="businessType" aria-invalid={Boolean(errors.businessType)} aria-describedby={errors.businessType ? "businessType-error" : undefined}>
+                <SelectTrigger id="businessType" className="w-full" aria-invalid={Boolean(errors.businessType)} aria-describedby={errors.businessType ? "businessType-error" : undefined}>
                   <SelectValue placeholder="Select business type" />
                 </SelectTrigger>
                 <SelectContent>

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
-import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
+import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
+import { LenderPageHeader } from "@/components/lender-page-header";
 import {
   formatCurrency,
   formatDate,
@@ -42,7 +43,7 @@ export default async function LenderApplicationDetailPage({
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
-          <LenderHeader activeTab="applications" />
+          <LenderPageHeader activeTab="applications" />
           <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
             <div className="mx-auto grid max-w-4xl gap-5">
               <DetailHeader />
@@ -74,7 +75,7 @@ export default async function LenderApplicationDetailPage({
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto max-w-7xl">
-        <LenderHeader activeTab="applications" />
+        <LenderPageHeader activeTab="applications" />
         <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
           <div className="mx-auto grid max-w-4xl gap-5">
             <DetailHeader />
@@ -237,6 +238,8 @@ export default async function LenderApplicationDetailPage({
                   requestedAmount={application.requestedAmount}
                   availableCreditAtSubmission={application.availableCreditAtSubmission}
                   defaultDueDate={getDefaultDueDate()}
+                  preferredTerm={application.preferredTerm}
+                  preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
                 />
               ) : (
                 <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
@@ -280,14 +283,14 @@ export default async function LenderApplicationDetailPage({
                         value={`PHP ${formatCurrency(offer.interestAmount)}`}
                       />
                       <ReviewItem
-                        label="Borrower-paid fees"
+                        label="Other borrower-paid fees"
                         value={`PHP ${formatCurrency(offer.fees)}`}
                       />
                       <ReviewItem
                         label="Total repayment"
                         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
                       />
-                      <ReviewItem label="Due" value={formatDateOnly(offer.dueDate)} />
+                      <ReviewItem label="Final repayment" value={formatDateOnly(offer.dueDate)} />
                       <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
                     </dl>
                     {offer.remarks ? (
@@ -380,12 +383,12 @@ function OfferSummary({
         label="Interest/service charge"
         value={`PHP ${formatCurrency(offer.interestAmount)}`}
       />
-      <ReviewItem label="Borrower-paid fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+      <ReviewItem label="Other borrower-paid fees" value={`PHP ${formatCurrency(offer.fees)}`} />
       <ReviewItem
         label="Total repayment"
         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
       />
-      <ReviewItem label="Due" value={formatDateOnly(offer.dueDate)} />
+      <ReviewItem label="Final repayment" value={formatDateOnly(offer.dueDate)} />
       <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
     </dl>
   );

@@ -512,6 +512,10 @@ describe("loan offer schema", () => {
       fees: 500,
       dueDate: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
+      repaymentChannel: "GCash",
+      repaymentAccountName: "Partner Capital",
+      repaymentAccountNumber: "09171234567",
+      repaymentInstructions: "",
     });
 
     expect(result.success).toBe(true);
@@ -681,6 +685,10 @@ describe("borrower offer acceptance", () => {
       due_date: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
       sent_at: "2026-05-24T08:00:00.000Z",
+      repayment_channel: "GCash",
+      repayment_account_name: "Partner Capital",
+      repayment_account_number: "09171234567",
+      repayment_instructions: null,
       created_at: "2026-05-24T08:00:00.000Z",
       updated_at: "2026-05-24T08:00:00.000Z",
     };

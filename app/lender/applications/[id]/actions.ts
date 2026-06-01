@@ -44,6 +44,10 @@ export async function createLoanOffer(
     fees: formData.get("fees"),
     dueDate: formData.get("dueDate"),
     remarks: formData.get("remarks"),
+    repaymentChannel: formData.get("repaymentChannel"),
+    repaymentAccountName: formData.get("repaymentAccountName"),
+    repaymentAccountNumber: formData.get("repaymentAccountNumber"),
+    repaymentInstructions: formData.get("repaymentInstructions"),
   });
 
   if (!parsed.success) {
@@ -56,6 +60,31 @@ export async function createLoanOffer(
     };
   }
 
+  const { data: application, error: applicationError } = await access.supabase
+    .from("loan_applications")
+    .select("requested_amount")
+    .eq("id", applicationId)
+    .maybeSingle();
+
+  if (applicationError || !application) {
+    return {
+      ok: false,
+      message: "Could not verify the application details.",
+    };
+  }
+
+  if (parsed.data.approvedAmount > application.requested_amount) {
+    return {
+      ok: false,
+      message: "Approved amount cannot exceed the borrower's requested amount.",
+      fieldErrors: {
+        approvedAmount: [
+          "Approved amount cannot exceed the borrower's requested amount.",
+        ],
+      },
+    };
+  }
+
   try {
     const { data, error } = await access.supabase.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
@@ -64,6 +93,10 @@ export async function createLoanOffer(
       p_fees: parsed.data.fees,
       p_due_date: parsed.data.dueDate,
       p_remarks: parsed.data.remarks || null,
+      p_repayment_channel: parsed.data.repaymentChannel,
+      p_repayment_account_name: parsed.data.repaymentAccountName,
+      p_repayment_account_number: parsed.data.repaymentAccountNumber,
+      p_repayment_instructions: parsed.data.repaymentInstructions || null,
     });
 
     if (error) {

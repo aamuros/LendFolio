@@ -343,6 +343,18 @@ function RequiredDocumentRow({
     submitBorrowerVerificationDocument,
     initialState,
   );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!state?.ok) {
@@ -352,6 +364,36 @@ function RequiredDocumentRow({
     formRef.current?.reset();
     router.refresh();
   }, [router, state]);
+
+  useEffect(() => {
+    const form = formRef.current;
+    if (!form) {
+      return;
+    }
+
+    function handleFormReset() {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+        previewUrlRef.current = null;
+      }
+      setSelectedFile(null);
+      setPreviewUrl(null);
+    }
+
+    form.addEventListener("reset", handleFormReset);
+    return () => form.removeEventListener("reset", handleFormReset);
+  }, []);
+
+  function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0] ?? null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+    }
+    setSelectedFile(file);
+    const url = file ? URL.createObjectURL(file) : null;
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+  }
 
   const docStatus = getRequiredDocumentDisplayStatus(
     verification,
@@ -421,7 +463,33 @@ function RequiredDocumentRow({
               accept="image/jpeg,image/png,image/webp,application/pdf"
               className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               required
+              onChange={handleFileChange}
             />
+            {selectedFile ? (
+              <div className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2">
+                <FileText className="size-4 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium truncate">
+                    {selectedFile.name}
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {formatFileSize(selectedFile.size)}
+                  </p>
+                </div>
+                {previewUrl ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => setLocalPreviewOpen(true)}
+                  >
+                    <Eye className="size-3.5" />
+                    Preview
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
@@ -457,6 +525,18 @@ function RequiredDocumentRow({
           </p>
         ) : null}
       </div>
+
+      {selectedFile && previewUrl ? (
+        <DocumentPreviewDialog
+          title={`${borrowerVerificationDocumentTypeLabels[documentType]} Preview`}
+          fileName={selectedFile.name}
+          fileSize={selectedFile.size}
+          fileType={selectedFile.type}
+          viewUrl={previewUrl}
+          open={localPreviewOpen}
+          onOpenChange={setLocalPreviewOpen}
+        />
+      ) : null}
     </div>
   );
 }

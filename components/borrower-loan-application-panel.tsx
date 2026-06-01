@@ -2579,7 +2579,7 @@ function OfferCard({
         amount={offer.approvedAmount}
         metadata={[
           `Total repayment ${formatMoney(offer.totalRepaymentAmount)}`,
-          `Due ${formatDateOnly(offer.dueDate)}`,
+          `Final repayment ${formatDateOnly(offer.dueDate)}`,
         ]}
         status={<StatusBadge value={offer.status} />}
         onToggle={() => onToggleOffer(offer.id)}
@@ -2591,14 +2591,28 @@ function OfferCard({
             <SummaryItem label="Application" value={application.purpose} />
             <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
             <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
-            <SummaryItem label="Borrower-paid fees" value={formatMoney(offer.fees)} />
+            <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
             <SummaryItem label="Total you repay" value={formatMoney(offer.totalRepaymentAmount)} />
             <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
             <SummaryItem label="Remarks" value={offer.remarks || "None"} />
           </dl>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, and borrower-paid fees. This is the full amount you will repay.
+            Total repayment includes principal, interest/service charge, and other fees. This is the full amount you will repay.
           </p>
+
+          {offer.repaymentChannel ? (
+            <div className="mt-3 grid gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <p className="text-sm font-semibold">Repayment destination</p>
+              <dl className="grid grid-cols-2 gap-2 text-sm">
+                <SummaryItem label="Channel" value={offer.repaymentChannel} />
+                <SummaryItem label="Account name" value={offer.repaymentAccountName ?? ""} />
+                <SummaryItem label="Account number" value={offer.repaymentAccountNumber ?? ""} />
+                {offer.repaymentInstructions ? (
+                  <SummaryItem label="Instructions" value={offer.repaymentInstructions} />
+                ) : null}
+              </dl>
+            </div>
+          ) : null}
 
           {offer.status === "accepted" && application.activeLoan ? (
             <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
@@ -2792,13 +2806,13 @@ function ActiveLoanCard({
           <div className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
             <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
             <SummaryItem label="Interest/service charge" value={formatMoney(loan.interestAmount)} />
-            <SummaryItem label="Fees" value={formatMoney(loan.fees)} />
+            <SummaryItem label="Other fees" value={formatMoney(loan.fees)} />
             <SummaryItem label="Total repayment" value={formatMoney(loan.totalRepaymentAmount)} />
             <SummaryItem label="Schedule total" value={formatMoney(scheduleTotal)} />
             <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, fees, and financing charge.
+            Total repayment includes principal, interest/service charge, and other fees.
           </p>
 
           <div className="grid gap-2">
@@ -2838,6 +2852,28 @@ function ActiveLoanCard({
             </Card>
           ) : null}
 
+          {loan.repaymentChannel ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-3 p-4">
+                <p className="text-sm font-semibold">Repayment destination</p>
+                <p className="text-sm leading-6 text-muted-foreground">
+                  Send your repayment to the account below, then upload proof of payment.
+                </p>
+                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-2">
+                  <SummaryItem label="Channel" value={loan.repaymentChannel} />
+                  <SummaryItem label="Account name" value={loan.repaymentAccountName ?? ""} />
+                  <SummaryItem label="Account number" value={loan.repaymentAccountNumber ?? ""} />
+                  {loan.repaymentInstructions ? (
+                    <SummaryItem label="Instructions" value={loan.repaymentInstructions} />
+                  ) : null}
+                </dl>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
+                </p>
+              </CardContent>
+            </Card>
+          ) : null}
+
           {isCompletedLoan ? (
             <Alert>
               <AlertDescription className="font-semibold">
@@ -2864,6 +2900,10 @@ function ActiveLoanCard({
                     key={repayment.id}
                     isExpanded={expandedRepaymentIds.has(repayment.id)}
                     repayment={repayment}
+                    repaymentChannel={loan.repaymentChannel}
+                    repaymentAccountName={loan.repaymentAccountName}
+                    repaymentAccountNumber={loan.repaymentAccountNumber}
+                    repaymentInstructions={loan.repaymentInstructions}
                     onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     isHighlighted={repayment.id === highlightRepaymentId}
@@ -2886,12 +2926,20 @@ function RepaymentScheduleRow({
   isExpanded,
   onToggle,
   repayment,
+  repaymentChannel,
+  repaymentAccountName,
+  repaymentAccountNumber,
+  repaymentInstructions,
   onProofSubmitted,
   isHighlighted,
 }: {
   isExpanded: boolean;
   onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
+  repaymentChannel: string | null;
+  repaymentAccountName: string | null;
+  repaymentAccountNumber: string | null;
+  repaymentInstructions: string | null;
   onProofSubmitted: () => void;
   isHighlighted?: boolean;
 }) {
@@ -2981,6 +3029,27 @@ function RepaymentScheduleRow({
               title="Payment overdue"
               message="Upload proof when payment is made."
             />
+          ) : null}
+
+          {canUploadProof && repaymentChannel ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-2 p-3">
+                <p className="text-sm font-semibold">
+                  Send {formatMoney(repayment.amountDue)} to the repayment destination below, then upload proof.
+                </p>
+                <dl className="grid grid-cols-2 gap-2 text-sm">
+                  <SummaryItem label="Channel" value={repaymentChannel} />
+                  <SummaryItem label="Account name" value={repaymentAccountName ?? ""} />
+                  <SummaryItem label="Account number" value={repaymentAccountNumber ?? ""} />
+                  {repaymentInstructions ? (
+                    <SummaryItem label="Instructions" value={repaymentInstructions} />
+                  ) : null}
+                </dl>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
+                </p>
+              </CardContent>
+            </Card>
           ) : null}
 
           {repayment.proofs.length > 0 ? (

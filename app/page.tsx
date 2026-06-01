@@ -1,13 +1,7 @@
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
@@ -92,20 +86,34 @@ export default async function Home({ searchParams }: HomeProps) {
       </section>
 
       <section className="bg-muted/30">
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-          <p className="mb-8 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+          <p className="mb-6 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
             How it works
           </p>
-          <div className="grid gap-6 sm:grid-cols-5 sm:gap-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:gap-0">
             {workflowSteps.map((step, index) => (
-              <div key={step.title} className="grid gap-1.5">
-                <span className="text-xs font-semibold tracking-[0.14em] text-muted-foreground uppercase">
-                  {String(index + 1).padStart(2, "0")}
-                </span>
-                <p className="text-sm font-semibold">{step.title}</p>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  {step.description}
-                </p>
+              <div
+                key={step.title}
+                className="relative flex-1 sm:pr-5"
+              >
+                <div className="grid gap-1">
+                  <span className="text-xs font-medium tabular-nums text-muted-foreground/60">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <p className="text-sm font-medium">{step.title}</p>
+                  <p className="text-sm leading-5 text-muted-foreground">
+                    {step.description}
+                  </p>
+                </div>
+                {index < workflowSteps.length - 1 && (
+                  <>
+                    <div className="mt-3 block border-t border-border/60 sm:hidden" />
+                    <div
+                      aria-hidden
+                      className="absolute right-0 top-1.5 hidden h-px w-5 bg-border/60 sm:block"
+                    />
+                  </>
+                )}
               </div>
             ))}
           </div>
@@ -113,27 +121,27 @@ export default async function Home({ searchParams }: HomeProps) {
       </section>
 
       <section>
-        <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-16 lg:px-8">
-          <p className="mb-8 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
+        <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 sm:py-12 lg:px-8">
+          <p className="mb-6 text-center text-xs font-semibold tracking-[0.16em] text-muted-foreground uppercase sm:text-left">
             Built for every role
           </p>
-          <div className="grid gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {audiences.map((audience) => (
               <Card key={audience.title}>
-                <CardHeader className="p-5 sm:p-6">
-                  <CardTitle className="text-base">{audience.title}</CardTitle>
-                  <CardDescription className="text-sm leading-6">
-                    {audience.description}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="px-5 pb-5 sm:px-6 sm:pb-6">
-                  <ul className="grid gap-2">
+                <CardContent className="grid gap-3 p-5 sm:p-6">
+                  <div className="grid gap-1">
+                    <p className="text-sm font-medium">{audience.title}</p>
+                    <p className="text-sm leading-5 text-muted-foreground">
+                      {audience.description}
+                    </p>
+                  </div>
+                  <ul className="grid gap-1.5">
                     {audience.capabilities.map((cap) => (
                       <li
                         key={cap.label}
                         className="flex items-center gap-2 text-sm text-muted-foreground"
                       >
-                        <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/50" />
+                        <span className="inline-block h-1 w-1 shrink-0 rounded-full bg-muted-foreground/40" />
                         {cap.label}
                       </li>
                     ))}
@@ -196,11 +204,11 @@ export default async function Home({ searchParams }: HomeProps) {
 const workflowSteps = [
   {
     title: "Verify profile",
-    description: "Complete identity and document checks.",
+    description: "Verify identity and business documents.",
   },
   {
     title: "Request financing",
-    description: "Submit a loan application.",
+    description: "Submit a financing request.",
   },
   {
     title: "Review offers",
@@ -220,7 +228,7 @@ const audiences = [
   {
     title: "Borrowers",
     description:
-      "Prepare one verified profile and submit financing requests with required documents.",
+      "Create a verified profile, upload required documents, and submit financing requests.",
     capabilities: [
       { label: "Business profile" },
       { label: "Document checklist" },
@@ -230,7 +238,7 @@ const audiences = [
   {
     title: "Lenders",
     description:
-      "Review borrower requests, structure offers, and track repayment evidence.",
+      "Review borrower requests, submit offers, and monitor repayment evidence.",
     capabilities: [
       { label: "Request review" },
       { label: "Offer terms" },
@@ -240,7 +248,7 @@ const audiences = [
   {
     title: "Managers",
     description:
-      "Keep approvals, exceptions, and activity traceable across the lending process.",
+      "Review approvals, handle exceptions, and keep the lending process traceable.",
     capabilities: [
       { label: "Approval gates" },
       { label: "Review status" },

@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { LenderBottomTabs, LenderHeader } from "@/components/lender-bottom-tabs";
+import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
+import { LenderPageHeader } from "@/components/lender-page-header";
 import {
   LenderApplicationsList,
   LenderApplicationsStatus,
@@ -27,7 +28,7 @@ export default async function LenderApplicationsPage() {
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
-          <LenderHeader activeTab="applications" showNotifications={false} />
+          <LenderPageHeader activeTab="applications" showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
@@ -70,7 +71,7 @@ export default async function LenderApplicationsPage() {
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
-          <LenderHeader activeTab="applications" showNotifications={false} />
+          <LenderPageHeader activeTab="applications" showNotifications={false} />
           <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
             <LenderAccessPanel
               profile={access.profile}
@@ -92,7 +93,7 @@ export default async function LenderApplicationsPage() {
   return (
     <main className="min-h-svh bg-background">
       <div className="mx-auto max-w-7xl">
-        <LenderHeader activeTab="applications" />
+        <LenderPageHeader activeTab="applications" />
 
         <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
           <section className="grid gap-5">

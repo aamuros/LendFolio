@@ -139,6 +139,10 @@ export type Database = {
           status: ActiveLoanStatus;
           started_at: string;
           due_date: string;
+          repayment_channel: string | null;
+          repayment_account_name: string | null;
+          repayment_account_number: string | null;
+          repayment_instructions: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -155,6 +159,10 @@ export type Database = {
           status?: ActiveLoanStatus;
           started_at?: string;
           due_date: string;
+          repayment_channel?: string | null;
+          repayment_account_name?: string | null;
+          repayment_account_number?: string | null;
+          repayment_instructions?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -171,6 +179,10 @@ export type Database = {
           status?: ActiveLoanStatus;
           started_at?: string;
           due_date?: string;
+          repayment_channel?: string | null;
+          repayment_account_name?: string | null;
+          repayment_account_number?: string | null;
+          repayment_instructions?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -538,6 +550,10 @@ export type Database = {
           remarks: string | null;
           status: OfferStatus;
           sent_at: string;
+          repayment_channel: string | null;
+          repayment_account_name: string | null;
+          repayment_account_number: string | null;
+          repayment_instructions: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -554,6 +570,10 @@ export type Database = {
           remarks?: string | null;
           status?: OfferStatus;
           sent_at?: string;
+          repayment_channel?: string | null;
+          repayment_account_name?: string | null;
+          repayment_account_number?: string | null;
+          repayment_instructions?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -570,6 +590,10 @@ export type Database = {
           remarks?: string | null;
           status?: OfferStatus;
           sent_at?: string;
+          repayment_channel?: string | null;
+          repayment_account_name?: string | null;
+          repayment_account_number?: string | null;
+          repayment_instructions?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1011,6 +1035,10 @@ export type Database = {
           p_fees: number;
           p_due_date: string;
           p_remarks?: string | null;
+          p_repayment_channel?: string | null;
+          p_repayment_account_name?: string | null;
+          p_repayment_account_number?: string | null;
+          p_repayment_instructions?: string | null;
         };
         Returns: Json;
       };

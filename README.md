@@ -1,17 +1,56 @@
 # LendFolio
 
-LendFolio is a mobile-first responsive web application for Filipino
-micro-entrepreneurs, verified lenders, and platform managers.
+LendFolio is a mobile-first responsive web application that connects Filipino micro-entrepreneurs with verified lenders through a structured, auditable loan workflow. A platform manager oversees borrower verification, lender approval, and day-to-day operations.
 
-Borrowers maintain a business profile, complete identity verification, and
-submit loan applications. Approved lenders review open applications and send
-structured offers. Borrowers compare, decline, or accept one offer per
-application. Acceptance creates an active loan with a repayment schedule based
-on the preferred term. Borrowers upload repayment proof for due installments,
-and approved lenders verify or reject submitted proof. Managers oversee the
-platform through an operations dashboard covering loans, repayments,
-applications, offers, audit events, borrower verifications, lender review, and
-user lookup.
+## Problem Statement
+
+Many Filipino micro-entrepreneurs — such as sari-sari store owners, food stall operators, market vendors, and online sellers — lack access to formal lending channels. Existing options often involve lengthy paperwork, opaque approval criteria, and limited visibility into loan status. At the same time, small-scale lenders need a structured way to review borrower profiles, assess risk, and manage repayment collection without dedicated infrastructure.
+
+LendFolio addresses this gap by providing a self-serve digital platform where borrowers present their business profiles, lenders review and offer financing, and both parties track loan lifecycle events through a shared, auditable workflow.
+
+## Target Users
+
+| Role | Description |
+| --- | --- |
+| **Borrower** | Filipino micro-entrepreneurs who maintain a business profile, complete identity verification, and apply for loans. |
+| **Lender** | Verified lending entities that review open loan applications, send structured offers, and verify repayment proofs. |
+| **Manager** | Platform administrators who verify borrowers, approve lenders, monitor loan activity, and oversee audit trails. |
+
+## Key Features
+
+### Borrower
+- Self-serve account creation with role selection
+- Business profile management (business type, location, revenue, expenses, debt)
+- Identity verification with document upload (valid ID, business proof)
+- Credit readiness evaluation and credit limit tracking
+- Loan application submission with preferred term selection (1, 3, 6, or 12 installments)
+- Offer comparison, decline, and acceptance
+- Active loan tracking with repayment schedule
+- Repayment proof upload for due installments
+- In-app notification system
+
+### Lender
+- Self-serve registration with onboarding profile
+- Manager-gated approval with required verification documents
+- Open application review with borrower financial context and credit profile grade
+- Offer creation with principal, interest, fees, repayment channel, and due date
+- Active loan and repayment schedule visibility
+- Repayment proof verification and rejection
+
+### Manager
+- Operations dashboard with KPIs, charts, and pending action counts
+- Borrower verification queue with document review and approval/rejection
+- Lender review queue with document review, profile inspection, and approval/rejection
+- Application, loan, and repayment monitoring with filters and detail views
+- Audit log viewer for all major workflow events
+- User directory with search and role filtering
+
+### Cross-Cutting
+- Row Level Security (RLS) on all tables enforcing role-based data access
+- Consent management for Terms of Service, Privacy Notice, and workflow-specific disclosures
+- Audit logging for accountability and traceability
+- In-app notifications triggered by workflow state transitions
+- Structured failure codes for blocked workflow actions
 
 ## Technology Stack
 
@@ -20,368 +59,321 @@ user lookup.
 | Framework | Next.js 16 App Router |
 | Language | TypeScript 5.9 |
 | Styling | Tailwind CSS 4 |
-| Components | shadcn/ui readiness (`components.json`, `lib/utils.ts`) |
-| Auth | Supabase Auth (email/password) |
+| Component Library | shadcn/ui (30 primitives) with Radix UI, class-variance-authority, tailwind-merge, lucide-react |
+| Authentication | Supabase Auth (email/password) |
 | Database | Supabase Postgres with Row Level Security |
-| Storage | Supabase Storage (private buckets) |
-| Forms | React Hook Form 7 + Zod 4 |
-| Testing | Vitest 4 |
+| File Storage | Supabase Storage (private buckets) |
+| Form Handling | React Hook Form 7 + Zod 4 |
+| Unit / Integration Testing | Vitest 4 |
+| End-to-End Testing | Playwright (configured, not yet active) |
 | CI | GitHub Actions |
-| Hosting | Vercel |
-| E2E Testing | Playwright (approved, not yet active) |
+| Hosting Target | Vercel |
+| Charts | Recharts 3.8 |
+
+## System Workflow
+
+```
+Borrower signup ──> Business profile ──> Verification upload
+                                              │
+                                         Manager review
+                                              │
+                                         Approved ──> Loan application
+                                              │
+                            Lender reviews ──> Offer sent
+                                              │
+                         Borrower accepts ──> Active loan + repayment schedule
+                                              │
+                     Borrower uploads proof ──> Lender verifies
+                                              │
+                                         Balance reduced
+```
+
+1. **Borrower onboarding**: A borrower creates an account, fills in a business profile, and uploads identity verification documents (valid ID and business proof).
+2. **Verification**: A manager reviews the documents and approves or rejects the borrower's verification. Only approved borrowers can submit loan applications.
+3. **Loan application**: The borrower submits a loan application specifying the requested amount, purpose, and preferred repayment term. The system evaluates credit readiness and enforces a credit limit based on the borrower's financial profile.
+4. **Offer**: An approved lender reviews open applications, views the borrower's financial context and credit profile grade, and sends an offer with approved amount, interest, fees, repayment channel, and due date.
+5. **Acceptance**: The borrower reviews pending offers, accepts one, and the system atomically declines all other pending offers for that application. An active loan and repayment schedule are created.
+6. **Repayment**: The borrower uploads a repayment proof file (image or PDF) for each due installment. The lender reviews the proof and verifies or rejects it. Verification reduces the outstanding balance.
 
 ## Project Structure
 
 ```text
-app/
-├── page.tsx                     # Landing page
-├── layout.tsx                   # Root layout
-├── globals.css                  # Global styles
-├── signup/                      # Self-serve borrower and lender registration
-├── login/                       # Email/password sign-in
-├── forgot-password/             # Password reset request
-├── reset-password/              # Password reset confirmation
-├── borrower/                    # Borrower workspace (profile, applications, offers, loans)
-├── lender/                      # Lender workspace
-│   ├── onboarding/              # Lender profile onboarding
-│   ├── register/                # Lender registration
-│   └── applications/            # Application list and detail review
-│       └── [id]/                # Single application detail and offer form
-├── manager/                     # Manager operations dashboard
-│   ├── applications/            # Application monitoring
-│   │   └── [id]/                # Application detail
-│   ├── audit-logs/              # Audit event log
-│   │   └── [id]/                # Audit event detail
-│   ├── borrower-verifications/  # Borrower verification queue
-│   ├── lenders/                 # Lender review queue
-│   │   └── [id]/                # Lender detail, approval, rejection
-│   ├── loans/                   # Active loan monitoring
-│   │   └── [id]/                # Loan detail
-│   ├── lookup/                  # Borrower record lookup
-│   ├── notifications/           # Notification actions
-│   ├── repayments/              # Repayment proof monitoring
-│   │   └── [id]/                # Repayment detail
-│   └── users/                   # User lookup
-│       └── [id]/                # User detail
-├── consents/                    # Consent recording actions
-├── notifications/               # Notification actions
-├── terms/                       # Terms of Service page
-└── privacy/                     # Privacy Notice page
-
-components/                      # Shared UI components
-lib/                             # Business logic, Supabase clients, validation
+├── app/                             # Next.js App Router pages and server actions
+│   ├── page.tsx                     # Landing page
+│   ├── layout.tsx                   # Root layout
+│   ├── globals.css                  # Global styles and Tailwind theme
+│   ├── signup/                      # Self-serve borrower and lender registration
+│   ├── login/                       # Email/password sign-in
+│   ├── forgot-password/             # Password reset request
+│   ├── reset-password/              # Password reset confirmation
+│   ├── terms/                       # Terms of Service page
+│   ├── privacy/                     # Privacy Notice page
+│   ├── consents/                    # Consent recording server actions
+│   ├── notifications/               # Notification server actions and page
+│   ├── borrower/                    # Borrower workspace (profile, applications, offers, loans)
+│   ├── lender/                      # Lender workspace
+│   │   ├── onboarding/              # Lender profile onboarding form
+│   │   ├── register/                # Lender registration
+│   │   └── applications/            # Application list and detail with offer form
+│   │       └── [id]/
+│   └── manager/                     # Manager operations dashboard
+│       ├── applications/            # Application monitoring
+│       ├── audit-logs/              # Audit event log
+│       ├── borrower-verifications/  # Borrower verification queue
+│       ├── lenders/                 # Lender review queue
+│       ├── loans/                   # Active loan monitoring
+│       ├── lookup/                  # Borrower record search
+│       ├── repayments/              # Repayment proof monitoring
+│       ├── notifications/           # Manager notifications
+│       └── users/                   # User detail
+│
+├── components/                      # Shared UI components
+│   ├── ui/                          # 30 shadcn/ui primitives (button, card, dialog, table, etc.)
+│   ├── layout/                      # Dashboard shell, sidebar, navigation, user menu
+│   ├── borrower/                    # Borrower-specific components
+│   ├── lender/                      # Lender-specific components
+│   ├── manager/                     # Manager dashboard, filters, tables, charts
+│   ├── notifications/               # Notification display components
+│   └── legal/                       # Terms of Service and Privacy Notice display
+│
+├── lib/                             # Business logic, Supabase clients, and validation
+│   ├── supabase/
+│   │   ├── client.ts                # Browser Supabase client
+│   │   ├── server.ts                # Server-side Supabase client
+│   │   ├── env.ts                   # Environment variable validation
+│   │   └── types.ts                 # Checked-in database types (auto-generated)
+│   ├── access-control.ts            # Role-based access helpers (requireBorrower, requireManager, etc.)
+│   ├── borrower-portfolio.ts        # Business profile schema and mapping
+│   ├── borrower-readiness.ts        # Credit readiness evaluation logic
+│   ├── borrower-credit-profile-grade.ts  # Explainable credit profile grade
+│   ├── borrower-verification.ts     # Verification document helpers
+│   ├── credit-limit.ts              # Credit limit calculation and enforcement
+│   ├── loan-application.ts          # Loan application schema and mapping
+│   ├── loan-offer.ts                # Loan offer schema and mapping
+│   ├── active-loans.ts              # Active loan loading for borrower/lender/manager
+│   ├── lender-applications.ts       # Lender application review helpers
+│   ├── lender-verification.ts       # Lender verification document helpers
+│   ├── manager-operations.ts        # Manager data loading (applications, loans, audit, etc.)
+│   ├── manager-dashboard.ts         # Dashboard KPI and chart data loading
+│   ├── notifications.ts             # Notification mapping and utilities
+│   ├── consents.ts                  # Consent version management
+│   ├── workflow-rules.ts            # Workflow state transition helpers
+│   └── utils.ts                     # cn() utility for Tailwind class merging
+│
+├── docs/                            # Design and setup documentation
+├── tests/                           # Vitest test suite (unit + database integration)
+├── e2e/                             # Playwright E2E tests (performance benchmarks)
 ├── supabase/
-│   ├── client.ts                # Browser Supabase client
-│   ├── server.ts                # Server-side Supabase client
-│   └── types.ts                 # Checked-in database types
-└── validation/                  # Input validation helpers
-
-docs/                            # Design documents and setup guides
-supabase/
-├── migrations/                  # 46 applied SQL migrations
-├── seed.sql                     # Local demo data
-└── config.toml                  # Supabase local config
-tests/                           # Vitest test suite (unit + database integration)
-.github/workflows/ci.yml        # CI pipeline
+│   ├── migrations/                  # 54 SQL migrations
+│   ├── seed.sql                     # Local demo data
+│   └── config.toml                  # Supabase local configuration
+├── hooks/                           # React hooks
+├── scripts/                         # Build and performance scripts
+└── .github/workflows/ci.yml        # CI pipeline
 ```
 
 ## Local Setup
 
-Install dependencies:
+### Prerequisites
+
+- Node.js 18 or later
+- npm
+- [Supabase CLI](https://supabase.com/docs/guides/cli) (for local database)
+
+### Installation
+
+1. Clone the repository:
+
+```bash
+git clone <repository-url>
+cd LendFolio
+```
+
+2. Install dependencies:
 
 ```bash
 npm install
 ```
 
-Create a local environment file from the placeholder example:
+3. Create a local environment file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Start the development server:
+4. Update `.env.local` with your Supabase project URL and anon key. For local development, start a local Supabase instance:
+
+```bash
+supabase start
+```
+
+This will output the local Supabase URL and anon key. Copy these into `.env.local`.
+
+5. Apply database migrations:
+
+```bash
+supabase db reset
+```
+
+6. Start the development server:
 
 ```bash
 npm run dev
 ```
 
-Open `http://localhost:3000`.
+7. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-## Environment Variables
+### Environment Variables
 
-`.env.example` contains placeholder public variables:
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (local or hosted) |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public API key |
 
-- `NEXT_PUBLIC_SUPABASE_URL`
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-
-Do not commit real secrets. Do not expose Supabase service role keys through
-`NEXT_PUBLIC_*`.
-
-## Current Scope
-
-### Implemented
-
-- Self-serve borrower and lender signup with role selection
-- Terms of Service and Privacy Notice consent capture at signup
-- Borrower business profile save and load
-- Borrower verification lifecycle with required document upload, manager review,
-  and application-readiness gating
-- Document Processing Consent before borrower verification uploads
-- Credit Review Authorization before loan application submission
-- Credit readiness evaluation from business profile data
-- Credit limit tracking and enforcement
-- Borrower loan application submission with profile and readiness snapshots
-- Borrower application editing and withdrawal before acceptance
-- Lender application list and detail review
-- Lender offer creation with validation against application and credit state
-- Borrower offer review, decline, and acceptance
-- Atomic offer acceptance (one accepted offer per application)
-- Active loan creation from accepted offer
-- Repayment schedule creation based on preferred term (1, 3, 6, or 12
-  installments)
-- Overdue repayment detection and refresh
-- Borrower and lender active loan visibility
-- Repayment proof upload to a private Supabase Storage bucket
-- Lender repayment proof verification and rejection
-- Outstanding balance reduction after proof verification
-- In-app notification system for workflow events
-- Profile-based roles and approved-lender access checks
-- Observable account provisioning events and manager-only provisioning repair
-- Lender signup review profile capture for manual manager verification
-- Manager-controlled lender filtering, detail review, approval, and rejection
-- Lender verification document upload with required document types (business registration, authorized representative ID, authorization letter, lending license, proof of address)
-- Manager lender document review with accept/reject and notes
-- Lender approval gating on required accepted documents, profile completeness, and consent
-- Lender profile change request workflow (submit, cancel, manager approve/reject)
-- Borrower sensitive profile change detection with automatic verification needs-resubmission
-- Manager borrower verification queue with document review, approval, rejection,
-  and resubmission
-- Manager operations dashboard for loans, repayment proofs, audit logs,
-  applications, offers, borrower readiness, lender performance, and lookup
-- Explainable borrower credit profile grade for lender and manager review
-  (deterministic internal profile grade, not a formal credit score)
-- Audit logging for major workflow events
-- GitHub Actions CI (lint, typecheck, test, build with Supabase)
-
-### Not Implemented
-
-- Real payment processing
-- E-wallet integration
-- Automated reconciliation
-- Credit-limit restoration after loan payoff
-- Dispute workflows
-- Production e-KYC or automated identity verification
-- Credit scoring (an explainable internal credit profile grade is implemented;
-  formal credit bureau scoring is not)
-- Manager reports and analytics
-- Email notifications (Resend approved but not wired)
-- Playwright end-to-end tests
-- Vercel production deployment
-
-Application deletion is intentionally not part of the borrower workflow. Closed
-or withdrawn applications remain available for audit history. Repayment proof
-upload and lender review are implemented as a prototype-safe evidence workflow;
-the app does not process real payments.
-
-The product UI uses production-style copy. Setup, test, and database details
-belong in docs, not product surfaces.
+> **Security note**: Never commit real credentials. Never expose Supabase service role keys through `NEXT_PUBLIC_*` variables. The `.env.example` file contains placeholder values only.
 
 ## Database Setup
 
-Supabase setup and design documents:
+LendFolio uses Supabase Postgres with 54 migration files covering all tables, enums, functions, triggers, and RLS policies.
 
-| Document | Purpose |
-| --- | --- |
-| [supabase-setup.md](docs/supabase-setup.md) | Supabase project and auth configuration |
-| [application-offer-state-machine.md](docs/application-offer-state-machine.md) | Application, offer, loan, and repayment state transitions |
-| [rls-plan.md](docs/rls-plan.md) | Row Level Security policy design |
-| [storage-buckets-plan.md](docs/storage-buckets-plan.md) | Private Storage bucket design |
-| [borrower-credit-readiness.md](docs/borrower-credit-readiness.md) | Profile-based credit readiness evaluation |
-| [foundation-verification.md](docs/foundation-verification.md) | Local database integration test setup |
-| [demo-accounts.md](docs/demo-accounts.md) | Seeded local test accounts and QA flow |
-| [sprint-1-validation.md](docs/sprint-1-validation.md) | Manual QA checklist |
-| [vercel-deployment.md](docs/vercel-deployment.md) | Vercel deployment readiness |
-
-Apply migrations before testing database-backed features:
+### Commands
 
 ```bash
+# Start local Supabase (requires Docker)
+supabase start
+
+# Reset database and apply all migrations + seed data
+supabase db reset
+
+# Apply pending migrations only
 supabase migration up
 ```
 
-For a repeatable clean local run:
+### Key Database Objects
+
+| Object Type | Examples |
+| --- | --- |
+| Tables | `profiles`, `lender_profiles`, `borrower_portfolios`, `loan_applications`, `loan_offers`, `active_loans`, `loan_repayment_schedules`, `repayment_proofs`, `borrower_verifications`, `lender_verification_documents`, `notifications`, `user_consents`, `audit_logs` |
+| Enums | `app_role`, `application_status`, `offer_status`, `active_loan_status`, `repayment_status`, `borrower_verification_status`, `lender_verification_status` |
+| RPCs | `submit_loan_application`, `accept_loan_offer`, `create_loan_offer`, `submit_repayment_proof`, `review_repayment_proof`, `review_borrower_verification`, `review_lender_verification`, `accept_user_consents`, `refresh_overdue_repayment_statuses` |
+| Storage Buckets | `borrower-verification-documents`, `repayment-proofs`, `lender-verification-documents` (all private) |
+
+### Seeded Demo Accounts
+
+After running `supabase db reset`, the following accounts are available (password: `LendFolio123!`):
+
+| Email | Role | Display Name |
+| --- | --- | --- |
+| `borrower@lendfolio.local` | Borrower | Borrower One |
+| `lender@lendfolio.local` | Lender | Approved Capital |
+| `manager@lendfolio.local` | Manager | Platform Manager |
+
+Additional seeded accounts are documented in [docs/demo-accounts.md](docs/demo-accounts.md).
+
+## Running Tests
+
+### Unit and Integration Tests
 
 ```bash
-supabase start
-supabase db reset
+# Run all tests (unit tests only, no local Supabase required)
 npm run test
 ```
 
-The database integration tests run when local Supabase test environment
-variables are set; see [foundation-verification.md](docs/foundation-verification.md)
-for the exact commands.
+### Database Integration Tests
 
-## Borrower Verification And Readiness
+Database integration tests require a running local Supabase instance:
 
-Borrower application submission is gated by `submit_loan_application` and the
-loan application insert policy. UI checks are advisory; database RPCs are the
-source of truth.
+```bash
+# Start Supabase and reset the database
+supabase start
+supabase db reset
 
-### Verification States
+# Export test environment variables
+export SUPABASE_TEST_URL=http://127.0.0.1:54321
+export SUPABASE_TEST_ANON_KEY=<from supabase start output>
+export SUPABASE_TEST_SERVICE_ROLE_KEY=<from supabase start output>
 
-| State | Meaning |
+# Run tests (integration tests will activate automatically)
+npm run test
+```
+
+See [docs/foundation-verification.md](docs/foundation-verification.md) for detailed setup instructions.
+
+### Linting and Type Checking
+
+```bash
+npm run lint       # ESLint
+npm run typecheck  # TypeScript type checking
+npm run build      # Next.js production build
+```
+
+## Demo / QA Instructions
+
+A full manual test flow is documented in the [Manual Test Flow](#manual-test-flow) section below. For a quick demo:
+
+1. Run `supabase db reset` to seed demo data.
+2. Start the dev server with `npm run dev`.
+3. Sign in as `borrower@lendfolio.local` to explore the borrower workspace.
+4. Sign in as `lender@lendfolio.local` to explore the lender workspace.
+5. Sign in as `manager@lendfolio.local` to explore the manager dashboard.
+
+All demo accounts use password `LendFolio123!`.
+
+## Current Limitations
+
+The following features are **not implemented** in the current version:
+
+- **Real payment processing**: Repayment proof upload is a document-based evidence workflow; no actual payment is processed.
+- **E-wallet or bank integration**: No connection to GCash, Maya, bank APIs, or other payment channels.
+- **Automated reconciliation**: Balance updates require manual lender verification of uploaded proof.
+- **Credit-limit restoration after loan payoff**: Credit limits are not automatically restored when a loan is fully paid.
+- **Dispute workflows**: No mechanism for borrowers or lenders to raise disputes.
+- **Production e-KYC**: Identity verification is document-based; no automated OCR or government database lookup.
+- **Formal credit bureau scoring**: An explainable internal credit profile grade is computed from business data, but it is not a formal credit score from a credit bureau.
+- **Email notifications**: Resend is approved as a dependency but not yet wired; all notifications are in-app only.
+- **Playwright end-to-end tests**: Playwright is configured but no E2E test scenarios are implemented.
+- **Vercel production deployment**: The application has not been deployed to Vercel production.
+- **Manager analytics and reports**: The dashboard shows KPIs and charts, but no exportable reports or advanced analytics exist.
+- **Multi-language support**: The interface is English-only.
+- **Mobile native application**: LendFolio is a responsive web application, not a native mobile app.
+
+Application deletion is intentionally excluded from the borrower workflow. Closed or withdrawn applications are preserved for audit history.
+
+## Future Improvements
+
+- Integration with real payment gateways (GCash, Maya, bank transfers)
+- Automated reconciliation and credit-limit restoration on loan payoff
+- Production e-KYC with government ID verification APIs
+- Email notification delivery via Resend
+- Credit bureau integration for formal credit scoring
+- Dispute resolution workflow
+- Playwright end-to-end test coverage
+- Vercel production deployment with CI/CD
+- Manager exportable reports and analytics
+- Multi-language support (Filipino, English)
+- Mobile-responsive refinements and progressive web app (PWA) features
+
+## Documentation
+
+| Document | Purpose |
 | --- | --- |
-| `not_started` | No verification record exists |
-| `pending_documents` | Verification created, documents not yet uploaded |
-| `submitted` | Documents uploaded, awaiting manager review |
-| `under_review` | Manager has started reviewing |
-| `approved` | Verification approved by manager |
-| `rejected` | Verification rejected by manager |
-| `needs_resubmission` | Manager requested corrected documents |
-
-The legacy `pending` value can still exist for older rows and is treated like
-`pending_documents`.
-
-### Required Documents
-
-Required borrower verification documents (centralized in TypeScript and SQL):
-
-- `valid_id`
-- `business_proof`
-
-`address_proof`, `business_registration`, and `other` remain supported document
-types but are not required by the current product policy.
-
-### Application Readiness Gates
-
-A borrower is application-ready only when all of these are true:
-
-- Business profile exists and required fields are complete
-- Account profile is active and not suspended
-- Current Terms of Service, Privacy Notice, and Credit Review Authorization are
-  accepted
-- Borrower verification is approved
-- Required verification document types are accepted
-
-Borrower document upload also requires current Terms of Service, Privacy Notice,
-and Document Processing Consent. Uploads are limited server-side to JPG, PNG,
-WebP, or PDF files up to 5 MB and must use the private
-`borrower-verification-documents` bucket under the borrower-scoped
-`borrowers/{borrower_id}/verification/{verification_id}/...` path.
-
-### Manager Verification Review
-
-Manager review is queue-based at `/manager/borrower-verifications`. Managers can
-filter verification records, inspect consent status and document history, accept
-or reject individual documents, approve complete verifications, reject with a
-borrower-facing reason, or mark a verification as needing resubmission. Approval
-is rejected by the RPC while required documents are missing or not accepted.
-Accepted documents remain immutable evidence; newer uploads create additional
-history instead of deleting prior rejected/submitted records.
-
-### Readiness Failure Codes
-
-Readiness failures return structured codes:
-
-- `profile_required`
-- `profile_incomplete`
-- `profile_needs_review`
-- `profile_stale`
-- `borrower_verification_required`
-- `documents_required`
-- `consent_required`
-- `credit_limit_exceeded`
-- `account_not_active`
-- `suspended`
-- `not_eligible`
-
-## Route Map
-
-| Route | Role | Purpose |
-| --- | --- | --- |
-| `/` | Public | Landing page |
-| `/signup` | Public | Self-serve borrower and lender registration |
-| `/login` | Public | Email/password sign-in |
-| `/forgot-password` | Public | Password reset request |
-| `/reset-password` | Public | Password reset confirmation |
-| `/terms` | Public | Terms of Service |
-| `/privacy` | Public | Privacy Notice |
-| `/notifications` | Authenticated | Notification actions |
-| `/borrower` | Borrower | Workspace: profile, verification, applications, offers, loans |
-| `/lender` | Lender | Workspace: overview and navigation |
-| `/lender/onboarding` | Lender | Lender profile onboarding |
-| `/lender/register` | Lender | Lender registration |
-| `/lender/applications` | Lender | Submitted application list |
-| `/lender/applications/[id]` | Lender | Application detail and offer form |
-| `/manager` | Manager | Operations dashboard |
-| `/manager/applications` | Manager | Application monitoring |
-| `/manager/applications/[id]` | Manager | Application detail |
-| `/manager/audit-logs` | Manager | Audit event log |
-| `/manager/audit-logs/[id]` | Manager | Audit event detail |
-| `/manager/borrower-verifications` | Manager | Borrower verification queue |
-| `/manager/lenders` | Manager | Lender review queue |
-| `/manager/lenders/[id]` | Manager | Lender detail, approval, rejection |
-| `/manager/loans` | Manager | Active loan monitoring |
-| `/manager/loans/[id]` | Manager | Loan detail |
-| `/manager/lookup` | Manager | Borrower record lookup |
-| `/manager/repayments` | Manager | Repayment proof monitoring |
-| `/manager/repayments/[id]` | Manager | Repayment detail |
-| `/manager/notifications` | Manager | Notification actions |
-| `/manager/users/[id]` | Manager | User detail |
-
-## Manual Test Flow
-
-1. Open `/signup`, create a borrower account, then continue to `/borrower`
-   when local Supabase returns an active session.
-2. Save the borrower business profile.
-3. Accept the borrower document-upload disclosures, then upload a valid ID and
-   business proof.
-4. Sign in as a seeded manager account, open
-   `/manager/borrower-verifications`, accept the required documents, then
-   approve the borrower verification.
-5. Sign back in as the borrower, accept the loan application disclosures, and
-   submit a loan application.
-6. Optionally edit or withdraw the application while it is still submitted/open.
-7. Sign out.
-8. Open `/signup` and create a lender account with the lender review profile
-   fields.
-9. Confirm the lender sees pending-review messaging and cannot access lender
-   application review yet.
-10. Sign in as a seeded manager account.
-11. Open `/manager/lenders`, filter pending lenders if needed, open the lender
-    detail page, then approve the pending lender or reject with a reason.
-12. Sign out, then sign in as the approved lender.
-13. Open `/lender/applications`, open the submitted application, and send an
-    offer.
-14. Sign out.
-15. Sign in again as the borrower.
-16. Open `/borrower`, confirm the offer appears, then decline or accept it.
-17. After acceptance, confirm the borrower sees an active loan with principal,
-    repayment amount, outstanding balance, due date, and installment details.
-18. Upload a repayment proof file for the due installment.
-19. Sign in as the lender and confirm the accepted offer still has application
-    context plus active-loan context.
-20. Review the submitted proof and verify or reject it.
-21. If verified, confirm the installment is verified and outstanding balance is
-    reduced.
-22. Sign in as the manager and confirm the dashboard links to active loans,
-    repayment proofs, audit logs, applications and offers, lender review,
-    borrower verifications, and lookup.
-23. Confirm there is no real payment processing, e-wallet integration, automated
-    reconciliation, credit-limit restoration, dispute workflow, or email
-    notification workflow.
-
-Manager accounts remain manually seeded or provisioned. Borrower and lender
-accounts should use self-serve signup. Lender approval is a manual manager
-review of the submitted lender profile, not automated identity verification.
-Email notifications are still not implemented.
-
-For additional manual QA checks, see
-[sprint-1-validation.md](docs/sprint-1-validation.md).
+| [School Submission](docs/school-submission.md) | Project overview, objectives, scope, and demo guide for academic evaluation |
+| [Technical Architecture](docs/technical-architecture.md) | System architecture, module design, and security model |
+| [User Guide](docs/user-guide.md) | Step-by-step workflows for borrowers, lenders, and managers |
+| [Demo Script](docs/demo-script.md) | Presentation script for live demonstrations |
+| [Application and Offer State Machine](docs/application-offer-state-machine.md) | State transition diagrams for applications, offers, loans, and repayments |
+| [Borrower Credit Readiness](docs/borrower-credit-readiness.md) | Credit readiness evaluation formula and grade computation |
+| [RLS Plan](docs/rls-plan.md) | Row Level Security policy design and access matrix |
+| [Storage Buckets Plan](docs/storage-buckets-plan.md) | Supabase Storage bucket structure and access policies |
+| [Supabase Setup](docs/supabase-setup.md) | Supabase project and auth configuration guide |
+| [Demo Accounts](docs/demo-accounts.md) | Seeded local test accounts and QA flow |
+| [Foundation Verification](docs/foundation-verification.md) | Local database integration test setup |
+| [Sprint 1 Validation](docs/sprint-1-validation.md) | Manual QA checklist |
+| [Vercel Deployment](docs/vercel-deployment.md) | Vercel deployment readiness checklist |
 
 ## CI Pipeline
 
-The GitHub Actions CI workflow (`.github/workflows/ci.yml`) runs on every push
-and pull request:
+The GitHub Actions workflow (`.github/workflows/ci.yml`) runs on every push and pull request:
 
 1. Checkout and install dependencies (`npm ci`)
 2. Start local Supabase and reset the database
@@ -391,22 +383,6 @@ and pull request:
 6. Test (`npm run test`)
 7. Build (`npm run build`)
 
-## Validation
+## License
 
-```bash
-npm run lint
-npm run typecheck
-npm run build
-npm run test
-```
-
-## shadcn/ui
-
-The project includes `components.json`, Tailwind CSS, import aliases, and
-`lib/utils.ts` so shadcn/ui components can be added when needed.
-
-Example:
-
-```bash
-npx shadcn@latest add button
-```
+This project is a school/academic submission.

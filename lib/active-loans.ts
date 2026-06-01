@@ -61,6 +61,10 @@ export type ActiveLoanSummary = {
   status: Database["public"]["Enums"]["active_loan_status"];
   startedAt: string;
   dueDate: string;
+  repaymentChannel: string | null;
+  repaymentAccountName: string | null;
+  repaymentAccountNumber: string | null;
+  repaymentInstructions: string | null;
   schedule: RepaymentScheduleSummary[];
 };
 
@@ -79,7 +83,7 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, created_at, updated_at";
@@ -207,6 +211,10 @@ export function mapActiveLoanRow(
     status: row.status,
     startedAt: row.started_at,
     dueDate: row.due_date,
+    repaymentChannel: row.repayment_channel,
+    repaymentAccountName: row.repayment_account_name,
+    repaymentAccountNumber: row.repayment_account_number,
+    repaymentInstructions: row.repayment_instructions,
     schedule,
   };
 }
