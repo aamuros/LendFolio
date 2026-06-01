@@ -5,21 +5,20 @@ import {
   FileCheck,
   HelpCircle,
   Lock,
-  LogOut,
   ShieldCheck,
 } from "lucide-react";
 import { LenderProfileSubview } from "./lender-profile-subview";
-import { LenderProfileIndexHeader } from "./lender-profile-index-header";
 import { LenderProfileDetailCard } from "./lender-profile-detail-card";
 import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import { LenderProfileStatusBanner } from "./lender-profile-status-banner";
-import { LenderProfileMenuRow } from "./lender-profile-menu-row";
 import { LenderAccountSection } from "./lender-account-section";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { LenderProfileChangeRequestForm } from "@/components/lender-profile-change-request-form";
+import { ProfileIndexHeader } from "@/components/profile/profile-index-header";
+import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
+import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { signOutAction } from "@/app/login/actions";
 
 import Link from "next/link";
 
@@ -119,7 +118,11 @@ export function LenderProfileHub({
         title="Organization Profile"
         onBack={() => onViewChange("index")}
       >
-        <LenderProfileDetailCard>
+        <LenderProfileDetailCard
+          headerLabel="Organization profile"
+          headerTitle={lenderProfile?.organization_name || undefined}
+          headerSubtitle={formatOrgSubtitle(lenderProfile)}
+        >
           <SummaryRow
             label="Organization name"
             value={formatOptional(lenderProfile?.organization_name ?? null)}
@@ -157,7 +160,11 @@ export function LenderProfileHub({
         title="Lending Details"
         onBack={() => onViewChange("index")}
       >
-        <LenderProfileDetailCard>
+        <LenderProfileDetailCard
+          headerLabel="Lending details"
+          headerTitle={formatLendingTitle(lenderProfile)}
+          headerSubtitle={lenderProfile?.typical_repayment_terms || undefined}
+        >
           <SummaryRow
             label="Minimum loan amount"
             value={formatMoney(lenderProfile?.min_loan_amount ?? null)}
@@ -277,7 +284,12 @@ export function LenderProfileHub({
       >
         <Card className="rounded-2xl">
           <div className="px-5 pt-5 pb-4">
-            <h3 className="text-sm font-medium text-foreground">Support</h3>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              Help & Support
+            </p>
+            <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
+              Contact support
+            </p>
             <p className="mt-0.5 text-sm leading-relaxed text-muted-foreground">
               For questions about your lender profile, verification, or
               offer and repayment workflows, contact LendFolio support
@@ -291,9 +303,10 @@ export function LenderProfileHub({
 
   return (
     <div className="grid gap-6">
-      <LenderProfileIndexHeader
+      <ProfileIndexHeader
         displayName={displayName}
         email={accountEmail}
+        fallbackInitial="L"
         onBack={onNavigateHome}
       />
 
@@ -305,7 +318,7 @@ export function LenderProfileHub({
       ) : null}
 
       <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={Building2}
           label="Organization Profile"
           subtitle={
@@ -313,19 +326,19 @@ export function LenderProfileHub({
           }
           onClick={() => onViewChange("organization")}
         />
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={CircleDollarSign}
           label="Lending Details"
           subtitle={formatLendingSubtitle(lenderProfile)}
           onClick={() => onViewChange("lending")}
         />
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={ShieldCheck}
           label="Verification"
           subtitle={verificationLabel}
           onClick={() => onViewChange("verification")}
         />
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={FileCheck}
           label="Verification Documents"
           subtitle={
@@ -338,7 +351,7 @@ export function LenderProfileHub({
           onClick={() => onViewChange("documents")}
         />
         {verificationStatus === "approved" ? (
-          <LenderProfileMenuRow
+          <ProfileMenuRow
             icon={Edit3Icon}
             label="Profile Changes"
             subtitle={
@@ -349,35 +362,20 @@ export function LenderProfileHub({
             onClick={() => onViewChange("change-requests")}
           />
         ) : null}
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={Lock}
           label="Account & Security"
           subtitle={accountEmail || "Signed in"}
           onClick={() => onViewChange("account")}
         />
-        <LenderProfileMenuRow
+        <ProfileMenuRow
           icon={HelpCircle}
           label="Help & Support"
           subtitle="Lender account questions"
           onClick={() => onViewChange("support")}
         />
       </div>
-      <form action={signOutAction}>
-        <button
-          type="submit"
-          className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-muted/50 active:bg-muted focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring cursor-pointer touch-manipulation rounded-2xl bg-muted/40"
-        >
-          <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-muted-foreground transition-colors group-hover:bg-muted-foreground/10">
-            <LogOut className="size-5" />
-          </span>
-          <span className="grid min-w-0 flex-1 gap-0.5">
-            <span className="text-sm font-medium text-foreground">Sign out</span>
-            <span className="truncate text-xs text-muted-foreground">
-              Sign out of this account on this device
-            </span>
-          </span>
-        </button>
-      </form>
+      <ProfileSignOutRow />
     </div>
   );
 }
@@ -406,7 +404,11 @@ function LenderVerificationDetail({
 
   return (
     <div className="grid gap-6">
-      <LenderProfileDetailCard>
+      <LenderProfileDetailCard
+        headerLabel="Verification"
+        headerTitle={formatVerificationStatus(status)}
+        headerSubtitle={getVerificationHeaderSubtitle(status)}
+      >
         <SummaryRow
           label="Verification status"
           value={formatVerificationStatus(status)}
@@ -532,6 +534,51 @@ function formatLendingSubtitle(
   }
 
   return "Lending terms";
+}
+
+function formatOrgSubtitle(
+  lenderProfile: LenderProfileData,
+) {
+  if (!lenderProfile) {
+    return undefined;
+  }
+
+  const parts = [
+    lenderProfile.operating_area,
+    lenderProfile.contact_person,
+  ].filter(Boolean);
+
+  return parts.length > 0 ? parts.join(" · ") : undefined;
+}
+
+function formatLendingTitle(
+  lenderProfile: LenderProfileData,
+) {
+  if (!lenderProfile) {
+    return undefined;
+  }
+
+  const min = lenderProfile.min_loan_amount;
+  const max = lenderProfile.max_loan_amount;
+
+  if (min != null && max != null) {
+    return `${formatMoney(min)} – ${formatMoney(max)}`;
+  }
+
+  return lenderProfile.typical_repayment_terms || undefined;
+}
+
+function getVerificationHeaderSubtitle(status: string) {
+  switch (status) {
+    case "approved":
+      return "Your lender account is active";
+    case "pending":
+      return "Under manager review";
+    case "rejected":
+      return "Update and resubmit your profile";
+    default:
+      return "Complete your lender profile";
+  }
 }
 
 function formatMoney(value: number | null) {

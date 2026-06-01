@@ -319,6 +319,30 @@ A full manual test flow is documented in the [Manual Test Flow](#manual-test-flo
 
 All demo accounts use password `LendFolio123!`.
 
+## Deployment
+
+LendFolio is ready for deployment to Vercel with Supabase as the production backend.
+
+### Quick Checklist
+
+1. Create a Supabase project and apply all 54 migrations (`supabase db push`).
+2. Configure Supabase Auth: enable Email provider, set Site URL and Redirect URLs.
+3. Provision a manager account manually in the production database.
+4. Create a Vercel project, import the repository, and set environment variables.
+5. Deploy from `main`.
+
+### Required Environment Variables
+
+| Variable | Description |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public API key |
+| `NEXT_PUBLIC_SITE_URL` | (Optional) Production URL override for auth redirects |
+
+> **Security note**: Never commit real credentials. Never expose Supabase service role keys through `NEXT_PUBLIC_*` variables.
+
+For the complete deployment guide, see [docs/vercel-deployment.md](docs/vercel-deployment.md).
+
 ## Current Limitations
 
 The following features are **not implemented** in the current version:
@@ -369,7 +393,7 @@ Application deletion is intentionally excluded from the borrower workflow. Close
 | [Demo Accounts](docs/demo-accounts.md) | Seeded local test accounts and QA flow |
 | [Foundation Verification](docs/foundation-verification.md) | Local database integration test setup |
 | [Sprint 1 Validation](docs/sprint-1-validation.md) | Manual QA checklist |
-| [Vercel Deployment](docs/vercel-deployment.md) | Vercel deployment readiness checklist |
+| [Vercel Deployment](docs/vercel-deployment.md) | Complete Vercel + Supabase deployment guide with checklists |
 
 ## CI Pipeline
 

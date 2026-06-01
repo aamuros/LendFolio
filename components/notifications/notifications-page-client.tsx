@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   loadNotificationsAction,
@@ -12,6 +12,7 @@ import { NotificationList } from "@/components/notifications/notification-list";
 import { NotificationsSkeleton } from "@/components/notifications/notifications-loading";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ArrowLeft, CheckCheck, Bell, AlertCircle } from "lucide-react";
 
@@ -25,6 +26,7 @@ export function NotificationsPageClient() {
   >(null);
   const [isPending, startTransition] = useTransition();
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [filter, setFilter] = useState<"all" | "unread">("all");
 
   const loadNotifications = useCallback(() => {
     startTransition(() => {
@@ -110,10 +112,18 @@ export function NotificationsPageClient() {
     [router],
   );
 
+  const filteredNotifications = useMemo(
+    () =>
+      filter === "unread"
+        ? notifications.filter((n) => n.isUnread)
+        : notifications,
+    [notifications, filter],
+  );
+
   return (
     <div className="flex min-h-dvh flex-col bg-background">
       <header className="sticky top-0 z-10 border-b border-border bg-background">
-        <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
@@ -154,7 +164,29 @@ export function NotificationsPageClient() {
         </div>
       </header>
 
-      <main className="flex-1">
+      <main className="mx-auto w-full max-w-7xl flex-1">
+        <div className="px-4 py-3">
+          <Tabs
+            value={filter}
+            onValueChange={(value) => setFilter(value as "all" | "unread")}
+          >
+            <TabsList>
+              <TabsTrigger value="all">All</TabsTrigger>
+              <TabsTrigger value="unread">
+                Unread
+                {unreadCount > 0 ? (
+                  <Badge
+                    variant="secondary"
+                    className="ml-1.5 min-w-5 justify-center rounded-full px-1 py-0 text-[10px] leading-none"
+                  >
+                    {unreadCount > 9 ? "9+" : unreadCount}
+                  </Badge>
+                ) : null}
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
+        </div>
+
         {message ? (
           <div className="px-4 py-4">
             <Alert variant="destructive">
@@ -168,31 +200,37 @@ export function NotificationsPageClient() {
           <NotificationsSkeleton count={6} />
         ) : null}
 
-        {!message && !isInitialLoad && notifications.length === 0 ? (
+        {!message && !isInitialLoad && filteredNotifications.length === 0 ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-16">
             <div className="flex size-16 items-center justify-center rounded-full bg-muted">
               <Bell className="size-8 text-muted-foreground/50" />
             </div>
             <div className="grid gap-1 text-center">
               <p className="text-sm font-medium text-foreground">
-                No notifications yet
+                {filter === "unread"
+                  ? "No unread notifications"
+                  : "No notifications yet"}
               </p>
               <p className="text-sm text-muted-foreground">
-                Workflow updates will appear here.
+                {filter === "unread"
+                  ? "You're all caught up."
+                  : "Workflow updates will appear here."}
               </p>
             </div>
           </div>
         ) : null}
 
-        {!message && notifications.length > 0 ? (
+        {!message && filteredNotifications.length > 0 ? (
           <div className="divide-y divide-border">
             <NotificationList
-              notifications={notifications}
+              notifications={filteredNotifications}
               activeNotificationId={activeNotificationId}
               onOpenNotification={openNotification}
             />
           </div>
         ) : null}
+
+        <div className="h-24 sm:h-0" />
       </main>
     </div>
   );

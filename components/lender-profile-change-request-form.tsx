@@ -20,16 +20,8 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
-import {
-  Edit3Icon,
-  ChevronDownIcon,
   CheckCircle2Icon,
   XCircleIcon,
   ClockIcon,
@@ -77,7 +69,6 @@ export function LenderProfileChangeRequestForm({
   currentProfile,
   changeRequests,
 }: LenderProfileChangeRequestFormProps) {
-  const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
@@ -97,7 +88,6 @@ export function LenderProfileChangeRequestForm({
     setMessage(result.message);
 
     if (result.ok) {
-      setIsOpen(false);
       setOperatingArea("");
     }
 
@@ -186,174 +176,163 @@ export function LenderProfileChangeRequestForm({
       ) : null}
 
       {!pendingRequest ? (
-        <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleTrigger asChild>
-            <Button variant="outline" className="w-full gap-2">
-              <Edit3Icon className="size-4" />
-              Request profile changes
-              <ChevronDownIcon className="size-4 ml-auto transition-transform [[data-state=open]_&]:rotate-180" />
-            </Button>
-          </CollapsibleTrigger>
-          <CollapsibleContent>
-            <Card className="mt-3">
-              <CardContent>
-                <form action={handleSubmit} className="grid gap-4">
-                  <p className="text-xs text-muted-foreground">
-                    Only fill in fields you want to change. Leave empty to keep current values.
-                  </p>
+        <Card>
+          <CardContent>
+            <form action={handleSubmit} className="grid gap-4">
+              <p className="text-xs text-muted-foreground">
+                Only fill in fields you want to change. Leave empty to keep current values.
+              </p>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-org" className="text-xs font-medium">
-                      Organization name
-                    </Label>
-                    <Input
-                      id="cr-org"
-                      name="organizationName"
-                      placeholder={currentProfile.organization_name ?? ""}
-                      maxLength={160}
-                    />
-                  </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-org" className="text-xs font-medium">
+                  Organization name
+                </Label>
+                <Input
+                  id="cr-org"
+                  name="organizationName"
+                  placeholder={currentProfile.organization_name ?? ""}
+                  maxLength={160}
+                />
+              </div>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-contact" className="text-xs font-medium">
-                      Contact person
-                    </Label>
-                    <Input
-                      id="cr-contact"
-                      name="contactPerson"
-                      placeholder={currentProfile.contact_person ?? ""}
-                      maxLength={120}
-                    />
-                  </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-contact" className="text-xs font-medium">
+                  Contact person
+                </Label>
+                <Input
+                  id="cr-contact"
+                  name="contactPerson"
+                  placeholder={currentProfile.contact_person ?? ""}
+                  maxLength={120}
+                />
+              </div>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-address" className="text-xs font-medium">
-                      Business address
-                    </Label>
-                    <Input
-                      id="cr-address"
-                      name="businessAddress"
-                      placeholder={currentProfile.business_address ?? ""}
-                      maxLength={240}
-                    />
-                  </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-address" className="text-xs font-medium">
+                  Business address
+                </Label>
+                <Input
+                  id="cr-address"
+                  name="businessAddress"
+                  placeholder={currentProfile.business_address ?? ""}
+                  maxLength={240}
+                />
+              </div>
 
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-area" className="text-xs font-medium">
-                      Operating area
-                    </Label>
-                    <input
-                      type="hidden"
-                      name="operatingArea"
-                      value={operatingArea}
-                    />
-                    <Select
-                      value={operatingArea}
-                      onValueChange={setOperatingArea}
-                    >
-                      <SelectTrigger
-                        id="cr-area"
-                        className="h-9 bg-background"
-                      >
-                        <SelectValue
-                          placeholder={
-                            currentProfile.operating_area
-                              ? `Current: ${currentProfile.operating_area}`
-                              : "Select operating area"
-                          }
-                        />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__keep__">
-                          Keep current value
-                        </SelectItem>
-                        {philippineOperatingAreas.map((area) => (
-                          <SelectItem key={area} value={area}>
-                            {area}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-reg" className="text-xs font-medium">
-                      Business registration number
-                    </Label>
-                    <Input
-                      id="cr-reg"
-                      name="businessRegistrationNumber"
-                      placeholder={currentProfile.business_registration_number ?? ""}
-                      maxLength={80}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="cr-min" className="text-xs font-medium">
-                        Min loan amount
-                      </Label>
-                      <Input
-                        id="cr-min"
-                        name="minLoanAmount"
-                        type="number"
-                        min={0}
-                        step={100}
-                        placeholder={currentProfile.min_loan_amount?.toString() ?? ""}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label htmlFor="cr-max" className="text-xs font-medium">
-                        Max loan amount
-                      </Label>
-                      <Input
-                        id="cr-max"
-                        name="maxLoanAmount"
-                        type="number"
-                        min={0}
-                        step={100}
-                        placeholder={currentProfile.max_loan_amount?.toString() ?? ""}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-terms" className="text-xs font-medium">
-                      Typical repayment terms
-                    </Label>
-                    <Input
-                      id="cr-terms"
-                      name="typicalRepaymentTerms"
-                      placeholder={currentProfile.typical_repayment_terms ?? ""}
-                      maxLength={240}
-                    />
-                  </div>
-
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="cr-desc" className="text-xs font-medium">
-                      Lender description
-                    </Label>
-                    <Textarea
-                      id="cr-desc"
-                      name="lenderDescription"
-                      rows={3}
-                      maxLength={800}
-                      placeholder={currentProfile.lender_description ?? ""}
-                    />
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="w-full"
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-area" className="text-xs font-medium">
+                  Operating area
+                </Label>
+                <input
+                  type="hidden"
+                  name="operatingArea"
+                  value={operatingArea}
+                />
+                <Select
+                  value={operatingArea}
+                  onValueChange={setOperatingArea}
+                >
+                  <SelectTrigger
+                    id="cr-area"
+                    className="h-9 bg-background"
                   >
-                    {isSubmitting ? "Submitting..." : "Submit change request"}
-                  </Button>
-                </form>
-              </CardContent>
-            </Card>
-          </CollapsibleContent>
-        </Collapsible>
+                    <SelectValue
+                      placeholder={
+                        currentProfile.operating_area
+                          ? `Current: ${currentProfile.operating_area}`
+                          : "Select operating area"
+                      }
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__keep__">
+                      Keep current value
+                    </SelectItem>
+                    {philippineOperatingAreas.map((area) => (
+                      <SelectItem key={area} value={area}>
+                        {area}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-reg" className="text-xs font-medium">
+                  Business registration number
+                </Label>
+                <Input
+                  id="cr-reg"
+                  name="businessRegistrationNumber"
+                  placeholder={currentProfile.business_registration_number ?? ""}
+                  maxLength={80}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cr-min" className="text-xs font-medium">
+                    Min loan amount
+                  </Label>
+                  <Input
+                    id="cr-min"
+                    name="minLoanAmount"
+                    type="number"
+                    min={0}
+                    step={100}
+                    placeholder={currentProfile.min_loan_amount?.toString() ?? ""}
+                  />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label htmlFor="cr-max" className="text-xs font-medium">
+                    Max loan amount
+                  </Label>
+                  <Input
+                    id="cr-max"
+                    name="maxLoanAmount"
+                    type="number"
+                    min={0}
+                    step={100}
+                    placeholder={currentProfile.max_loan_amount?.toString() ?? ""}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-terms" className="text-xs font-medium">
+                  Typical repayment terms
+                </Label>
+                <Input
+                  id="cr-terms"
+                  name="typicalRepaymentTerms"
+                  placeholder={currentProfile.typical_repayment_terms ?? ""}
+                  maxLength={240}
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="cr-desc" className="text-xs font-medium">
+                  Lender description
+                </Label>
+                <Textarea
+                  id="cr-desc"
+                  name="lenderDescription"
+                  rows={3}
+                  maxLength={800}
+                  placeholder={currentProfile.lender_description ?? ""}
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="w-full"
+              >
+                {isSubmitting ? "Submitting..." : "Submit change request"}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
       ) : (
         <div className="flex items-center gap-2 rounded-lg bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-700">
           <ClockIcon className="size-3.5 shrink-0" />

@@ -160,6 +160,7 @@ export async function markNotificationReadAction(
   }
 
   revalidatePath("/");
+  revalidatePath("/notifications");
   revalidatePath("/manager");
   revalidatePath("/borrower");
   revalidatePath("/lender");
@@ -196,6 +197,7 @@ export async function markAllNotificationsReadAction(): Promise<NotificationMuta
   }
 
   revalidatePath("/");
+  revalidatePath("/notifications");
   revalidatePath("/manager");
   revalidatePath("/borrower");
   revalidatePath("/lender");

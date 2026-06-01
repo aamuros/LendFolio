@@ -10,6 +10,7 @@ import type { RepaymentProofStatus } from "@/lib/supabase/types";
 import { canReviewRepaymentProof } from "@/lib/workflow-rules";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 
@@ -45,9 +46,6 @@ export function LenderRepaymentProofActions({
     if (!canReview) {
       return;
     }
-
-    setMessage("Verifying repayment...");
-    setTone("success");
 
     startTransition(async () => {
       const result = await verifyRepaymentProof(proofId);
@@ -91,7 +89,13 @@ export function LenderRepaymentProofActions({
           onClick={onVerify}
           disabled={isPending || !canReview}
         >
-          {reviewedStatus === "verified" ? "Verified" : "Verify repayment"}
+          {isPending ? (
+            <Loader2 className="size-4 animate-spin" />
+          ) : reviewedStatus === "verified" ? (
+            "Verified"
+          ) : (
+            "Verify repayment"
+          )}
         </Button>
         {proofUrl ? (
           <Button

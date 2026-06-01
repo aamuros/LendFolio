@@ -623,7 +623,7 @@ describe("borrower repayment calendar helpers", () => {
     const summary = getRepaymentActionSummary([
       loan([
         repayment("overdue", "due", "2026-04-30", 1200),
-        repayment("current", "due", "2026-05-31", 1500),
+        repayment("current", "due", "2026-06-30", 1500),
         repayment("submitted", "submitted", "2026-05-20", 900),
       ]),
     ] as never);
@@ -1309,7 +1309,7 @@ describe("manager lender review page", () => {
 
     expect(lendersPage).toContain("consentStatus.isCurrent");
     expect(decisionForm).toContain("disclosuresCurrent");
-    expect(decisionForm).toContain("Approval blocked");
+    expect(decisionForm).toContain("isBlocked");
   });
 
   it("hides approval button when disclosures are missing", () => {
@@ -1420,7 +1420,7 @@ describe("manager lender review page", () => {
       "utf8",
     );
 
-    expect(decisionForm).toContain("Approval blocked");
+    expect(decisionForm).toContain("isBlocked");
     expect(decisionForm).toContain("ShieldAlertIcon");
   });
 

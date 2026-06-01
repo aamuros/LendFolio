@@ -5,9 +5,14 @@ export function LenderAccountSection({ email }: { email: string }) {
     <div className="grid gap-6">
       <Card className="rounded-2xl">
         <div className="px-5 pt-5 pb-4">
-          <h3 className="text-sm font-medium text-foreground">Account</h3>
-          <p className="mt-0.5 break-words text-sm text-muted-foreground">
+          <p className="text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+            Account & Security
+          </p>
+          <p className="mt-1 text-lg font-bold tracking-tight text-foreground">
             {email || "Signed in"}
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            Signed in with your registered email address.
           </p>
         </div>
       </Card>

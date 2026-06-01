@@ -1,18 +1,22 @@
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 
-export function LenderProfileIndexHeader({
+export function ProfileIndexHeader({
   displayName,
   email,
+  fallbackInitial = "U",
   isLoading = false,
   onBack,
+  onEditProfile,
 }: {
   displayName: string;
   email: string;
+  fallbackInitial?: string;
   isLoading?: boolean;
   onBack: () => void;
+  onEditProfile?: () => void;
 }) {
   function getInitials(value: string) {
     const initials = value
@@ -22,7 +26,7 @@ export function LenderProfileIndexHeader({
       .map((part) => part[0]?.toUpperCase())
       .join("");
 
-    return initials || "L";
+    return initials || fallbackInitial;
   }
 
   return (
@@ -38,6 +42,19 @@ export function LenderProfileIndexHeader({
           <ArrowLeft className="size-4" />
           <span className="text-sm">Home</span>
         </Button>
+        {isLoading ? (
+          onEditProfile ? <Skeleton className="h-8 w-14 rounded-md" /> : null
+        ) : onEditProfile ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onEditProfile}
+            className="gap-1.5 text-muted-foreground hover:text-foreground"
+          >
+            <Pencil className="size-3.5" />
+            <span className="text-sm">Edit</span>
+          </Button>
+        ) : null}
       </div>
 
       <div className="flex items-center gap-4">

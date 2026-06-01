@@ -1714,7 +1714,7 @@ function RepaymentCalendarCard({
                             {hasItems ? (
                               <span
                                 className={cn(
-                                  "absolute bottom-0.5 left-1/2 size-1.5 -translate-x-1/2 rounded-full",
+                                  "pointer-events-none absolute bottom-0.5 left-1/2 z-20 size-1.5 -translate-x-1/2 rounded-full",
                                   tone === "danger"
                                     ? "bg-destructive"
                                     : tone === "neutral"

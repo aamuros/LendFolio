@@ -1,17 +1,17 @@
-import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Info, Lock, LogOut, ShieldCheck, Wallet } from "lucide-react";
+import { AlertCircle, Briefcase, ChartColumn, CheckCircle2, HelpCircle, Info, Lock, ShieldCheck, Wallet } from "lucide-react";
 import { BorrowerVerificationDocumentsPanel } from "@/components/borrower-verification-documents-panel";
 import { ProfileSubview } from "./profile-subview";
-import { ProfileIndexHeader } from "./profile-index-header";
 import { ProfileDetailCard } from "./profile-detail-card";
 import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import { ProfileStatusBanner } from "./profile-status-banner";
-import { ProfileMenuRow } from "./profile-menu-row";
 import { BorrowingPowerDetail } from "./borrowing-power-detail";
 import { AccountSection } from "./account-section";
 import { BorrowerCard } from "@/components/borrower/ui/borrower-card";
+import { ProfileIndexHeader } from "@/components/profile/profile-index-header";
+import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
+import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { signOutAction } from "@/app/login/actions";
 
 import {
   businessTypeLabels,
@@ -253,6 +253,7 @@ export function BorrowerProfileHub({
       <ProfileIndexHeader
         email={accountEmail}
         displayName={displayName}
+        fallbackInitial="B"
         isLoading={isLoadingProfile}
         onBack={onNavigateHome}
         onEditProfile={() => onEditProfile("index")}
@@ -308,7 +309,7 @@ export function BorrowerProfileHub({
             </div>
           ) : null}
 
-          <div className="grid gap-3">
+          <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -350,14 +351,7 @@ export function BorrowerProfileHub({
               onClick={() => onProfileViewChange("support")}
             />
           </div>
-          <form action={signOutAction}>
-            <ProfileMenuRow
-              icon={LogOut}
-              label="Sign out"
-              subtitle="Sign out of this account on this device"
-              submit
-            />
-          </form>
+          <ProfileSignOutRow />
         </>
       )}
     </div>
@@ -368,13 +362,10 @@ function ProfileHubSkeleton() {
   return (
     <div className="grid gap-6">
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="grid gap-3">
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
-        <Skeleton className="h-14 w-full rounded-2xl" />
+      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+        {Array.from({ length: 6 }).map((_, i) => (
+          <Skeleton key={i} className="h-[4.25rem] w-full rounded-none" />
+        ))}
       </div>
     </div>
   );
