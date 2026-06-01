@@ -87,10 +87,14 @@ export async function signupAction(
       };
     }
 
-    const acceptedBaseline = await acceptBaselineUserConsents(
-      supabase,
-      requestHeaders,
-    );
+    const [acceptedBaseline, { data: profile }] = await Promise.all([
+      acceptBaselineUserConsents(supabase, requestHeaders),
+      supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", data.user.id)
+        .maybeSingle(),
+    ]);
 
     if (!acceptedBaseline) {
       return {
@@ -103,12 +107,6 @@ export async function signupAction(
     // Verify the provisioned profile role matches the signup role.
     // If provisioning created a different role, redirect to the correct
     // workspace rather than silently sending the user to the wrong one.
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", data.user.id)
-      .maybeSingle();
-
     if (profile && profile.role !== input.role) {
       redirectTo =
         profile.role === "borrower"

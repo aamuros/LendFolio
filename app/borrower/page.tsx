@@ -1,6 +1,6 @@
 import { BorrowerWorkspace } from "@/components/borrower-workspace";
 import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
-import { requireBorrower } from "@/lib/access-control";
+import { getBorrowerAccess } from "@/lib/borrower-access";
 import { redirect } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
@@ -46,12 +46,12 @@ export default async function BorrowerPage({
   const initialTab: BorrowerTab =
     tab && validBorrowerTabs.has(tab as BorrowerTab) ? (tab as BorrowerTab) : "home";
 
-  const access = await requireBorrower();
-  const {
-    data: { user },
-  } = access.ok ? await access.supabase.auth.getUser() : { data: { user: null } };
+  const access = await getBorrowerAccess();
+  const user = access.ok
+    ? (await access.supabase.auth.getUser()).data.user
+    : null;
   const initialLoanApplications = access.ok
-    ? await loadBorrowerLoanApplications()
+    ? await loadBorrowerLoanApplications(access)
     : null;
 
   return (

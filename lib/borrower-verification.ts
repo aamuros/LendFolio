@@ -217,6 +217,7 @@ export function getBorrowerVerificationMessage(
 export async function getBorrowerVerificationStatus(
   supabase: SupabaseServerClient,
   borrowerId: string,
+  { includeSignedUrls = false }: { includeSignedUrls?: boolean } = {},
 ): Promise<BorrowerVerificationSummary> {
   const { data, error } = await supabase
     .from("borrower_verifications")
@@ -251,7 +252,7 @@ export async function getBorrowerVerificationStatus(
     (documents ?? []).map(async (doc) => {
       const summary = mapBorrowerVerificationDocumentRow(doc);
 
-      if (doc.storage_bucket && doc.storage_path) {
+      if (includeSignedUrls && doc.storage_bucket && doc.storage_path) {
         try {
           const { data: signed } = await supabase.storage
             .from(doc.storage_bucket)

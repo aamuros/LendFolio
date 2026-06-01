@@ -260,9 +260,9 @@ function ConsentCheckbox({
 }) {
   return (
     <div className="grid gap-1">
-      <div className="flex items-start gap-2.5">
+      <div className="grid grid-cols-[1.125rem_1fr] items-start gap-x-2.5 gap-y-0">
         <Checkbox id={id} name={name} value="on" className="mt-0.5" required />
-        <Label htmlFor={id} className="text-sm font-normal leading-snug peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+        <Label htmlFor={id} className="text-sm font-normal leading-snug inline peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label}
         </Label>
       </div>

@@ -40,13 +40,15 @@ export async function loginAction(
     }
 
     const requestHeaders = await headers();
-    await acceptBaselineUserConsents(supabase, requestHeaders);
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role, status")
-      .eq("id", data.user.id)
-      .maybeSingle();
+    const [, { data: profile }] = await Promise.all([
+      acceptBaselineUserConsents(supabase, requestHeaders),
+      supabase
+        .from("profiles")
+        .select("role, status")
+        .eq("id", data.user.id)
+        .maybeSingle(),
+    ]);
 
     destination = profile
       ? await getPostLoginDestination(supabase, data.user.id, profile)

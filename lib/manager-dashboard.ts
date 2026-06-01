@@ -5,54 +5,8 @@ import type { Database } from "@/lib/supabase/types";
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
 >;
-type ActiveLoanRow = Database["public"]["Tables"]["active_loans"]["Row"];
-type ApplicationRow = Database["public"]["Tables"]["loan_applications"]["Row"];
-type LoanOfferRow = Database["public"]["Tables"]["loan_offers"]["Row"];
-type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
 type ProfileStatus = Database["public"]["Enums"]["profile_status"];
-type RepaymentProofRow =
-  Database["public"]["Tables"]["repayment_proofs"]["Row"];
-type RepaymentScheduleRow =
-  Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
-type BorrowerPortfolioRow =
-  Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 export type BusinessType = Database["public"]["Enums"]["business_type"];
-
-type DashboardProfile = Pick<
-  ProfileRow,
-  "id" | "role" | "display_name" | "status" | "created_at"
->;
-type DashboardActiveLoan = Pick<
-  ActiveLoanRow,
-  "id" | "borrower_id" | "lender_id" | "loan_application_id" | "status" | "started_at"
->;
-type DashboardApplication = Pick<
-  ApplicationRow,
-  "id" | "borrower_id" | "borrower_portfolio_id" | "status" | "submitted_at"
-> & {
-  borrower_credit_profile_grade: string | null;
-};
-type DashboardOffer = Pick<
-  LoanOfferRow,
-  "id" | "lender_id" | "loan_application_id" | "status" | "sent_at"
->;
-type DashboardBorrowerPortfolio = Pick<
-  BorrowerPortfolioRow,
-  "id" | "business_type"
->;
-type DashboardRepaymentSchedule = Pick<
-  RepaymentScheduleRow,
-  "id" | "borrower_id" | "status"
->;
-type DashboardRepaymentProof = Pick<
-  RepaymentProofRow,
-  "id" | "borrower_id" | "status"
->;
-
-type QueryResult<T> = {
-  ok: boolean;
-  data: T[];
-};
 
 type CountResult = {
   ok: boolean;
@@ -140,12 +94,17 @@ export type ManagerDashboardOverview = {
   borrowerPerformance: ManagerBorrowerPerformanceRow[];
 };
 
-const profileStatuses: ProfileStatus[] = ["active", "pending", "suspended"];
 const profileStatusLabels: Record<ProfileStatus, string> = {
   active: "Active",
   pending: "Pending",
   suspended: "Suspended",
 };
+
+const statusDistributionStatuses: ProfileStatus[] = [
+  "active",
+  "pending",
+  "suspended",
+];
 
 export async function loadManagerDashboardOverview(
   supabase: SupabaseServerClient,
@@ -159,49 +118,99 @@ export async function loadManagerDashboardOverview(
     lenderCount,
     borrowerCount,
     applicationCount,
-    profiles,
-    activeLoans,
-    applications,
-    offers,
-    borrowerPortfolios,
-    repaymentSchedules,
-    repaymentProofs,
-    pendingVerificationCount,
-    pendingLenderReviewCount,
+    headcountResult,
+    statusDistResult,
+    monthlyActivityResult,
+    pendingCountsResult,
+    lenderPerfResult,
+    borrowerPerfResult,
   ] = await Promise.all([
     countActiveLoans(supabase),
     countProfilesByRole(supabase, "lender"),
     countProfilesByRole(supabase, "borrower"),
     countApplications(supabase),
-    loadProfiles(supabase),
-    loadActiveLoans(supabase),
-    loadApplications(supabase),
-    loadOffers(supabase),
-    loadBorrowerPortfolios(supabase),
-    loadRepaymentSchedules(supabase),
-    loadRepaymentProofs(supabase),
-    countPendingBorrowerVerifications(supabase),
-    countPendingLenderReviews(supabase),
+    supabase.rpc("manager_dashboard_monthly_headcount"),
+    supabase.rpc("manager_dashboard_status_distribution"),
+    supabase.rpc("manager_dashboard_monthly_activity"),
+    supabase.rpc("manager_dashboard_pending_action_counts"),
+    supabase.rpc("manager_dashboard_lender_performance"),
+    supabase.rpc("manager_dashboard_borrower_performance"),
   ]);
-  const results = [
+
+  const counts = [
     activeLoanCount,
     lenderCount,
     borrowerCount,
     applicationCount,
-    profiles,
-    activeLoans,
-    applications,
-    offers,
-    borrowerPortfolios,
-    repaymentSchedules,
-    repaymentProofs,
-    pendingVerificationCount,
-    pendingLenderReviewCount,
   ];
 
+  const headcountData = headcountResult.data ?? [];
+  const statusDistData = statusDistResult.data ?? [];
+  const activityData = monthlyActivityResult.data ?? [];
+  const pendingData = pendingCountsResult.data?.[0];
+  const lenderPerfData = lenderPerfResult.data ?? [];
+  const borrowerPerfData = borrowerPerfResult.data ?? [];
+
+  const months = getDashboardMonths();
+  const headcountByKey = new Map(
+    headcountData.map((row) => [row.month_key, row]),
+  );
+  const monthlyHeadcount: ManagerMonthlyUserHeadcount[] = months.map(
+    (month) => {
+      const row = headcountByKey.get(month.key);
+      return {
+        month: month.key,
+        label: month.label,
+        active: Number(row?.active_count ?? 0),
+        pending: Number(row?.pending_count ?? 0),
+        suspended: Number(row?.suspended_count ?? 0),
+        total: Number(row?.total_count ?? 0),
+      };
+    },
+  );
+
+  const statusDistMap = new Map(
+    statusDistData.map((row) => [row.status, Number(row.count)]),
+  );
+  const statusDistribution: ManagerUserStatusDistribution[] =
+    statusDistributionStatuses.map((status) => ({
+      status,
+      label: profileStatusLabels[status],
+      count: statusDistMap.get(status) ?? 0,
+    }));
+
+  const activityByKey = new Map(
+    activityData.map((row) => [row.month_key, row]),
+  );
+  const monthlyActivity: ManagerMonthlyActivityRow[] = months.map((month) => {
+    const row = activityByKey.get(month.key);
+    return {
+      month: month.key,
+      label: month.label,
+      applications: Number(row?.applications ?? 0),
+      offers: Number(row?.offers ?? 0),
+      loans: Number(row?.loans ?? 0),
+    };
+  });
+
+  const pendingActions: ManagerPendingActionCounts = {
+    pendingBorrowerVerifications: Number(
+      pendingData?.pending_borrower_verifications ?? 0,
+    ),
+    pendingLenderReviews: Number(pendingData?.pending_lender_reviews ?? 0),
+    openApplications: Number(pendingData?.open_applications ?? 0),
+    pendingRepaymentReviews: Number(
+      pendingData?.pending_repayment_reviews ?? 0,
+    ),
+  };
+
+  const lenderPerformance = buildLenderPerformanceFromRpc(lenderPerfData);
+  const borrowerPerformance =
+    buildBorrowerPerformanceFromRpc(borrowerPerfData);
+
   return {
-    ok: results.every((result) => result.ok),
-    message: results.every((result) => result.ok)
+    ok: counts.every((result) => result.ok),
+    message: counts.every((result) => result.ok)
       ? "Manager dashboard metrics loaded."
       : "Some dashboard metrics could not be loaded.",
     dashboard: {
@@ -235,37 +244,12 @@ export async function loadManagerDashboardOverview(
           accent: "rose",
         },
       ],
-      pendingActions: {
-        pendingBorrowerVerifications: pendingVerificationCount.count,
-        pendingLenderReviews: pendingLenderReviewCount.count,
-        openApplications: applications.data.filter(
-          (app) => app.status === "submitted" || app.status === "open",
-        ).length,
-        pendingRepaymentReviews: repaymentProofs.data.filter(
-          (proof) => proof.status === "submitted",
-        ).length,
-      },
-      monthlyHeadcount: buildMonthlyHeadcount(profiles.data),
-      monthlyActivity: buildMonthlyActivity(
-        applications.data,
-        offers.data,
-        activeLoans.data,
-      ),
-      statusDistribution: buildStatusDistribution(profiles.data),
-      lenderPerformance: buildLenderPerformance(
-        profiles.data,
-        activeLoans.data,
-        offers.data,
-        applications.data,
-        borrowerPortfolios.data,
-      ),
-      borrowerPerformance: buildBorrowerPerformance(
-        profiles.data,
-        applications.data,
-        activeLoans.data,
-        repaymentSchedules.data,
-        repaymentProofs.data,
-      ),
+      pendingActions,
+      monthlyHeadcount,
+      monthlyActivity,
+      statusDistribution,
+      lenderPerformance,
+      borrowerPerformance,
     },
   };
 }
@@ -315,300 +299,89 @@ async function countApplications(
   }
 }
 
-async function loadProfiles(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardProfile>> {
-  try {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("id, role, display_name, status, created_at")
-      .order("created_at", { ascending: true })
-      .limit(1000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadActiveLoans(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardActiveLoan>> {
-  try {
-    const { data, error } = await supabase
-      .from("active_loans")
-      .select("id, borrower_id, lender_id, loan_application_id, status, started_at")
-      .limit(1000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadApplications(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardApplication>> {
-  try {
-    const { data, error } = await supabase
-      .from("loan_applications")
-      .select("id, borrower_id, borrower_portfolio_id, status, borrower_credit_profile_grade, submitted_at")
-      .limit(1000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadOffers(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardOffer>> {
-  try {
-    const { data, error } = await supabase
-      .from("loan_offers")
-      .select("id, lender_id, loan_application_id, status, sent_at")
-      .limit(1000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadBorrowerPortfolios(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardBorrowerPortfolio>> {
-  try {
-    const { data, error } = await supabase
-      .from("borrower_portfolios")
-      .select("id, business_type")
-      .limit(1000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadRepaymentSchedules(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardRepaymentSchedule>> {
-  try {
-    const { data, error } = await supabase
-      .from("loan_repayment_schedules")
-      .select("id, borrower_id, status")
-      .limit(2000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
-async function loadRepaymentProofs(
-  supabase: SupabaseServerClient,
-): Promise<QueryResult<DashboardRepaymentProof>> {
-  try {
-    const { data, error } = await supabase
-      .from("repayment_proofs")
-      .select("id, borrower_id, status")
-      .limit(2000);
-
-    return { ok: !error, data: data ?? [] };
-  } catch {
-    return failedQuery();
-  }
-}
-
 function failedCount(): CountResult {
   return { ok: false, count: 0 };
 }
 
-async function countPendingBorrowerVerifications(
-  supabase: SupabaseServerClient,
-): Promise<CountResult> {
-  try {
-    const { count, error } = await supabase
-      .from("borrower_verifications")
-      .select("id", { count: "exact", head: true })
-      .in("verification_status", ["submitted", "under_review"]);
-
-    return { ok: !error, count: count ?? 0 };
-  } catch {
-    return failedCount();
-  }
-}
-
-async function countPendingLenderReviews(
-  supabase: SupabaseServerClient,
-): Promise<CountResult> {
-  try {
-    const { count, error } = await supabase
-      .from("lender_profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("verification_status", "pending");
-
-    return { ok: !error, count: count ?? 0 };
-  } catch {
-    return failedCount();
-  }
-}
-
-function failedQuery<T>(): QueryResult<T> {
-  return { ok: false, data: [] };
-}
-
-function buildMonthlyHeadcount(
-  profiles: DashboardProfile[],
-): ManagerMonthlyUserHeadcount[] {
-  const months = getDashboardMonths();
-  const monthCounts = new Map(
-    months.map((month) => [
-      month.key,
-      {
-        month: month.key,
-        label: month.label,
-        active: 0,
-        pending: 0,
-        suspended: 0,
-        total: 0,
-      },
-    ]),
-  );
-
-  profiles.forEach((profile) => {
-    const key = toMonthKey(new Date(profile.created_at));
-    const month = monthCounts.get(key);
-
-    if (!month) return;
-
-    month[profile.status] += 1;
-    month.total += 1;
-  });
-
-  return months.map(
-    (month) =>
-      monthCounts.get(month.key) ?? {
-        month: month.key,
-        label: month.label,
-        active: 0,
-        pending: 0,
-        suspended: 0,
-        total: 0,
-      },
-  );
-}
-
-function buildMonthlyActivity(
-  applications: DashboardApplication[],
-  offers: DashboardOffer[],
-  activeLoans: DashboardActiveLoan[],
-): ManagerMonthlyActivityRow[] {
-  const months = getDashboardMonths();
-  const monthCounts = new Map(
-    months.map((month) => [
-      month.key,
-      {
-        month: month.key,
-        label: month.label,
-        applications: 0,
-        offers: 0,
-        loans: 0,
-      },
-    ]),
-  );
-
-  for (const application of applications) {
-    if (!application.submitted_at) continue;
-    const key = toMonthKey(new Date(application.submitted_at));
-    const row = monthCounts.get(key);
-    if (row) row.applications += 1;
-  }
-
-  for (const offer of offers) {
-    if (!offer.sent_at) continue;
-    const key = toMonthKey(new Date(offer.sent_at));
-    const row = monthCounts.get(key);
-    if (row) row.offers += 1;
-  }
-
-  for (const loan of activeLoans) {
-    if (!loan.started_at) continue;
-    const key = toMonthKey(new Date(loan.started_at));
-    const row = monthCounts.get(key);
-    if (row) row.loans += 1;
-  }
-
-  return months.map(
-    (month) =>
-      monthCounts.get(month.key) ?? {
-        month: month.key,
-        label: month.label,
-        applications: 0,
-        offers: 0,
-        loans: 0,
-      },
-  );
-}
-
-function buildStatusDistribution(
-  profiles: DashboardProfile[],
-): ManagerUserStatusDistribution[] {
-  return profileStatuses.map((status) => ({
-    status,
-    label: profileStatusLabels[status],
-    count: profiles.filter((profile) => profile.status === status).length,
-  }));
-}
-
-function buildLenderPerformance(
-  profiles: DashboardProfile[],
-  activeLoans: DashboardActiveLoan[],
-  offers: DashboardOffer[],
-  applications: DashboardApplication[],
-  borrowerPortfolios: DashboardBorrowerPortfolio[],
+function buildLenderPerformanceFromRpc(
+  rows: Array<{
+    lender_id: string;
+    display_name: string;
+    active_loan_count: number | bigint;
+    accepted_offer_count: number | bigint;
+    business_type: string | null;
+    business_type_active_loans: number | bigint;
+    business_type_accepted_offers: number | bigint;
+  }>,
 ): ManagerLenderPerformanceRow[] {
-  const activeLoansByLender = countBy(
-    activeLoans.filter((loan) => loan.status === "active"),
-    "lender_id",
-  );
-  const acceptedOffersByLender = countBy(
-    offers.filter((offer) => offer.status === "accepted"),
-    "lender_id",
-  );
-  const applicationBusinessTypeById = getApplicationBusinessTypeById(
-    applications,
-    borrowerPortfolios,
-  );
-  const activeLoansByLenderAndBusinessType = countByLenderBusinessType(
-    activeLoans.filter((loan) => loan.status === "active"),
-    applicationBusinessTypeById,
-  );
-  const acceptedOffersByLenderAndBusinessType = countByLenderBusinessType(
-    offers.filter((offer) => offer.status === "accepted"),
-    applicationBusinessTypeById,
-  );
+  const lenderMap = new Map<
+    string,
+    {
+      id: string;
+      displayName: string;
+      activeLoanCount: number;
+      acceptedOfferCount: number;
+      businessTypes: Map<
+        BusinessType,
+        { activeLoans: number; acceptedOffers: number }
+      >;
+    }
+  >();
 
-  return profiles
-    .filter((profile) => profile.role === "lender")
-    .map((profile) => {
-      const activeLoanCount = activeLoansByLender.get(profile.id) ?? 0;
-      const acceptedOfferCount = acceptedOffersByLender.get(profile.id) ?? 0;
-      const businessTypePerformance = buildBusinessTypePerformance(
-        activeLoansByLenderAndBusinessType.get(profile.id) ?? new Map(),
-        acceptedOffersByLenderAndBusinessType.get(profile.id) ?? new Map(),
-      );
+  for (const row of rows) {
+    const id = row.lender_id;
+    let entry = lenderMap.get(id);
+
+    if (!entry) {
+      entry = {
+        id,
+        displayName: row.display_name,
+        activeLoanCount: Number(row.active_loan_count),
+        acceptedOfferCount: Number(row.accepted_offer_count),
+        businessTypes: new Map(),
+      };
+      lenderMap.set(id, entry);
+    }
+
+    if (row.business_type) {
+      entry.businessTypes.set(row.business_type as BusinessType, {
+        activeLoans: Number(row.business_type_active_loans),
+        acceptedOffers: Number(row.business_type_accepted_offers),
+      });
+    }
+  }
+
+  return Array.from(lenderMap.values())
+    .map((entry) => {
+      const completedApplicationCount =
+        entry.activeLoanCount > 0
+          ? entry.activeLoanCount
+          : entry.acceptedOfferCount;
+
+      const businessTypePerformance: ManagerLenderBusinessTypePerformance[] =
+        Array.from(entry.businessTypes.entries())
+          .map(([businessType, counts]) => ({
+            businessType,
+            completedApplicationCount:
+              counts.activeLoans > 0 ? counts.activeLoans : counts.acceptedOffers,
+            acceptedOfferCount: counts.acceptedOffers,
+            activeLoanCount: counts.activeLoans,
+          }))
+          .filter(
+            (row) =>
+              row.completedApplicationCount > 0 ||
+              row.acceptedOfferCount > 0 ||
+              row.activeLoanCount > 0,
+          );
 
       return {
-        id: profile.id,
-        displayName: profile.display_name,
-        shortId: getShortId(profile.id),
-        completedApplicationCount:
-          activeLoanCount > 0 ? activeLoanCount : acceptedOfferCount,
-        acceptedOfferCount,
-        activeLoanCount,
-        href: `/manager/users/${profile.id}`,
+        id: entry.id,
+        displayName: entry.displayName,
+        shortId: getShortId(entry.id),
+        completedApplicationCount,
+        acceptedOfferCount: entry.acceptedOfferCount,
+        activeLoanCount: entry.activeLoanCount,
+        href: `/manager/users/${entry.id}`,
         businessTypePerformance,
       };
     })
@@ -626,70 +399,36 @@ function buildLenderPerformance(
     );
 }
 
-function buildBorrowerPerformance(
-  profiles: DashboardProfile[],
-  applications: DashboardApplication[],
-  activeLoans: DashboardActiveLoan[],
-  repaymentSchedules: DashboardRepaymentSchedule[],
-  repaymentProofs: DashboardRepaymentProof[],
+function buildBorrowerPerformanceFromRpc(
+  rows: Array<{
+    borrower_id: string;
+    display_name: string;
+    status: string;
+    accepted_application_count: number | bigint;
+    verified_repayment_count: number | bigint;
+    active_loan_count: number | bigint;
+    paid_loan_count: number | bigint;
+    rejected_proof_count: number | bigint;
+    overdue_defaulted_loan_count: number | bigint;
+    credit_profile_grade: string | null;
+  }>,
 ): ManagerBorrowerPerformanceRow[] {
-  const applicationCountsByBorrower = countBy(applications, "borrower_id");
-  const acceptedApplicationsByBorrower = countBy(
-    applications.filter((application) => application.status === "accepted"),
-    "borrower_id",
-  );
-  const loansByBorrower = countBy(activeLoans, "borrower_id");
-  const activeLoansByBorrower = countBy(
-    activeLoans.filter((loan) => loan.status === "active"),
-    "borrower_id",
-  );
-  const paidLoansByBorrower = countBy(
-    activeLoans.filter((loan) => loan.status === "paid"),
-    "borrower_id",
-  );
-  const overdueDefaultedLoansByBorrower = countBy(
-    activeLoans.filter(
-      (loan) => loan.status === "overdue" || loan.status === "defaulted",
-    ),
-    "borrower_id",
-  );
-  const scheduleCountsByBorrower = countBy(repaymentSchedules, "borrower_id");
-  const verifiedRepaymentsByBorrower = countBy(
-    repaymentSchedules.filter((schedule) => schedule.status === "verified"),
-    "borrower_id",
-  );
-  const proofCountsByBorrower = countBy(repaymentProofs, "borrower_id");
-  const rejectedProofsByBorrower = countBy(
-    repaymentProofs.filter((proof) => proof.status === "rejected"),
-    "borrower_id",
-  );
-  const latestGradeByBorrower = getLatestGradeByBorrower(applications);
-
-  const rows: ManagerBorrowerPerformanceRow[] = profiles
-    .filter((profile) => profile.role === "borrower")
-    .map((profile) => {
-      const acceptedApplicationCount =
-        acceptedApplicationsByBorrower.get(profile.id) ?? 0;
-      const verifiedRepaymentCount =
-        verifiedRepaymentsByBorrower.get(profile.id) ?? 0;
-      const activeLoanCount = activeLoansByBorrower.get(profile.id) ?? 0;
-      const paidLoanCount = paidLoansByBorrower.get(profile.id) ?? 0;
-      const rejectedProofCount = rejectedProofsByBorrower.get(profile.id) ?? 0;
-      const overdueDefaultedLoanCount =
-        overdueDefaultedLoansByBorrower.get(profile.id) ?? 0;
+  return rows
+    .map((row) => {
+      const acceptedApplicationCount = Number(row.accepted_application_count);
+      const verifiedRepaymentCount = Number(row.verified_repayment_count);
+      const activeLoanCount = Number(row.active_loan_count);
+      const paidLoanCount = Number(row.paid_loan_count);
+      const rejectedProofCount = Number(row.rejected_proof_count);
+      const overdueDefaultedLoanCount = Number(
+        row.overdue_defaulted_loan_count,
+      );
       const riskFlagCount = rejectedProofCount + overdueDefaultedLoanCount;
-      const hasActivity =
-        (applicationCountsByBorrower.get(profile.id) ?? 0) > 0 ||
-        (loansByBorrower.get(profile.id) ?? 0) > 0 ||
-        (scheduleCountsByBorrower.get(profile.id) ?? 0) > 0 ||
-        (proofCountsByBorrower.get(profile.id) ?? 0) > 0;
-
-      if (!hasActivity) return null;
 
       return {
-        id: profile.id,
-        displayName: profile.display_name,
-        shortId: getShortId(profile.id),
+        id: row.borrower_id,
+        displayName: row.display_name,
+        shortId: getShortId(row.borrower_id),
         previewScore: calculateBorrowerReadinessScore({
           acceptedApplicationCount,
           verifiedRepaymentCount,
@@ -698,17 +437,16 @@ function buildBorrowerPerformance(
           rejectedProofCount,
           overdueDefaultedLoanCount,
         }),
-        creditProfileGrade: latestGradeByBorrower.get(profile.id) ?? null,
-        status: profile.status,
+        creditProfileGrade: row.credit_profile_grade,
+        status: row.status as ProfileStatus,
         acceptedApplicationCount,
         verifiedRepaymentCount,
         riskFlagCount,
         activeLoanCount,
         paidLoanCount,
-        href: `/manager/users/${profile.id}`,
+        href: `/manager/users/${row.borrower_id}`,
       };
     })
-    .filter((row): row is ManagerBorrowerPerformanceRow => row !== null)
     .sort(
       (a, b) =>
         b.previewScore - a.previewScore ||
@@ -716,8 +454,6 @@ function buildBorrowerPerformance(
         a.displayName.localeCompare(b.displayName),
     )
     .slice(0, 6);
-
-  return rows;
 }
 
 function calculateBorrowerReadinessScore({
@@ -747,86 +483,6 @@ function calculateBorrowerReadinessScore({
   return Math.round(Math.min(100, Math.max(0, score)));
 }
 
-function getApplicationBusinessTypeById(
-  applications: DashboardApplication[],
-  borrowerPortfolios: DashboardBorrowerPortfolio[],
-) {
-  const portfolioBusinessTypeById = new Map(
-    borrowerPortfolios.map((portfolio) => [
-      portfolio.id,
-      portfolio.business_type,
-    ]),
-  );
-
-  return new Map(
-    applications.flatMap((application) => {
-      const businessType = portfolioBusinessTypeById.get(
-        application.borrower_portfolio_id,
-      );
-
-      return businessType ? [[application.id, businessType]] : [];
-    }),
-  );
-}
-
-function countByLenderBusinessType<
-  T extends { lender_id: string; loan_application_id: string },
->(rows: T[], applicationBusinessTypeById: Map<string, BusinessType>) {
-  return rows.reduce((counts, row) => {
-    const businessType = applicationBusinessTypeById.get(
-      row.loan_application_id,
-    );
-
-    if (!businessType) return counts;
-
-    const lenderCounts = counts.get(row.lender_id) ?? new Map();
-    lenderCounts.set(businessType, (lenderCounts.get(businessType) ?? 0) + 1);
-    counts.set(row.lender_id, lenderCounts);
-
-    return counts;
-  }, new Map<string, Map<BusinessType, number>>());
-}
-
-function buildBusinessTypePerformance(
-  activeLoanCounts: Map<BusinessType, number>,
-  acceptedOfferCounts: Map<BusinessType, number>,
-): ManagerLenderBusinessTypePerformance[] {
-  const businessTypes = new Set([
-    ...activeLoanCounts.keys(),
-    ...acceptedOfferCounts.keys(),
-  ]);
-
-  return Array.from(businessTypes)
-    .map((businessType) => {
-      const activeLoanCount = activeLoanCounts.get(businessType) ?? 0;
-      const acceptedOfferCount = acceptedOfferCounts.get(businessType) ?? 0;
-
-      return {
-        businessType,
-        completedApplicationCount:
-          activeLoanCount > 0 ? activeLoanCount : acceptedOfferCount,
-        acceptedOfferCount,
-        activeLoanCount,
-      };
-    })
-    .filter(
-      (row) =>
-        row.completedApplicationCount > 0 ||
-        row.acceptedOfferCount > 0 ||
-        row.activeLoanCount > 0,
-    );
-}
-
-function countBy<T extends Record<K, string>, K extends keyof T>(
-  rows: T[],
-  key: K,
-) {
-  return rows.reduce((counts, row) => {
-    counts.set(row[key], (counts.get(row[key]) ?? 0) + 1);
-    return counts;
-  }, new Map<string, number>());
-}
-
 function getDashboardMonths() {
   const start = new Date(Date.UTC(2026, 4, 1));
 
@@ -851,24 +507,4 @@ function toMonthKey(date: Date) {
     2,
     "0",
   )}`;
-}
-
-function getLatestGradeByBorrower(
-  applications: DashboardApplication[],
-): Map<string, string> {
-  const gradeMap = new Map<string, string>();
-
-  for (const application of applications) {
-    if (
-      application.borrower_credit_profile_grade &&
-      !gradeMap.has(application.borrower_id)
-    ) {
-      gradeMap.set(
-        application.borrower_id,
-        application.borrower_credit_profile_grade,
-      );
-    }
-  }
-
-  return gradeMap;
 }

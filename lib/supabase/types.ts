@@ -1215,6 +1215,68 @@ export type Database = {
         };
         Returns: Json;
       };
+      manager_dashboard_monthly_headcount: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          month_key: string;
+          active_count: number;
+          pending_count: number;
+          suspended_count: number;
+          total_count: number;
+        }[];
+      };
+      manager_dashboard_status_distribution: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          status: string;
+          count: number;
+        }[];
+      };
+      manager_dashboard_monthly_activity: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          month_key: string;
+          applications: number;
+          offers: number;
+          loans: number;
+        }[];
+      };
+      manager_dashboard_pending_action_counts: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          pending_borrower_verifications: number;
+          pending_lender_reviews: number;
+          open_applications: number;
+          pending_repayment_reviews: number;
+        }[];
+      };
+      manager_dashboard_lender_performance: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          lender_id: string;
+          display_name: string;
+          active_loan_count: number;
+          accepted_offer_count: number;
+          business_type: string;
+          business_type_active_loans: number;
+          business_type_accepted_offers: number;
+        }[];
+      };
+      manager_dashboard_borrower_performance: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          borrower_id: string;
+          display_name: string;
+          status: string;
+          accepted_application_count: number;
+          verified_repayment_count: number;
+          active_loan_count: number;
+          paid_loan_count: number;
+          rejected_proof_count: number;
+          overdue_defaulted_loan_count: number;
+          credit_profile_grade: string;
+        }[];
+      };
     };
     Enums: {
       active_loan_status: ActiveLoanStatus;

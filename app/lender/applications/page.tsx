@@ -9,15 +9,14 @@ import { LenderAccessPanel } from "@/components/lender/lender-access-panel";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   buildConsentStatus,
-  type UserConsentRecord,
 } from "@/lib/consents";
+import { loadUserConsents } from "@/lib/user-consents";
 import { loadOpenLenderApplications } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
 import {
   getLenderVerificationDocuments,
   calculateLenderVerificationDocumentPolicy,
 } from "@/lib/lender-verification";
-import type { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -119,25 +118,4 @@ export default async function LenderApplicationsPage() {
       </div>
     </main>
   );
-}
-
-async function loadUserConsents(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-): Promise<UserConsentRecord[]> {
-  const { data, error } = await supabase
-    .from("user_consents")
-    .select("consent_type, version, accepted_at")
-    .eq("user_id", userId)
-    .order("accepted_at", { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data.map((consent) => ({
-    consentType: consent.consent_type,
-    version: consent.version,
-    acceptedAt: consent.accepted_at,
-  }));
 }

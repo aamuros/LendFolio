@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireBorrower } from "@/lib/access-control";
+import { requireBorrower, type AccessResult } from "@/lib/access-control";
 import {
   loadBorrowerActiveLoans,
   type ActiveLoanSummary,
@@ -24,8 +24,8 @@ import {
   getRequiredConsentVersions,
   hasCurrentRequiredConsents,
   type ConsentStatus,
-  type UserConsentRecord,
 } from "@/lib/consents";
+import { loadUserConsents } from "@/lib/user-consents";
 import {
   borrowerVerificationDocumentAllowedTypes,
   borrowerVerificationDocumentBucket,
@@ -213,10 +213,15 @@ const repaymentProofAllowedTypes = new Set([
 const borrowerPortfolioCreditSelect =
   "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 
-export async function loadBorrowerPortfolio(): Promise<BorrowerPortfolioLoadResult> {
+export async function loadBorrowerPortfolio(
+  verifiedAccess?: AccessResult,
+): Promise<BorrowerPortfolioLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireBorrower(supabase);
+    const supabase =
+      verifiedAccess?.ok
+        ? verifiedAccess.supabase
+        : await createSupabaseServerClient();
+    const access = verifiedAccess ?? (await requireBorrower(supabase));
 
     if (!access.ok) {
       return {
@@ -332,10 +337,15 @@ export async function saveBorrowerPortfolio(
   }
 }
 
-export async function loadBorrowerLoanApplications(): Promise<LoanApplicationsLoadResult> {
+export async function loadBorrowerLoanApplications(
+  verifiedAccess?: AccessResult,
+): Promise<LoanApplicationsLoadResult> {
   try {
-    const supabase = await createSupabaseServerClient();
-    const access = await requireBorrower(supabase);
+    const supabase =
+      verifiedAccess?.ok
+        ? verifiedAccess.supabase
+        : await createSupabaseServerClient();
+    const access = verifiedAccess ?? (await requireBorrower(supabase));
 
     if (!access.ok) {
       return {
@@ -1246,25 +1256,4 @@ function isLoanApplicationRow(value: Json | undefined): value is Parameters<
 
 function createSafeProofFileName(fileName: string) {
   return createSafeUploadFileName(fileName, "repayment-proof");
-}
-
-async function loadUserConsents(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-): Promise<UserConsentRecord[]> {
-  const { data, error } = await supabase
-    .from("user_consents")
-    .select("consent_type, version, accepted_at")
-    .eq("user_id", userId)
-    .order("accepted_at", { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data.map((consent) => ({
-    consentType: consent.consent_type,
-    version: consent.version,
-    acceptedAt: consent.accepted_at,
-  }));
 }

@@ -9,12 +9,10 @@ import {
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
 import { LenderAccessPanel } from "@/components/lender/lender-access-panel";
-import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   buildConsentStatus,
-  type UserConsentRecord,
 } from "@/lib/consents";
-import type { createSupabaseServerClient } from "@/lib/supabase/server";
+import { loadUserConsents } from "@/lib/user-consents";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import {
@@ -42,6 +40,7 @@ import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 import { LenderOffersHighlighter } from "@/components/lender/lender-offers-highlighter";
+import { getLenderAccess } from "@/lib/lender-access";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +61,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   const activeTab = tab === "offers" || tab === "account" ? tab : "home";
-  const access = await getCurrentUserProfile();
+  const access = await getLenderAccess();
 
   if (!access.ok) {
     return (
@@ -128,21 +127,13 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     );
   }
 
-  const [
-    applicationsResult,
-    offersResult,
-    {
-      data: { user },
-    },
-  ] = await Promise.all([
-    loadOpenLenderApplications(access),
-    loadLenderOffers(access),
-    access.supabase.auth.getUser(),
-  ]);
-  const applications = applicationsResult.ok ? applicationsResult.applications : [];
-  const offers = offersResult.ok ? offersResult.offers : [];
-
+  let applications: LenderApplicationReview[] = [];
+  let offers: LenderOfferReview[] = [];
+  let applicationsError = "";
+  let offersError = "";
+  let user: { email?: string } | null = null;
   let lenderDocuments: Awaited<ReturnType<typeof getLenderVerificationDocuments>> = [];
+  let lenderDocumentPolicy = calculateLenderVerificationDocumentPolicy([]);
   let lenderChangeRequests: Array<{
     id: string;
     proposedOrganizationName: string | null;
@@ -161,34 +152,53 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     rejectionReason: string | null;
   }> = [];
 
-  const lenderProfileId = access.profile.lenderProfile?.id;
-  if (lenderProfileId) {
-    const [docs, changeReqResult] = await Promise.all([
-      getLenderVerificationDocuments(access.supabase, lenderProfileId, access.profile.id),
-      access.supabase
-        .from("lender_profile_change_requests")
-        .select("id, proposed_organization_name, proposed_contact_person, proposed_business_address, proposed_operating_area, proposed_business_registration_number, proposed_min_loan_amount, proposed_max_loan_amount, proposed_typical_repayment_terms, proposed_lender_description, status, submitted_at, reviewed_at, manager_review_notes, rejection_reason")
-        .eq("lender_profile_id", lenderProfileId)
-        .order("submitted_at", { ascending: false }),
+  if (activeTab === "home") {
+    const [applicationsResult, offersResult] = await Promise.all([
+      loadOpenLenderApplications(access),
+      loadLenderOffers(access),
     ]);
-    lenderDocuments = docs;
-    lenderChangeRequests = (changeReqResult.data ?? []).map((r) => ({
-      id: r.id,
-      proposedOrganizationName: r.proposed_organization_name,
-      proposedContactPerson: r.proposed_contact_person,
-      proposedBusinessAddress: r.proposed_business_address,
-      proposedOperatingArea: r.proposed_operating_area,
-      proposedBusinessRegistrationNumber: r.proposed_business_registration_number,
-      proposedMinLoanAmount: r.proposed_min_loan_amount,
-      proposedMaxLoanAmount: r.proposed_max_loan_amount,
-      proposedTypicalRepaymentTerms: r.proposed_typical_repayment_terms,
-      proposedLenderDescription: r.proposed_lender_description,
-      status: r.status,
-      submittedAt: r.submitted_at,
-      reviewedAt: r.reviewed_at,
-      managerReviewNotes: r.manager_review_notes,
-      rejectionReason: r.rejection_reason,
-    }));
+    applications = applicationsResult.ok ? applicationsResult.applications : [];
+    offers = offersResult.ok ? offersResult.offers : [];
+    applicationsError = !applicationsResult.ok ? applicationsResult.message : "";
+    offersError = !offersResult.ok ? offersResult.message : "";
+  } else if (activeTab === "offers") {
+    const offersResult = await loadLenderOffers(access);
+    offers = offersResult.ok ? offersResult.offers : [];
+    offersError = !offersResult.ok ? offersResult.message : "";
+  } else if (activeTab === "account") {
+    const { data } = await access.supabase.auth.getUser();
+    user = data.user;
+
+    const lenderProfileId = access.profile.lenderProfile?.id;
+    if (lenderProfileId) {
+      const [docs, changeReqResult] = await Promise.all([
+        getLenderVerificationDocuments(access.supabase, lenderProfileId, access.profile.id),
+        access.supabase
+          .from("lender_profile_change_requests")
+          .select("id, proposed_organization_name, proposed_contact_person, proposed_business_address, proposed_operating_area, proposed_business_registration_number, proposed_min_loan_amount, proposed_max_loan_amount, proposed_typical_repayment_terms, proposed_lender_description, status, submitted_at, reviewed_at, manager_review_notes, rejection_reason")
+          .eq("lender_profile_id", lenderProfileId)
+          .order("submitted_at", { ascending: false }),
+      ]);
+      lenderDocuments = docs;
+      lenderDocumentPolicy = calculateLenderVerificationDocumentPolicy(docs);
+      lenderChangeRequests = (changeReqResult.data ?? []).map((r) => ({
+        id: r.id,
+        proposedOrganizationName: r.proposed_organization_name,
+        proposedContactPerson: r.proposed_contact_person,
+        proposedBusinessAddress: r.proposed_business_address,
+        proposedOperatingArea: r.proposed_operating_area,
+        proposedBusinessRegistrationNumber: r.proposed_business_registration_number,
+        proposedMinLoanAmount: r.proposed_min_loan_amount,
+        proposedMaxLoanAmount: r.proposed_max_loan_amount,
+        proposedTypicalRepaymentTerms: r.proposed_typical_repayment_terms,
+        proposedLenderDescription: r.proposed_lender_description,
+        status: r.status,
+        submittedAt: r.submitted_at,
+        reviewedAt: r.reviewed_at,
+        managerReviewNotes: r.manager_review_notes,
+        rejectionReason: r.rejection_reason,
+      }));
+    }
   }
 
   return (
@@ -201,15 +211,15 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             <HomeTab
               applications={applications}
               offers={offers}
-              applicationsError={!applicationsResult.ok ? applicationsResult.message : ""}
-              offersError={!offersResult.ok ? offersResult.message : ""}
+              applicationsError={applicationsError}
+              offersError={offersError}
             />
           ) : null}
 
           {activeTab === "offers" ? (
             <OffersTab
               offers={offers}
-              error={!offersResult.ok ? offersResult.message : ""}
+              error={offersError}
               highlightOfferId={offerId ?? null}
               highlightProofId={proofId ?? null}
             />
@@ -220,7 +230,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
               email={user?.email ?? ""}
               lenderProfile={access.profile.lenderProfile}
               documents={lenderDocuments}
-              documentPolicy={calculateLenderVerificationDocumentPolicy(lenderDocuments)}
+              documentPolicy={lenderDocumentPolicy}
               changeRequests={lenderChangeRequests}
             />
           ) : null}
@@ -232,27 +242,6 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       </div>
     </main>
   );
-}
-
-async function loadUserConsents(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
-): Promise<UserConsentRecord[]> {
-  const { data, error } = await supabase
-    .from("user_consents")
-    .select("consent_type, version, accepted_at")
-    .eq("user_id", userId)
-    .order("accepted_at", { ascending: false });
-
-  if (error) {
-    return [];
-  }
-
-  return data.map((consent) => ({
-    consentType: consent.consent_type,
-    version: consent.version,
-    acceptedAt: consent.accepted_at,
-  }));
 }
 
 function HomeTab({

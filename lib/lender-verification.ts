@@ -188,6 +188,7 @@ export async function getLenderVerificationDocuments(
   supabase: SupabaseServerClient,
   lenderProfileId: string,
   lenderId: string,
+  { includeSignedUrls = false }: { includeSignedUrls?: boolean } = {},
 ): Promise<LenderVerificationDocumentSummary[]> {
   const { data: documents } = await supabase
     .from("lender_verification_documents")
@@ -201,7 +202,7 @@ export async function getLenderVerificationDocuments(
     (documents ?? []).map(async (doc) => {
       const summary = mapLenderVerificationDocumentRow(doc);
 
-      if (doc.storage_bucket && doc.storage_path) {
+      if (includeSignedUrls && doc.storage_bucket && doc.storage_path) {
         try {
           const { data: signed } = await supabase.storage
             .from(doc.storage_bucket)

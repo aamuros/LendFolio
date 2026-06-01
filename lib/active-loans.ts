@@ -175,7 +175,7 @@ export async function loadManagerActiveLoans(): Promise<ActiveLoansLoadResult> {
       };
     }
 
-    return loadSchedulesForLoans(loans);
+    return loadSchedulesForLoans(loans, supabase);
   } catch {
     return {
       ok: false,
@@ -258,11 +258,12 @@ async function loadActiveLoansForColumn(
     };
   }
 
-  return loadSchedulesForLoans(loans);
+  return loadSchedulesForLoans(loans, supabase);
 }
 
 async function loadSchedulesForLoans(
   loans: ActiveLoanRow[],
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ): Promise<ActiveLoansLoadResult> {
   if (loans.length === 0) {
     return {
@@ -273,7 +274,6 @@ async function loadSchedulesForLoans(
     };
   }
 
-  const supabase = await createSupabaseServerClient();
   const loanIds = loans.map((loan) => loan.id);
   const { data: scheduleRows, error } = await supabase
     .from("loan_repayment_schedules")
@@ -293,7 +293,7 @@ async function loadSchedulesForLoans(
   const scheduleIds = scheduleRows.map((schedule) => schedule.id);
   const proofsByScheduleId =
     scheduleIds.length > 0
-      ? await loadProofsByScheduleId(scheduleIds)
+      ? await loadProofsByScheduleId(scheduleIds, supabase)
       : new Map<string, RepaymentProofSummary[]>();
   const schedulesByLoanId = new Map<string, RepaymentScheduleSummary[]>();
 
@@ -315,8 +315,10 @@ async function loadSchedulesForLoans(
   };
 }
 
-async function loadProofsByScheduleId(scheduleIds: string[]) {
-  const supabase = await createSupabaseServerClient();
+async function loadProofsByScheduleId(
+  scheduleIds: string[],
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+) {
   const { data: proofRows, error } = await supabase
     .from("repayment_proofs")
     .select(repaymentProofSelect)
@@ -329,29 +331,20 @@ async function loadProofsByScheduleId(scheduleIds: string[]) {
     return new Map<string, RepaymentProofSummary[]>();
   }
 
-  const signedProofs = await Promise.all(
-    rows.map(async (row) => ({
-      repaymentScheduleId: row.repayment_schedule_id,
-      proof: await mapRepaymentProofRow(row),
-    })),
-  );
+  const proofsByScheduleId = new Map<string, RepaymentProofSummary[]>();
 
-  return signedProofs.reduce((groups, item) => {
-    const scheduleProofs = groups.get(item.repaymentScheduleId) ?? [];
-    groups.set(item.repaymentScheduleId, [...scheduleProofs, item.proof]);
+  for (const row of rows) {
+    const summary = mapRepaymentProofRowWithoutUrl(row);
+    const existing = proofsByScheduleId.get(row.repayment_schedule_id) ?? [];
+    proofsByScheduleId.set(row.repayment_schedule_id, [...existing, summary]);
+  }
 
-    return groups;
-  }, new Map<string, RepaymentProofSummary[]>());
+  return proofsByScheduleId;
 }
 
-async function mapRepaymentProofRow(
+function mapRepaymentProofRowWithoutUrl(
   row: RepaymentProofRow,
-): Promise<RepaymentProofSummary> {
-  const supabase = await createSupabaseServerClient();
-  const { data } = await supabase.storage
-    .from(row.storage_bucket)
-    .createSignedUrl(row.storage_path, 300);
-
+): RepaymentProofSummary {
   return {
     id: row.id,
     status: row.status,
@@ -361,6 +354,18 @@ async function mapRepaymentProofRow(
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at,
     reviewNotes: row.review_notes,
-    viewUrl: data?.signedUrl ?? null,
+    viewUrl: null,
   };
+}
+
+export async function getRepaymentProofSignedUrl(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  storageBucket: string,
+  storagePath: string,
+): Promise<string | null> {
+  const { data } = await supabase.storage
+    .from(storageBucket)
+    .createSignedUrl(storagePath, 300);
+
+  return data?.signedUrl ?? null;
 }
