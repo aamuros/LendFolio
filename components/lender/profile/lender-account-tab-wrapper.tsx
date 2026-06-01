@@ -2,8 +2,10 @@
 
 import { useRouter } from "next/navigation";
 import { LenderAccountTab } from "./lender-account-tab";
+import type { LenderVerificationDocumentSummary, LenderVerificationDocumentPolicy } from "@/lib/lender-verification";
 
 type LenderProfileData = {
+  id?: string | null;
   organization_name: string | null;
   contact_person: string | null;
   phone_number: string | null;
@@ -25,19 +27,57 @@ type LenderProfileData = {
   updated_at: string | null;
 } | null;
 
+type ChangeRequestData = {
+  id: string;
+  proposedOrganizationName: string | null;
+  proposedContactPerson: string | null;
+  proposedBusinessAddress: string | null;
+  proposedOperatingArea: string | null;
+  proposedBusinessRegistrationNumber: string | null;
+  proposedMinLoanAmount: number | null;
+  proposedMaxLoanAmount: number | null;
+  proposedTypicalRepaymentTerms: string | null;
+  proposedLenderDescription: string | null;
+  status: string;
+  submittedAt: string;
+  reviewedAt: string | null;
+  managerReviewNotes: string | null;
+  rejectionReason: string | null;
+};
+
 export function LenderAccountTabWrapper({
   email,
   lenderProfile,
+  documents,
+  documentPolicy,
+  changeRequests,
 }: {
   email: string;
   lenderProfile: LenderProfileData;
+  documents?: LenderVerificationDocumentSummary[];
+  documentPolicy?: LenderVerificationDocumentPolicy;
+  changeRequests?: ChangeRequestData[];
 }) {
   const router = useRouter();
 
   return (
     <LenderAccountTab
       email={email}
-      lenderProfile={lenderProfile}
+      lenderProfile={lenderProfile ? {
+        ...lenderProfile,
+        id: lenderProfile.id ?? null,
+        documents: documents ?? [],
+        documentPolicy: documentPolicy ?? {
+          requiredDocumentTypes: [],
+          missingRequiredDocumentTypes: [],
+          submittedDocumentTypes: [],
+          acceptedDocumentTypes: [],
+          rejectedDocumentTypes: [],
+          readyForManagerReview: false,
+          documentsAccepted: false,
+        },
+        changeRequests: changeRequests ?? [],
+      } : null}
       onNavigateHome={() => router.push("/lender")}
     />
   );

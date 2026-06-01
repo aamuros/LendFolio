@@ -36,6 +36,7 @@ type ConsentAcceptancePanelProps = {
   title?: string;
   variant?: "default" | "onboarding" | "dialog";
   onClose?: () => void;
+  onConsentAccepted?: () => void;
 };
 
 const scopeDescriptions: Record<ConsentScope, string> = {
@@ -51,6 +52,7 @@ const scopeDescriptions: Record<ConsentScope, string> = {
 
 export function ConsentAcceptancePanel({
   onClose,
+  onConsentAccepted,
   scope,
   status,
   title = "Required disclosures",
@@ -59,6 +61,7 @@ export function ConsentAcceptancePanel({
   if (variant === "onboarding") {
     return (
       <OnboardingConsentPanel
+        onConsentAccepted={onConsentAccepted}
         status={status}
         scope={scope}
         title={title}
@@ -72,12 +75,14 @@ export function ConsentAcceptancePanel({
         status={status}
         scope={scope}
         onClose={onClose}
+        onConsentAccepted={onConsentAccepted}
       />
     );
   }
 
   return (
     <DefaultConsentPanel
+      onConsentAccepted={onConsentAccepted}
       status={status}
       scope={scope}
       title={title}
@@ -87,10 +92,12 @@ export function ConsentAcceptancePanel({
 
 function DialogConsentPanel({
   onClose,
+  onConsentAccepted,
   scope,
   status,
 }: {
   onClose?: () => void;
+  onConsentAccepted?: () => void;
   scope: ConsentScope;
   status: ConsentStatus;
 }) {
@@ -110,6 +117,7 @@ function DialogConsentPanel({
       if (result.ok) {
         setIsChecked(false);
         setOpen(false);
+        onConsentAccepted?.();
         router.refresh();
       }
     });
@@ -171,10 +179,12 @@ function DialogConsentPanel({
 }
 
 function OnboardingConsentPanel({
+  onConsentAccepted,
   scope,
   status,
   title,
 }: {
+  onConsentAccepted?: () => void;
   scope: ConsentScope;
   status: ConsentStatus;
   title: string;
@@ -193,6 +203,7 @@ function OnboardingConsentPanel({
 
       if (result.ok) {
         setIsChecked(false);
+        onConsentAccepted?.();
         router.refresh();
       }
     });
@@ -292,10 +303,12 @@ function OnboardingConsentPanel({
 }
 
 function DefaultConsentPanel({
+  onConsentAccepted,
   scope,
   status,
   title,
 }: {
+  onConsentAccepted?: () => void;
   scope: ConsentScope;
   status: ConsentStatus;
   title: string;
@@ -314,6 +327,7 @@ function DefaultConsentPanel({
 
       if (result.ok) {
         setIsChecked(false);
+        onConsentAccepted?.();
         router.refresh();
       }
     });

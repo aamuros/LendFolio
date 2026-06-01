@@ -180,3 +180,81 @@ export async function reviewBorrowerVerificationDocumentAction(
   const qs = buildReturnQuery({ documentReview: review, selected });
   redirect(`/manager/borrower-verifications?${qs}`);
 }
+
+export async function reviewLenderVerificationDocumentAction(
+  formData: FormData,
+) {
+  const documentId = String(formData.get("documentId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const reviewNotes = String(formData.get("reviewNotes") ?? "");
+  const selected = String(formData.get("selected") ?? "");
+  const access = await requireManager();
+
+  if (!access.ok || !documentId) {
+    const qs = buildReturnQuery({ documentReview: "error", selected });
+    redirect(`/manager/lenders?${qs}`);
+  }
+
+  const { data, error } = await access.supabase.rpc(
+    "review_lender_verification_document",
+    {
+      p_document_id: documentId,
+      p_decision: decision,
+      p_review_notes: reviewNotes,
+    },
+  );
+  const result = data as Json as LenderReviewResult | null;
+
+  if (error || !result?.ok) {
+    const qs = buildReturnQuery({ documentReview: "error", selected });
+    redirect(`/manager/lenders?${qs}`);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/manager/lenders");
+  revalidatePath("/lender");
+
+  const review = decision === "accept" ? "accepted" : "rejected";
+  const qs = buildReturnQuery({ documentReview: review, selected });
+  redirect(`/manager/lenders?${qs}`);
+}
+
+export async function reviewLenderProfileChangeRequestAction(
+  formData: FormData,
+) {
+  const requestId = String(formData.get("requestId") ?? "");
+  const decision = String(formData.get("decision") ?? "");
+  const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
+  const rejectionReason = String(formData.get("rejectionReason") ?? "");
+  const selected = String(formData.get("selected") ?? "");
+  const access = await requireManager();
+
+  if (!access.ok || !requestId) {
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
+    redirect(`/manager/lenders?${qs}`);
+  }
+
+  const { data, error } = await access.supabase.rpc(
+    "review_lender_profile_change_request",
+    {
+      p_request_id: requestId,
+      p_decision: decision,
+      p_manager_review_notes: managerReviewNotes,
+      p_rejection_reason: rejectionReason,
+    },
+  );
+  const result = data as Json as LenderReviewResult | null;
+
+  if (error || !result?.ok) {
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
+    redirect(`/manager/lenders?${qs}`);
+  }
+
+  revalidatePath("/manager");
+  revalidatePath("/manager/lenders");
+  revalidatePath("/lender");
+
+  const review = decision === "approve" ? "approved" : "rejected";
+  const qs = buildReturnQuery({ changeRequestReview: review, selected });
+  redirect(`/manager/lenders?${qs}`);
+}

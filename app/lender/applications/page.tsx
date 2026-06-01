@@ -12,6 +12,10 @@ import {
 } from "@/lib/consents";
 import { loadOpenLenderApplications } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
+import {
+  getLenderVerificationDocuments,
+  calculateLenderVerificationDocumentPolicy,
+} from "@/lib/lender-verification";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
@@ -49,6 +53,20 @@ export default async function LenderApplicationsPage() {
       await loadUserConsents(access.supabase, access.profile.id),
     );
 
+    let pendingDocuments: Awaited<ReturnType<typeof getLenderVerificationDocuments>> = [];
+    let pendingDocumentPolicy = calculateLenderVerificationDocumentPolicy([]);
+
+    const pendingLenderProfileId = access.profile.lenderProfile?.id;
+    if (pendingLenderProfileId) {
+      pendingDocuments = await getLenderVerificationDocuments(
+        access.supabase,
+        pendingLenderProfileId,
+        access.profile.id,
+      );
+      pendingDocumentPolicy =
+        calculateLenderVerificationDocumentPolicy(pendingDocuments);
+    }
+
     return (
       <main className="min-h-svh bg-background">
         <div className="mx-auto max-w-7xl">
@@ -57,6 +75,8 @@ export default async function LenderApplicationsPage() {
             <LenderAccessPanel
               profile={access.profile}
               consentStatus={lenderConsentStatus}
+              documents={pendingDocuments}
+              documentPolicy={pendingDocumentPolicy}
             />
           </div>
           <div className="sm:hidden">

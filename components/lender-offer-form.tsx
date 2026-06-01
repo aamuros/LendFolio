@@ -13,16 +13,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
 
 type LenderOfferFormProps = {
   applicationId: string;
   requestedAmount: number;
+  availableCreditAtSubmission: number | null;
   defaultDueDate: string;
 };
 
 export function LenderOfferForm({
   applicationId,
   requestedAmount,
+  availableCreditAtSubmission,
   defaultDueDate,
 }: LenderOfferFormProps) {
   const router = useRouter();
@@ -41,6 +44,11 @@ export function LenderOfferForm({
     parseCurrencyValue(approvedAmount) +
     parseCurrencyValue(interestServiceCharge) +
     parseCurrencyValue(fees);
+
+  const maxTotalRepayment =
+    availableCreditAtSubmission ?? requestedAmount;
+  const remainingCredit = maxTotalRepayment - totalRepaymentAmount;
+  const exceedsAvailableCredit = totalRepaymentAmount > maxTotalRepayment;
 
   const dismissToast = useCallback(() => {
     setToastMessage("");
@@ -65,9 +73,21 @@ export function LenderOfferForm({
   return (
     <form ref={formRef} action={onSubmit} className="grid gap-3">
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
+
+      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
+        <p className="text-sm font-semibold">Borrower credit capacity</p>
+        <p className="mt-1 text-sm leading-6 text-muted-foreground">
+          This borrower&apos;s available credit at submission is{" "}
+          <span className="font-semibold text-foreground">
+            PHP {formatCurrency(maxTotalRepayment)}
+          </span>
+          . Total repayment cannot exceed this amount.
+        </p>
+      </div>
+
       <div className="grid gap-3 sm:grid-cols-2">
         <Field
-          label="Approved amount"
+          label="Approved amount (principal)"
           error={state.fieldErrors?.approvedAmount?.[0]}
         >
           <CurrencyInput
@@ -95,7 +115,7 @@ export function LenderOfferForm({
       </div>
 
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Fees" error={state.fieldErrors?.fees?.[0]}>
+        <Field label="Borrower-paid fees" error={state.fieldErrors?.fees?.[0]}>
           <CurrencyInput
             name="fees"
             defaultValue={0}
@@ -128,15 +148,58 @@ export function LenderOfferForm({
       <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold">Total repayment</p>
-          <p className="text-lg font-semibold">
+          <p
+            className={cn(
+              "text-lg font-semibold",
+              exceedsAvailableCredit && "text-destructive",
+            )}
+          >
             PHP {formatCurrency(totalRepaymentAmount)}
           </p>
         </div>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Total repayment is calculated from the approved amount, interest/service charge,
-          and fees. Borrower installments will add up to this total.
+          and borrower-paid fees. Borrower installments will add up to this total.
         </p>
+        <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
+          <div>
+            <dt className="text-muted-foreground">Available credit</dt>
+            <dd className="font-semibold">
+              PHP {formatCurrency(maxTotalRepayment)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Remaining after repayment</dt>
+            <dd
+              className={cn(
+                "font-semibold",
+                remainingCredit < 0 && "text-destructive",
+              )}
+            >
+              PHP {formatCurrency(remainingCredit)}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Room for charges</dt>
+            <dd className="font-semibold">
+              PHP{" "}
+              {formatCurrency(
+                Math.max(0, maxTotalRepayment - parseCurrencyValue(approvedAmount)),
+              )}
+            </dd>
+          </div>
+        </dl>
       </div>
+
+      {exceedsAvailableCredit ? (
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+          role="alert"
+        >
+          Total repayment exceeds the borrower&apos;s available credit. Reduce the
+          approved amount, interest/service charge, or fees.
+        </p>
+      ) : null}
 
       {state.message && !state.ok ? (
         <p

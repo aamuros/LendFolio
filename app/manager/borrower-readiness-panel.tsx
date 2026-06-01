@@ -5,9 +5,7 @@ import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -23,6 +21,11 @@ import type { ManagerBorrowerPerformanceRow } from "@/lib/manager-dashboard";
 import { Button } from "@/components/ui/button";
 import { ArrowUpRightIcon } from "lucide-react";
 import { ManagerEmptyState } from "@/components/manager/manager-empty-state";
+import {
+  formatCreditProfileGrade,
+  getGradeTone,
+  type BorrowerCreditProfileGrade,
+} from "@/lib/borrower-credit-profile-grade";
 
 const statusVariantMap: Record<
   string,
@@ -48,6 +51,43 @@ const statusVariantMap: Record<
   expired: "outline",
 };
 
+function GradeDisplay({ grade }: { grade: string | null }) {
+  if (!grade) {
+    return (
+      <span className="text-xs text-muted-foreground">—</span>
+    );
+  }
+
+  const validGrades: BorrowerCreditProfileGrade[] = [
+    "A",
+    "B",
+    "C",
+    "review_needed",
+    "not_eligible",
+    "incomplete",
+  ];
+  const isValid = validGrades.includes(grade as BorrowerCreditProfileGrade);
+  const tone = isValid
+    ? getGradeTone(grade as BorrowerCreditProfileGrade)
+    : "neutral";
+  const toneClasses: Record<string, string> = {
+    success: "bg-emerald-100 text-emerald-800",
+    attention: "bg-amber-100 text-amber-800",
+    danger: "bg-red-100 text-red-800",
+    neutral: "bg-muted text-muted-foreground",
+  };
+
+  return (
+    <span
+      className={`inline-flex size-10 items-center justify-center rounded-lg text-sm font-semibold tabular-nums ${toneClasses[tone] ?? toneClasses.neutral}`}
+    >
+      {isValid
+        ? formatCreditProfileGrade(grade as BorrowerCreditProfileGrade)
+        : grade}
+    </span>
+  );
+}
+
 export function BorrowerReadinessPanel({
   rows,
 }: {
@@ -71,15 +111,6 @@ export function BorrowerReadinessPanel({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle>Borrower readiness</CardTitle>
-            <CardDescription>
-              Credit scoring is planned; this preview uses current repayment and
-              application activity.
-            </CardDescription>
-          </div>
-        </div>
         <div aria-hidden className="h-10" />
       </CardHeader>
       <CardContent className="flex-1">
@@ -99,7 +130,7 @@ export function BorrowerReadinessPanel({
                       <TableRow>
                         <TableHead className="w-12">#</TableHead>
                         <TableHead>Borrower</TableHead>
-                        <TableHead className="w-[72px] text-center">Score</TableHead>
+                        <TableHead className="w-[72px] text-center">Grade</TableHead>
                         <TableHead className="w-[84px] text-right">Accepted</TableHead>
                         <TableHead className="w-[84px] text-right">Verified</TableHead>
                         <TableHead className="w-[64px] text-right">Risk</TableHead>
@@ -133,9 +164,7 @@ export function BorrowerReadinessPanel({
                             </div>
                           </TableCell>
                           <TableCell className="text-center">
-                            <span className="inline-flex size-10 items-center justify-center rounded-lg bg-primary/10 text-sm font-semibold tabular-nums text-primary">
-                              {row.previewScore}
-                            </span>
+                            <GradeDisplay grade={row.creditProfileGrade} />
                           </TableCell>
                           <TableCell className="text-right text-sm tabular-nums">
                             {row.acceptedApplicationCount}
@@ -199,9 +228,7 @@ export function BorrowerReadinessPanel({
                           </Badge>
                         </div>
                         <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1">
-                          <span className="inline-flex size-8 items-center justify-center rounded-lg bg-primary/10 text-xs font-semibold tabular-nums text-primary">
-                            {row.previewScore}
-                          </span>
+                          <GradeDisplay grade={row.creditProfileGrade} />
                           <span className="text-xs text-muted-foreground">
                             {row.acceptedApplicationCount} accepted
                           </span>

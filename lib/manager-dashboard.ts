@@ -24,15 +24,17 @@ type DashboardProfile = Pick<
 >;
 type DashboardActiveLoan = Pick<
   ActiveLoanRow,
-  "id" | "borrower_id" | "lender_id" | "loan_application_id" | "status"
+  "id" | "borrower_id" | "lender_id" | "loan_application_id" | "status" | "started_at"
 >;
 type DashboardApplication = Pick<
   ApplicationRow,
-  "id" | "borrower_id" | "borrower_portfolio_id" | "status"
->;
+  "id" | "borrower_id" | "borrower_portfolio_id" | "status" | "submitted_at"
+> & {
+  borrower_credit_profile_grade: string | null;
+};
 type DashboardOffer = Pick<
   LoanOfferRow,
-  "id" | "lender_id" | "loan_application_id" | "status"
+  "id" | "lender_id" | "loan_application_id" | "status" | "sent_at"
 >;
 type DashboardBorrowerPortfolio = Pick<
   BorrowerPortfolioRow,
@@ -103,6 +105,7 @@ export type ManagerBorrowerPerformanceRow = {
   displayName: string;
   shortId: string;
   previewScore: number;
+  creditProfileGrade: string | null;
   status: ProfileStatus;
   acceptedApplicationCount: number;
   verifiedRepaymentCount: number;
@@ -119,10 +122,19 @@ export type ManagerPendingActionCounts = {
   pendingRepaymentReviews: number;
 };
 
+export type ManagerMonthlyActivityRow = {
+  month: string;
+  label: string;
+  applications: number;
+  offers: number;
+  loans: number;
+};
+
 export type ManagerDashboardOverview = {
   kpis: ManagerDashboardKpi[];
   pendingActions: ManagerPendingActionCounts;
   monthlyHeadcount: ManagerMonthlyUserHeadcount[];
+  monthlyActivity: ManagerMonthlyActivityRow[];
   statusDistribution: ManagerUserStatusDistribution[];
   lenderPerformance: ManagerLenderPerformanceRow[];
   borrowerPerformance: ManagerBorrowerPerformanceRow[];
@@ -234,6 +246,11 @@ export async function loadManagerDashboardOverview(
         ).length,
       },
       monthlyHeadcount: buildMonthlyHeadcount(profiles.data),
+      monthlyActivity: buildMonthlyActivity(
+        applications.data,
+        offers.data,
+        activeLoans.data,
+      ),
       statusDistribution: buildStatusDistribution(profiles.data),
       lenderPerformance: buildLenderPerformance(
         profiles.data,
@@ -320,7 +337,7 @@ async function loadActiveLoans(
   try {
     const { data, error } = await supabase
       .from("active_loans")
-      .select("id, borrower_id, lender_id, loan_application_id, status")
+      .select("id, borrower_id, lender_id, loan_application_id, status, started_at")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -335,7 +352,7 @@ async function loadApplications(
   try {
     const { data, error } = await supabase
       .from("loan_applications")
-      .select("id, borrower_id, borrower_portfolio_id, status")
+      .select("id, borrower_id, borrower_portfolio_id, status, borrower_credit_profile_grade, submitted_at")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -350,7 +367,7 @@ async function loadOffers(
   try {
     const { data, error } = await supabase
       .from("loan_offers")
-      .select("id, lender_id, loan_application_id, status")
+      .select("id, lender_id, loan_application_id, status, sent_at")
       .limit(1000);
 
     return { ok: !error, data: data ?? [] };
@@ -483,6 +500,58 @@ function buildMonthlyHeadcount(
   );
 }
 
+function buildMonthlyActivity(
+  applications: DashboardApplication[],
+  offers: DashboardOffer[],
+  activeLoans: DashboardActiveLoan[],
+): ManagerMonthlyActivityRow[] {
+  const months = getDashboardMonths();
+  const monthCounts = new Map(
+    months.map((month) => [
+      month.key,
+      {
+        month: month.key,
+        label: month.label,
+        applications: 0,
+        offers: 0,
+        loans: 0,
+      },
+    ]),
+  );
+
+  for (const application of applications) {
+    if (!application.submitted_at) continue;
+    const key = toMonthKey(new Date(application.submitted_at));
+    const row = monthCounts.get(key);
+    if (row) row.applications += 1;
+  }
+
+  for (const offer of offers) {
+    if (!offer.sent_at) continue;
+    const key = toMonthKey(new Date(offer.sent_at));
+    const row = monthCounts.get(key);
+    if (row) row.offers += 1;
+  }
+
+  for (const loan of activeLoans) {
+    if (!loan.started_at) continue;
+    const key = toMonthKey(new Date(loan.started_at));
+    const row = monthCounts.get(key);
+    if (row) row.loans += 1;
+  }
+
+  return months.map(
+    (month) =>
+      monthCounts.get(month.key) ?? {
+        month: month.key,
+        label: month.label,
+        applications: 0,
+        offers: 0,
+        loans: 0,
+      },
+  );
+}
+
 function buildStatusDistribution(
   profiles: DashboardProfile[],
 ): ManagerUserStatusDistribution[] {
@@ -594,6 +663,7 @@ function buildBorrowerPerformance(
     repaymentProofs.filter((proof) => proof.status === "rejected"),
     "borrower_id",
   );
+  const latestGradeByBorrower = getLatestGradeByBorrower(applications);
 
   const rows: ManagerBorrowerPerformanceRow[] = profiles
     .filter((profile) => profile.role === "borrower")
@@ -628,6 +698,7 @@ function buildBorrowerPerformance(
           rejectedProofCount,
           overdueDefaultedLoanCount,
         }),
+        creditProfileGrade: latestGradeByBorrower.get(profile.id) ?? null,
         status: profile.status,
         acceptedApplicationCount,
         verifiedRepaymentCount,
@@ -780,4 +851,24 @@ function toMonthKey(date: Date) {
     2,
     "0",
   )}`;
+}
+
+function getLatestGradeByBorrower(
+  applications: DashboardApplication[],
+): Map<string, string> {
+  const gradeMap = new Map<string, string>();
+
+  for (const application of applications) {
+    if (
+      application.borrower_credit_profile_grade &&
+      !gradeMap.has(application.borrower_id)
+    ) {
+      gradeMap.set(
+        application.borrower_id,
+        application.borrower_credit_profile_grade,
+      );
+    }
+  }
+
+  return gradeMap;
 }

@@ -1,5 +1,6 @@
 import { CheckCircle2, Clock } from "lucide-react";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
+import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import {
   Card,
   CardContent,
@@ -10,13 +11,32 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import type { ConsentStatus } from "@/lib/consents";
+import type {
+  LenderVerificationDocumentSummary,
+  LenderVerificationDocumentPolicy,
+} from "@/lib/lender-verification";
 
 export function LenderPendingReviewPanel({
   consentStatus,
+  lenderProfileId,
+  verificationStatus,
+  documents,
+  documentPolicy,
+  rejectionReason,
+  managerReviewNotes,
 }: {
   consentStatus: ConsentStatus;
+  lenderProfileId: string | null;
+  verificationStatus: string;
+  documents: LenderVerificationDocumentSummary[];
+  documentPolicy: LenderVerificationDocumentPolicy;
+  rejectionReason: string | null;
+  managerReviewNotes: string | null;
 }) {
   const allConsentsAccepted = consentStatus.isCurrent;
+  const allDocumentsAccepted = documentPolicy.documentsAccepted;
+  const hasSubmittedDocuments =
+    documentPolicy.submittedDocumentTypes.length > 0;
 
   return (
     <div className="grid gap-5">
@@ -29,9 +49,11 @@ export function LenderPendingReviewPanel({
             </CardTitle>
           </div>
           <CardDescription className="text-xs leading-5">
-            {allConsentsAccepted
+            {allConsentsAccepted && allDocumentsAccepted
               ? "A manager will review your profile and lending details. You will be notified once a decision is made."
-              : "Accept the remaining disclosures so a manager can complete approval."}
+              : allConsentsAccepted
+                ? "Upload the required verification documents so a manager can complete approval."
+                : "Accept the remaining disclosures and upload verification documents so a manager can complete approval."}
           </CardDescription>
         </CardHeader>
 
@@ -67,6 +89,29 @@ export function LenderPendingReviewPanel({
             </div>
             <Separator />
             <div className="flex items-center gap-3">
+              {allDocumentsAccepted ? (
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+              ) : (
+                <Clock className="size-4 shrink-0 text-amber-600" />
+              )}
+              <span
+                className={cn(
+                  "text-sm",
+                  allDocumentsAccepted
+                    ? "text-foreground"
+                    : "font-medium text-foreground",
+                )}
+              >
+                Verification documents{" "}
+                {allDocumentsAccepted
+                  ? "accepted"
+                  : hasSubmittedDocuments
+                    ? "uploaded, awaiting review"
+                    : "upload needed"}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex items-center gap-3">
               <div className="size-4 shrink-0 rounded-full border-2 border-border" />
               <span className="text-sm text-muted-foreground">
                 Manager review
@@ -82,6 +127,17 @@ export function LenderPendingReviewPanel({
           status={consentStatus}
           title="Required disclosures"
           variant="onboarding"
+        />
+      ) : null}
+
+      {lenderProfileId ? (
+        <LenderVerificationDocumentsPanel
+          lenderProfileId={lenderProfileId}
+          verificationStatus={verificationStatus}
+          documents={documents}
+          documentPolicy={documentPolicy}
+          rejectionReason={rejectionReason}
+          managerReviewNotes={managerReviewNotes}
         />
       ) : null}
     </div>

@@ -413,11 +413,22 @@ export function BorrowerLoanApplicationPanel({
   );
   const borrowerVerificationMessage =
     getBorrowerVerificationMessage(borrowerVerification);
+  const hasOpenApplication = applications.some(
+    (app) => app.status === "submitted" || app.status === "open",
+  );
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
       setMessage("Save your business profile before applying.");
+      return;
+    }
+
+    if (hasOpenApplication) {
+      setLoadState("ready");
+      setMessage(
+        "You already have an open application. Withdraw it before submitting a new one.",
+      );
       return;
     }
 
@@ -477,7 +488,8 @@ export function BorrowerLoanApplicationPanel({
           ? "blocked"
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required" ||
-            result.mode === "readiness"
+            result.mode === "readiness" ||
+            result.mode === "active-application"
             ? "ready"
             : "error",
       );
@@ -779,6 +791,11 @@ export function BorrowerLoanApplicationPanel({
                 status={loanConsentStatus}
                 variant="dialog"
                 onClose={() => onNavigate?.("home")}
+                onConsentAccepted={() =>
+                  setLoanConsentStatus((prev) =>
+                    prev ? { ...prev, isCurrent: true, missing: [] } : prev,
+                  )
+                }
               />
             ) : readiness &&
               (readiness.readinessStatus === "needs_review" ||
@@ -788,6 +805,19 @@ export function BorrowerLoanApplicationPanel({
                 readiness={readiness}
                 onEditProfile={() => onNavigate?.("profile")}
               />
+            ) : hasOpenApplication ? (
+              <Card className="rounded-2xl">
+                <CardContent className="flex flex-col items-center gap-2 px-4 py-8 text-center sm:px-5">
+                  <AlertCircle className="size-5 text-muted-foreground" />
+                  <p className="text-sm font-semibold">
+                    You already have an open application
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    Withdraw your current application before submitting a new
+                    one.
+                  </p>
+                </CardContent>
+              </Card>
             ) : (
               <ApplicationForm
                 control={control}
@@ -2559,15 +2589,15 @@ function OfferCard({
         <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <SummaryItem label="Application" value={application.purpose} />
-            <SummaryItem label="Principal" value={formatMoney(offer.principalAmount)} />
+            <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
             <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
-            <SummaryItem label="Fees" value={formatMoney(offer.fees)} />
-            <SummaryItem label="Total repayment" value={formatMoney(offer.totalRepaymentAmount)} />
+            <SummaryItem label="Borrower-paid fees" value={formatMoney(offer.fees)} />
+            <SummaryItem label="Total you repay" value={formatMoney(offer.totalRepaymentAmount)} />
             <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
             <SummaryItem label="Remarks" value={offer.remarks || "None"} />
           </dl>
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, fees, and financing charge.
+            Total repayment includes principal, interest/service charge, and borrower-paid fees. This is the full amount you will repay.
           </p>
 
           {offer.status === "accepted" && application.activeLoan ? (

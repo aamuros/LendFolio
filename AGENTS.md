@@ -105,6 +105,10 @@ Implemented or partially implemented:
 * Observable account provisioning events and manager-only provisioning repair
 * Lender signup review profile capture for manual manager verification
 * Manager-controlled lender filtering, detail review, approval, and rejection
+* Lender verification document upload with required document types and manager review
+* Lender approval gating on required accepted documents, profile completeness, and consent
+* Lender profile change request workflow with manager approve/reject
+* Borrower sensitive profile change detection with automatic verification needs-resubmission
 * Manager borrower verification queue with document review, approval, rejection, and resubmission
 * Manager operations dashboard for loans, repayment proofs, audit logs, applications, offers, borrower readiness, lender performance, and lookup
 * Audit logging for major workflow events

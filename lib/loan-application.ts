@@ -1,4 +1,8 @@
 import { z } from "zod";
+import type {
+  BorrowerCreditProfileAssessment,
+  BorrowerCreditProfileGrade,
+} from "@/lib/borrower-credit-profile-grade";
 import type { Database } from "@/lib/supabase/types";
 
 export const preferredTermOptions = [
@@ -66,6 +70,8 @@ export type LoanApplicationSummary = {
   creditReadinessStatus: Database["public"]["Enums"]["borrower_credit_readiness_status"] | null;
   borrowerProfileSnapshot: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_profile_snapshot"];
   borrowerReadinessSnapshot: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_readiness_snapshot"];
+  creditProfileGrade: BorrowerCreditProfileGrade | null;
+  creditProfileAssessment: BorrowerCreditProfileAssessment | null;
   purpose: string;
   preferredTerm: (typeof preferredTermOptions)[number];
   remarks: string | null;
@@ -83,6 +89,8 @@ type LoanApplicationRow =
     | "credit_readiness_status"
     | "borrower_profile_snapshot"
     | "borrower_readiness_snapshot"
+    | "borrower_credit_profile_grade"
+    | "borrower_credit_profile_assessment"
   > &
     Partial<
       Pick<
@@ -94,6 +102,8 @@ type LoanApplicationRow =
         | "credit_readiness_status"
         | "borrower_profile_snapshot"
         | "borrower_readiness_snapshot"
+        | "borrower_credit_profile_grade"
+        | "borrower_credit_profile_assessment"
       >
     >;
 
@@ -111,12 +121,51 @@ export function mapLoanApplicationRow(
     creditReadinessStatus: row.credit_readiness_status ?? null,
     borrowerProfileSnapshot: row.borrower_profile_snapshot ?? null,
     borrowerReadinessSnapshot: row.borrower_readiness_snapshot ?? null,
+    creditProfileGrade: parseCreditProfileGrade(row.borrower_credit_profile_grade),
+    creditProfileAssessment: parseCreditProfileAssessment(
+      row.borrower_credit_profile_assessment,
+    ),
     purpose: row.purpose,
     preferredTerm: row.preferred_term,
     remarks: row.remarks,
     status: row.status,
     submittedAt: row.submitted_at,
   };
+}
+
+function parseCreditProfileGrade(
+  value: string | null | undefined,
+): BorrowerCreditProfileGrade | null {
+  if (!value) return null;
+
+  const validGrades: BorrowerCreditProfileGrade[] = [
+    "A",
+    "B",
+    "C",
+    "review_needed",
+    "not_eligible",
+    "incomplete",
+  ];
+
+  return validGrades.includes(value as BorrowerCreditProfileGrade)
+    ? (value as BorrowerCreditProfileGrade)
+    : null;
+}
+
+function parseCreditProfileAssessment(
+  value: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_credit_profile_assessment"] | undefined,
+): BorrowerCreditProfileAssessment | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+
+  if (typeof record.grade !== "string" || typeof record.label !== "string") {
+    return null;
+  }
+
+  return record as unknown as BorrowerCreditProfileAssessment;
 }
 
 export const preferredTermLabels: Record<

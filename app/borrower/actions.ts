@@ -95,6 +95,7 @@ export type LoanApplicationSubmitResult =
         | "borrower-verification"
         | "consent-required"
         | "credit-limit"
+        | "active-application"
         | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
@@ -541,13 +542,21 @@ async function loadBorrowerCreditSummary(
   verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ) {
   const supabase = verifiedClient ?? (await createSupabaseServerClient());
-  const { data: activeLoans, error } = await supabase
-    .from("active_loans")
-    .select("outstanding_balance, status")
-    .eq("borrower_id", borrowerId)
-    .gt("outstanding_balance", 0);
+  const [{ data: activeLoans, error: loansError }, { data: pendingApps, error: appsError }] =
+    await Promise.all([
+      supabase
+        .from("active_loans")
+        .select("outstanding_balance, status")
+        .eq("borrower_id", borrowerId)
+        .gt("outstanding_balance", 0),
+      supabase
+        .from("loan_applications")
+        .select("requested_amount")
+        .eq("borrower_id", borrowerId)
+        .in("status", ["submitted", "open"]),
+    ]);
 
-  if (error) {
+  if (loansError) {
     return null;
   }
 
@@ -562,6 +571,9 @@ async function loadBorrowerCreditSummary(
       outstandingBalance: loan.outstanding_balance,
       status: loan.status,
     })),
+    pendingApplicationAmounts: appsError
+      ? []
+      : (pendingApps ?? []).map((app) => app.requested_amount),
   });
 }
 
@@ -628,6 +640,8 @@ export async function submitLoanApplication(
               ? "auth"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
+            : result?.code === "active_application"
+              ? "active-application"
             : result?.code === "profile_needs_review" ||
                 result?.code === "profile_stale" ||
                 result?.code === "not_eligible"

@@ -9,7 +9,7 @@ This document tracks private Storage buckets and access expectations.
 | `borrower-verification-documents` | Borrower identity verification uploads (valid ID, business proof) | No | `borrowers/{borrower_id}/verification/{verification_id}/{safe_file_name}` | Verification migration |
 | `repayment-proofs` | Borrower-uploaded repayment proof files | No | `borrowers/{borrower_id}/loans/{active_loan_id}/repayments/{repayment_schedule_id}/{safe_file_name}` | Repayment proof migration |
 | `borrower-documents` | Borrower business documents, permits, and future portfolio evidence | No | `{borrower_profile_id}/{document_id}/{filename}` | Planned |
-| `lender-documents` | Lender verification and accreditation documents | No | `{lender_profile_id}/{document_id}/{filename}` | Planned |
+| `lender-documents` | Lender verification and accreditation documents | No | `lenders/{lender_user_id}/verification/{lender_profile_id}/{safe_file_name}` | Lender verification migration |
 
 ## Policy Direction
 
@@ -37,6 +37,8 @@ This document tracks private Storage buckets and access expectations.
   `supabase/migrations/20260526004411_add_borrower_verification_documents.sql`.
 - `repayment-proofs` bucket and Storage policies are created in
   `supabase/migrations/20260524145301_add_repayment_proofs.sql`.
-- `borrower-documents` and `lender-documents` buckets remain planned. Create
-  them as private buckets with policies only after the database ownership model
-  is finalized for those features.
+- `lender-verification-documents` bucket and Storage policies are created in
+  `supabase/migrations/20260531100000_add_lender_verification_documents.sql`.
+  Renamed from `lender-documents` to `lender-verification-documents` for
+  consistency with the borrower verification pattern.
+- `borrower-documents` bucket remains planned.

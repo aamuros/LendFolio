@@ -163,7 +163,7 @@ export function NotificationButton() {
         side="bottom"
         sideOffset={8}
         collisionPadding={16}
-        className="z-50 w-[calc(100vw-2rem)] max-w-sm overflow-hidden p-0 sm:w-96"
+        className="z-50 w-[calc(100vw-2rem)] max-w-sm p-0 sm:w-96"
         onOpenAutoFocus={(e) => e.preventDefault()}
       >
         {panelContent}

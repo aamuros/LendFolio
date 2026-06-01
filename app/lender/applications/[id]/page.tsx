@@ -19,6 +19,10 @@ import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
+import {
+  formatCreditProfileGrade,
+  getGradeTone,
+} from "@/lib/borrower-credit-profile-grade";
 
 export const dynamic = "force-dynamic";
 
@@ -198,6 +202,8 @@ export default async function LenderApplicationDetailPage({
           </Card>
         </section>
 
+        <CreditProfileGradeSection application={application} />
+
         <section className="grid gap-3">
           <h2 className="text-lg font-semibold">
             {getActionTitle({
@@ -229,6 +235,7 @@ export default async function LenderApplicationDetailPage({
                 <LenderOfferForm
                   applicationId={application.id}
                   requestedAmount={application.requestedAmount}
+                  availableCreditAtSubmission={application.availableCreditAtSubmission}
                   defaultDueDate={getDefaultDueDate()}
                 />
               ) : (
@@ -273,7 +280,7 @@ export default async function LenderApplicationDetailPage({
                         value={`PHP ${formatCurrency(offer.interestAmount)}`}
                       />
                       <ReviewItem
-                        label="Fees"
+                        label="Borrower-paid fees"
                         value={`PHP ${formatCurrency(offer.fees)}`}
                       />
                       <ReviewItem
@@ -373,7 +380,7 @@ function OfferSummary({
         label="Interest/service charge"
         value={`PHP ${formatCurrency(offer.interestAmount)}`}
       />
-      <ReviewItem label="Fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+      <ReviewItem label="Borrower-paid fees" value={`PHP ${formatCurrency(offer.fees)}`} />
       <ReviewItem
         label="Total repayment"
         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
@@ -453,4 +460,112 @@ function getDefaultDueDate() {
   date.setDate(date.getDate() + 30);
 
   return date.toISOString().slice(0, 10);
+}
+
+function CreditProfileGradeSection({
+  application,
+}: {
+  application: {
+    creditProfileGrade: string | null;
+    creditProfileAssessment: {
+      grade: string;
+      label: string;
+      summary: string;
+      positiveFactors: string[];
+      riskFactors: string[];
+    } | null;
+    creditReadinessStatus: string | null;
+    availableCreditAtSubmission: number | null;
+    monthlyNetCashFlowAtSubmission: number | null;
+  };
+}) {
+  const grade = application.creditProfileGrade;
+  const assessment = application.creditProfileAssessment;
+
+  if (!grade) {
+    return (
+      <section className="grid gap-3">
+        <h2 className="text-lg font-semibold">Credit profile grade</h2>
+        <Card className="rounded-2xl border-border/50 shadow-sm">
+          <CardContent className="p-4">
+            <p className="text-sm leading-6 text-muted-foreground">
+              Not recorded for this application.
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+    );
+  }
+
+  const tone = getGradeTone(
+    grade as Parameters<typeof getGradeTone>[0],
+  );
+
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-lg font-semibold">Credit profile grade</h2>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-4 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-1">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Credit Profile Grade
+              </p>
+              <div className="flex items-center gap-2">
+                <ToneBadge tone={tone}>
+                  {formatCreditProfileGrade(
+                    grade as Parameters<typeof formatCreditProfileGrade>[0],
+                  )}
+                </ToneBadge>
+                {assessment?.label ? (
+                  <span className="text-sm text-muted-foreground">
+                    {assessment.label}
+                  </span>
+                ) : null}
+              </div>
+            </div>
+          </div>
+
+          {assessment?.summary ? (
+            <p className="text-sm leading-6 text-muted-foreground">
+              {assessment.summary}
+            </p>
+          ) : null}
+
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            This grade summarizes profile completeness, cash flow strength, debt
+            burden, verification status, and risk flags. It is not a formal credit
+            score and does not approve or reject the loan.
+          </p>
+
+          {assessment?.positiveFactors &&
+          assessment.positiveFactors.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold text-foreground">
+                Positive factors
+              </p>
+              <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
+                {assessment.positiveFactors.map((factor, index) => (
+                  <li key={index}>{factor}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
+          {assessment?.riskFactors && assessment.riskFactors.length > 0 ? (
+            <div>
+              <p className="text-xs font-semibold text-foreground">
+                Risk notes
+              </p>
+              <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
+                {assessment.riskFactors.map((factor, index) => (
+                  <li key={index}>{factor}</li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </CardContent>
+      </Card>
+    </section>
+  );
 }

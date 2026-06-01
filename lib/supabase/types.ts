@@ -102,6 +102,25 @@ export type BorrowerCreditReadinessStatus =
   | "needs_review"
   | "not_eligible"
   | "eligible_to_apply";
+export type LenderVerificationDocumentType =
+  | "business_registration"
+  | "authorized_representative_id"
+  | "authorization_letter"
+  | "lending_license"
+  | "proof_of_address"
+  | "collection_policy"
+  | "sample_loan_terms"
+  | "other";
+export type LenderVerificationDocumentStatus =
+  | "submitted"
+  | "accepted"
+  | "rejected"
+  | "superseded";
+export type LenderProfileChangeRequestStatus =
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "cancelled";
 
 export type Database = {
   public: {
@@ -449,6 +468,8 @@ export type Database = {
           credit_readiness_status: BorrowerCreditReadinessStatus | null;
           borrower_profile_snapshot: Json | null;
           borrower_readiness_snapshot: Json | null;
+          borrower_credit_profile_grade: string | null;
+          borrower_credit_profile_assessment: Json | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks: string | null;
@@ -469,6 +490,8 @@ export type Database = {
           credit_readiness_status?: BorrowerCreditReadinessStatus | null;
           borrower_profile_snapshot?: Json | null;
           borrower_readiness_snapshot?: Json | null;
+          borrower_credit_profile_grade?: string | null;
+          borrower_credit_profile_assessment?: Json | null;
           purpose: string;
           preferred_term: PreferredTerm;
           remarks?: string | null;
@@ -489,6 +512,8 @@ export type Database = {
           credit_readiness_status?: BorrowerCreditReadinessStatus | null;
           borrower_profile_snapshot?: Json | null;
           borrower_readiness_snapshot?: Json | null;
+          borrower_credit_profile_grade?: string | null;
+          borrower_credit_profile_assessment?: Json | null;
           purpose?: string;
           preferred_term?: PreferredTerm;
           remarks?: string | null;
@@ -754,6 +779,135 @@ export type Database = {
         };
         Relationships: [];
       };
+      lender_verification_documents: {
+        Row: {
+          id: string;
+          lender_id: string;
+          lender_profile_id: string;
+          storage_bucket: string;
+          storage_path: string;
+          document_type: LenderVerificationDocumentType;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status: LenderVerificationDocumentStatus;
+          uploaded_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          review_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lender_id: string;
+          lender_profile_id: string;
+          storage_bucket?: string;
+          storage_path: string;
+          document_type: LenderVerificationDocumentType;
+          file_name: string;
+          file_type: string;
+          file_size: number;
+          status?: LenderVerificationDocumentStatus;
+          uploaded_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          lender_id?: string;
+          lender_profile_id?: string;
+          storage_bucket?: string;
+          storage_path?: string;
+          document_type?: LenderVerificationDocumentType;
+          file_name?: string;
+          file_type?: string;
+          file_size?: number;
+          status?: LenderVerificationDocumentStatus;
+          uploaded_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          review_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
+      lender_profile_change_requests: {
+        Row: {
+          id: string;
+          lender_id: string;
+          lender_profile_id: string;
+          proposed_organization_name: string | null;
+          proposed_business_registration_number: string | null;
+          proposed_business_address: string | null;
+          proposed_operating_area: string | null;
+          proposed_min_loan_amount: number | null;
+          proposed_max_loan_amount: number | null;
+          proposed_typical_repayment_terms: string | null;
+          proposed_lender_description: string | null;
+          proposed_contact_person: string | null;
+          proposed_values: Json;
+          status: LenderProfileChangeRequestStatus;
+          submitted_at: string;
+          reviewed_at: string | null;
+          reviewed_by: string | null;
+          manager_review_notes: string | null;
+          rejection_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          lender_id: string;
+          lender_profile_id: string;
+          proposed_organization_name?: string | null;
+          proposed_business_registration_number?: string | null;
+          proposed_business_address?: string | null;
+          proposed_operating_area?: string | null;
+          proposed_min_loan_amount?: number | null;
+          proposed_max_loan_amount?: number | null;
+          proposed_typical_repayment_terms?: string | null;
+          proposed_lender_description?: string | null;
+          proposed_contact_person?: string | null;
+          proposed_values?: Json;
+          status?: LenderProfileChangeRequestStatus;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          manager_review_notes?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          lender_id?: string;
+          lender_profile_id?: string;
+          proposed_organization_name?: string | null;
+          proposed_business_registration_number?: string | null;
+          proposed_business_address?: string | null;
+          proposed_operating_area?: string | null;
+          proposed_min_loan_amount?: number | null;
+          proposed_max_loan_amount?: number | null;
+          proposed_typical_repayment_terms?: string | null;
+          proposed_lender_description?: string | null;
+          proposed_contact_person?: string | null;
+          proposed_values?: Json;
+          status?: LenderProfileChangeRequestStatus;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+          reviewed_by?: string | null;
+          manager_review_notes?: string | null;
+          rejection_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           id: string;
@@ -953,6 +1107,55 @@ export type Database = {
         };
         Returns: Json;
       };
+      submit_lender_verification_document: {
+        Args: {
+          p_lender_profile_id: string;
+          p_storage_path: string;
+          p_document_type: LenderVerificationDocumentType;
+          p_file_name: string;
+          p_file_type: string;
+          p_file_size: number;
+        };
+        Returns: Json;
+      };
+      review_lender_verification_document: {
+        Args: {
+          p_document_id: string;
+          p_decision: string;
+          p_review_notes?: string | null;
+        };
+        Returns: Json;
+      };
+      submit_lender_profile_change_request: {
+        Args: {
+          p_lender_profile_id: string;
+          p_proposed_organization_name?: string | null;
+          p_proposed_contact_person?: string | null;
+          p_proposed_business_address?: string | null;
+          p_proposed_operating_area?: string | null;
+          p_proposed_business_registration_number?: string | null;
+          p_proposed_min_loan_amount?: number | null;
+          p_proposed_max_loan_amount?: number | null;
+          p_proposed_typical_repayment_terms?: string | null;
+          p_proposed_lender_description?: string | null;
+        };
+        Returns: Json;
+      };
+      cancel_lender_profile_change_request: {
+        Args: {
+          p_request_id: string;
+        };
+        Returns: Json;
+      };
+      review_lender_profile_change_request: {
+        Args: {
+          p_request_id: string;
+          p_decision: string;
+          p_manager_review_notes?: string | null;
+          p_rejection_reason?: string | null;
+        };
+        Returns: Json;
+      };
       submit_loan_application: {
         Args: {
           p_requested_amount: number;
@@ -1000,6 +1203,9 @@ export type Database = {
       borrower_verification_document_status: BorrowerVerificationDocumentStatus;
       borrower_verification_document_type: BorrowerVerificationDocumentType;
       lender_verification_status: LenderVerificationStatus;
+      lender_verification_document_type: LenderVerificationDocumentType;
+      lender_verification_document_status: LenderVerificationDocumentStatus;
+      lender_profile_change_request_status: LenderProfileChangeRequestStatus;
       offer_status: OfferStatus;
       preferred_term: PreferredTerm;
       profile_status: ProfileStatus;

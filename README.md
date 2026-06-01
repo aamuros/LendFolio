@@ -79,7 +79,7 @@ lib/                             # Business logic, Supabase clients, validation
 
 docs/                            # Design documents and setup guides
 supabase/
-├── migrations/                  # 34 applied SQL migrations
+├── migrations/                  # 46 applied SQL migrations
 ├── seed.sql                     # Local demo data
 └── config.toml                  # Supabase local config
 tests/                           # Vitest test suite (unit + database integration)
@@ -150,10 +150,17 @@ Do not commit real secrets. Do not expose Supabase service role keys through
 - Observable account provisioning events and manager-only provisioning repair
 - Lender signup review profile capture for manual manager verification
 - Manager-controlled lender filtering, detail review, approval, and rejection
+- Lender verification document upload with required document types (business registration, authorized representative ID, authorization letter, lending license, proof of address)
+- Manager lender document review with accept/reject and notes
+- Lender approval gating on required accepted documents, profile completeness, and consent
+- Lender profile change request workflow (submit, cancel, manager approve/reject)
+- Borrower sensitive profile change detection with automatic verification needs-resubmission
 - Manager borrower verification queue with document review, approval, rejection,
   and resubmission
 - Manager operations dashboard for loans, repayment proofs, audit logs,
   applications, offers, borrower readiness, lender performance, and lookup
+- Explainable borrower credit profile grade for lender and manager review
+  (deterministic internal profile grade, not a formal credit score)
 - Audit logging for major workflow events
 - GitHub Actions CI (lint, typecheck, test, build with Supabase)
 
@@ -165,7 +172,8 @@ Do not commit real secrets. Do not expose Supabase service role keys through
 - Credit-limit restoration after loan payoff
 - Dispute workflows
 - Production e-KYC or automated identity verification
-- Credit scoring
+- Credit scoring (an explainable internal credit profile grade is implemented;
+  formal credit bureau scoring is not)
 - Manager reports and analytics
 - Email notifications (Resend approved but not wired)
 - Playwright end-to-end tests

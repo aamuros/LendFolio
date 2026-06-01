@@ -86,3 +86,28 @@ end on the offer due date. Each installment starts as `due`.
   submission, proof review, repayment verification, balance updates, and loan
   payoff.
 - Notifications are sent for key workflow events to affected users.
+
+## Credit Capacity Semantics
+
+Borrower available credit at submission caps the total repayment obligation, not
+only the approved principal. `available_credit_at_submission` is snapshotted when
+the borrower submits the application.
+
+Offer invariants enforced by `create_loan_offer`:
+
+- `approved_amount <= requested_amount`
+- `total_repayment_amount <= available_credit_at_submission`
+- `total_repayment_amount >= approved_amount + borrower_paid_fees`
+
+Where `total_repayment_amount = approved_amount + interest/service charge +
+borrower_paid_fees`.
+
+If `available_credit_at_submission` is null for older records, the RPC falls
+back to `requested_amount` as the credit cap.
+
+Active loan creation uses:
+
+- `principal_amount = approved_amount` (cash disbursed to borrower)
+- `repayment_amount = total_repayment_amount` (full borrower obligation)
+- `outstanding_balance = repayment_amount` (starts at total obligation)
+- Repayment schedule installments sum to `repayment_amount`

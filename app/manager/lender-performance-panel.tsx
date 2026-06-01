@@ -5,9 +5,7 @@ import { useMemo, useState } from "react";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import {
   Table,
@@ -76,14 +74,6 @@ export function LenderPerformancePanel({
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <CardTitle>Lender performance</CardTitle>
-            <CardDescription>
-              Top lenders by completed applications
-            </CardDescription>
-          </div>
-        </div>
         <div className="h-10">
           <Select
             value={selectedBusinessType}

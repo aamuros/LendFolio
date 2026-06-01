@@ -80,7 +80,6 @@ export type LoanOfferSummary = {
   lenderName: string;
   approvedAmount: number;
   principalAmount: number;
-  repaymentAmount: number;
   totalRepaymentAmount: number;
   fees: number;
   interestAmount: number;
@@ -115,7 +114,6 @@ export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
     lenderName: row.lender_name,
     approvedAmount: row.approved_amount,
     principalAmount: row.approved_amount,
-    repaymentAmount: row.repayment_amount,
     totalRepaymentAmount: row.repayment_amount,
     fees: row.fees,
     interestAmount,

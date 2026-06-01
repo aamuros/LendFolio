@@ -18,6 +18,8 @@ it.
 | `lender_profiles` | No direct access | Own lender profile only | Read for support and verification |
 | `borrower_verifications` | Own verification only | No direct access | Read and review for verification queue |
 | `borrower_verification_documents` | Own documents only | No direct access | Read and review for verification queue |
+| `lender_verification_documents` | No direct access | Own documents only | Read and review for lender verification |
+| `lender_profile_change_requests` | No direct access | Own requests only | Read and review for lender profile changes |
 | `loan_applications` | Own applications only | Submitted/open applications; closed only with related offer | Read all for monitoring |
 | `loan_offers` | Offers for own applications only | Own offers only | Read all for monitoring |
 | `active_loans` | Own accepted loans only | Loans funded by lender only | Read all for monitoring |
@@ -76,7 +78,22 @@ it.
   or credit scoring. Managers can read all lender profiles and use the lender
   review RPC to approve, reject with a required reason, or return rejected
   lenders to pending. Lenders can read their own lender profile but cannot
-  mutate manager-only review fields or self-approve.
+  mutate manager-only review fields or self-approve. Lender approval now
+  requires all five required verification documents to be accepted, profile
+  details to be complete, and current lender-review consent.
+- **Lender verification documents**: Lenders upload verification documents
+  (business registration, representative ID, authorization letter, lending
+  license, proof of address) to a private storage bucket. Lenders can read
+  their own documents. Managers can read and review all lender documents.
+  Document submission and review go through controlled RPCs.
+- **Lender profile change requests**: Approved lenders can submit profile
+  change requests. Requests do not alter the approved profile until manager
+  approval. One pending request per lender at a time. Managers can approve
+  (which applies proposed values) or reject with notes.
+- **Borrower sensitive profile changes**: Changes to sensitive borrower profile
+  fields (business name, type, address, location, operating model) trigger
+  automatic verification status change to needs_resubmission if the borrower
+  was previously approved. Loan application snapshots remain immutable.
 - **Consent records**: Append-only. Users can read and insert their own consent
   records. Legal document versions are readable by all authenticated users.
   Managers can read consent records for audit.

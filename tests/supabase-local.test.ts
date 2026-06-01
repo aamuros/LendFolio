@@ -85,6 +85,18 @@ function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
 }
 
+function expectedForwardDate(monthsAhead: number): string {
+  const d = new Date();
+  const targetMonth = d.getMonth() + monthsAhead;
+  const lastDayOfMonth = new Date(d.getFullYear(), targetMonth + 1, 0).getDate();
+  const day = Math.min(d.getDate(), lastDayOfMonth);
+  const result = new Date(d.getFullYear(), targetMonth, day);
+  const year = result.getFullYear();
+  const month = String(result.getMonth() + 1).padStart(2, "0");
+  const dayStr = String(result.getDate()).padStart(2, "0");
+  return `${year}-${month}-${dayStr}`;
+}
+
 function createSupabaseClient(key: string): TestClient {
   return createClient<Database>(supabaseUrl, key, {
     auth: {
@@ -730,6 +742,106 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     });
   });
 
+  it("enforces total repayment against available credit at submission", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const exceedCredit = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 20000,
+      p_repayment_amount: 64000,
+      p_fees: 1000,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(exceedCredit.error).toBeNull();
+    expect(exceedCredit.data as Json as OfferRpcResult).toMatchObject({
+      ok: false,
+      message:
+        "Total repayment cannot exceed the borrower's available credit at submission.",
+    });
+
+    const exactCredit = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 25000,
+      p_repayment_amount: 63750,
+      p_fees: 2000,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(exactCredit.error).toBeNull();
+    expect(exactCredit.data as Json as OfferRpcResult).toMatchObject({
+      ok: true,
+      loan_application_id: applicationId,
+    });
+  });
+
+  it("allows lower principal to fit interest and fees within available credit", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const lowerPrincipal = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 20000,
+      p_repayment_amount: 27000,
+      p_fees: 2000,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(lowerPrincipal.error).toBeNull();
+    expect(lowerPrincipal.data as Json as OfferRpcResult).toMatchObject({
+      ok: true,
+      loan_application_id: applicationId,
+    });
+  });
+
+  it("creates active loan with principal = approved amount and outstanding balance = total repayment", async () => {
+    const { applicationId } = await createPortfolioAndApplication(borrower);
+
+    const offer = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: applicationId,
+      p_approved_amount: 20000,
+      p_repayment_amount: 27000,
+      p_fees: 2000,
+      p_due_date: "2026-08-24",
+      p_remarks: "",
+    });
+    expect(offer.error).toBeNull();
+    const offerResult = offer.data as Json as OfferRpcResult;
+    expect(offerResult).toMatchObject({ ok: true });
+    expect(offerResult.offer_id).toBeTruthy();
+
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerResult.offer_id!,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const { data: activeLoan, error: activeLoanError } = await borrower
+      .from("active_loans")
+      .select(
+        "principal_amount, repayment_amount, outstanding_balance, fees",
+      )
+      .eq("loan_application_id", applicationId)
+      .single();
+
+    expect(activeLoanError).toBeNull();
+    expect(Number(activeLoan?.principal_amount)).toBe(20000);
+    expect(Number(activeLoan?.repayment_amount)).toBe(27000);
+    expect(Number(activeLoan?.outstanding_balance)).toBe(27000);
+    expect(Number(activeLoan?.fees)).toBe(2000);
+
+    const { data: schedules, error: scheduleError } = await borrower
+      .from("loan_repayment_schedules")
+      .select("amount_due")
+      .eq("active_loan_id", (acceptance.data as Json as AcceptanceResult).active_loan_id ?? "");
+
+    expect(scheduleError).toBeNull();
+    const scheduleTotal = (schedules ?? []).reduce(
+      (sum, row) => sum + Number(row.amount_due),
+      0,
+    );
+    expect(scheduleTotal).toBe(27000);
+  });
+
   it("enforces the approved lender configured min and max loan range", async () => {
     const { applicationId } = await createPortfolioAndApplication(borrower);
 
@@ -884,7 +996,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       principal_amount: acceptedOffer?.id === firstOffer.data.id ? 22000 : 23000,
       fees: 500,
       status: "active",
-      due_date: "2026-08-24",
+      due_date: expectedForwardDate(3),
     });
     expect(Number(activeLoans?.[0].repayment_amount)).toBe(
       Number(activeLoans?.[0].outstanding_balance),
@@ -912,7 +1024,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       borrower_id: ids.borrower,
       lender_id: acceptedOffer?.lender_id,
       installment_number: 3,
-      due_date: "2026-08-24",
+      due_date: expectedForwardDate(3),
       status: "due",
     });
     expect(
@@ -1450,7 +1562,9 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       expect(schedules.map((row) => row.installment_number)).toEqual(
         Array.from({ length: installmentCount }, (_value, index) => index + 1),
       );
-      expect(schedules.at(-1)?.due_date).toBe("2026-08-24");
+      expect(schedules.at(-1)?.due_date).toBe(
+        expectedForwardDate(installmentCount),
+      );
       expect(
         schedules.reduce((total, row) => total + toCents(row.amount_due), 0),
       ).toBe(toCents(repaymentAmount));

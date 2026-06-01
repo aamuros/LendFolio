@@ -1,6 +1,8 @@
 import {
   Building2,
   CircleDollarSign,
+  Edit3Icon,
+  FileCheck,
   HelpCircle,
   Lock,
   LogOut,
@@ -13,6 +15,8 @@ import { SummaryRow } from "@/components/borrower/ui/summary-row";
 import { LenderProfileStatusBanner } from "./lender-profile-status-banner";
 import { LenderProfileMenuRow } from "./lender-profile-menu-row";
 import { LenderAccountSection } from "./lender-account-section";
+import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
+import { LenderProfileChangeRequestForm } from "@/components/lender-profile-change-request-form";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { signOutAction } from "@/app/login/actions";
@@ -24,10 +28,13 @@ export type LenderProfileView =
   | "organization"
   | "lending"
   | "verification"
+  | "documents"
+  | "change-requests"
   | "account"
   | "support";
 
 type LenderProfileData = {
+  id: string | null;
   organization_name: string | null;
   contact_person: string | null;
   phone_number: string | null;
@@ -47,6 +54,45 @@ type LenderProfileData = {
   rejected_by: string | null;
   created_at: string | null;
   updated_at: string | null;
+  documents?: Array<{
+    id: string;
+    lenderProfileId: string;
+    documentType: string;
+    status: string;
+    fileName: string;
+    fileType: string;
+    fileSize: number;
+    uploadedAt: string;
+    reviewedAt: string | null;
+    reviewNotes: string | null;
+    viewUrl: string | null;
+  }>;
+  documentPolicy?: {
+    requiredDocumentTypes: string[];
+    missingRequiredDocumentTypes: string[];
+    submittedDocumentTypes: string[];
+    acceptedDocumentTypes: string[];
+    rejectedDocumentTypes: string[];
+    readyForManagerReview: boolean;
+    documentsAccepted: boolean;
+  };
+  changeRequests?: Array<{
+    id: string;
+    proposedOrganizationName: string | null;
+    proposedContactPerson: string | null;
+    proposedBusinessAddress: string | null;
+    proposedOperatingArea: string | null;
+    proposedBusinessRegistrationNumber: string | null;
+    proposedMinLoanAmount: number | null;
+    proposedMaxLoanAmount: number | null;
+    proposedTypicalRepaymentTerms: string | null;
+    proposedLenderDescription: string | null;
+    status: string;
+    submittedAt: string;
+    reviewedAt: string | null;
+    managerReviewNotes: string | null;
+    rejectionReason: string | null;
+  }>;
 } | null;
 
 export function LenderProfileHub({
@@ -154,6 +200,64 @@ export function LenderProfileHub({
     );
   }
 
+  if (activeView === "documents") {
+    const documents = (lenderProfile?.documents ?? []) as NonNullable<LenderProfileData>["documents"];
+    const documentPolicy = lenderProfile?.documentPolicy;
+
+    return (
+      <LenderProfileSubview
+        title="Verification Documents"
+        onBack={() => onViewChange("index")}
+      >
+        {lenderProfile?.id && documentPolicy ? (
+          <LenderVerificationDocumentsPanel
+            lenderProfileId={lenderProfile.id}
+            verificationStatus={verificationStatus}
+            documents={(documents ?? []) as Parameters<typeof LenderVerificationDocumentsPanel>[0]["documents"]}
+            documentPolicy={documentPolicy as Parameters<typeof LenderVerificationDocumentsPanel>[0]["documentPolicy"]}
+            rejectionReason={lenderProfile?.rejection_reason ?? null}
+            managerReviewNotes={lenderProfile?.manager_review_notes ?? null}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Lender profile is required before uploading documents.
+          </p>
+        )}
+      </LenderProfileSubview>
+    );
+  }
+
+  if (activeView === "change-requests") {
+    return (
+      <LenderProfileSubview
+        title="Profile Changes"
+        onBack={() => onViewChange("index")}
+      >
+        {verificationStatus === "approved" && lenderProfile?.id ? (
+          <LenderProfileChangeRequestForm
+            lenderProfileId={lenderProfile.id}
+            currentProfile={{
+              organization_name: lenderProfile.organization_name,
+              contact_person: lenderProfile.contact_person,
+              business_address: lenderProfile.business_address,
+              operating_area: lenderProfile.operating_area,
+              business_registration_number: lenderProfile.business_registration_number,
+              min_loan_amount: lenderProfile.min_loan_amount,
+              max_loan_amount: lenderProfile.max_loan_amount,
+              typical_repayment_terms: lenderProfile.typical_repayment_terms,
+              lender_description: lenderProfile.lender_description,
+            }}
+            changeRequests={(lenderProfile.changeRequests ?? []) as Parameters<typeof LenderProfileChangeRequestForm>[0]["changeRequests"]}
+          />
+        ) : (
+          <p className="text-sm text-muted-foreground">
+            Profile change requests are available after your lender account is approved.
+          </p>
+        )}
+      </LenderProfileSubview>
+    );
+  }
+
   if (activeView === "account") {
     return (
       <LenderProfileSubview
@@ -193,10 +297,12 @@ export function LenderProfileHub({
         onBack={onNavigateHome}
       />
 
-      <LenderProfileStatusBanner
-        status={getVerificationBannerStatus(verificationStatus)}
-        onAction={() => onViewChange("verification")}
-      />
+      {verificationStatus !== "approved" ? (
+        <LenderProfileStatusBanner
+          status={getVerificationBannerStatus(verificationStatus)}
+          onAction={() => onViewChange("verification")}
+        />
+      ) : null}
 
       <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
         <LenderProfileMenuRow
@@ -219,6 +325,30 @@ export function LenderProfileHub({
           subtitle={verificationLabel}
           onClick={() => onViewChange("verification")}
         />
+        <LenderProfileMenuRow
+          icon={FileCheck}
+          label="Verification Documents"
+          subtitle={
+            lenderProfile?.documentPolicy?.documentsAccepted
+              ? "All required documents accepted"
+              : lenderProfile?.documentPolicy
+                ? `${lenderProfile.documentPolicy.acceptedDocumentTypes.length}/${lenderProfile.documentPolicy.requiredDocumentTypes.length} accepted`
+                : "Documents needed"
+          }
+          onClick={() => onViewChange("documents")}
+        />
+        {verificationStatus === "approved" ? (
+          <LenderProfileMenuRow
+            icon={Edit3Icon}
+            label="Profile Changes"
+            subtitle={
+              lenderProfile?.changeRequests?.some((r) => r.status === "pending")
+                ? "Pending request"
+                : "Request profile changes"
+            }
+            onClick={() => onViewChange("change-requests")}
+          />
+        ) : null}
         <LenderProfileMenuRow
           icon={Lock}
           label="Account & Security"

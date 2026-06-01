@@ -11,10 +11,7 @@ export default async function ManagerPage() {
 
   if (!access.ok) {
     return (
-      <ManagerShell
-        title="Manager dashboard"
-        description="Operational visibility for active loans, repayment proof, applications, offers, and audit events."
-      >
+    <ManagerShell title="Manager dashboard" description="">
         <AccessDenied message={access.message} />
       </ManagerShell>
     );
@@ -26,10 +23,7 @@ export default async function ManagerPage() {
   );
 
   return (
-    <ManagerShell
-      title="Manager dashboard"
-      description="Operations console for platform activity, pending actions, and performance."
-    >
+    <ManagerShell title="Manager dashboard" description="Review platform activity, pending approvals, and lending operations.">
       {!dashboard.ok ? (
         <StatusMessage message={dashboard.message} tone="error" />
       ) : null}

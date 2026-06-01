@@ -25,10 +25,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [formVersion, setFormVersion] = useState(0);
-  const [submittedVersion, setSubmittedVersion] = useState(0);
   const [showSignedOut, setShowSignedOut] = useState(signedOut);
-  const showError = Boolean(state.message && formVersion === submittedVersion);
 
   useEffect(() => {
     if (!signedOut) {
@@ -42,7 +39,6 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
   }, [router, signedOut]);
 
   function markEdited() {
-    setFormVersion((current) => current + 1);
     setShowSignedOut(false);
   }
 
@@ -55,10 +51,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
-        <form
-          action={formAction}
-          onSubmit={() => setSubmittedVersion(formVersion)}
-        >
+        <form action={formAction}>
           <FieldGroup className="gap-4">
             {showSignedOut ? (
               <Alert>
@@ -111,12 +104,7 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
               />
             </Field>
 
-            {showError ? (
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertDescription>{state.message}</AlertDescription>
-              </Alert>
-            ) : null}
+            <LoginError state={state} />
 
             <Field>
               <SubmitButton />
@@ -137,6 +125,21 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function LoginError({ state }: { state: LoginState }) {
+  const { pending } = useFormStatus();
+
+  if (!state.message || pending) {
+    return null;
+  }
+
+  return (
+    <Alert variant="destructive">
+      <AlertCircle />
+      <AlertDescription>{state.message}</AlertDescription>
+    </Alert>
   );
 }
 

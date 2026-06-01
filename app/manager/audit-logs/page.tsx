@@ -24,7 +24,18 @@ import {
 } from "../manager-ui";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 import { withServerTiming } from "@/lib/perf";
+
+const PAGE_SIZE = 20;
 
 type PageProps = {
   searchParams: Promise<{
@@ -33,6 +44,7 @@ type PageProps = {
     actor?: string;
     createdFrom?: string;
     createdTo?: string;
+    page?: string;
   }>;
 };
 
@@ -132,6 +144,43 @@ function getAuditCategory(action: string, targetTable: string): AuditCategory {
   return "Other";
 }
 
+function buildPageUrl(
+  filters: Record<string, string | undefined>,
+  page: number,
+): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(filters)) {
+    if (value) params.set(key, value);
+  }
+  params.set("page", String(page));
+  return `/manager/audit-logs?${params.toString()}`;
+}
+
+function getPageRange(current: number, total: number): (number | "ellipsis")[] {
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+
+  const pages: (number | "ellipsis")[] = [1];
+
+  if (current > 3) {
+    pages.push("ellipsis");
+  }
+
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  for (let i = start; i <= end; i++) {
+    pages.push(i);
+  }
+
+  if (current < total - 2) {
+    pages.push("ellipsis");
+  }
+
+  pages.push(total);
+  return pages;
+}
+
 export default async function ManagerAuditLogsPage({ searchParams }: PageProps) {
   const filters = await searchParams;
   const access = await getManagerAccess();
@@ -147,11 +196,26 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
     );
   }
 
+  const currentPage = Math.max(1, Number(filters.page) || 1);
+  const filterParams = {
+    action: filters.action,
+    targetTable: filters.targetTable,
+    actor: filters.actor,
+    createdFrom: filters.createdFrom,
+    createdTo: filters.createdTo,
+  };
+
   const { result } = await withServerTiming(
     "loadManagerAuditLogs",
-    () => loadManagerAuditLogs(access.supabase, filters),
+    () => loadManagerAuditLogs(access.supabase, filterParams, { page: currentPage, pageSize: PAGE_SIZE }),
   );
-  const hasActiveFilters = Object.values(filters).some(Boolean);
+  const hasActiveFilters = Object.values(filterParams).some(Boolean);
+
+  const totalPages = result.ok ? Math.max(1, Math.ceil(result.totalCount / PAGE_SIZE)) : 1;
+  const safePage = result.ok ? Math.min(currentPage, totalPages) : 1;
+  const rangeStart = result.ok ? (safePage - 1) * PAGE_SIZE + 1 : 0;
+  const rangeEnd = result.ok ? Math.min(safePage * PAGE_SIZE, result.totalCount) : 0;
+  const pageRange = getPageRange(safePage, totalPages);
 
   return (
     <ManagerShell
@@ -208,9 +272,9 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
         </div>
       ) : null}
 
-      {result.ok && result.logs.length > 0 ? (
+      {result.ok && result.totalCount > 0 ? (
         <p className="text-xs text-muted-foreground">
-          {result.logs.length} event{result.logs.length === 1 ? "" : "s"} shown
+          {rangeStart}–{rangeEnd} of {result.totalCount} event{result.totalCount === 1 ? "" : "s"}
         </p>
       ) : null}
 
@@ -328,6 +392,43 @@ export default async function ManagerAuditLogsPage({ searchParams }: PageProps) 
               );
             })}
           </div>
+
+          {totalPages > 1 ? (
+            <Pagination>
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    href={safePage > 1 ? buildPageUrl(filterParams, safePage - 1) : "#"}
+                    aria-disabled={safePage <= 1}
+                    className={safePage <= 1 ? "pointer-events-none opacity-50" : undefined}
+                  />
+                </PaginationItem>
+                {pageRange.map((item, index) =>
+                  item === "ellipsis" ? (
+                    <PaginationItem key={`ellipsis-${index}`}>
+                      <PaginationEllipsis />
+                    </PaginationItem>
+                  ) : (
+                    <PaginationItem key={item}>
+                      <PaginationLink
+                        href={buildPageUrl(filterParams, item)}
+                        isActive={item === safePage}
+                      >
+                        {item}
+                      </PaginationLink>
+                    </PaginationItem>
+                  ),
+                )}
+                <PaginationItem>
+                  <PaginationNext
+                    href={safePage < totalPages ? buildPageUrl(filterParams, safePage + 1) : "#"}
+                    aria-disabled={safePage >= totalPages}
+                    className={safePage >= totalPages ? "pointer-events-none opacity-50" : undefined}
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          ) : null}
         </>
       ) : null}
     </ManagerShell>

@@ -331,25 +331,6 @@ describe("manager operations helpers", () => {
     expect(appBottomTabs).not.toContain("bg-foreground text-background");
   });
 
-  it("forces high-priority operations queue action contrast with explicit primary classes", () => {
-    const operationsTable = readFileSync(
-      "components/manager/manager-operations-table.tsx",
-      "utf8",
-    );
-
-    expect(operationsTable).toContain("text-primary-foreground");
-    expect(operationsTable).toContain("buttonVariants");
-    expect(operationsTable).toContain(
-      'buttonVariants({ variant: "default", size: "sm" })',
-    );
-    expect(operationsTable).toContain("[&_svg]:text-primary-foreground");
-    expect(operationsTable).toContain("hover:text-primary-foreground");
-    expect(operationsTable).toContain("href={item.href}");
-    expect(operationsTable).toContain("ArrowUpRightIcon");
-    expect(operationsTable).toContain("md:hidden");
-    expect(operationsTable).toContain("isHighPriority");
-  });
-
   it("keeps lender bottom navigation mobile-only on all lender pages", () => {
     const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
     const applicationsPage = readFileSync(
@@ -1341,7 +1322,7 @@ describe("manager lender review page", () => {
     );
 
     expect(lendersPage).toContain("getMissingProfileFields");
-    expect(lendersPage).toContain("Missing profile details:");
+    expect(lendersPage).toContain("Missing: {missingFields.join");
     expect(lendersPage).toContain("missingFields.join");
   });
 

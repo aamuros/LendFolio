@@ -3,9 +3,17 @@ import { Suspense } from "react";
 import { getManagerAccess } from "../manager-access";
 import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
+  lenderVerificationDocumentTypeLabels,
+  lenderProfileChangeRequestStatusLabels,
+  type LenderVerificationDocumentType,
+  type LenderVerificationDocumentPolicy,
+} from "@/lib/lender-verification";
+import {
   getShortId,
   loadManagerLenders,
   type ManagerLenderRow,
+  type ManagerLenderVerificationDocumentRow,
+  type ManagerLenderProfileChangeRequestRow,
 } from "@/lib/manager-operations";
 import {
   AccessDenied,
@@ -22,6 +30,8 @@ import {
 } from "../manager-ui";
 import { LenderToast } from "@/app/manager/lenders/lender-toast";
 import { LenderDecisionForm } from "@/app/manager/lenders/lender-decision-form";
+import { LenderDocumentActionsCell } from "@/app/manager/lenders/lender-document-review-dialog";
+import { LenderChangeRequestDecisionForm } from "@/app/manager/lenders/lender-change-request-decision-form";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -50,7 +60,13 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronLeftIcon,
+  ClipboardListIcon,
+  CircleIcon,
+  Edit3Icon,
+  FileTextIcon,
+  HistoryIcon,
   MessageSquareTextIcon,
+  ShieldAlertIcon,
   ShieldCheckIcon,
   XCircleIcon,
   CircleDotIcon,
@@ -59,6 +75,7 @@ import {
   Alert,
   AlertDescription,
 } from "@/components/ui/alert";
+import { LenderEvidenceDocumentRow } from "@/app/manager/lenders/lender-evidence-document-row";
 
 type PageProps = {
   searchParams: Promise<{
@@ -479,14 +496,40 @@ function SelectedLenderDetail({
 
   const hasNotes = lender.rejectionReason || lender.managerReviewNotes;
   const missingFields = getMissingProfileFields(lender);
+  const missingDocuments = lender.documentPolicy.missingRequiredDocumentTypes;
+  const disclosuresCurrent = lender.consentStatus.isCurrent;
+  const profileComplete = missingFields.length === 0;
+  const documentsComplete = missingDocuments.length === 0;
+  const blocked = !profileComplete || !documentsComplete || !disclosuresCurrent;
+  const blockerReason = blocked
+    ? [
+        !profileComplete ? `Missing profile: ${missingFields.join(", ")}` : null,
+        !documentsComplete ? `Missing documents: ${missingDocuments.map((dt: LenderVerificationDocumentType) => lenderVerificationDocumentTypeLabels[dt]).join(", ")}` : null,
+        !disclosuresCurrent ? "Disclosures not current" : null,
+      ]
+        .filter(Boolean)
+        .join(". ")
+    : null;
 
   const mainContent = (
     <div className="min-w-0 space-y-6">
-      <LenderProfileSection lender={lender} />
+      <ReviewReadinessSummary
+        profileComplete={profileComplete}
+        missingFields={missingFields}
+        documentPolicy={lender.documentPolicy}
+        disclosuresCurrent={disclosuresCurrent}
+        blocked={blocked}
+        blockerReason={blockerReason}
+      />
 
       <LenderDetailsSection lender={lender} />
 
-      <Collapsible defaultOpen={true}>
+      <LenderDocumentsSection
+        lender={lender}
+        selected={selected}
+      />
+
+      <Collapsible defaultOpen={!disclosuresCurrent}>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -494,6 +537,15 @@ function SelectedLenderDetail({
               <h3 className="text-sm font-semibold">
                 Disclosures &amp; consents
               </h3>
+              {disclosuresCurrent ? (
+                <Badge
+                  variant="default"
+                  className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                >
+                  <CheckCircle2Icon className="size-3" />
+                  Current
+                </Badge>
+              ) : null}
             </div>
             <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
               Show
@@ -506,21 +558,38 @@ function SelectedLenderDetail({
         </div>
       </Collapsible>
 
+      <EvidenceHistorySection documents={lender.documents} />
+
+      <Collapsible defaultOpen={false}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Building2Icon className="size-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold">Profile details</h3>
+            </div>
+            <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+              Show
+              <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+            </CollapsibleTrigger>
+          </div>
+          <CollapsibleContent>
+            <ProfileDetailsContent lender={lender} />
+          </CollapsibleContent>
+        </div>
+      </Collapsible>
+
+      {lender.changeRequests.length > 0 ? (
+        <LenderChangeRequestsSection
+          lender={lender}
+          selected={selected}
+        />
+      ) : null}
+
       {hasNotes ? (
         <ExistingNotesSection
           rejectionReason={lender.rejectionReason}
           managerReviewNotes={lender.managerReviewNotes}
         />
-      ) : null}
-
-      {missingFields.length > 0 ? (
-        <Alert variant="destructive">
-          <AlertCircleIcon />
-          <AlertDescription>
-            <span className="font-medium">Missing profile details:</span>{" "}
-            {missingFields.join(", ")}
-          </AlertDescription>
-        </Alert>
       ) : null}
     </div>
   );
@@ -542,43 +611,37 @@ function SelectedLenderDetail({
               </Link>
             </Button>
             <CardTitle className="text-base">
-              {lender.organizationName || lender.profile.displayName}
+              <PersonLabel person={{ id: lender.userId, displayName: lender.organizationName || lender.profile.displayName }} />
             </CardTitle>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              Lender ID: {getShortId(lender.userId)}
+              Review ID: {getShortId(lender.id)}
             </p>
           </div>
           <StatusBadge status={lender.verificationStatus} />
         </div>
         <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-xs sm:grid-cols-4">
           <MetaField
-            label="Organization"
-            value={lender.organizationName || "Not provided"}
-          />
-          <MetaField
-            label="Contact"
-            value={lender.contactPerson || "Not provided"}
-          />
-          <MetaField
-            label="Area"
-            value={lender.operatingArea || "Not provided"}
-          />
-          <MetaField
             label="Created"
             value={formatDateTime(lender.createdAt)}
           />
-          {lender.approvedAt ? (
-            <MetaField
-              label="Approved"
-              value={`${formatDateTime(lender.approvedAt)}${lender.approvedBy ? ` by ${lender.approvedBy.displayName}` : ""}`}
-            />
-          ) : null}
-          {lender.rejectedAt ? (
-            <MetaField
-              label="Rejected"
-              value={`${formatDateTime(lender.rejectedAt)}${lender.rejectedBy ? ` by ${lender.rejectedBy.displayName}` : ""}`}
-            />
-          ) : null}
+          <MetaField
+            label="Contact"
+            value={lender.contactPerson || "No contact"}
+          />
+          <MetaField
+            label="Reviewed"
+            value={
+              lender.approvedAt
+                ? `${formatDateTime(lender.approvedAt)}${lender.approvedBy ? ` by ${lender.approvedBy.displayName}` : ""}`
+                : lender.rejectedAt
+                  ? `${formatDateTime(lender.rejectedAt)}${lender.rejectedBy ? ` by ${lender.rejectedBy.displayName}` : ""}`
+                  : "Not reviewed"
+            }
+          />
+          <MetaField
+            label="Documents"
+            value={`${lender.documents.length} uploaded`}
+          />
         </dl>
       </CardHeader>
 
@@ -590,6 +653,8 @@ function SelectedLenderDetail({
               <ManagerDecisionPanel
                 lender={lender}
                 selected={selected}
+                blocked={blocked}
+                blockerReason={blockerReason}
               />
             </div>
           </div>
@@ -619,33 +684,86 @@ function getMissingProfileFields(lender: ManagerLenderRow): string[] {
   return fields;
 }
 
-function LenderProfileSection({ lender }: { lender: ManagerLenderRow }) {
+function ReviewReadinessSummary({
+  profileComplete,
+  missingFields,
+  documentPolicy,
+  disclosuresCurrent,
+  blocked,
+  blockerReason,
+}: {
+  profileComplete: boolean;
+  missingFields: string[];
+  documentPolicy: LenderVerificationDocumentPolicy;
+  disclosuresCurrent: boolean;
+  blocked: boolean;
+  blockerReason: string | null;
+}) {
+  const acceptedDocs = documentPolicy.acceptedDocumentTypes.length;
+  const requiredDocs = documentPolicy.requiredDocumentTypes.length;
+
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-2">
-        <Building2Icon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Profile summary</h3>
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        <MetaCard label="Contact person" value={lender.contactPerson} />
-        <MetaCard label="Phone" value={lender.phoneNumber} />
-        <MetaCard label="Business address" value={lender.businessAddress} />
-        <MetaCard
-          label="Registration number"
-          value={lender.businessRegistrationNumber}
-          fallback="Not provided"
-        />
-        <MetaCard label="Operating area" value={lender.operatingArea} />
-      </div>
-      {lender.lenderDescription ? (
-        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
-          <p className="text-xs font-medium text-muted-foreground">
-            Description
-          </p>
-          <p className="mt-1 text-sm">{lender.lenderDescription}</p>
+    <Card size="sm">
+      <CardContent className="grid gap-2">
+        <div className="grid gap-1.5 text-xs">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">Profile details</span>
+            {profileComplete ? (
+              <span className="flex items-center gap-1 font-medium text-emerald-700">
+                <CheckCircle2Icon className="size-3" />
+                Complete
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-medium text-destructive">
+                <AlertCircleIcon className="size-3" />
+                Missing: {missingFields.join(", ")}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">Required documents</span>
+            {documentPolicy.documentsAccepted ? (
+              <span className="flex items-center gap-1 font-medium text-emerald-700">
+                <CheckCircle2Icon className="size-3" />
+                {acceptedDocs}/{requiredDocs} accepted
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-medium text-destructive">
+                <AlertCircleIcon className="size-3" />
+                {acceptedDocs}/{requiredDocs} accepted
+              </span>
+            )}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-muted-foreground">Disclosures</span>
+            {disclosuresCurrent ? (
+              <span className="flex items-center gap-1 font-medium text-emerald-700">
+                <CheckCircle2Icon className="size-3" />
+                Current
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 font-medium text-destructive">
+                <AlertCircleIcon className="size-3" />
+                Missing
+              </span>
+            )}
+          </div>
         </div>
-      ) : null}
-    </div>
+        <div className="border-t border-border/60 pt-2">
+          {blocked ? (
+            <div className="flex items-start gap-2 text-xs text-destructive">
+              <ShieldAlertIcon className="mt-0.5 size-3.5 shrink-0" />
+              <span className="font-medium">{blockerReason}</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 text-xs font-medium text-emerald-700">
+              <CheckCircle2Icon className="size-3.5" />
+              Ready for manager decision
+            </div>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 
@@ -684,17 +802,45 @@ function LenderDetailsSection({ lender }: { lender: ManagerLenderRow }) {
         <BanknoteIcon className="size-4 text-muted-foreground" />
         <h3 className="text-sm font-semibold">Lending details</h3>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
         {loanRange ? (
-          <MetaCard label="Loan range" value={loanRange} />
+          <div>
+            <span className="text-muted-foreground">Loan range: </span>
+            <span className="font-medium">{loanRange}</span>
+          </div>
         ) : null}
         {lender.typicalRepaymentTerms ? (
-          <MetaCard
-            label="Repayment terms"
-            value={lender.typicalRepaymentTerms}
-          />
+          <div>
+            <span className="text-muted-foreground">Repayment terms: </span>
+            <span className="font-medium">{lender.typicalRepaymentTerms}</span>
+          </div>
         ) : null}
       </div>
+    </div>
+  );
+}
+
+function ProfileDetailsContent({ lender }: { lender: ManagerLenderRow }) {
+  return (
+    <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <MetaCard label="Organization" value={lender.organizationName} />
+      <MetaCard label="Contact person" value={lender.contactPerson} />
+      <MetaCard label="Phone" value={lender.phoneNumber} />
+      <MetaCard label="Business address" value={lender.businessAddress} />
+      <MetaCard
+        label="Registration number"
+        value={lender.businessRegistrationNumber}
+        fallback="Not provided"
+      />
+      <MetaCard label="Operating area" value={lender.operatingArea} />
+      {lender.lenderDescription ? (
+        <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 sm:col-span-2 lg:col-span-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Description
+          </p>
+          <p className="mt-1 text-sm">{lender.lenderDescription}</p>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -800,12 +946,435 @@ function ExistingNotesSection({
   );
 }
 
-function ManagerDecisionPanel({
+function LenderDocumentsSection({
   lender,
   selected,
 }: {
   lender: ManagerLenderRow;
   selected: string;
+}) {
+  const { documentPolicy, documents } = lender;
+  const canReview = lender.verificationStatus === "pending" || lender.verificationStatus === "rejected";
+
+  const latestByType = new Map<string, ManagerLenderVerificationDocumentRow>();
+  for (const doc of documents) {
+    if (!latestByType.has(doc.documentType)) {
+      latestByType.set(doc.documentType, doc);
+    }
+  }
+
+  const acceptedRequired = documentPolicy.requiredDocumentTypes.filter((dt) =>
+    documentPolicy.acceptedDocumentTypes.includes(dt),
+  ).length;
+  const totalRequired = documentPolicy.requiredDocumentTypes.length;
+  const hasMissing = documentPolicy.missingRequiredDocumentTypes.length > 0;
+  const hasSubmittedNotAccepted = documentPolicy.requiredDocumentTypes.some(
+    (dt) =>
+      documentPolicy.submittedDocumentTypes.includes(dt) &&
+      !documentPolicy.acceptedDocumentTypes.includes(dt),
+  );
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <ClipboardListIcon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Required documents</h3>
+        <span className="text-xs text-muted-foreground">
+          {acceptedRequired}/{totalRequired} accepted
+        </span>
+      </div>
+
+      {!hasMissing && hasSubmittedNotAccepted ? (
+        <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
+          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
+          <span>
+            All required documents are uploaded. Accept each document before
+            approving lender verification.
+          </span>
+        </div>
+      ) : null}
+
+      <div className="hidden sm:block">
+        <Card className="py-0">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Type</TableHead>
+                <TableHead>File</TableHead>
+                <TableHead>Uploaded</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="w-[60px] text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {documentPolicy.requiredDocumentTypes.map((docType) => {
+                const latest = latestByType.get(docType);
+                const isAccepted =
+                  documentPolicy.acceptedDocumentTypes.includes(docType);
+                const isSubmitted =
+                  documentPolicy.submittedDocumentTypes.includes(docType);
+                const isRejected =
+                  documentPolicy.rejectedDocumentTypes.includes(docType);
+
+                const docLabel =
+                  lenderVerificationDocumentTypeLabels[docType];
+                const canReviewDoc =
+                  canReview && latest?.status === "submitted" && !isAccepted;
+
+                return (
+                  <TableRow key={docType}>
+                    <TableCell className="font-medium">
+                      {docLabel}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {latest ? (
+                        <span className="flex items-center gap-1.5">
+                          <FileTextIcon className="size-3.5 shrink-0" />
+                          <span className="max-w-[200px] truncate">
+                            {latest.fileName}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          Not uploaded
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
+                    </TableCell>
+                    <TableCell>
+                      <DocumentStatusBadge
+                        isAccepted={isAccepted}
+                        isSubmitted={isSubmitted}
+                        isRejected={isRejected}
+                      />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {latest ? (
+                        <LenderDocumentActionsCell
+                          documentId={latest.id}
+                          documentType={latest.documentType}
+                          fileName={latest.fileName}
+                          fileSize={latest.fileSize}
+                          fileType={latest.fileType}
+                          viewUrl={latest.viewUrl}
+                          canReview={canReviewDoc}
+                          selected={selected}
+                        />
+                      ) : null}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
+
+      <div className="space-y-2 sm:hidden">
+        {documentPolicy.requiredDocumentTypes.map((docType) => {
+          const latest = latestByType.get(docType);
+          const isAccepted =
+            documentPolicy.acceptedDocumentTypes.includes(docType);
+          const isSubmitted =
+            documentPolicy.submittedDocumentTypes.includes(docType);
+          const isRejected =
+            documentPolicy.rejectedDocumentTypes.includes(docType);
+
+          const docLabel = lenderVerificationDocumentTypeLabels[docType];
+          const canReviewDoc = canReview && latest?.status === "submitted" && !isAccepted;
+
+          return (
+            <Card key={docType} size="sm">
+              <CardContent className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-medium">{docLabel}</span>
+                  <DocumentStatusBadge
+                    isAccepted={isAccepted}
+                    isSubmitted={isSubmitted}
+                    isRejected={isRejected}
+                  />
+                </div>
+                {latest ? (
+                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                    <FileTextIcon className="size-3 shrink-0" />
+                    {latest.fileName}
+                    {" \u00b7 "}
+                    {formatDateTime(latest.uploadedAt)}
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Not uploaded
+                  </p>
+                )}
+                {latest ? (
+                  <LenderDocumentActionsCell
+                    documentId={latest.id}
+                    documentType={latest.documentType}
+                    fileName={latest.fileName}
+                    fileSize={latest.fileSize}
+                    fileType={latest.fileType}
+                    viewUrl={latest.viewUrl}
+                    canReview={canReviewDoc}
+                    selected={selected}
+                  />
+                ) : null}
+              </CardContent>
+            </Card>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DocumentStatusBadge({
+  isAccepted,
+  isSubmitted,
+  isRejected,
+}: {
+  isAccepted: boolean;
+  isSubmitted: boolean;
+  isRejected: boolean;
+}) {
+  if (isAccepted) {
+    return (
+      <Badge
+        variant="default"
+        className="gap-1 border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+      >
+        <CheckCircle2Icon className="size-3" />
+        Accepted
+      </Badge>
+    );
+  }
+
+  if (isRejected) {
+    return (
+      <Badge variant="destructive" className="gap-1">
+        <XCircleIcon className="size-3" />
+        Rejected
+      </Badge>
+    );
+  }
+
+  if (isSubmitted) {
+    return (
+      <Badge
+        variant="secondary"
+        className="gap-1 border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50"
+      >
+        <CircleDotIcon className="size-3" />
+        Submitted
+      </Badge>
+    );
+  }
+
+  return (
+    <Badge variant="outline" className="gap-1 text-muted-foreground">
+      <CircleIcon className="size-3" />
+      Missing
+    </Badge>
+  );
+}
+
+function EvidenceHistorySection({
+  documents,
+}: {
+  documents: ManagerLenderVerificationDocumentRow[];
+}) {
+  if (documents.length === 0) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-2">
+          <HistoryIcon className="size-4 text-muted-foreground" />
+          <h3 className="text-sm font-semibold">Evidence history</h3>
+        </div>
+        <div className="rounded-lg border border-dashed border-border/60 bg-muted/20 p-4 text-center text-sm text-muted-foreground">
+          No documents uploaded.
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Collapsible defaultOpen={false}>
+      <div className="space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <HistoryIcon className="size-4 text-muted-foreground" />
+            <h3 className="text-sm font-semibold">Evidence history</h3>
+            <span className="text-xs text-muted-foreground">
+              {documents.length} document
+              {documents.length !== 1 ? "s" : ""}
+            </span>
+          </div>
+          <CollapsibleTrigger className="inline-flex h-7 items-center gap-1 rounded-md px-2 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground">
+            Show
+            <ChevronDownIcon className="size-3 transition-transform [[data-state=open]_&]:rotate-180" />
+          </CollapsibleTrigger>
+        </div>
+        <CollapsibleContent>
+          <div className="space-y-1.5">
+            {documents.map((doc) => (
+              <LenderEvidenceDocumentRow
+                key={doc.id}
+                fileName={doc.fileName}
+                fileSize={doc.fileSize}
+                fileType={doc.fileType}
+                documentType={doc.documentType}
+                uploadedAt={doc.uploadedAt}
+                reviewNotes={doc.reviewNotes}
+                viewUrl={doc.viewUrl}
+                statusBadge={<StatusBadge status={doc.status} />}
+              />
+            ))}
+          </div>
+        </CollapsibleContent>
+      </div>
+    </Collapsible>
+  );
+}
+
+
+
+function LenderChangeRequestsSection({
+  lender,
+  selected,
+}: {
+  lender: ManagerLenderRow;
+  selected: string;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Edit3Icon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Profile change requests</h3>
+      </div>
+      <div className="grid gap-3">
+        {lender.changeRequests.map((request) => (
+          <LenderChangeRequestCard
+            key={request.id}
+            request={request}
+            lender={lender}
+            selected={selected}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function LenderChangeRequestCard({
+  request,
+  lender,
+  selected,
+}: {
+  request: ManagerLenderProfileChangeRequestRow;
+  lender: ManagerLenderRow;
+  selected: string;
+}) {
+  const isPending = request.status === "pending";
+
+  return (
+    <Card size="sm">
+      <CardContent className="grid gap-3">
+        <div className="flex items-center justify-between gap-2">
+          <Badge
+            variant={
+              request.status === "approved"
+                ? "default"
+                : request.status === "rejected"
+                  ? "destructive"
+                  : "secondary"
+            }
+            className={
+              request.status === "approved"
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50"
+                : undefined
+            }
+          >
+            {lenderProfileChangeRequestStatusLabels[request.status]}
+          </Badge>
+          <span className="text-xs text-muted-foreground">
+            {formatDateTime(request.submittedAt)}
+          </span>
+        </div>
+
+        <div className="grid gap-2">
+          {renderChangeField("Organization", lender.organizationName, request.proposedOrganizationName)}
+          {renderChangeField("Contact person", lender.contactPerson, request.proposedContactPerson)}
+          {renderChangeField("Business address", lender.businessAddress, request.proposedBusinessAddress)}
+          {renderChangeField("Operating area", lender.operatingArea, request.proposedOperatingArea)}
+          {renderChangeField("Registration number", lender.businessRegistrationNumber ?? "", request.proposedBusinessRegistrationNumber)}
+          {renderChangeField("Min loan amount", lender.minLoanAmount ? formatCurrency(lender.minLoanAmount) : "", request.proposedMinLoanAmount ? formatCurrency(request.proposedMinLoanAmount) : null)}
+          {renderChangeField("Max loan amount", lender.maxLoanAmount ? formatCurrency(lender.maxLoanAmount) : "", request.proposedMaxLoanAmount ? formatCurrency(request.proposedMaxLoanAmount) : null)}
+          {renderChangeField("Repayment terms", lender.typicalRepaymentTerms, request.proposedTypicalRepaymentTerms)}
+          {renderChangeField("Description", lender.lenderDescription, request.proposedLenderDescription)}
+        </div>
+
+        {request.rejectionReason ? (
+          <Alert variant="destructive">
+            <AlertDescription className="text-xs">
+              <span className="font-medium">Rejection reason:</span>{" "}
+              {request.rejectionReason}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {request.managerReviewNotes ? (
+          <Alert>
+            <AlertDescription className="text-xs">
+              <span className="font-medium">Manager note:</span>{" "}
+              {request.managerReviewNotes}
+            </AlertDescription>
+          </Alert>
+        ) : null}
+
+        {isPending ? (
+          <LenderChangeRequestDecisionForm
+            requestId={request.id}
+            selected={selected}
+          />
+        ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function renderChangeField(
+  label: string,
+  current: string,
+  proposed: string | null,
+) {
+  if (!proposed || proposed === current) return null;
+
+  return (
+    <div className="grid grid-cols-2 gap-2 text-xs">
+      <div>
+        <p className="text-muted-foreground">{label}</p>
+        <p className="text-muted-foreground line-through">
+          {current || "\u2014"}
+        </p>
+      </div>
+      <div>
+        <p className="text-muted-foreground">Proposed</p>
+        <p className="font-medium text-foreground">{proposed}</p>
+      </div>
+    </div>
+  );
+}
+
+function ManagerDecisionPanel({
+  lender,
+  selected,
+  blocked,
+  blockerReason,
+}: {
+  lender: ManagerLenderRow;
+  selected: string;
+  blocked: boolean;
+  blockerReason: string | null;
 }) {
   return (
     <Card size="sm">
@@ -817,6 +1386,8 @@ function ManagerDecisionPanel({
           lenderId={lender.id}
           selected={selected}
           disclosuresCurrent={lender.consentStatus.isCurrent}
+          blocked={blocked}
+          blockerReason={blockerReason}
         />
       </CardContent>
     </Card>

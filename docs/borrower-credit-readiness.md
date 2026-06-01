@@ -34,6 +34,69 @@ borrower verification.
 | `not_eligible` | Hard blockers exist (non-positive cash flow, rejected profile review, or no available credit) |
 | `eligible_to_apply` | All profile, account, consent, verification, document, and credit availability gates pass |
 
+## Borrower Credit Profile Grade
+
+LendFolio computes a deterministic, explainable credit profile grade for each
+loan application. This grade summarizes profile completeness, cash flow
+strength, debt burden, verification status, and risk flags for lender and
+manager review.
+
+**This is not a formal credit score.** The grade supports review but does not
+approve or reject loans. Eligibility is enforced by verification, consent,
+readiness, and credit-cap rules.
+
+### Grades
+
+| Grade | Meaning |
+| --- | --- |
+| `A` | Strong profile: positive cash flow, low debt burden, verified information, few or no risk flags |
+| `B` | Acceptable profile with minor or explainable risk signals |
+| `C` | Eligible but notable risk signals; careful lender review recommended |
+| `review_needed` | Profile or readiness requires manager or borrower action |
+| `not_eligible` | Hard blocker prevents application |
+| `incomplete` | Required profile or verification inputs are missing |
+
+### Factors
+
+The grade considers:
+
+- Readiness status (incomplete, needs_review, not_eligible, eligible_to_apply)
+- Monthly net cash flow
+- Debt burden ratio
+- Available credit and credit utilization
+- Years in operation
+- Revenue confidence (self-declared vs. document-supported)
+- Verification status
+- Profile staleness
+
+The grade is computed by `evaluateBorrowerCreditProfileGrade()` in
+`lib/borrower-credit-profile-grade.ts`. Each assessment includes:
+
+- Grade and label
+- Positive factors
+- Risk factors
+- Improvement actions
+
+### Borrower-Facing UI
+
+Borrowers see "Profile readiness" and "Borrowing power." They do not see the
+credit profile grade directly. Improvement actions are surfaced under "Ways to
+improve your profile."
+
+### Lender-Facing UI
+
+Lenders see the Credit Profile Grade on application detail pages with:
+
+- Grade letter and label
+- Positive factors
+- Risk notes
+- Explanation that this is an internal profile grade, not a formal credit score
+
+### Manager-Facing UI
+
+Managers see the grade in the borrower readiness panel and can inspect positive
+factors, risk factors, and improvement actions.
+
 ## Application Snapshots
 
 Loan application submission stores immutable snapshots:
@@ -45,6 +108,8 @@ Loan application submission stores immutable snapshots:
 - `used_credit_at_submission`
 - `available_credit_at_submission`
 - `monthly_net_cash_flow_at_submission`
+- `borrower_credit_profile_grade`
+- `borrower_credit_profile_assessment`
 
 Lender and manager review should use these submitted snapshots when present.
 Editing the borrower profile later does not change an already submitted
@@ -75,7 +140,8 @@ submission.
 
 This is not credit scoring. It does not approve or reject a loan. It only checks
 whether the borrower profile is reliable, current, reviewable, and eligible to
-enter the lender offer workflow.
+enter the lender offer workflow. The credit profile grade is an explainable
+internal profile readiness summary that supports lender and manager review.
 
 ## Local Verification
 

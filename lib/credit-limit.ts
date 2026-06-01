@@ -85,11 +85,17 @@ export function explainBorrowerCreditLimit(
 export function calculateBorrowerAvailableCredit(input: {
   portfolio: CreditLimitPortfolioInput;
   activeLoans: CreditLimitLoanInput[];
+  pendingApplicationAmounts?: number[];
 }): BorrowerCreditSummary {
   const creditLimit = explainBorrowerCreditLimit(input.portfolio);
-  const usedCredit = input.activeLoans
+  const activeLoanCredit = input.activeLoans
     .filter((loan) => loan.outstandingBalance > 0)
     .reduce((total, loan) => total + loan.outstandingBalance, 0);
+  const pendingApplicationCredit = (input.pendingApplicationAmounts ?? []).reduce(
+    (total, amount) => total + amount,
+    0,
+  );
+  const usedCredit = activeLoanCredit + pendingApplicationCredit;
 
   return {
     calculatedCreditLimit: creditLimit.calculatedCreditLimit,

@@ -17,7 +17,10 @@ import {
   businessTypeLabels,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
-import { borrowerVerificationStatusLabels } from "@/lib/borrower-verification";
+import {
+  borrowerVerificationStatusLabels,
+  type BorrowerVerificationSummary,
+} from "@/lib/borrower-verification";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
   formatCreditAmount,
@@ -68,6 +71,7 @@ export function BorrowerProfileHub({
     loadState,
     portfolio,
     readiness,
+    verification?.status ?? null,
   );
   const verificationLabel =
     verification && verification.status !== "missing"
@@ -268,12 +272,14 @@ export function BorrowerProfileHub({
         </BorrowerCard>
       ) : (
         <>
-          <ProfileStatusBanner
-            status={profileStatus}
-            onAction={() => {
-              onEditProfile("index");
-            }}
-          />
+          {profileStatus.tone !== "ready" ? (
+            <ProfileStatusBanner
+              status={profileStatus}
+              onAction={() => {
+                onEditProfile("index");
+              }}
+            />
+          ) : null}
 
           {verification?.status !== "approved" ? (
             <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
@@ -378,6 +384,7 @@ function getProfileStatus(
   loadState: PortfolioLoadState,
   portfolio: BorrowerPortfolioInput | null,
   readiness: BorrowerReadinessResult | null,
+  verificationStatus: BorrowerVerificationSummary["status"] | null,
 ) {
   if (loadState === "loading") {
     return {
@@ -445,6 +452,17 @@ function getProfileStatus(
         readiness.nextActions[0] ?? "A few required details are still missing.",
       action: "edit" as const,
       actionLabel: "Update profile details",
+    };
+  }
+
+  if (verificationStatus !== "approved") {
+    return {
+      tone: "attention" as const,
+      label: "Verification needed",
+      title: "Verification required",
+      description: "Your profile is complete, but loan applications unlock after verification approval.",
+      action: null,
+      actionLabel: null,
     };
   }
 

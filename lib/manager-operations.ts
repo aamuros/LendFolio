@@ -5,6 +5,12 @@ import {
   type BorrowerVerificationDocumentPolicy,
 } from "./borrower-verification";
 import {
+  calculateLenderVerificationDocumentPolicy,
+  type LenderVerificationDocumentPolicy,
+  type LenderVerificationDocumentType,
+  type LenderVerificationDocumentStatus,
+} from "./lender-verification";
+import {
   buildConsentStatus,
   type ConsentStatus,
 } from "./consents";
@@ -255,8 +261,47 @@ export type ManagerLenderRow = {
   managerReviewNotes: string | null;
   rejectionReason: string | null;
   consentStatus: ConsentStatus;
+  documentPolicy: LenderVerificationDocumentPolicy;
+  documents: ManagerLenderVerificationDocumentRow[];
+  changeRequests: ManagerLenderProfileChangeRequestRow[];
   createdAt: string;
   updatedAt: string;
+};
+
+export type ManagerLenderVerificationDocumentRow = {
+  id: string;
+  lenderId: string;
+  lenderProfileId: string;
+  fileName: string;
+  fileType: string;
+  documentType: LenderVerificationDocumentType;
+  fileSize: number;
+  status: LenderVerificationDocumentStatus;
+  uploadedAt: string;
+  reviewNotes: string | null;
+  viewUrl: string | null;
+};
+
+export type ManagerLenderProfileChangeRequestRow = {
+  id: string;
+  lenderId: string;
+  lenderProfileId: string;
+  proposedOrganizationName: string | null;
+  proposedContactPerson: string | null;
+  proposedBusinessAddress: string | null;
+  proposedOperatingArea: string | null;
+  proposedBusinessRegistrationNumber: string | null;
+  proposedMinLoanAmount: number | null;
+  proposedMaxLoanAmount: number | null;
+  proposedTypicalRepaymentTerms: string | null;
+  proposedLenderDescription: string | null;
+  proposedValues: Json;
+  status: Database["public"]["Enums"]["lender_profile_change_request_status"];
+  submittedAt: string;
+  reviewedAt: string | null;
+  reviewedBy: ManagerProfileSummary | null;
+  managerReviewNotes: string | null;
+  rejectionReason: string | null;
 };
 
 export type ManagerBorrowerVerificationDocumentRow = {
@@ -290,7 +335,7 @@ export type ManagerBorrowerVerificationRow = {
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, created_at, updated_at";
 const applicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =
@@ -308,6 +353,12 @@ const borrowerVerificationSelect =
   "id, borrower_id, verification_status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
 const borrowerVerificationDocumentSelect =
   "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+
+const lenderVerificationDocumentSelect =
+  "id, lender_id, lender_profile_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+
+const lenderProfileChangeRequestSelect =
+  "id, lender_id, lender_profile_id, proposed_organization_name, proposed_contact_person, proposed_business_address, proposed_operating_area, proposed_business_registration_number, proposed_min_loan_amount, proposed_max_loan_amount, proposed_typical_repayment_terms, proposed_lender_description, proposed_values, status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
 
 const emptyOfferCounts = {
   pending: 0,
@@ -706,18 +757,29 @@ export async function loadManagerAuditLogs(
     createdFrom?: string;
     createdTo?: string;
   },
-): Promise<{ ok: boolean; message: string; logs: ManagerAuditLogRow[] }> {
+  pagination: { page: number; pageSize: number } = { page: 1, pageSize: 20 },
+): Promise<{
+  ok: boolean;
+  message: string;
+  logs: ManagerAuditLogRow[];
+  totalCount: number;
+  page: number;
+  pageSize: number;
+}> {
   const actorIds = await resolveProfileFilterIds(supabase, filters.actor);
 
   if (actorIds?.length === 0) {
-    return { ok: true, message: "No audit logs matched these filters.", logs: [] };
+    return { ok: true, message: "No audit logs matched these filters.", logs: [], totalCount: 0, page: pagination.page, pageSize: pagination.pageSize };
   }
+
+  const from = (pagination.page - 1) * pagination.pageSize;
+  const to = from + pagination.pageSize - 1;
 
   let query = supabase
     .from("audit_logs")
-    .select(auditLogSelect)
+    .select(auditLogSelect, { count: "exact" })
     .order("created_at", { ascending: false })
-    .limit(100);
+    .range(from, to);
 
   if (filters.action) query = query.ilike("action", `%${filters.action}%`);
   if (filters.targetTable) {
@@ -727,10 +789,10 @@ export async function loadManagerAuditLogs(
   if (filters.createdTo) query = query.lte("created_at", endOfDay(filters.createdTo));
   if (actorIds) query = query.in("actor_id", actorIds);
 
-  const { data: logs, error } = await query;
+  const { data: logs, error, count } = await query;
 
   if (error) {
-    return { ok: false, message: "Could not load audit logs.", logs: [] };
+    return { ok: false, message: "Could not load audit logs.", logs: [], totalCount: 0, page: pagination.page, pageSize: pagination.pageSize };
   }
 
   const profiles = await loadProfilesByIds(
@@ -742,6 +804,9 @@ export async function loadManagerAuditLogs(
     ok: true,
     message: logs.length ? "Audit logs loaded." : "No audit logs matched these filters.",
     logs: logs.map((log) => mapAuditLog(log, profiles)),
+    totalCount: count ?? 0,
+    page: pagination.page,
+    pageSize: pagination.pageSize,
   };
 }
 
@@ -1695,7 +1760,9 @@ async function mapManagerLenderRows(
     ...new Set([...userIds, ...approvedByIds, ...rejectedByIds]),
   ];
 
-  const [profiles, consentResults] = await Promise.all([
+  const profileIds = lenderRows.map((r) => r.id);
+
+  const [profiles, consentResults, documentRows, changeRequestRows] = await Promise.all([
     loadProfilesByIds(supabase, allProfileIds),
     Promise.all(
       userIds.map(async (userId) => ({
@@ -1703,43 +1770,133 @@ async function mapManagerLenderRows(
         consents: await loadUserConsents(supabase, userId),
       })),
     ),
+    supabase
+      .from("lender_verification_documents")
+      .select(lenderVerificationDocumentSelect)
+      .in("lender_profile_id", profileIds)
+      .order("uploaded_at", { ascending: false }),
+    supabase
+      .from("lender_profile_change_requests")
+      .select(lenderProfileChangeRequestSelect)
+      .in("lender_profile_id", profileIds)
+      .order("submitted_at", { ascending: false }),
   ]);
 
   const consentMap = new Map(
     consentResults.map((result) => [result.userId, result.consents]),
   );
 
-  return lenderRows.map((row) => ({
-    id: row.id,
-    userId: row.user_id,
-    profile: getProfileSummary(profiles, row.user_id),
-    organizationName: row.organization_name ?? "",
-    contactPerson: row.contact_person ?? "",
-    phoneNumber: row.phone_number ?? "",
-    businessAddress: row.business_address ?? "",
-    operatingArea: row.operating_area ?? "",
-    businessRegistrationNumber: row.business_registration_number,
-    minLoanAmount: row.min_loan_amount ?? 0,
-    maxLoanAmount: row.max_loan_amount ?? 0,
-    typicalRepaymentTerms: row.typical_repayment_terms ?? "",
-    lenderDescription: row.lender_description ?? "",
-    verificationStatus: row.verification_status,
-    approvedAt: row.approved_at,
-    approvedBy: row.approved_by
-      ? getProfileSummary(profiles, row.approved_by)
-      : null,
-    rejectedAt: row.rejected_at,
-    rejectedBy: row.rejected_by
-      ? getProfileSummary(profiles, row.rejected_by)
-      : null,
-    managerReviewNotes: row.manager_review_notes,
-    rejectionReason: row.rejection_reason,
-    consentStatus: buildConsentStatus(
-      "lender_review",
-      consentMap.get(row.user_id) ?? [],
-    ),
-    createdAt: row.created_at,
-    updatedAt: row.updated_at,
+  const documentsByProfileId = new Map<string, typeof documentRows.data>();
+  for (const doc of documentRows.data ?? []) {
+    const list = documentsByProfileId.get(doc.lender_profile_id) ?? [];
+    list.push(doc);
+    documentsByProfileId.set(doc.lender_profile_id, list);
+  }
+
+  const changeRequestsByProfileId = new Map<string, typeof changeRequestRows.data>();
+  for (const req of changeRequestRows.data ?? []) {
+    const list = changeRequestsByProfileId.get(req.lender_profile_id) ?? [];
+    list.push(req);
+    changeRequestsByProfileId.set(req.lender_profile_id, list);
+  }
+
+  const reviewerIds = [
+    ...(documentRows.data ?? []).map((d) => d.reviewed_by).filter(Boolean) as string[],
+    ...(changeRequestRows.data ?? []).map((r) => r.reviewed_by).filter(Boolean) as string[],
+  ];
+  const reviewerProfiles = await loadProfilesByIds(supabase, reviewerIds);
+
+  return Promise.all(lenderRows.map(async (row) => {
+    const rawDocs = documentsByProfileId.get(row.id) ?? [];
+    const documents: ManagerLenderVerificationDocumentRow[] = await Promise.all(
+      rawDocs.map(async (doc) => {
+        let viewUrl: string | null = null;
+        if (doc.storage_bucket && doc.storage_path) {
+          try {
+            const { data: signed } = await supabase.storage
+              .from(doc.storage_bucket)
+              .createSignedUrl(doc.storage_path, 3600);
+            viewUrl = signed?.signedUrl ?? null;
+          } catch {
+            viewUrl = null;
+          }
+        }
+        return {
+          id: doc.id,
+          lenderId: doc.lender_id,
+          lenderProfileId: doc.lender_profile_id,
+          fileName: doc.file_name,
+          fileType: doc.file_type,
+          documentType: doc.document_type,
+          fileSize: doc.file_size,
+          status: doc.status,
+          uploadedAt: doc.uploaded_at,
+          reviewNotes: doc.review_notes,
+          viewUrl,
+        };
+      }),
+    );
+
+    const rawReqs = changeRequestsByProfileId.get(row.id) ?? [];
+    const changeRequests: ManagerLenderProfileChangeRequestRow[] = rawReqs.map((req) => ({
+      id: req.id,
+      lenderId: req.lender_id,
+      lenderProfileId: req.lender_profile_id,
+      proposedOrganizationName: req.proposed_organization_name,
+      proposedContactPerson: req.proposed_contact_person,
+      proposedBusinessAddress: req.proposed_business_address,
+      proposedOperatingArea: req.proposed_operating_area,
+      proposedBusinessRegistrationNumber: req.proposed_business_registration_number,
+      proposedMinLoanAmount: req.proposed_min_loan_amount,
+      proposedMaxLoanAmount: req.proposed_max_loan_amount,
+      proposedTypicalRepaymentTerms: req.proposed_typical_repayment_terms,
+      proposedLenderDescription: req.proposed_lender_description,
+      proposedValues: req.proposed_values,
+      status: req.status,
+      submittedAt: req.submitted_at,
+      reviewedAt: req.reviewed_at,
+      reviewedBy: req.reviewed_by
+        ? getProfileSummary(reviewerProfiles, req.reviewed_by)
+        : null,
+      managerReviewNotes: req.manager_review_notes,
+      rejectionReason: req.rejection_reason,
+    }));
+
+    return {
+      id: row.id,
+      userId: row.user_id,
+      profile: getProfileSummary(profiles, row.user_id),
+      organizationName: row.organization_name ?? "",
+      contactPerson: row.contact_person ?? "",
+      phoneNumber: row.phone_number ?? "",
+      businessAddress: row.business_address ?? "",
+      operatingArea: row.operating_area ?? "",
+      businessRegistrationNumber: row.business_registration_number,
+      minLoanAmount: row.min_loan_amount ?? 0,
+      maxLoanAmount: row.max_loan_amount ?? 0,
+      typicalRepaymentTerms: row.typical_repayment_terms ?? "",
+      lenderDescription: row.lender_description ?? "",
+      verificationStatus: row.verification_status,
+      approvedAt: row.approved_at,
+      approvedBy: row.approved_by
+        ? getProfileSummary(profiles, row.approved_by)
+        : null,
+      rejectedAt: row.rejected_at,
+      rejectedBy: row.rejected_by
+        ? getProfileSummary(profiles, row.rejected_by)
+        : null,
+      managerReviewNotes: row.manager_review_notes,
+      rejectionReason: row.rejection_reason,
+      consentStatus: buildConsentStatus(
+        "lender_review",
+        consentMap.get(row.user_id) ?? [],
+      ),
+      documentPolicy: calculateLenderVerificationDocumentPolicy(documents),
+      documents,
+      changeRequests,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
   }));
 }
 

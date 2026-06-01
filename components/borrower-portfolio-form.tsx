@@ -63,11 +63,12 @@ export function BorrowerPortfolioForm({
     handleSubmit,
     reset,
     control,
-    formState: { errors, isDirty },
+    formState: { errors },
   } = useForm<BorrowerPortfolioFormInput, unknown, BorrowerPortfolioInput>({
     resolver: zodResolver(borrowerPortfolioSchema),
     defaultValues,
     mode: "onBlur",
+    reValidateMode: "onChange",
   });
   const currentValues = useWatch({ control }) as BorrowerPortfolioInput;
   const readiness = evaluateBorrowerReadiness(currentValues);
@@ -302,7 +303,6 @@ export function BorrowerPortfolioForm({
             aria-live="polite"
           >
             {statusMessage}
-            {isDirty ? " Save changes when ready." : ""}
           </p>
           {successMessage ? (
             <Alert role="status">

@@ -45,7 +45,9 @@ export function ManagerShell({
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
                 <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
-                <p className="text-sm text-muted-foreground">{description}</p>
+                {description ? (
+                  <p className="text-sm text-muted-foreground">{description}</p>
+                ) : null}
               </div>
               {headerActions ? (
                 <div className="flex shrink-0 items-center gap-2">{headerActions}</div>

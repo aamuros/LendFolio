@@ -266,4 +266,151 @@ describe("createLoanOffer", () => {
       p_remarks: "Offer based on submitted cash flow.",
     });
   });
+
+  it("surfaces RPC error when total repayment exceeds available credit", async () => {
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: false,
+          message:
+            "Total repayment cannot exceed the borrower's available credit at submission.",
+        },
+        error: null,
+      }),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: true,
+      supabase: asSupabase(mockSupabase),
+      profile: {
+        id: "lender-1",
+        role: "lender",
+        display_name: "Approved Lender",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: {
+          id: "lender-profile-1",
+          user_id: "lender-1",
+          organization_name: "Approved Lending",
+          contact_person: "Approved Contact",
+          phone_number: "+63 917 555 0199",
+          business_address: "Quezon City",
+          operating_area: "Metro Manila",
+          business_registration_number: "DTI-12345",
+          min_loan_amount: 5000,
+          max_loan_amount: 50000,
+          typical_repayment_terms: "1 to 6 months",
+          lender_description: "Approved lender.",
+          verification_status: "approved",
+          approved_at: "2026-05-26T00:00:00.000Z",
+          approved_by: "manager-1",
+          manager_review_notes: null,
+          rejection_reason: null,
+          rejected_at: null,
+          rejected_by: null,
+          created_at: "2026-05-26T00:00:00.000Z",
+          updated_at: "2026-05-26T00:00:00.000Z",
+        },
+      },
+    });
+
+    const formData = createValidOfferFormData();
+    formData.set("approvedAmount", "50000");
+    formData.set("interestServiceCharge", "5000");
+    formData.set("fees", "2000");
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      formData,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Total repayment cannot exceed the borrower's available credit at submission.",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
+      p_loan_application_id: "application-1",
+      p_approved_amount: 50000,
+      p_repayment_amount: 57000,
+      p_fees: 2000,
+      p_due_date: "2099-01-01",
+      p_remarks: "Offer based on submitted cash flow.",
+    });
+  });
+
+  it("allows approved lender to send offer when total repayment equals available credit", async () => {
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: true,
+          message: "Offer sent.",
+          loan_application_id: "application-1",
+        },
+        error: null,
+      }),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: true,
+      supabase: asSupabase(mockSupabase),
+      profile: {
+        id: "lender-1",
+        role: "lender",
+        display_name: "Approved Lender",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: {
+          id: "lender-profile-1",
+          user_id: "lender-1",
+          organization_name: "Approved Lending",
+          contact_person: "Approved Contact",
+          phone_number: "+63 917 555 0199",
+          business_address: "Quezon City",
+          operating_area: "Metro Manila",
+          business_registration_number: "DTI-12345",
+          min_loan_amount: 5000,
+          max_loan_amount: 50000,
+          typical_repayment_terms: "1 to 6 months",
+          lender_description: "Approved lender.",
+          verification_status: "approved",
+          approved_at: "2026-05-26T00:00:00.000Z",
+          approved_by: "manager-1",
+          manager_review_notes: null,
+          rejection_reason: null,
+          rejected_at: null,
+          rejected_by: null,
+          created_at: "2026-05-26T00:00:00.000Z",
+          updated_at: "2026-05-26T00:00:00.000Z",
+        },
+      },
+    });
+
+    const formData = createValidOfferFormData();
+    formData.set("approvedAmount", "43000");
+    formData.set("interestServiceCharge", "5000");
+    formData.set("fees", "2000");
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      formData,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Offer sent.",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
+      p_loan_application_id: "application-1",
+      p_approved_amount: 43000,
+      p_repayment_amount: 50000,
+      p_fees: 2000,
+      p_due_date: "2099-01-01",
+      p_remarks: "Offer based on submitted cash flow.",
+    });
+  });
 });

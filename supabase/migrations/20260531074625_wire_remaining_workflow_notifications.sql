@@ -554,7 +554,7 @@ begin
     'lender_onboarding_submitted',
     'Lender profile submitted',
     'A lender submitted their profile for review.',
-    '/manager/lenders/' || v_lender_profile.id::text
+    '/manager/lenders?selected=' || v_lender_profile.id::text
   )
   from public.profiles
   where profiles.role = 'manager';
