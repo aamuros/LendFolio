@@ -143,6 +143,30 @@ When a not-yet-implemented area is needed, create a minimal product placeholder 
 * Important workflow transitions must be protected server-side and by database policies where applicable.
 * UI checks are advisory. Server actions, RPCs, and database policies are the source of truth.
 
+## Repository Navigation
+
+Use the existing project structure before adding new folders or abstractions:
+
+* `app/` contains App Router pages, layouts, and route-level server actions. Keep route segments organized by user role: borrower, lender, and manager.
+* `components/ui/` contains generated shadcn/ui primitives. Treat these as shared primitives, not feature-specific components.
+* `components/borrower/`, `components/lender/`, `components/manager/`, `components/layout/`, `components/notifications/`, and `components/legal/` contain composed product UI for their respective surfaces.
+* `lib/` contains reusable business logic, Supabase clients, schemas, access-control helpers, workflow helpers, and formatting utilities. Prefer extending existing helpers over duplicating workflow, money, credit, readiness, verification, notification, or status logic.
+* `supabase/migrations/` contains database changes. Do not edit old migrations casually; add a new migration when schema or policy changes are required.
+* `tests/` contains Vitest coverage. `e2e/` contains Playwright/performance coverage when relevant.
+* `docs/` is the right place for setup, demo, database, and implementation notes that should not appear in product UI.
+
+When making a change, update the layer closest to the requirement. For example, copy-only product changes usually belong in route or component files, workflow validation belongs in `lib/` and server-side handlers, and database authorization changes belong in migrations and checked-in Supabase types.
+
+## Change Discipline
+
+* Keep each change small, reviewable, and tied to the requested user outcome.
+* Prefer modifying existing files and helpers before introducing new abstractions.
+* Do not rename routes, database objects, enum values, storage buckets, or workflow statuses unless the task explicitly requires it.
+* Keep borrower, lender, and manager experiences consistent, but do not merge role-specific logic in ways that weaken access control.
+* Do not add dependencies for problems already covered by the approved stack or existing utilities.
+* When touching loan, offer, repayment, verification, consent, notification, audit, or access-control logic, check both the UI path and the server/database enforcement path.
+* Keep documentation changes aligned with the current implementation. Do not document planned features as complete.
+
 ## Security and Data Rules
 
 * Never hardcode real credentials, Supabase keys, service role keys, Resend keys, Vercel secrets, or private tokens.
@@ -215,6 +239,8 @@ After changes, run the relevant commands that exist in the repository:
 * `npm run typecheck`
 * `npm run build`
 * `npm run test`
+* `npm run perf:test` for relevant performance flows
+* `npm run perf:report` when performance results need to be summarized
 * Playwright tests if present and relevant
 
 If a command does not exist or cannot run in the current environment, report it clearly.
