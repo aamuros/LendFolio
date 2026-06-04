@@ -183,7 +183,7 @@ export function LenderOnboardingForm({
                   >
                     <SelectTrigger
                       id="operatingArea"
-                      className="h-12 rounded-xl bg-background"
+                      className="data-[size=default]:h-12 rounded-xl bg-background"
                     >
                       <SelectValue placeholder="Select operating area" />
                     </SelectTrigger>
@@ -302,7 +302,7 @@ export function LenderOnboardingForm({
                 >
                   <SelectTrigger
                     id="typicalRepaymentTerms"
-                    className="h-12 rounded-xl bg-background"
+                    className="data-[size=default]:h-12 rounded-xl bg-background"
                   >
                     <SelectValue placeholder="Select typical repayment terms" />
                   </SelectTrigger>

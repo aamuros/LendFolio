@@ -145,6 +145,16 @@ const categoryConfig: Record<string, CategoryConfig> = {
     bg: "bg-green-100 dark:bg-green-950",
     text: "text-green-600 dark:text-green-400",
   },
+  lender_profile_change_approved: {
+    icon: Building2,
+    bg: "bg-teal-100 dark:bg-teal-950",
+    text: "text-teal-600 dark:text-teal-400",
+  },
+  lender_profile_change_rejected: {
+    icon: XCircle,
+    bg: "bg-rose-100 dark:bg-rose-950",
+    text: "text-rose-600 dark:text-rose-400",
+  },
 };
 
 const accentBorderMap: Record<string, string> = {
@@ -171,16 +181,18 @@ const accentBorderMap: Record<string, string> = {
   lender_onboarding_submitted: "border-l-indigo-500",
   loan_restored_active: "border-l-emerald-500",
   loan_paid: "border-l-green-500",
+  lender_profile_change_approved: "border-l-teal-500",
+  lender_profile_change_rejected: "border-l-rose-500",
 };
 
 export function NotificationItem({
   notification,
   isActive,
-  onOpen,
+  onRead,
 }: {
   notification: AppNotification;
   isActive: boolean;
-  onOpen: (notification: AppNotification) => void;
+  onRead: (notification: AppNotification) => void;
 }) {
   const config = categoryConfig[notification.type] ?? {
     icon: CircleDollarSign,
@@ -190,20 +202,14 @@ export function NotificationItem({
   const Icon = config.icon;
   const accentBorder = accentBorderMap[notification.type] ?? "border-l-slate-400";
 
-  return (
-    <button
-      type="button"
-      onClick={() => void onOpen(notification)}
-      disabled={isActive}
-      className={cn(
-        "group grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3 text-left transition",
-        "hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring disabled:opacity-70",
-        "border-l-[3px]",
-        notification.isUnread
-          ? cn("bg-primary/[0.03]", accentBorder)
-          : "border-l-transparent",
-      )}
-    >
+  const handleClick = () => {
+    if (notification.isUnread) {
+      onRead(notification);
+    }
+  };
+
+  const content = (
+    <>
       <span
         className={cn(
           "mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-full",
@@ -243,6 +249,44 @@ export function NotificationItem({
       {notification.href ? (
         <ChevronRight className="mt-1 size-4 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100" />
       ) : null}
-    </button>
+    </>
+  );
+
+  const sharedClassName = cn(
+    "group grid w-full grid-cols-[auto_1fr_auto] items-start gap-3 px-4 py-3 text-left transition",
+    "hover:bg-muted/50 focus-visible:outline-2 focus-visible:outline-inset focus-visible:outline-ring",
+    "border-l-[3px]",
+    notification.isUnread
+      ? cn("bg-primary/[0.03]", accentBorder)
+      : "border-l-transparent",
+  );
+
+  if (notification.href) {
+    return (
+      <a
+        href={notification.href}
+        onClick={handleClick}
+        className={sharedClassName}
+      >
+        {content}
+      </a>
+    );
+  }
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={handleClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          handleClick();
+        }
+      }}
+      className={sharedClassName}
+    >
+      {content}
+    </div>
   );
 }

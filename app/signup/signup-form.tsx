@@ -27,6 +27,7 @@ export function SignupForm() {
   const [role, setRole] = useState<SignupRole>("borrower");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const isSuccess = state.status === "success";
+  const formKey = state.values ? JSON.stringify(state.values) : "initial";
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
@@ -40,6 +41,7 @@ export function SignupForm() {
       </CardHeader>
       <CardContent className="p-0">
         <form
+          key={formKey}
           action={formAction}
           onSubmit={(e) => {
             const form = e.currentTarget;
@@ -92,6 +94,7 @@ export function SignupForm() {
                 autoComplete="name"
                 placeholder="Juan dela Cruz"
                 className="h-12 rounded-xl bg-background"
+                defaultValue={state.values?.displayName}
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.displayName} />
@@ -106,6 +109,7 @@ export function SignupForm() {
                 autoComplete="email"
                 placeholder="you@example.com"
                 className="h-12 rounded-xl bg-background"
+                defaultValue={state.values?.email}
                 required
               />
               <FieldErrorHelper messages={state.fieldErrors?.email} />

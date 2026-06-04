@@ -71,16 +71,15 @@ export function ManagerNotificationsContent() {
     });
   }, [router]);
 
-  const openNotification = useCallback(
-    async (notification: AppNotification) => {
+  const markAsRead = useCallback(
+    (notification: AppNotification) => {
       setActiveNotificationId(notification.id);
 
-      if (!notification.readAt) {
-        const result = await markNotificationReadAction(notification.id);
+      void markNotificationReadAction(notification.id).then((result) => {
+        setActiveNotificationId(null);
 
         if (!result.ok) {
           setMessage("Could not update notification.");
-          setActiveNotificationId(null);
           return;
         }
 
@@ -98,16 +97,9 @@ export function ManagerNotificationsContent() {
           ),
         );
         window.dispatchEvent(new CustomEvent("notifications-updated"));
-        router.refresh();
-      }
-
-      setActiveNotificationId(null);
-
-      if (notification.href) {
-        router.push(notification.href);
-      }
+      });
     },
-    [router],
+    [],
   );
 
   return (
@@ -147,7 +139,7 @@ export function ManagerNotificationsContent() {
           <NotificationList
             notifications={notifications}
             activeNotificationId={activeNotificationId}
-            onOpenNotification={openNotification}
+            onRead={markAsRead}
           />
         </div>
       ) : null}

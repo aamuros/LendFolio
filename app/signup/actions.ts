@@ -23,6 +23,13 @@ export type SignupState = {
   message: string;
   status: "idle" | "error" | "success";
   fieldErrors?: SignupFieldErrors;
+  values?: {
+    displayName?: string;
+    email?: string;
+    role?: string;
+    termsAccepted?: boolean;
+    privacyAccepted?: boolean;
+  };
 };
 
 export async function signupAction(
@@ -44,6 +51,13 @@ export async function signupAction(
       status: "error",
       message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        role: String(formData.get("role") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
+      },
     };
   }
 
@@ -76,6 +90,13 @@ export async function signupAction(
       return {
         status: "error",
         message: "Could not create the account. Try another email or password.",
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          role: input.role,
+          termsAccepted: true,
+          privacyAccepted: true,
+        },
       };
     }
 
@@ -121,6 +142,13 @@ export async function signupAction(
     return {
       status: "error",
       message: "Account signup is temporarily unavailable.",
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        role: String(formData.get("role") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
+      },
     };
   }
 

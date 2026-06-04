@@ -6,11 +6,11 @@ import { NotificationItem } from "./notification-item";
 export function NotificationList({
   notifications,
   activeNotificationId,
-  onOpenNotification,
+  onRead,
 }: {
   notifications: AppNotification[];
   activeNotificationId: string | null;
-  onOpenNotification: (notification: AppNotification) => void;
+  onRead: (notification: AppNotification) => void;
 }) {
   return (
     <ul className="divide-y divide-border" role="list">
@@ -19,7 +19,7 @@ export function NotificationList({
           <NotificationItem
             notification={notification}
             isActive={activeNotificationId === notification.id}
-            onOpen={onOpenNotification}
+            onRead={onRead}
           />
         </li>
       ))}

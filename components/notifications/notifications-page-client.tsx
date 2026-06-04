@@ -73,16 +73,15 @@ export function NotificationsPageClient() {
     });
   }, [router]);
 
-  const openNotification = useCallback(
-    async (notification: AppNotification) => {
+  const markAsRead = useCallback(
+    (notification: AppNotification) => {
       setActiveNotificationId(notification.id);
 
-      if (!notification.readAt) {
-        const result = await markNotificationReadAction(notification.id);
+      void markNotificationReadAction(notification.id).then((result) => {
+        setActiveNotificationId(null);
 
         if (!result.ok) {
           setMessage("Could not update notification.");
-          setActiveNotificationId(null);
           return;
         }
 
@@ -100,16 +99,9 @@ export function NotificationsPageClient() {
           ),
         );
         window.dispatchEvent(new CustomEvent("notifications-updated"));
-        router.refresh();
-      }
-
-      setActiveNotificationId(null);
-
-      if (notification.href) {
-        router.push(notification.href);
-      }
+      });
     },
-    [router],
+    [],
   );
 
   const filteredNotifications = useMemo(
@@ -225,7 +217,7 @@ export function NotificationsPageClient() {
             <NotificationList
               notifications={filteredNotifications}
               activeNotificationId={activeNotificationId}
-              onOpenNotification={openNotification}
+              onRead={markAsRead}
             />
           </div>
         ) : null}

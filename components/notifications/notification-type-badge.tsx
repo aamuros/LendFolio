@@ -25,6 +25,8 @@ const notificationTypeLabels: Record<string, string> = {
   application_submitted: "Application",
   application_withdrawn: "Withdrawn",
   application_updated: "Updated",
+  lender_profile_change_approved: "Approved",
+  lender_profile_change_rejected: "Rejected",
 };
 
 const notificationTypeStyles: Record<string, string> = {
@@ -51,6 +53,8 @@ const notificationTypeStyles: Record<string, string> = {
   application_submitted: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
   application_withdrawn: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
   application_updated: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  lender_profile_change_approved: "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
+  lender_profile_change_rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
 };
 
 export function NotificationTypeBadge({ type }: { type: string }) {

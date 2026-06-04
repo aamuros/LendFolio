@@ -80,11 +80,6 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   if (!isApprovedLender(access.profile)) {
-    const lenderConsentStatus = buildConsentStatus(
-      "lender_review",
-      await loadUserConsents(access.supabase, access.profile.id),
-    );
-
     if (
       access.profile.role === "lender" &&
       (access.profile.lenderProfile?.verification_status === "incomplete" ||
@@ -93,18 +88,29 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       redirect("/lender/onboarding");
     }
 
+    let lenderConsentStatus = buildConsentStatus("lender_review", []);
     let pendingDocuments: Awaited<ReturnType<typeof getLenderVerificationDocuments>> = [];
     let pendingDocumentPolicy = calculateLenderVerificationDocumentPolicy([]);
 
-    const pendingLenderProfileId = access.profile.lenderProfile?.id;
-    if (pendingLenderProfileId) {
-      pendingDocuments = await getLenderVerificationDocuments(
-        access.supabase,
-        pendingLenderProfileId,
-        access.profile.id,
+    try {
+      lenderConsentStatus = buildConsentStatus(
+        "lender_review",
+        await loadUserConsents(access.supabase, access.profile.id),
       );
-      pendingDocumentPolicy =
-        calculateLenderVerificationDocumentPolicy(pendingDocuments);
+
+      const pendingLenderProfileId = access.profile.lenderProfile?.id;
+      if (pendingLenderProfileId) {
+        pendingDocuments = await getLenderVerificationDocuments(
+          access.supabase,
+          pendingLenderProfileId,
+          access.profile.id,
+        );
+        pendingDocumentPolicy =
+          calculateLenderVerificationDocumentPolicy(pendingDocuments);
+      }
+    } catch {
+      // Data loading failed; render with empty defaults so the page
+      // still shows the pending-review panel instead of crashing.
     }
 
     return (

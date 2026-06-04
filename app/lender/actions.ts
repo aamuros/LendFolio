@@ -221,6 +221,7 @@ export async function submitLenderVerificationDocument(
     }
 
     revalidatePath("/lender");
+    revalidatePath("/lender/applications");
     revalidatePath("/manager");
     revalidatePath("/manager/lenders");
 
