@@ -1,5 +1,10 @@
 import { z } from "zod";
 import type { Database } from "@/lib/supabase/types";
+import {
+  isValidPhilippineAddressSelection,
+  formatPhilippineAddress,
+} from "@/lib/philippine-addresses";
+import type { PhilippineAddressSelection } from "@/lib/philippine-addresses";
 
 export const businessTypeOptions = [
   "sari_sari_store",
@@ -40,6 +45,25 @@ function requiredNumber(schema: z.ZodNumber) {
   }, schema);
 }
 
+const addressSelectionSchema = z
+  .object({
+    regionCode: z.string().min(1, "Select your region."),
+    regionName: z.string().min(1),
+    cityOrMunicipality: z.string().min(1, "Select your city or municipality."),
+    barangay: z.string().min(1, "Select your barangay."),
+    zipCode: z.string().min(1, "ZIP code is required."),
+  })
+  .superRefine((value, context) => {
+    if (!isValidPhilippineAddressSelection(value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["regionCode"],
+        message:
+          "The selected region, city, barangay, and ZIP code combination is not valid.",
+      });
+    }
+  });
+
 export const borrowerPortfolioSchema = z.object({
   businessName: z
     .string()
@@ -54,6 +78,13 @@ export const borrowerPortfolioSchema = z.object({
     .trim()
     .min(3, "Enter the city or barangay where the business operates.")
     .max(120, "Keep the location under 120 characters."),
+  address: addressSelectionSchema,
+  streetAddress: z
+    .string()
+    .trim()
+    .max(240, "Street address must be 240 characters or fewer.")
+    .optional()
+    .or(z.literal("")),
   monthlyGrossRevenue: requiredNumber(
     z
       .number({ error: "Enter monthly gross revenue." })
@@ -81,10 +112,6 @@ export const borrowerPortfolioSchema = z.object({
   loanPurposeContext: z
     .string()
     .trim()
-    .min(
-      40,
-      "Add more detail about how you will use the loan.",
-    )
     .max(800, "Keep the loan purpose context under 800 characters."),
 });
 
@@ -97,17 +124,57 @@ type BorrowerPortfolioRow =
 export function mapBorrowerPortfolioRow(
   row: BorrowerPortfolioRow,
 ): BorrowerPortfolioInput {
+  const regionCode = row.region ?? "";
+  const cityOrMunicipality = row.city_or_municipality ?? "";
+  const barangay = row.barangay ?? "";
+  const zipCode = row.zip_code ?? "";
+
+  const address: PhilippineAddressSelection = {
+    regionCode,
+    regionName: regionCode,
+    cityOrMunicipality,
+    barangay,
+    zipCode,
+  };
+
   return {
     businessName: row.business_name ?? "",
     businessType: isBusinessType(row.business_type)
       ? row.business_type
       : "other",
     location: row.location ?? "",
+    address,
+    streetAddress: row.business_address ?? "",
     monthlyGrossRevenue: toNumber(row.monthly_gross_revenue),
     monthlyExpenses: toNumber(row.monthly_expenses),
     existingLoanPayments: toNumber(row.existing_loan_payments),
     yearsInOperation: toNumber(row.years_in_operation),
     loanPurposeContext: row.loan_purpose_context ?? "",
+  };
+}
+
+export function resolveBorrowerAddressFields(
+  input: BorrowerPortfolioInput,
+): {
+  location: string;
+  businessAddress: string | null;
+  barangay: string | null;
+  cityOrMunicipality: string | null;
+  region: string | null;
+  zipCode: string | null;
+} {
+  const formatted = formatPhilippineAddress(
+    input.address,
+    input.streetAddress || undefined,
+  );
+
+  return {
+    location: formatted,
+    businessAddress: input.streetAddress?.trim() || null,
+    barangay: input.address.barangay,
+    cityOrMunicipality: input.address.cityOrMunicipality,
+    region: input.address.regionCode,
+    zipCode: input.address.zipCode,
   };
 }
 

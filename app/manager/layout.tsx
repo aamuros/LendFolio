@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { signOutAction } from "@/app/login/actions";
 import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { getManagerAccess } from "./manager-access";
+import { getAlternateWorkspaces } from "@/lib/app-roles";
 
 export default async function ManagerLayout({
   children,
@@ -9,6 +10,7 @@ export default async function ManagerLayout({
   children: ReactNode;
 }) {
   let userEmail: string | null = null;
+  let alternateWorkspaces: ReturnType<typeof getAlternateWorkspaces> = [];
 
   try {
     const access = await getManagerAccess();
@@ -17,9 +19,9 @@ export default async function ManagerLayout({
       // The user email isn't stored in the profile row, but the Supabase
       // client is available to fetch it without an additional auth call.
       const {
-        data: { user },
-      } = await access.supabase.auth.getUser();
-      userEmail = user?.email ?? null;
+        data: { session },
+      } = await access.supabase.auth.getSession();
+      userEmail = session?.user?.email ?? null;
     }
   } catch {
     // Auth not available
@@ -33,6 +35,7 @@ export default async function ManagerLayout({
       dashboardHref="/manager"
       userEmail={userEmail}
       signOutAction={signOutAction}
+      alternateWorkspaces={alternateWorkspaces}
     >
       {children}
     </DashboardShell>

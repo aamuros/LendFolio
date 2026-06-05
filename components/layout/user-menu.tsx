@@ -1,6 +1,7 @@
 "use client";
 
-import { ChevronsUpDown, LogOut } from "lucide-react";
+import Link from "next/link";
+import { ChevronsUpDown, LogOut, ArrowRightLeft } from "lucide-react";
 import {
   Avatar,
   AvatarFallback,
@@ -18,15 +19,18 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
+import type { WorkspaceConfig } from "@/lib/app-roles";
 
 export function UserMenu({
   userEmail,
   roleLabel,
   signOutAction,
+  alternateWorkspaces,
 }: {
   userEmail: string | null;
   roleLabel: string;
   signOutAction: () => void;
+  alternateWorkspaces: WorkspaceConfig[];
 }) {
   const initials = userEmail
     ? userEmail.slice(0, 2).toUpperCase()
@@ -76,6 +80,19 @@ export function UserMenu({
                 </div>
               </div>
             </DropdownMenuLabel>
+            {alternateWorkspaces.length > 0 && (
+              <>
+                <DropdownMenuSeparator />
+                {alternateWorkspaces.map((ws) => (
+                  <DropdownMenuItem key={ws.role} asChild>
+                    <Link href={ws.route}>
+                      <ArrowRightLeft />
+                      Switch to {ws.title}
+                    </Link>
+                  </DropdownMenuItem>
+                ))}
+              </>
+            )}
             <DropdownMenuSeparator />
             <form action={signOutAction}>
               <DropdownMenuItem variant="destructive" asChild>

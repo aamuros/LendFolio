@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
 import {
@@ -45,7 +45,7 @@ export default async function LenderApplicationsPage() {
       (access.profile.lenderProfile?.verification_status === "incomplete" ||
         !access.profile.lenderProfile)
     ) {
-      redirect("/lender/onboarding");
+      redirect("/lender/onboarding", RedirectType.replace);
     }
 
     let lenderConsentStatus = buildConsentStatus("lender_review", []);

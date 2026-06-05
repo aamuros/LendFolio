@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { signupSchema } from "@/lib/signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -152,5 +152,5 @@ export async function signupAction(
     };
   }
 
-  redirect(redirectTo);
+  redirect(redirectTo, RedirectType.replace);
 }

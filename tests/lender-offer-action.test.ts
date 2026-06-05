@@ -93,7 +93,7 @@ describe("createLoanOffer", () => {
       ok: false,
       reason: "forbidden",
       message:
-        "Your lender access is pending review. You will be able to continue when your account is approved.",
+        "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.",
       supabase: asSupabase(mockSupabase),
     });
 
@@ -106,7 +106,7 @@ describe("createLoanOffer", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "Your lender access is pending review. You will be able to continue when your account is approved.",
+        "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.",
     });
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
@@ -148,7 +148,10 @@ describe("createLoanOffer", () => {
         error: null,
       }),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 25000 }),
+        createMockFromChain({
+          requested_amount: 25000,
+          available_credit_at_submission: 50000,
+        }),
       ),
     };
 
@@ -158,6 +161,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -182,6 +186,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -228,7 +236,10 @@ describe("createLoanOffer", () => {
         error: null,
       }),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 25000 }),
+        createMockFromChain({
+          requested_amount: 25000,
+          available_credit_at_submission: 50000,
+        }),
       ),
     };
 
@@ -238,6 +249,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -262,6 +274,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -302,12 +318,15 @@ describe("createLoanOffer", () => {
         data: {
           ok: false,
           message:
-            "Total repayment cannot exceed the borrower's available credit at submission.",
+            "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
         },
         error: null,
       }),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 100000 }),
+        createMockFromChain({
+          requested_amount: 100000,
+          available_credit_at_submission: 60000,
+        }),
       ),
     };
 
@@ -317,6 +336,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -341,6 +361,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -361,7 +385,7 @@ describe("createLoanOffer", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "Total repayment cannot exceed the borrower's available credit at submission.",
+        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
@@ -377,18 +401,14 @@ describe("createLoanOffer", () => {
     });
   });
 
-  it("allows approved lender to send offer when total repayment equals available credit", async () => {
+  it("blocks offer at TypeScript level when total repayment exceeds available credit", async () => {
     const mockSupabase = {
-      rpc: vi.fn().mockResolvedValue({
-        data: {
-          ok: true,
-          message: "Offer sent.",
-          loan_application_id: "application-1",
-        },
-        error: null,
-      }),
+      rpc: vi.fn(),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 50000 }),
+        createMockFromChain({
+          requested_amount: 50000,
+          available_credit_at_submission: 40000,
+        }),
       ),
     };
 
@@ -398,6 +418,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -422,6 +443,93 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
+          created_at: "2026-05-26T00:00:00.000Z",
+          updated_at: "2026-05-26T00:00:00.000Z",
+        },
+      },
+    });
+
+    const formData = createValidOfferFormData();
+    formData.set("approvedAmount", "35000");
+    formData.set("interestServiceCharge", "5000");
+    formData.set("fees", "5000");
+
+    const result = await createLoanOffer(
+      "application-1",
+      previousState,
+      formData,
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      message:
+        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+      fieldErrors: {
+        interestServiceCharge: [
+          "Total repayment cannot exceed the borrower's available credit. Reduce the approved amount, interest, or fees.",
+        ],
+      },
+    });
+    expect(mockSupabase.rpc).not.toHaveBeenCalled();
+  });
+
+  it("allows approved lender to send offer when total repayment equals available credit", async () => {
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: true,
+          message: "Offer sent.",
+          loan_application_id: "application-1",
+        },
+        error: null,
+      }),
+      from: vi.fn().mockReturnValue(
+        createMockFromChain({
+          requested_amount: 50000,
+          available_credit_at_submission: 50000,
+        }),
+      ),
+    };
+
+    mockedRequireApprovedLender.mockResolvedValue({
+      ok: true,
+      supabase: asSupabase(mockSupabase),
+      profile: {
+        id: "lender-1",
+        role: "lender",
+        additional_roles: [],
+        display_name: "Approved Lender",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: {
+          id: "lender-profile-1",
+          user_id: "lender-1",
+          organization_name: "Approved Lending",
+          contact_person: "Approved Contact",
+          phone_number: "+63 917 555 0199",
+          business_address: "Quezon City",
+          operating_area: "Metro Manila",
+          business_registration_number: "DTI-12345",
+          min_loan_amount: 5000,
+          max_loan_amount: 50000,
+          typical_repayment_terms: "1 to 6 months",
+          lender_description: "Approved lender.",
+          verification_status: "approved",
+          approved_at: "2026-05-26T00:00:00.000Z",
+          approved_by: "manager-1",
+          manager_review_notes: null,
+          rejection_reason: null,
+          rejected_at: null,
+          rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -461,7 +569,10 @@ describe("createLoanOffer", () => {
     const mockSupabase = {
       rpc: vi.fn(),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 25000 }),
+        createMockFromChain({
+          requested_amount: 25000,
+          available_credit_at_submission: 50000,
+        }),
       ),
     };
 
@@ -471,6 +582,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -495,6 +607,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -535,7 +651,10 @@ describe("createLoanOffer", () => {
         error: null,
       }),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 25000 }),
+        createMockFromChain({
+          requested_amount: 25000,
+          available_credit_at_submission: 50000,
+        }),
       ),
     };
 
@@ -545,6 +664,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -569,6 +689,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },
@@ -604,7 +728,10 @@ describe("createLoanOffer", () => {
         error: null,
       }),
       from: vi.fn().mockReturnValue(
-        createMockFromChain({ requested_amount: 25000 }),
+        createMockFromChain({
+          requested_amount: 25000,
+          available_credit_at_submission: 50000,
+        }),
       ),
     };
 
@@ -614,6 +741,7 @@ describe("createLoanOffer", () => {
       profile: {
         id: "lender-1",
         role: "lender",
+        additional_roles: [],
         display_name: "Approved Lender",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",
@@ -638,6 +766,10 @@ describe("createLoanOffer", () => {
           rejection_reason: null,
           rejected_at: null,
           rejected_by: null,
+          address_region: null,
+          address_city_or_municipality: null,
+          address_barangay: null,
+          address_zip_code: null,
           created_at: "2026-05-26T00:00:00.000Z",
           updated_at: "2026-05-26T00:00:00.000Z",
         },

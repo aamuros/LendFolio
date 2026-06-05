@@ -1,9 +1,13 @@
 import Link from "next/link";
+import { redirect, RedirectType } from "next/navigation";
 import { buttonVariants } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
+import { getCurrentUserProfile } from "@/lib/access-control";
+import { getRouteForRole } from "@/lib/app-roles";
+import { isApprovedLender } from "@/lib/role-rules";
 
 type HomeProps = {
   searchParams?: Promise<{
@@ -13,7 +17,26 @@ type HomeProps = {
 
 export default async function Home({ searchParams }: HomeProps) {
   const params = await searchParams;
+
+  const access = await getCurrentUserProfile();
+  if (access.ok && access.profile.status === "active") {
+    redirect(getRouteForRole(access.profile.role), RedirectType.replace);
+  }
+
   const authMessage = getAuthMessage(params?.auth);
+
+  let lenderPendingMessage = "";
+  if (
+    access.ok &&
+    access.profile.role === "lender" &&
+    !isApprovedLender(access.profile) &&
+    access.profile.lenderProfile?.verification_status === "pending"
+  ) {
+    lenderPendingMessage =
+      "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.";
+  }
+
+  const statusMessage = lenderPendingMessage || authMessage;
 
   return (
     <main className="min-h-svh bg-background text-foreground">
@@ -44,12 +67,23 @@ export default async function Home({ searchParams }: HomeProps) {
 
       <section>
         <div className="mx-auto max-w-3xl px-4 pt-16 pb-12 text-center sm:px-6 sm:pt-20 sm:pb-14 lg:px-8 lg:pt-24 lg:pb-16">
-          {authMessage ? (
+          {statusMessage ? (
             <p
               className="mx-auto max-w-xl border-l-2 border-foreground bg-muted/50 px-4 py-3 text-left text-sm leading-6 text-muted-foreground"
               role="status"
             >
-              {authMessage}
+              {statusMessage}
+              {lenderPendingMessage ? (
+                <>
+                  {" "}
+                  <Link
+                    href="/lender"
+                    className="font-medium text-foreground underline underline-offset-2"
+                  >
+                    Go to lender workspace
+                  </Link>
+                </>
+              ) : null}
             </p>
           ) : null}
           <Badge
@@ -263,7 +297,7 @@ function getAuthMessage(auth?: string) {
   }
 
   if (auth === "lender-pending") {
-    return "Your lender access is pending review. You will be able to continue when your account is approved.";
+    return "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.";
   }
 
   if (auth === "access") {

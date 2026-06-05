@@ -10,6 +10,10 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
+  RedirectType: {
+    push: "push",
+    replace: "replace",
+  },
 }));
 
 vi.mock("next/headers", () => ({
@@ -30,8 +34,12 @@ function createValidOnboardingFormData() {
   formData.set("organizationName", "Lending Corp");
   formData.set("contactPerson", "Juan dela Cruz");
   formData.set("phoneNumber", "+63 900 000 0000");
-  formData.set("businessAddress", "123 Main Street, Quezon City");
-  formData.set("operatingArea", "NCR - National Capital Region");
+  formData.set("addressRegionCode", "NCR");
+  formData.set("addressRegionName", "NCR - National Capital Region");
+  formData.set("addressCity", "Quezon City");
+  formData.set("addressBarangay", "Diliman");
+  formData.set("addressZipCode", "1100");
+  formData.set("streetAddress", "123 Main Street");
   formData.set("businessRegistrationNumber", "SEC-12345");
   formData.set("minLoanAmount", "5000");
   formData.set("maxLoanAmount", "50000");

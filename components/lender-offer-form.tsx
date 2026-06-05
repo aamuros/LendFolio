@@ -95,7 +95,8 @@ export function LenderOfferForm({
           <span className="font-semibold text-foreground">
             PHP {formatCurrency(maxTotalRepayment)}
           </span>
-          . Total repayment cannot exceed this amount.
+          . The total repayment (principal + interest + fees) cannot exceed this
+          amount.
         </p>
       </div>
 
@@ -258,6 +259,7 @@ export function LenderOfferForm({
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Total repayment is calculated from the approved amount, interest/service charge,
           and other fees. Borrower installments will add up to this total.
+          This must not exceed the borrower&apos;s available credit.
         </p>
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
           <div>
@@ -304,8 +306,10 @@ export function LenderOfferForm({
           className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
           role="alert"
         >
-          Total repayment exceeds the borrower&apos;s available credit. Reduce the
-          approved amount, interest/service charge, or fees.
+          Total repayment (PHP {formatCurrency(totalRepaymentAmount)}) exceeds
+          the borrower&apos;s available credit of PHP{" "}
+          {formatCurrency(maxTotalRepayment)}. Reduce the approved amount,
+          interest/service charge, or fees.
         </p>
       ) : null}
 

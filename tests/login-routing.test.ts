@@ -9,6 +9,10 @@ vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
   }),
+  RedirectType: {
+    push: "push",
+    replace: "replace",
+  },
 }));
 
 vi.mock("next/headers", () => ({

@@ -39,7 +39,6 @@ const requiredProfileFields = [
   ["businessName", "Business name"],
   ["businessType", "Business type"],
   ["location", "Business location"],
-  ["loanPurposeContext", "Loan-use context"],
 ] as const satisfies ReadonlyArray<readonly [keyof BorrowerPortfolioInput, string]>;
 
 export function evaluateBorrowerReadiness(
@@ -81,7 +80,7 @@ export function evaluateBorrowerReadiness(
   if (debtBurdenRatio !== null && debtBurdenRatio >= 0.4) {
     riskFlags.add("high_debt_burden");
   }
-  if (portfolio.loanPurposeContext.trim().length < 40) {
+  if (portfolio.loanPurposeContext.trim().length > 0 && portfolio.loanPurposeContext.trim().length < 40) {
     riskFlags.add("vague_loan_purpose");
   }
   if (portfolio.yearsInOperation < 0.5) {

@@ -43,6 +43,7 @@ describe("submitLoanApplication consent mapping", () => {
       profile: {
         id: "borrower-1",
         role: "borrower",
+        additional_roles: [],
         display_name: "Borrower One",
         status: "active",
         created_at: "2026-05-26T00:00:00.000Z",

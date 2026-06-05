@@ -1,7 +1,7 @@
 import { BorrowerWorkspace } from "@/components/borrower-workspace";
 import { loadBorrowerLoanApplications } from "@/app/borrower/actions";
 import { getBorrowerAccess } from "@/lib/borrower-access";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
@@ -40,7 +40,7 @@ export default async function BorrowerPage({
   } = await searchParams;
 
   if (message === "signed-in") {
-    redirect("/borrower");
+    redirect("/borrower", RedirectType.replace);
   }
 
   const initialTab: BorrowerTab =
@@ -48,7 +48,7 @@ export default async function BorrowerPage({
 
   const access = await getBorrowerAccess();
   const user = access.ok
-    ? (await access.supabase.auth.getUser()).data.user
+    ? (await access.supabase.auth.getSession()).data.session?.user ?? null
     : null;
   const initialLoanApplications = access.ok
     ? await loadBorrowerLoanApplications(access)

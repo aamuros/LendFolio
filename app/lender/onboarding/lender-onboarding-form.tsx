@@ -6,7 +6,14 @@ import {
   type LenderOnboardingState,
 } from "@/app/lender/onboarding/actions";
 import type { LenderVerificationStatus } from "@/lib/supabase/types";
-import { philippineOperatingAreas, typicalRepaymentTermOptions } from "@/lib/lender-onboarding";
+import { typicalRepaymentTermOptions } from "@/lib/lender-onboarding";
+import type { LenderOnboardingAddressFields } from "@/lib/lender-onboarding";
+import {
+  AddressSelect,
+  createEmptyAddressSelection,
+  isAddressSelectionComplete,
+} from "@/components/address/address-select";
+import type { AddressSelectValue } from "@/components/address/address-select";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -57,6 +64,7 @@ type LenderOnboardingFormProps = {
     typicalRepaymentTerms: string;
     lenderDescription: string;
   };
+  defaultAddress?: AddressSelectValue | null;
 };
 
 export function LenderOnboardingForm({
@@ -64,6 +72,7 @@ export function LenderOnboardingForm({
   rejectionReason,
   managerReviewNotes,
   defaultValues,
+  defaultAddress,
 }: LenderOnboardingFormProps) {
   const [state, formAction, isPending] = useActionState(
     lenderOnboardingAction,
@@ -71,12 +80,31 @@ export function LenderOnboardingForm({
   );
   const isSuccess = state.status === "success";
   const isRejected = verificationStatus === "rejected";
+  const restoredValues = state.values;
+  const formKey = restoredValues ? JSON.stringify(restoredValues) : "initial";
   const [repaymentTerms, setRepaymentTerms] = useState(
-    defaultValues.typicalRepaymentTerms,
+    restoredValues?.typicalRepaymentTerms ?? defaultValues.typicalRepaymentTerms,
   );
-  const [operatingArea, setOperatingArea] = useState(
-    defaultValues.operatingArea,
+  const [addressSelection, setAddressSelection] = useState<AddressSelectValue>(
+    defaultAddress ?? createEmptyAddressSelection(),
   );
+  const [streetAddress, setStreetAddress] = useState(
+    restoredValues?.streetAddress ?? defaultValues.businessAddress ?? "",
+  );
+
+  const addressErrors: Partial<Record<keyof AddressSelectValue, string>> = {};
+  if (state.fieldErrors?.addressRegion) {
+    addressErrors.regionCode = state.fieldErrors.addressRegion[0];
+  }
+  if (state.fieldErrors?.addressCity) {
+    addressErrors.cityOrMunicipality = state.fieldErrors.addressCity[0];
+  }
+  if (state.fieldErrors?.addressBarangay) {
+    addressErrors.barangay = state.fieldErrors.addressBarangay[0];
+  }
+  if (state.fieldErrors?.addressZipCode) {
+    addressErrors.zipCode = state.fieldErrors.addressZipCode[0];
+  }
 
   return (
     <Card className="rounded-2xl">
@@ -112,7 +140,7 @@ export function LenderOnboardingForm({
           </Alert>
         ) : null}
 
-        <form action={formAction}>
+        <form key={formKey} action={formAction}>
           <FieldGroup className="gap-5">
             <fieldset className="grid gap-4">
               <legend className="text-sm font-semibold text-foreground">
@@ -126,7 +154,7 @@ export function LenderOnboardingForm({
                 <Input
                   id="organizationName"
                   name="organizationName"
-                  defaultValue={defaultValues.organizationName}
+                  defaultValue={restoredValues?.organizationName ?? defaultValues.organizationName}
                   placeholder="Acme Lending Corp"
                   className="h-12 rounded-xl bg-background"
                   required
@@ -141,7 +169,7 @@ export function LenderOnboardingForm({
                 <Input
                   id="contactPerson"
                   name="contactPerson"
-                  defaultValue={defaultValues.contactPerson}
+                  defaultValue={restoredValues?.contactPerson ?? defaultValues.contactPerson}
                   placeholder="Juan dela Cruz"
                   autoComplete="name"
                   className="h-12 rounded-xl bg-background"
@@ -159,7 +187,7 @@ export function LenderOnboardingForm({
                     id="phoneNumber"
                     name="phoneNumber"
                     type="tel"
-                    defaultValue={defaultValues.phoneNumber}
+                    defaultValue={restoredValues?.phoneNumber ?? defaultValues.phoneNumber}
                     placeholder="+63 900 000 0000"
                     autoComplete="tel"
                     className="h-12 rounded-xl bg-background"
@@ -171,69 +199,73 @@ export function LenderOnboardingForm({
                 </Field>
 
                 <Field>
-                  <FieldLabel htmlFor="operatingArea">Operating area <span className="text-destructive">*</span></FieldLabel>
-                  <input
-                    type="hidden"
-                    name="operatingArea"
-                    value={operatingArea}
+                  <FieldLabel htmlFor="businessRegistrationNumber">
+                    Business registration number
+                  </FieldLabel>
+                  <Input
+                    id="businessRegistrationNumber"
+                    name="businessRegistrationNumber"
+                    defaultValue={restoredValues?.businessRegistrationNumber ?? defaultValues.businessRegistrationNumber}
+                    placeholder="Optional"
+                    className="h-12 rounded-xl bg-background"
                   />
-                  <Select
-                    value={operatingArea}
-                    onValueChange={setOperatingArea}
-                  >
-                    <SelectTrigger
-                      id="operatingArea"
-                      className="data-[size=default]:h-12 rounded-xl bg-background"
-                    >
-                      <SelectValue placeholder="Select operating area" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {philippineOperatingAreas.map((area) => (
-                        <SelectItem key={area} value={area}>
-                          {area}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <FieldDescription>
+                    SEC, DTI, or CDA registration number if applicable.
+                  </FieldDescription>
                   <FieldErrorHelper
-                    messages={state.fieldErrors?.operatingArea}
+                    messages={state.fieldErrors?.businessRegistrationNumber}
                   />
                 </Field>
               </div>
 
               <Field>
-                <FieldLabel htmlFor="businessAddress">
+                <FieldLabel>
                   Business address <span className="text-destructive">*</span>
                 </FieldLabel>
-                <Input
-                  id="businessAddress"
-                  name="businessAddress"
-                  defaultValue={defaultValues.businessAddress}
-                  placeholder="123 Main St, Quezon City"
-                  className="h-12 rounded-xl bg-background"
+                <input
+                  type="hidden"
+                  name="addressRegionCode"
+                  value={addressSelection.regionCode}
+                />
+                <input
+                  type="hidden"
+                  name="addressRegionName"
+                  value={addressSelection.regionName}
+                />
+                <input
+                  type="hidden"
+                  name="addressCity"
+                  value={addressSelection.cityOrMunicipality}
+                />
+                <input
+                  type="hidden"
+                  name="addressBarangay"
+                  value={addressSelection.barangay}
+                />
+                <input
+                  type="hidden"
+                  name="addressZipCode"
+                  value={addressSelection.zipCode}
+                />
+                <input
+                  type="hidden"
+                  name="streetAddress"
+                  value={streetAddress}
+                />
+                <AddressSelect
+                  value={addressSelection}
+                  onChange={setAddressSelection}
+                  idPrefix="lender-address"
                   required
-                />
-                <FieldErrorHelper
-                  messages={state.fieldErrors?.businessAddress}
-                />
-              </Field>
-
-              <Field>
-                <FieldLabel htmlFor="businessRegistrationNumber">
-                  Business registration number
-                </FieldLabel>
-                <Input
-                  id="businessRegistrationNumber"
-                  name="businessRegistrationNumber"
-                  defaultValue={defaultValues.businessRegistrationNumber}
-                  placeholder="Optional"
-                  className="h-12 rounded-xl bg-background"
-                />
-                <FieldDescription>
-                  SEC, DTI, or CDA registration number if applicable.
-                </FieldDescription>
-                <FieldErrorHelper
-                  messages={state.fieldErrors?.businessRegistrationNumber}
+                  errors={addressErrors}
+                  streetAddress={streetAddress}
+                  onStreetAddressChange={setStreetAddress}
+                  streetAddressError={state.fieldErrors?.streetAddress?.[0]}
+                  legacyAddress={
+                    defaultAddress == null && defaultValues.businessAddress
+                      ? defaultValues.businessAddress
+                      : null
+                  }
                 />
               </Field>
             </fieldset>
@@ -253,7 +285,7 @@ export function LenderOnboardingForm({
                     name="minLoanAmount"
                     type="number"
                     inputMode="decimal"
-                    defaultValue={defaultValues.minLoanAmount}
+                    defaultValue={restoredValues?.minLoanAmount ?? defaultValues.minLoanAmount}
                     placeholder="5000"
                     min="1"
                     step="1"
@@ -274,7 +306,7 @@ export function LenderOnboardingForm({
                     name="maxLoanAmount"
                     type="number"
                     inputMode="decimal"
-                    defaultValue={defaultValues.maxLoanAmount}
+                    defaultValue={restoredValues?.maxLoanAmount ?? defaultValues.maxLoanAmount}
                     placeholder="50000"
                     min="1"
                     step="1"
@@ -321,19 +353,18 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="lenderDescription">
-                  Lender description <span className="text-destructive">*</span>
+                  Lender description
                 </FieldLabel>
                 <Textarea
                   id="lenderDescription"
                   name="lenderDescription"
-                  defaultValue={defaultValues.lenderDescription}
-                  placeholder="Describe your lending organization, focus areas, and approach to micro-business lending."
+                  defaultValue={restoredValues?.lenderDescription ?? defaultValues.lenderDescription}
+                  placeholder="Optional. Describe your lending organization, focus areas, and approach to micro-business lending."
                   rows={4}
                   className="rounded-xl bg-background"
-                  required
                 />
                 <FieldDescription>
-                  At least 20 characters. This helps managers understand your lending focus.
+                  Optional. Helps managers understand your lending focus.
                 </FieldDescription>
                 <FieldErrorHelper
                   messages={state.fieldErrors?.lenderDescription}
@@ -357,6 +388,7 @@ export function LenderOnboardingForm({
                   id="lenderReviewConsentAccepted"
                   name="lenderReviewConsentAccepted"
                   className="mt-0.5"
+                  defaultChecked={restoredValues?.lenderReviewConsentAccepted}
                 />
                 <Label
                   htmlFor="lenderReviewConsentAccepted"

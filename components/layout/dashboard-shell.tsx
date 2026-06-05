@@ -2,6 +2,7 @@
 
 import type { ReactNode } from "react";
 import type { AppRole } from "@/lib/supabase/types";
+import type { WorkspaceConfig } from "@/lib/app-roles";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +16,7 @@ export function DashboardShell({
   dashboardHref,
   userEmail,
   signOutAction,
+  alternateWorkspaces,
 }: {
   children: ReactNode;
   role: AppRole;
@@ -23,6 +25,7 @@ export function DashboardShell({
   dashboardHref: string;
   userEmail: string | null;
   signOutAction: () => void;
+  alternateWorkspaces: WorkspaceConfig[];
 }) {
   return (
     <SidebarProvider>
@@ -34,6 +37,7 @@ export function DashboardShell({
           dashboardHref={dashboardHref}
           userEmail={userEmail}
           signOutAction={signOutAction}
+          alternateWorkspaces={alternateWorkspaces}
         />
         <SidebarInset>{children}</SidebarInset>
       </TooltipProvider>

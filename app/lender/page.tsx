@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { ArrowRight } from "lucide-react";
 import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
@@ -15,6 +15,7 @@ import {
 import { loadUserConsents } from "@/lib/user-consents";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
+import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
 import {
   isApplicationActionableForOffer,
   loadLenderOffers,
@@ -57,7 +58,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   const { message, tab, offerId, proofId } = await searchParams;
 
   if (message === "signed-in") {
-    redirect("/lender");
+    redirect("/lender", RedirectType.replace);
   }
 
   const activeTab = tab === "offers" || tab === "account" ? tab : "home";
@@ -85,7 +86,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       (access.profile.lenderProfile?.verification_status === "incomplete" ||
         !access.profile.lenderProfile)
     ) {
-      redirect("/lender/onboarding");
+      redirect("/lender/onboarding", RedirectType.replace);
     }
 
     let lenderConsentStatus = buildConsentStatus("lender_review", []);
@@ -172,8 +173,8 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     offers = offersResult.ok ? offersResult.offers : [];
     offersError = !offersResult.ok ? offersResult.message : "";
   } else if (activeTab === "account") {
-    const { data } = await access.supabase.auth.getUser();
-    user = data.user;
+    const { data } = await access.supabase.auth.getSession();
+    user = data.session?.user ?? null;
 
     const lenderProfileId = access.profile.lenderProfile?.id;
     if (lenderProfileId) {
@@ -695,6 +696,17 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
               />
               <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
             </dl>
+            {activeLoan.repaymentChannel || activeLoan.additionalRepaymentChannels.length > 0 ? (
+              <RepaymentChannelsManager
+                activeLoanId={activeLoan.id}
+                originalChannel={activeLoan.repaymentChannel}
+                originalAccountName={activeLoan.repaymentAccountName}
+                originalAccountNumber={activeLoan.repaymentAccountNumber}
+                originalInstructions={activeLoan.repaymentInstructions}
+                additionalChannels={activeLoan.additionalRepaymentChannels}
+                isLoanActive={activeLoan.status === "active" || activeLoan.status === "overdue"}
+              />
+            ) : null}
             {activeLoan.schedule.length > 0 ? (
               <CollapsibleSection
                 triggerLabel="Repayment schedule"

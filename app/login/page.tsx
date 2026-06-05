@@ -1,26 +1,15 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import { getRouteForRole } from "@/lib/app-roles";
 
-type LoginPageProps = {
-  searchParams?: Promise<{
-    message?: string;
-  }>;
-};
-
-export default async function LoginPage({ searchParams }: LoginPageProps) {
-  const params = await searchParams;
-  const signedOut = params?.message === "signed-out";
-
-  if (!signedOut) {
-    const access = await getCurrentUserProfile();
-    if (access.ok && access.profile.status === "active") {
-      redirect(getRouteForRole(access.profile.role));
-    }
+export default async function LoginPage() {
+  const access = await getCurrentUserProfile();
+  if (access.ok && access.profile.status === "active") {
+    redirect(getRouteForRole(access.profile.role), RedirectType.replace);
   }
 
   return (
@@ -37,7 +26,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
             Back to home
           </Link>
         </Button>
-        <LoginForm signedOut={signedOut} />
+        <LoginForm />
       </div>
     </div>
   );

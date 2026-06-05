@@ -131,7 +131,7 @@ export default async function LenderApplicationDetailPage({
           <Card className="rounded-2xl border-border/50 shadow-sm">
             <CardContent className="p-4">
               <p className="text-sm leading-6">
-                {application.portfolio.loanPurposeContext}
+                {application.portfolio.loanPurposeContext || "Not provided"}
               </p>
             </CardContent>
           </Card>

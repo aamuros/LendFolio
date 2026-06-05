@@ -35,3 +35,22 @@ export function getWorkspaceConfig(role: AppRole) {
 export function getRouteForRole(role: AppRole) {
   return getWorkspaceConfig(role)?.route ?? "/";
 }
+
+export function getAllRoles(profile: {
+  role: AppRole;
+  additional_roles: AppRole[];
+}): AppRole[] {
+  return [profile.role, ...profile.additional_roles];
+}
+
+export function getAlternateWorkspaces(profile: {
+  role: AppRole;
+  additional_roles: AppRole[];
+  status: string;
+}): WorkspaceConfig[] {
+  if (profile.status !== "active") return [];
+  const allRoles = getAllRoles(profile);
+  return workspaceConfigs.filter(
+    (ws) => allRoles.includes(ws.role) && ws.role !== profile.role,
+  );
+}

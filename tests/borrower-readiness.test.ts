@@ -5,7 +5,15 @@ import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 const completeProfile = {
   businessName: "Aling Nena Store",
   businessType: "sari_sari_store",
-  location: "San Jose, Quezon City",
+  location: "Diliman, Quezon City, NCR - National Capital Region, 1100",
+  address: {
+    regionCode: "NCR",
+    regionName: "NCR - National Capital Region",
+    cityOrMunicipality: "Quezon City",
+    barangay: "Diliman",
+    zipCode: "1100",
+  },
+  streetAddress: "",
   monthlyGrossRevenue: 80000,
   monthlyExpenses: 45000,
   existingLoanPayments: 5000,
@@ -24,7 +32,15 @@ describe("borrower profile validation and readiness", () => {
     const parsed = borrowerPortfolioSchema.safeParse({
       businessName: "Aling Nena Store",
       businessType: "sari_sari_store",
-      location: "San Jose, Quezon City",
+      location: "Diliman, Quezon City, NCR - National Capital Region, 1100",
+      address: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Quezon City",
+        barangay: "Diliman",
+        zipCode: "1100",
+      },
+      streetAddress: "",
       monthlyGrossRevenue: 80000,
       monthlyExpenses: 45000,
       existingLoanPayments: 5000,
@@ -44,13 +60,13 @@ describe("borrower profile validation and readiness", () => {
     expect(parsed.success).toBe(false);
   });
 
-  it("rejects loan purpose under 40 characters", () => {
+  it("accepts loan purpose under 40 characters when optional", () => {
     const parsed = borrowerPortfolioSchema.safeParse({
       ...completeProfile,
       loanPurposeContext: "Short purpose",
     });
 
-    expect(parsed.success).toBe(false);
+    expect(parsed.success).toBe(true);
   });
 
   it("accepts loan purpose with 40 or more characters", () => {

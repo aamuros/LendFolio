@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/login/actions";
@@ -10,37 +9,16 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 const initialState: LoginState = {
   message: "",
 };
 
-type LoginFormProps = {
-  signedOut?: boolean;
-};
-
-export function LoginForm({ signedOut = false }: LoginFormProps) {
+export function LoginForm() {
   const [state, formAction] = useActionState(loginAction, initialState);
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showSignedOut, setShowSignedOut] = useState(signedOut);
-
-  useEffect(() => {
-    if (!signedOut) {
-      return;
-    }
-
-    router.replace("/login", { scroll: false });
-    const timeout = window.setTimeout(() => setShowSignedOut(false), 3000);
-
-    return () => window.clearTimeout(timeout);
-  }, [router, signedOut]);
-
-  function markEdited() {
-    setShowSignedOut(false);
-  }
 
   return (
     <Card className="rounded-2xl p-6">
@@ -53,13 +31,6 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
       <CardContent className="p-0">
         <form action={formAction}>
           <FieldGroup className="gap-4">
-            {showSignedOut ? (
-              <Alert>
-                <CheckCircle2 />
-                <AlertDescription>Signed out successfully</AlertDescription>
-              </Alert>
-            ) : null}
-
             <Field>
               <FieldLabel htmlFor="email">Email</FieldLabel>
               <Input
@@ -69,7 +40,6 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  markEdited();
                 }}
                 autoComplete="email"
                 placeholder="you@example.com"
@@ -95,7 +65,6 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 value={password}
                 onChange={(event) => {
                   setPassword(event.target.value);
-                  markEdited();
                 }}
                 autoComplete="current-password"
                 placeholder="Enter your password"

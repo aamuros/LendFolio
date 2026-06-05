@@ -296,6 +296,8 @@ export type Database = {
           barangay: string | null;
           city_or_municipality: string | null;
           province: string | null;
+          region: string | null;
+          zip_code: string | null;
           location: string;
           operating_model: BorrowerOperatingModel | null;
           primary_sales_channel: BorrowerPrimarySalesChannel | null;
@@ -307,7 +309,7 @@ export type Database = {
           years_in_operation: number;
           expense_breakdown: Json;
           debt_obligation_summary: Json;
-          loan_purpose_context: string;
+          loan_purpose_context: string | null;
           profile_last_confirmed_at: string | null;
           profile_review_status: BorrowerProfileReviewStatus;
           created_at: string;
@@ -324,6 +326,8 @@ export type Database = {
           barangay?: string | null;
           city_or_municipality?: string | null;
           province?: string | null;
+          region?: string | null;
+          zip_code?: string | null;
           location: string;
           operating_model?: BorrowerOperatingModel | null;
           primary_sales_channel?: BorrowerPrimarySalesChannel | null;
@@ -335,7 +339,7 @@ export type Database = {
           years_in_operation: number;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
-          loan_purpose_context: string;
+          loan_purpose_context?: string | null;
           profile_last_confirmed_at?: string | null;
           profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
@@ -363,7 +367,7 @@ export type Database = {
           years_in_operation?: number;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
-          loan_purpose_context?: string;
+          loan_purpose_context?: string | null;
           profile_last_confirmed_at?: string | null;
           profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
@@ -731,6 +735,39 @@ export type Database = {
         };
         Relationships: [];
       };
+      repayment_channels: {
+        Row: {
+          id: string;
+          active_loan_id: string;
+          lender_id: string;
+          channel: string;
+          account_name: string;
+          account_number: string;
+          instructions: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          active_loan_id: string;
+          lender_id: string;
+          channel: string;
+          account_name: string;
+          account_number: string;
+          instructions?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          active_loan_id?: string;
+          lender_id?: string;
+          channel?: string;
+          account_name?: string;
+          account_number?: string;
+          instructions?: string | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
       lender_profiles: {
         Row: {
           id: string;
@@ -741,6 +778,10 @@ export type Database = {
           business_address: string | null;
           operating_area: string | null;
           business_registration_number: string | null;
+          address_region: string | null;
+          address_city_or_municipality: string | null;
+          address_barangay: string | null;
+          address_zip_code: string | null;
           min_loan_amount: number | null;
           max_loan_amount: number | null;
           typical_repayment_terms: string | null;
@@ -764,6 +805,10 @@ export type Database = {
           business_address?: string | null;
           operating_area?: string | null;
           business_registration_number?: string | null;
+          address_region?: string | null;
+          address_city_or_municipality?: string | null;
+          address_barangay?: string | null;
+          address_zip_code?: string | null;
           min_loan_amount?: number | null;
           max_loan_amount?: number | null;
           typical_repayment_terms?: string | null;
@@ -787,6 +832,10 @@ export type Database = {
           business_address?: string | null;
           operating_area?: string | null;
           business_registration_number?: string | null;
+          address_region?: string | null;
+          address_city_or_municipality?: string | null;
+          address_barangay?: string | null;
+          address_zip_code?: string | null;
           min_loan_amount?: number | null;
           max_loan_amount?: number | null;
           typical_repayment_terms?: string | null;
@@ -874,6 +923,10 @@ export type Database = {
           proposed_typical_repayment_terms: string | null;
           proposed_lender_description: string | null;
           proposed_contact_person: string | null;
+          proposed_address_region: string | null;
+          proposed_address_city: string | null;
+          proposed_address_barangay: string | null;
+          proposed_address_zip_code: string | null;
           proposed_values: Json;
           status: LenderProfileChangeRequestStatus;
           submitted_at: string;
@@ -897,6 +950,10 @@ export type Database = {
           proposed_typical_repayment_terms?: string | null;
           proposed_lender_description?: string | null;
           proposed_contact_person?: string | null;
+          proposed_address_region?: string | null;
+          proposed_address_city?: string | null;
+          proposed_address_barangay?: string | null;
+          proposed_address_zip_code?: string | null;
           proposed_values?: Json;
           status?: LenderProfileChangeRequestStatus;
           submitted_at?: string;
@@ -920,6 +977,10 @@ export type Database = {
           proposed_typical_repayment_terms?: string | null;
           proposed_lender_description?: string | null;
           proposed_contact_person?: string | null;
+          proposed_address_region?: string | null;
+          proposed_address_city?: string | null;
+          proposed_address_barangay?: string | null;
+          proposed_address_zip_code?: string | null;
           proposed_values?: Json;
           status?: LenderProfileChangeRequestStatus;
           submitted_at?: string;
@@ -936,6 +997,7 @@ export type Database = {
         Row: {
           id: string;
           role: AppRole;
+          additional_roles: AppRole[];
           display_name: string;
           status: ProfileStatus;
           created_at: string;
@@ -944,6 +1006,7 @@ export type Database = {
         Insert: {
           id: string;
           role: AppRole;
+          additional_roles?: AppRole[];
           display_name: string;
           status?: ProfileStatus;
           created_at?: string;
@@ -952,6 +1015,7 @@ export type Database = {
         Update: {
           id?: string;
           role?: AppRole;
+          additional_roles?: AppRole[];
           display_name?: string;
           status?: ProfileStatus;
           created_at?: string;
@@ -1131,7 +1195,11 @@ export type Database = {
           p_min_loan_amount: number;
           p_max_loan_amount: number;
           p_typical_repayment_terms: string;
-          p_lender_description: string;
+          p_lender_description?: string | null;
+          p_address_region?: string | null;
+          p_address_city?: string | null;
+          p_address_barangay?: string | null;
+          p_address_zip_code?: string | null;
         };
         Returns: Json;
       };
@@ -1166,6 +1234,10 @@ export type Database = {
           p_proposed_max_loan_amount?: number | null;
           p_proposed_typical_repayment_terms?: string | null;
           p_proposed_lender_description?: string | null;
+          p_proposed_address_region?: string | null;
+          p_proposed_address_city?: string | null;
+          p_proposed_address_barangay?: string | null;
+          p_proposed_address_zip_code?: string | null;
         };
         Returns: Json;
       };
@@ -1276,6 +1348,22 @@ export type Database = {
           overdue_defaulted_loan_count: number;
           credit_profile_grade: string;
         }[];
+      };
+      add_repayment_channel: {
+        Args: {
+          p_active_loan_id: string;
+          p_channel: string;
+          p_account_name: string;
+          p_account_number: string;
+          p_instructions?: string | null;
+        };
+        Returns: Json;
+      };
+      remove_repayment_channel: {
+        Args: {
+          p_channel_id: string;
+        };
+        Returns: Json;
       };
     };
     Enums: {

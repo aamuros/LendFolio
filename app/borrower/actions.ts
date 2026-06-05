@@ -9,6 +9,7 @@ import {
 import {
   borrowerPortfolioSchema,
   mapBorrowerPortfolioRow,
+  resolveBorrowerAddressFields,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import {
@@ -211,7 +212,7 @@ const repaymentProofAllowedTypes = new Set([
 ]);
 
 const borrowerPortfolioCreditSelect =
-  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 
 export async function loadBorrowerPortfolio(
   verifiedAccess?: AccessResult,
@@ -235,7 +236,7 @@ export async function loadBorrowerPortfolio(
     const { data, error } = await supabase
       .from("borrower_portfolios")
       .select(
-        "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at",
+        "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at",
       )
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
@@ -293,19 +294,26 @@ export async function saveBorrowerPortfolio(
       };
     }
 
+    const resolvedAddress = resolveBorrowerAddressFields(parsed.data);
+
     const { error } = await supabase.from("borrower_portfolios").upsert(
       {
         borrower_id: access.profile.id,
         business_name: parsed.data.businessName,
         business_type: parsed.data.businessType,
-        location: parsed.data.location,
+        location: resolvedAddress.location,
+        business_address: resolvedAddress.businessAddress,
+        barangay: resolvedAddress.barangay,
+        city_or_municipality: resolvedAddress.cityOrMunicipality,
+        region: resolvedAddress.region,
+        zip_code: resolvedAddress.zipCode,
         revenue_period: "last_30_days",
         revenue_confidence: "self_declared",
         monthly_gross_revenue: parsed.data.monthlyGrossRevenue,
         monthly_expenses: parsed.data.monthlyExpenses,
         existing_loan_payments: parsed.data.existingLoanPayments,
         years_in_operation: parsed.data.yearsInOperation,
-        loan_purpose_context: parsed.data.loanPurposeContext,
+        loan_purpose_context: parsed.data.loanPurposeContext.trim() || null,
         profile_last_confirmed_at: new Date().toISOString(),
         profile_review_status: "self_declared",
         updated_at: new Date().toISOString(),

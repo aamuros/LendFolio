@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Landmark } from "lucide-react";
 import type { AppRole } from "@/lib/supabase/types";
+import type { WorkspaceConfig } from "@/lib/app-roles";
 import {
   Sidebar,
   SidebarContent,
@@ -27,6 +28,7 @@ export function AppSidebar({
   dashboardHref,
   userEmail,
   signOutAction,
+  alternateWorkspaces,
 }: {
   role: AppRole;
   brandLabel: string;
@@ -34,6 +36,7 @@ export function AppSidebar({
   dashboardHref: string;
   userEmail: string | null;
   signOutAction: () => void;
+  alternateWorkspaces: WorkspaceConfig[];
 }) {
   const pathname = usePathname();
   const navConfig = getNavConfigForRole(role);
@@ -95,6 +98,7 @@ export function AppSidebar({
           userEmail={userEmail}
           roleLabel={roleLabel}
           signOutAction={signOutAction}
+          alternateWorkspaces={alternateWorkspaces}
         />
       </SidebarFooter>
     </Sidebar>

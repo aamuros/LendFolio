@@ -286,6 +286,14 @@ export async function submitLenderProfileChangeRequest(
           String(formData.get("typicalRepaymentTerms") ?? "") || null,
         p_proposed_lender_description:
           String(formData.get("lenderDescription") ?? "") || null,
+        p_proposed_address_region:
+          String(formData.get("addressRegionCode") ?? "") || null,
+        p_proposed_address_city:
+          String(formData.get("addressCity") ?? "") || null,
+        p_proposed_address_barangay:
+          String(formData.get("addressBarangay") ?? "") || null,
+        p_proposed_address_zip_code:
+          String(formData.get("addressZipCode") ?? "") || null,
       },
     );
 
@@ -346,5 +354,92 @@ export async function cancelLenderProfileChangeRequest(
     return { ok: true, message: result.message ?? "Change request cancelled." };
   } catch {
     return { ok: false, message: "Could not cancel change request." };
+  }
+}
+
+export type RepaymentChannelResult =
+  | { ok: true; message: string; channelId?: string }
+  | { ok: false; message: string };
+
+export async function addRepaymentChannel(
+  activeLoanId: string,
+  channel: string,
+  accountName: string,
+  accountNumber: string,
+  instructions: string,
+): Promise<RepaymentChannelResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return { ok: false, message: access.message };
+    }
+
+    const { data, error } = await supabase.rpc("add_repayment_channel", {
+      p_active_loan_id: activeLoanId,
+      p_channel: channel,
+      p_account_name: accountName,
+      p_account_number: accountNumber,
+      p_instructions: instructions || null,
+    });
+
+    const result = data as
+      | { ok?: boolean; message?: string; channel_id?: string }
+      | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not add repayment channel.",
+      };
+    }
+
+    revalidatePath("/lender");
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      message: result.message ?? "Repayment channel added.",
+      channelId: result.channel_id,
+    };
+  } catch {
+    return { ok: false, message: "Could not add repayment channel." };
+  }
+}
+
+export async function removeRepaymentChannel(
+  channelId: string,
+): Promise<RepaymentChannelResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return { ok: false, message: access.message };
+    }
+
+    const { data, error } = await supabase.rpc("remove_repayment_channel", {
+      p_channel_id: channelId,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not remove repayment channel.",
+      };
+    }
+
+    revalidatePath("/lender");
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      message: result.message ?? "Repayment channel removed.",
+    };
+  } catch {
+    return { ok: false, message: "Could not remove repayment channel." };
   }
 }

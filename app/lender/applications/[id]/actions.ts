@@ -62,7 +62,7 @@ export async function createLoanOffer(
 
   const { data: application, error: applicationError } = await access.supabase
     .from("loan_applications")
-    .select("requested_amount")
+    .select("requested_amount, available_credit_at_submission")
     .eq("id", applicationId)
     .maybeSingle();
 
@@ -80,6 +80,22 @@ export async function createLoanOffer(
       fieldErrors: {
         approvedAmount: [
           "Approved amount cannot exceed the borrower's requested amount.",
+        ],
+      },
+    };
+  }
+
+  const maxRepayment =
+    application.available_credit_at_submission ?? application.requested_amount;
+
+  if (parsed.data.repaymentAmount > maxRepayment) {
+    return {
+      ok: false,
+      message:
+        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+      fieldErrors: {
+        interestServiceCharge: [
+          "Total repayment cannot exceed the borrower's available credit. Reduce the approved amount, interest, or fees.",
         ],
       },
     };

@@ -54,6 +54,13 @@ describe("borrower portfolio schema", () => {
       businessName: "Aling Nena Store",
       businessType: "sari_sari_store",
       location: "Quezon City",
+      address: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Quezon City",
+        barangay: "Diliman",
+        zipCode: "1100",
+      },
       monthlyGrossRevenue: 45_000,
       monthlyExpenses: 28_000,
       existingLoanPayments: 3_500,
@@ -65,11 +72,18 @@ describe("borrower portfolio schema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects incomplete loan purpose context", () => {
+  it("accepts short loan purpose context when optional", () => {
     const result = borrowerPortfolioSchema.safeParse({
       businessName: "Nena Food Stall",
       businessType: "food_stall",
       location: "Cebu City",
+      address: {
+        regionCode: "Region VII",
+        regionName: "Region VII - Central Visayas",
+        cityOrMunicipality: "Cebu City",
+        barangay: "Lahug",
+        zipCode: "6000",
+      },
       monthlyGrossRevenue: 20_000,
       monthlyExpenses: 15_000,
       existingLoanPayments: 0,
@@ -77,7 +91,7 @@ describe("borrower portfolio schema", () => {
       loanPurposeContext: "Inventory",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
 
@@ -765,6 +779,7 @@ describe("role helper logic", () => {
       canAccessRole(
         {
           role: "borrower",
+          additional_roles: [],
           status: "active",
         },
         "borrower",
@@ -774,6 +789,7 @@ describe("role helper logic", () => {
       canAccessRole(
         {
           role: "borrower",
+          additional_roles: [],
           status: "suspended",
         },
         "borrower",
@@ -785,6 +801,7 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "approved",
@@ -794,6 +811,7 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "pending",
@@ -803,6 +821,7 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "incomplete",
@@ -964,7 +983,15 @@ describe("borrower readiness gates", () => {
   const completePortfolio = {
     businessName: "Aling Nena Store",
     businessType: "sari_sari_store" as const,
-    location: "Quezon City",
+    location: "Diliman, Quezon City, NCR - National Capital Region, 1100",
+    address: {
+      regionCode: "NCR",
+      regionName: "NCR - National Capital Region",
+      cityOrMunicipality: "Quezon City",
+      barangay: "Diliman",
+      zipCode: "1100",
+    },
+    streetAddress: "",
     monthlyGrossRevenue: 45_000,
     monthlyExpenses: 28_000,
     existingLoanPayments: 3_500,

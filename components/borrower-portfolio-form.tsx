@@ -30,11 +30,17 @@ import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 import { explainBorrowerCreditLimit } from "@/lib/credit-limit";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import { parseMoneyInput } from "@/lib/money-input";
+import {
+  AddressSelect,
+  createEmptyAddressSelection,
+} from "@/components/address/address-select";
 
 const defaultValues: BorrowerPortfolioInput = {
   businessName: "",
   businessType: "sari_sari_store",
   location: "",
+  address: createEmptyAddressSelection(),
+  streetAddress: "",
   monthlyGrossRevenue: 0,
   monthlyExpenses: 0,
   existingLoanPayments: 0,
@@ -189,15 +195,62 @@ export function BorrowerPortfolioForm({
             )}
           />
         </Field>
-        <Field label="Business location" error={errors.location?.message} id="location">
-          <Input
-            id="location"
-            aria-invalid={Boolean(errors.location)}
-            aria-describedby={errors.location ? "location-error" : undefined}
-            {...register("location")}
-            placeholder="Barangay, city or province"
+        <div className="sm:col-span-2">
+          <Controller
+            control={control}
+            name="address"
+            render={({ field }) => (
+              <Field
+                label="Business address"
+                error={errors.address?.regionCode?.message || errors.address?.cityOrMunicipality?.message || errors.address?.barangay?.message || errors.address?.zipCode?.message}
+                id="address"
+              >
+                <AddressSelect
+                  value={field.value}
+                  onChange={field.onChange}
+                  idPrefix="borrower-address"
+                  required
+                  errors={{
+                    regionCode: errors.address?.regionCode?.message,
+                    cityOrMunicipality: errors.address?.cityOrMunicipality?.message,
+                    barangay: errors.address?.barangay?.message,
+                    zipCode: errors.address?.zipCode?.message,
+                  }}
+                  legacyAddress={
+                    field.value.regionCode
+                      ? null
+                      : undefined
+                  }
+                />
+              </Field>
+            )}
           />
-        </Field>
+          <Controller
+            control={control}
+            name="streetAddress"
+            render={({ field }) => (
+              <div className="mt-4 grid gap-1.5">
+                <Label htmlFor="streetAddress" className="text-foreground">
+                  Street / Building / Unit{" "}
+                  <span className="text-muted-foreground">(optional)</span>
+                </Label>
+                <Input
+                  id="streetAddress"
+                  aria-invalid={Boolean(errors.streetAddress)}
+                  aria-describedby={errors.streetAddress ? "streetAddress-error" : undefined}
+                  placeholder="e.g. 123 Main St, Unit 4B"
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                  onBlur={field.onBlur}
+                  name={field.name}
+                />
+                {errors.streetAddress?.message ? (
+                  <span id="streetAddress-error" className="text-sm leading-5 text-destructive">{errors.streetAddress.message}</span>
+                ) : null}
+              </div>
+            )}
+          />
+        </div>
         <Field
           label="Years in operation"
           error={errors.yearsInOperation?.message}
@@ -269,7 +322,7 @@ export function BorrowerPortfolioForm({
 
       <FormSection
         title="Loan use"
-        description="Describe how the financing would support the business."
+        description="Optional. Describe how the financing would support the business."
       >
         <div className="sm:col-span-2 grid gap-1.5">
           <Textarea
@@ -278,7 +331,7 @@ export function BorrowerPortfolioForm({
             aria-describedby={errors.loanPurposeContext ? "loanPurposeContext-error" : undefined}
             {...register("loanPurposeContext")}
             rows={3}
-            placeholder="Describe the loan purpose in at least 40 characters, including what the funds will be used for and how it supports the business."
+            placeholder="Optional. Describe the loan purpose, including what the funds will be used for and how it supports the business."
           />
           {errors.loanPurposeContext?.message ? (
             <span id="loanPurposeContext-error" className="text-sm leading-5 text-destructive">{errors.loanPurposeContext.message}</span>
@@ -405,7 +458,7 @@ function ReadinessPanel({
         ) : null}
         {hasVagueLoanPurpose ? (
           <p className="font-medium">
-            Add more detail to your loan purpose before applying.
+            Add more detail to your loan purpose or clear the field.
           </p>
         ) : (
           <p className="font-medium">{readiness.nextActions[0]}</p>

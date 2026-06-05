@@ -33,6 +33,17 @@ export type RepaymentProofSummary = {
   viewUrl: string | null;
 };
 
+export type RepaymentChannelSummary = {
+  id: string;
+  activeLoanId: string;
+  lenderId: string;
+  channel: string;
+  accountName: string;
+  accountNumber: string;
+  instructions: string | null;
+  createdAt: string;
+};
+
 export type RepaymentScheduleSummary = {
   id: string;
   activeLoanId: string;
@@ -65,6 +76,7 @@ export type ActiveLoanSummary = {
   repaymentAccountName: string | null;
   repaymentAccountNumber: string | null;
   repaymentInstructions: string | null;
+  additionalRepaymentChannels: RepaymentChannelSummary[];
   schedule: RepaymentScheduleSummary[];
 };
 
@@ -89,6 +101,8 @@ const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+const repaymentChannelSelect =
+  "id, active_loan_id, lender_id, channel, account_name, account_number, instructions, created_at";
 
 export async function loadBorrowerActiveLoans(
   verifiedAccess?: BorrowerAccess,
@@ -189,6 +203,7 @@ export async function loadManagerActiveLoans(): Promise<ActiveLoansLoadResult> {
 export function mapActiveLoanRow(
   row: ActiveLoanRow,
   schedule: RepaymentScheduleSummary[] = [],
+  additionalChannels: RepaymentChannelSummary[] = [],
 ): ActiveLoanSummary {
   const interestAmount = deriveInterestAmount({
     principalAmount: row.principal_amount,
@@ -215,6 +230,7 @@ export function mapActiveLoanRow(
     repaymentAccountName: row.repayment_account_name,
     repaymentAccountNumber: row.repayment_account_number,
     repaymentInstructions: row.repayment_instructions,
+    additionalRepaymentChannels: additionalChannels,
     schedule,
   };
 }
@@ -234,6 +250,24 @@ export function mapRepaymentScheduleRow(
     status: row.status,
     latestProof: proofs[0] ?? null,
     proofs,
+  };
+}
+
+type RepaymentChannelRow =
+  Database["public"]["Tables"]["repayment_channels"]["Row"];
+
+export function mapRepaymentChannelRow(
+  row: RepaymentChannelRow,
+): RepaymentChannelSummary {
+  return {
+    id: row.id,
+    activeLoanId: row.active_loan_id,
+    lenderId: row.lender_id,
+    channel: row.channel,
+    accountName: row.account_name,
+    accountNumber: row.account_number,
+    instructions: row.instructions,
+    createdAt: row.created_at,
   };
 }
 
@@ -275,18 +309,37 @@ async function loadSchedulesForLoans(
   }
 
   const loanIds = loans.map((loan) => loan.id);
-  const { data: scheduleRows, error } = await supabase
-    .from("loan_repayment_schedules")
-    .select(repaymentScheduleSelect)
-    .in("active_loan_id", loanIds)
-    .order("installment_number", { ascending: true });
+  const [scheduleResult, channelsResult] = await Promise.all([
+    supabase
+      .from("loan_repayment_schedules")
+      .select(repaymentScheduleSelect)
+      .in("active_loan_id", loanIds)
+      .order("installment_number", { ascending: true }),
+    supabase
+      .from("repayment_channels")
+      .select(repaymentChannelSelect)
+      .in("active_loan_id", loanIds)
+      .order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
+  const { data: scheduleRows, error: scheduleError } = scheduleResult;
+  const { data: channelRows, error: channelError } = channelsResult;
+
+  if (scheduleError) {
     return {
       ok: false,
       mode: "supabase",
       loans: [],
       message: "Could not load repayment schedule.",
+    };
+  }
+
+  if (channelError) {
+    return {
+      ok: false,
+      mode: "supabase",
+      loans: [],
+      message: "Could not load repayment channels.",
     };
   }
 
@@ -305,11 +358,25 @@ async function loadSchedulesForLoans(
     ]);
   });
 
+  const channelsByLoanId = new Map<string, RepaymentChannelSummary[]>();
+
+  (channelRows ?? []).forEach((row) => {
+    const channels = channelsByLoanId.get(row.active_loan_id) ?? [];
+    channelsByLoanId.set(row.active_loan_id, [
+      ...channels,
+      mapRepaymentChannelRow(row),
+    ]);
+  });
+
   return {
     ok: true,
     mode: "supabase",
     loans: loans.map((loan) =>
-      mapActiveLoanRow(loan, schedulesByLoanId.get(loan.id) ?? []),
+      mapActiveLoanRow(
+        loan,
+        schedulesByLoanId.get(loan.id) ?? [],
+        channelsByLoanId.get(loan.id) ?? [],
+      ),
     ),
     message: "Active loans loaded.",
   };
@@ -331,19 +398,26 @@ async function loadProofsByScheduleId(
     return new Map<string, RepaymentProofSummary[]>();
   }
 
+  const signedUrls = await Promise.all(
+    rows.map((row) =>
+      getRepaymentProofSignedUrl(supabase, row.storage_bucket, row.storage_path),
+    ),
+  );
+
   const proofsByScheduleId = new Map<string, RepaymentProofSummary[]>();
 
-  for (const row of rows) {
-    const summary = mapRepaymentProofRowWithoutUrl(row);
-    const existing = proofsByScheduleId.get(row.repayment_schedule_id) ?? [];
-    proofsByScheduleId.set(row.repayment_schedule_id, [...existing, summary]);
+  for (let i = 0; i < rows.length; i++) {
+    const summary = mapRepaymentProofRow(rows[i], signedUrls[i]);
+    const existing = proofsByScheduleId.get(rows[i].repayment_schedule_id) ?? [];
+    proofsByScheduleId.set(rows[i].repayment_schedule_id, [...existing, summary]);
   }
 
   return proofsByScheduleId;
 }
 
-function mapRepaymentProofRowWithoutUrl(
+function mapRepaymentProofRow(
   row: RepaymentProofRow,
+  viewUrl: string | null,
 ): RepaymentProofSummary {
   return {
     id: row.id,
@@ -354,7 +428,7 @@ function mapRepaymentProofRowWithoutUrl(
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at,
     reviewNotes: row.review_notes,
-    viewUrl: null,
+    viewUrl,
   };
 }
 

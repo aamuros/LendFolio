@@ -38,7 +38,8 @@ export function BorrowingPowerDetail({
             : "Not available"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Based on your saved financials and any active loan balance.
+          Lenders will add interest and fees on top of your principal. The total
+          repayment must fit within this amount.
         </p>
       </div>
       <div className="grid gap-4 px-5 pb-5">

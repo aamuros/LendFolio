@@ -2150,13 +2150,15 @@ function ApplicationForm({
             >
               <div className="grid gap-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Available to request
+                  Available credit
                 </p>
                 <p className="text-xl font-semibold tabular-nums sm:text-2xl">
                   {formatCreditAmount(creditSummary.availableCredit)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Based on your verified profile and active credit usage.
+                  Lenders will add interest and fees on top of your principal.
+                  The total repayment (principal + interest + fees) must fit
+                  within this amount.
                 </p>
               </div>
               {isOverAvailableCredit ? (
@@ -2170,7 +2172,7 @@ function ApplicationForm({
             </div>
           ) : null}
 
-          <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
+          <Field label="Requested principal amount" error={requestedAmountError} id="requestedAmount">
             <CurrencyInput
               className="h-12 rounded-xl"
               aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
@@ -2189,6 +2191,10 @@ function ApplicationForm({
                 Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
               </span>
             ) : null}
+            <span className="text-xs text-muted-foreground">
+              This is the principal you want to borrow. Lenders will add interest
+              and fees to determine your total repayment.
+            </span>
           </Field>
 
           <Field label="Preferred term" error={errors.preferredTerm?.message} id="preferredTerm">
@@ -2867,6 +2873,23 @@ function ActiveLoanCard({
                     <SummaryItem label="Instructions" value={loan.repaymentInstructions} />
                   ) : null}
                 </dl>
+                {loan.additionalRepaymentChannels.length > 0 ? (
+                  <div className="grid gap-2 border-t border-primary/10 pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Additional channels
+                    </p>
+                    {loan.additionalRepaymentChannels.map((ch) => (
+                      <dl key={ch.id} className="grid grid-cols-2 gap-2 text-sm">
+                        <SummaryItem label="Channel" value={ch.channel} />
+                        <SummaryItem label="Account name" value={ch.accountName} />
+                        <SummaryItem label="Account number" value={ch.accountNumber} />
+                        {ch.instructions ? (
+                          <SummaryItem label="Instructions" value={ch.instructions} />
+                        ) : null}
+                      </dl>
+                    ))}
+                  </div>
+                ) : null}
                 <p className="text-xs leading-5 text-muted-foreground">
                   Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
                 </p>
@@ -2904,6 +2927,7 @@ function ActiveLoanCard({
                     repaymentAccountName={loan.repaymentAccountName}
                     repaymentAccountNumber={loan.repaymentAccountNumber}
                     repaymentInstructions={loan.repaymentInstructions}
+                    additionalRepaymentChannels={loan.additionalRepaymentChannels}
                     onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     isHighlighted={repayment.id === highlightRepaymentId}
@@ -2930,6 +2954,7 @@ function RepaymentScheduleRow({
   repaymentAccountName,
   repaymentAccountNumber,
   repaymentInstructions,
+  additionalRepaymentChannels,
   onProofSubmitted,
   isHighlighted,
 }: {
@@ -2940,6 +2965,7 @@ function RepaymentScheduleRow({
   repaymentAccountName: string | null;
   repaymentAccountNumber: string | null;
   repaymentInstructions: string | null;
+  additionalRepaymentChannels: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["additionalRepaymentChannels"];
   onProofSubmitted: () => void;
   isHighlighted?: boolean;
 }) {
@@ -3045,6 +3071,23 @@ function RepaymentScheduleRow({
                     <SummaryItem label="Instructions" value={repaymentInstructions} />
                   ) : null}
                 </dl>
+                {additionalRepaymentChannels.length > 0 ? (
+                  <div className="grid gap-2 border-t border-primary/10 pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Additional channels
+                    </p>
+                    {additionalRepaymentChannels.map((ch) => (
+                      <dl key={ch.id} className="grid grid-cols-2 gap-2 text-sm">
+                        <SummaryItem label="Channel" value={ch.channel} />
+                        <SummaryItem label="Account name" value={ch.accountName} />
+                        <SummaryItem label="Account number" value={ch.accountNumber} />
+                        {ch.instructions ? (
+                          <SummaryItem label="Instructions" value={ch.instructions} />
+                        ) : null}
+                      </dl>
+                    ))}
+                  </div>
+                ) : null}
                 <p className="text-xs leading-5 text-muted-foreground">
                   Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
                 </p>

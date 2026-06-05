@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "./supabase/server";
 import type { AppRole, Database } from "./supabase/types";
-import { canAccessRole, isApprovedLender } from "./role-rules";
+import { canAccessRole, hasRole, isApprovedLender } from "./role-rules";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -34,11 +34,13 @@ export async function getCurrentUserProfile(
 
   try {
     const {
-      data: { user },
-      error: userError,
-    } = await client.auth.getUser();
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession();
 
-    if (userError || !user) {
+    const user = session?.user;
+
+    if (sessionError || !user) {
       return {
         ok: false,
         supabase: client,
@@ -49,7 +51,7 @@ export async function getCurrentUserProfile(
 
     const { data: profile, error: profileError } = await client
       .from("profiles")
-      .select("id, role, display_name, status, created_at, updated_at")
+      .select("id, role, additional_roles, display_name, status, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -62,8 +64,10 @@ export async function getCurrentUserProfile(
       };
     }
 
+    const isLender = hasRole(profile as CurrentUserProfile, "lender");
+
     const { data: lenderProfile, error: lenderProfileError } =
-      profile.role === "lender"
+      isLender
         ? await client
             .from("lender_profiles")
             .select(
@@ -88,7 +92,7 @@ export async function getCurrentUserProfile(
       profile: {
         ...profile,
         lenderProfile,
-      },
+      } as CurrentUserProfile,
     };
   } catch {
     return {
@@ -134,12 +138,13 @@ export async function requireApprovedLender(
 
   if (!isApprovedLender(result.profile)) {
     const verificationStatus = result.profile.lenderProfile?.verification_status;
+    const userIsLender = hasRole(result.profile, "lender");
     const message =
-      result.profile.role === "lender" && verificationStatus === "incomplete"
+      userIsLender && verificationStatus === "incomplete"
         ? "Complete your lender profile to continue."
-        : result.profile.role === "lender" && verificationStatus === "pending"
-          ? "Your lender access is pending review. You will be able to continue when your account is approved."
-          : result.profile.role === "lender" && verificationStatus === "rejected"
+        : userIsLender && verificationStatus === "pending"
+          ? "Your lender profile is under review. Upload the required verification documents so a manager can complete approval."
+          : userIsLender && verificationStatus === "rejected"
             ? "Your lender access was not approved. Update your lender profile to resubmit."
             : "Your account does not have access to this workspace.";
 

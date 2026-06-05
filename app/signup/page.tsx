@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { SignupForm } from "@/app/signup/signup-form";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
@@ -9,7 +9,7 @@ import { getRouteForRole } from "@/lib/app-roles";
 export default async function SignupPage() {
   const access = await getCurrentUserProfile();
   if (access.ok && access.profile.status === "active") {
-    redirect(getRouteForRole(access.profile.role));
+    redirect(getRouteForRole(access.profile.role), RedirectType.replace);
   }
 
   return (
