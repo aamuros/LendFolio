@@ -79,10 +79,26 @@ export function evaluateBorrowerReadiness(
     };
   }
 
-  const parsedPortfolio = borrowerPortfolioSchema.parse({
+  const parsedPortfolioResult = borrowerPortfolioSchema.safeParse({
     ...getBorrowerPortfolioDefaultValues(),
     ...portfolio,
   });
+
+  if (!parsedPortfolioResult.success) {
+    return {
+      readinessStatus: "incomplete",
+      missingFields: getMissingFieldsFromIssues(
+        parsedPortfolioResult.error.issues,
+      ),
+      riskFlags: [],
+      monthlyNetCashFlow: 0,
+      debtBurdenRatio: null,
+      profileIsStale: false,
+      nextActions: ["Complete the missing microbusiness profile fields."],
+    };
+  }
+
+  const parsedPortfolio = parsedPortfolioResult.data;
   const totalBusinessExpenses = calculateTotalBusinessExpenses(parsedPortfolio);
   const totalHouseholdExpenses = calculateTotalHouseholdExpenses(parsedPortfolio);
   const totalExistingDebtPayments =
@@ -228,6 +244,29 @@ function getMissingFields(portfolio: BorrowerPortfolioInput) {
     .filter(([field]) => !hasValue(portfolio[field]))
     .map(([, label]) => label);
 }
+
+function getMissingFieldsFromIssues(
+  issues: Array<{ path: PropertyKey[]; message: string }>,
+) {
+  const missingFields = issues.map((issue) => {
+    const path = issue.path.join(".");
+
+    return validationMissingFieldLabels[path] ?? issue.message;
+  });
+
+  return [...new Set(missingFields)];
+}
+
+const validationMissingFieldLabels: Record<string, string> = {
+  "address.regionCode": "Business region",
+  "address.cityOrMunicipality": "Business city or municipality",
+  "address.barangay": "Business barangay",
+  streetAddress: "Business street address",
+  "homeAddressSelection.regionCode": "Home address",
+  "homeAddressSelection.cityOrMunicipality": "Home address",
+  "homeAddressSelection.barangay": "Home address",
+  homeStreetAddress: "Home street address",
+};
 
 function hasBusinessLocation(portfolio: BorrowerPortfolioInput) {
   return hasValue(portfolio.location) || hasValue(portfolio.streetAddress);

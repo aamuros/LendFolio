@@ -102,6 +102,81 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.missingFields).toContain("Business name");
   });
 
+  it("does not throw when a physical business address is incomplete", () => {
+    const readiness = evaluateBorrowerReadiness({
+      ...getBorrowerPortfolioDefaultValues(),
+      businessName: "Nena Store",
+      businessType: "sari_sari_store",
+      operatingModel: "physical_store",
+      location: "",
+      address: {
+        regionCode: "",
+        regionName: "",
+        cityOrMunicipality: "",
+        barangay: "",
+        zipCode: "",
+      },
+      streetAddress: "",
+    });
+
+    expect(readiness.readinessStatus).toBe("incomplete");
+    expect(readiness.missingFields).toContain("Business region");
+    expect(readiness.missingFields).toContain("Business city or municipality");
+    expect(readiness.missingFields).toContain("Business barangay");
+    expect(readiness.missingFields).toContain("Business street address");
+  });
+
+  it("does not require business address fields for online-only profiles", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        operatingModel: "online_only",
+        location: "",
+        address: {
+          regionCode: "",
+          regionName: "",
+          cityOrMunicipality: "",
+          barangay: "",
+          zipCode: "",
+        },
+        streetAddress: "",
+        isBusinessAddressSameAsHome: true,
+      }),
+    );
+
+    expect(readiness.missingFields).not.toContain("Business region");
+    expect(readiness.missingFields).not.toContain("Business street address");
+    expect(readiness.readinessStatus).toBe("needs_review");
+  });
+
+  it("derives business address readiness from home address when same as home", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        location: "",
+        address: {
+          regionCode: "",
+          regionName: "",
+          cityOrMunicipality: "",
+          barangay: "",
+          zipCode: "",
+        },
+        streetAddress: "",
+        isBusinessAddressSameAsHome: true,
+        homeAddressSelection: {
+          regionCode: "NCR",
+          regionName: "NCR - National Capital Region",
+          cityOrMunicipality: "Quezon City",
+          barangay: "Diliman",
+          zipCode: "1100",
+        },
+        homeStreetAddress: "Unit 2, 123 Maginhawa Street",
+      }),
+    );
+
+    expect(readiness.missingFields).not.toContain("Business region");
+    expect(readiness.missingFields).not.toContain("Business street address");
+    expect(readiness.readinessStatus).toBe("needs_review");
+  });
+
   it("blocks zero revenue", () => {
     const readiness = evaluateBorrowerReadiness(
       completeProfile({ monthlyGrossRevenue: 0, averageDailySales: 0 }),
