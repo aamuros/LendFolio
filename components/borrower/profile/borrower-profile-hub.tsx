@@ -310,7 +310,7 @@ export function BorrowerProfileHub({
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+          <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -363,7 +363,7 @@ function ProfileHubSkeleton() {
   return (
     <div className="grid gap-6">
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+      <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-[4.25rem] w-full rounded-none" />
         ))}

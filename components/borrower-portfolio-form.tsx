@@ -52,6 +52,7 @@ import {
   calculateTotalExistingDebtPayments,
   calculateTotalHouseholdExpenses,
   getBorrowerPortfolioDefaultValues,
+  isPhysicalBusinessAddressRequired,
   operatingModelLabels,
   operatingModelOptions,
   ownershipTypeLabels,
@@ -93,12 +94,22 @@ export function BorrowerPortfolioForm({
     control,
     formState: { errors },
   } = useForm<BorrowerPortfolioFormInput, unknown, BorrowerPortfolioInput>({
-    resolver: zodResolver(borrowerPortfolioSchema) as never,
+    resolver: zodResolver(borrowerPortfolioSchema as never) as never,
     defaultValues,
     mode: "onBlur",
     reValidateMode: "onChange",
   });
   const currentValues = useWatch({ control }) as BorrowerPortfolioFormInput;
+  const isBusinessAddressSameAsHome = useWatch({
+    control,
+    name: "isBusinessAddressSameAsHome",
+  });
+  const operatingModel = useWatch({
+    control,
+    name: "operatingModel",
+  });
+  const shouldShowBusinessAddress =
+    isPhysicalBusinessAddressRequired(operatingModel);
   const parsedCurrent = borrowerPortfolioSchema.safeParse({
     ...defaultValues,
     ...currentValues,
@@ -184,8 +195,8 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           <FormSection
-            title="Microbusiness profile"
-            description="Complete this once. Loan applications use this saved financial declaration."
+            title="Borrower and contact details"
+            description="Complete this once. Loan applications use this saved profile."
           >
             <TextField
               id="mobileNumber"
@@ -202,13 +213,41 @@ export function BorrowerPortfolioForm({
               })}
               step="0.5"
             />
-            <TextField
-              id="homeAddress"
-              label="Home address"
-              error={errors.homeAddress?.message}
-              register={register("homeAddress")}
-              className="sm:col-span-2"
-            />
+            <div className="grid gap-4 rounded-2xl border border-border/50 bg-muted/20 p-4 sm:col-span-2">
+              <div className="grid gap-1">
+                <h4 className="text-sm font-semibold">Home address</h4>
+              </div>
+              <Controller
+                control={control}
+                name="homeAddressSelection"
+                render={({ field }) => (
+                  <AddressSelect
+                    value={field.value}
+                    onChange={field.onChange}
+                    idPrefix="borrower-home-address"
+                    required
+                    errors={{
+                      regionCode:
+                        errors.homeAddressSelection?.regionCode?.message,
+                      cityOrMunicipality:
+                        errors.homeAddressSelection?.cityOrMunicipality
+                          ?.message,
+                      barangay:
+                        errors.homeAddressSelection?.barangay?.message,
+                      zipCode: errors.homeAddressSelection?.zipCode?.message,
+                    }}
+                    showZipCode={false}
+                    legacyAddress={currentValues.homeAddress}
+                  />
+                )}
+              />
+              <TextField
+                id="homeStreetAddress"
+                label="Unit / floor / building / street"
+                error={errors.homeStreetAddress?.message}
+                register={register("homeStreetAddress")}
+              />
+            </div>
             <TextField
               id="emergencyContactName"
               label="Emergency contact name"
@@ -227,92 +266,6 @@ export function BorrowerPortfolioForm({
               error={errors.emergencyContactRelationship?.message}
               register={register("emergencyContactRelationship")}
             />
-          </FormSection>
-
-          <FormSection title="Business details">
-            <TextField
-              id="businessName"
-              label="Business name"
-              error={errors.businessName?.message}
-              register={register("businessName")}
-            />
-            <SelectField
-              control={control}
-              name="businessType"
-              label="Business type"
-              options={businessTypeOptions}
-              labels={businessTypeLabels}
-              error={errors.businessType?.message}
-            />
-            <SelectField
-              control={control}
-              name="ownershipType"
-              label="Ownership type"
-              options={ownershipTypeOptions}
-              labels={ownershipTypeLabels}
-              error={errors.ownershipType?.message}
-            />
-            <SelectField
-              control={control}
-              name="borrowerRole"
-              label="Your role"
-              options={borrowerRoleOptions}
-              labels={borrowerRoleLabels}
-              error={errors.borrowerRole?.message}
-            />
-            <NumberField
-              id="yearsInOperation"
-              label="Years in operation"
-              error={errors.yearsInOperation?.message}
-              register={register("yearsInOperation", {
-                setValueAs: parseMoneyInput,
-              })}
-              step="0.5"
-            />
-            <CheckboxField
-              control={control}
-              name="isBusinessAddressSameAsHome"
-              label="Business address is the same as home"
-            />
-            <div className="sm:col-span-2">
-              <Controller
-                control={control}
-                name="address"
-                render={({ field }) => (
-                  <Field
-                    label="Business address"
-                    error={
-                      errors.address?.regionCode?.message ||
-                      errors.address?.cityOrMunicipality?.message ||
-                      errors.address?.barangay?.message ||
-                      errors.address?.zipCode?.message
-                    }
-                    id="address"
-                  >
-                    <AddressSelect
-                      value={field.value}
-                      onChange={field.onChange}
-                      idPrefix="borrower-address"
-                      errors={{
-                        regionCode: errors.address?.regionCode?.message,
-                        cityOrMunicipality:
-                          errors.address?.cityOrMunicipality?.message,
-                        barangay: errors.address?.barangay?.message,
-                        zipCode: errors.address?.zipCode?.message,
-                      }}
-                    />
-                  </Field>
-                )}
-              />
-              <div className="mt-4">
-                <TextField
-                  id="streetAddress"
-                  label="Street / building / unit"
-                  error={errors.streetAddress?.message}
-                  register={register("streetAddress")}
-                />
-              </div>
-            </div>
           </FormSection>
 
           <FormSection title="Business operations">
@@ -372,6 +325,104 @@ export function BorrowerPortfolioForm({
               label="Uses bank or e-wallet"
             />
           </FormSection>
+
+          <FormSection title="Business details">
+            <TextField
+              id="businessName"
+              label="Business name"
+              error={errors.businessName?.message}
+              register={register("businessName")}
+            />
+            <SelectField
+              control={control}
+              name="businessType"
+              label="Business type"
+              options={businessTypeOptions}
+              labels={businessTypeLabels}
+              error={errors.businessType?.message}
+            />
+            <SelectField
+              control={control}
+              name="ownershipType"
+              label="Ownership type"
+              options={ownershipTypeOptions}
+              labels={ownershipTypeLabels}
+              error={errors.ownershipType?.message}
+            />
+            <SelectField
+              control={control}
+              name="borrowerRole"
+              label="Your role"
+              options={borrowerRoleOptions}
+              labels={borrowerRoleLabels}
+              error={errors.borrowerRole?.message}
+            />
+            <NumberField
+              id="yearsInOperation"
+              label="Years in operation"
+              error={errors.yearsInOperation?.message}
+              register={register("yearsInOperation", {
+                setValueAs: parseMoneyInput,
+              })}
+              step="0.5"
+            />
+          </FormSection>
+
+          {shouldShowBusinessAddress ? (
+            <FormSection title="Business address">
+              <div className="grid gap-4 rounded-2xl border border-border/50 bg-muted/20 p-4 sm:col-span-2">
+                <CheckboxField
+                  control={control}
+                  name="isBusinessAddressSameAsHome"
+                  label="Business address is the same as home"
+                />
+                {isBusinessAddressSameAsHome ? (
+                  <Alert>
+                    <AlertDescription>
+                      Using your home address as business address.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid gap-4">
+                    <SelectField
+                      control={control}
+                      name="country"
+                      label="Country"
+                      options={["Philippines"] as const}
+                      labels={{ Philippines: "Philippines" }}
+                      error={errors.country?.message}
+                    />
+                    <Controller
+                      control={control}
+                      name="address"
+                      render={({ field }) => (
+                        <AddressSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          idPrefix="borrower-business-address"
+                          required
+                          errors={{
+                            regionCode: errors.address?.regionCode?.message,
+                            cityOrMunicipality:
+                              errors.address?.cityOrMunicipality?.message,
+                            barangay: errors.address?.barangay?.message,
+                            zipCode: errors.address?.zipCode?.message,
+                          }}
+                          showZipCode={false}
+                        />
+                      )}
+                    />
+                    <TextField
+                      id="streetAddress"
+                      label="Unit / floor / building / street"
+                      error={errors.streetAddress?.message}
+                      register={register("streetAddress")}
+                    />
+                  </div>
+                )}
+              </div>
+            </FormSection>
+          ) : null}
 
           <FormSection title="Business registration">
             <CheckboxField
@@ -813,7 +864,12 @@ function SelectField<
             onValueChange={(value) => field.onChange(optional ? value || null : value)}
             value={(field.value as string | null | undefined) ?? ""}
           >
-            <SelectTrigger id={String(name)} className="w-full">
+            <SelectTrigger
+              id={String(name)}
+              className="w-full"
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${String(name)}-error` : undefined}
+            >
               <SelectValue placeholder={`Select ${label.toLowerCase()}`} />
             </SelectTrigger>
             <SelectContent>

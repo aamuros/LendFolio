@@ -31,6 +31,7 @@ export type AddressSelectProps = {
   onStreetAddressChange?: (value: string) => void;
   streetAddressError?: string;
   legacyAddress?: string | null;
+  showZipCode?: boolean;
 };
 
 export function AddressSelect({
@@ -46,6 +47,7 @@ export function AddressSelect({
   onStreetAddressChange,
   streetAddressError,
   legacyAddress,
+  showZipCode = true,
 }: AddressSelectProps) {
   const regions = useMemo(() => getRegions(), []);
 
@@ -265,55 +267,57 @@ export function AddressSelect({
           ) : null}
         </div>
 
-        <div className="grid gap-1.5">
-          <label
-            htmlFor={`${idPrefix}-zipCode`}
-            className="text-foreground text-sm font-medium"
-          >
-            ZIP Code {required ? <span className="text-destructive">*</span> : null}
-          </label>
-          {showZipDropdown && value.cityOrMunicipality ? (
-            <Select
-              value={value.zipCode}
-              onValueChange={(zip) => onChange({ ...value, zipCode: zip })}
-              disabled={disabled || !value.cityOrMunicipality}
-              required={required}
+        {showZipCode ? (
+          <div className="grid gap-1.5">
+            <label
+              htmlFor={`${idPrefix}-zipCode`}
+              className="text-foreground text-sm font-medium"
             >
-              <SelectTrigger
+              ZIP Code {required ? <span className="text-destructive">*</span> : null}
+            </label>
+            {showZipDropdown && value.cityOrMunicipality ? (
+              <Select
+                value={value.zipCode}
+                onValueChange={(zip) => onChange({ ...value, zipCode: zip })}
+                disabled={disabled || !value.cityOrMunicipality}
+                required={required}
+              >
+                <SelectTrigger
+                  id={`${idPrefix}-zipCode`}
+                  className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+                  aria-invalid={Boolean(errors?.zipCode)}
+                  aria-describedby={
+                    errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
+                  }
+                >
+                  <SelectValue placeholder="Select ZIP code" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={value.zipCode}>{value.zipCode}</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div
                 id={`${idPrefix}-zipCode`}
-                className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+                className="flex h-12 min-h-12 items-center rounded-xl border border-input bg-muted/30 px-3 text-sm"
                 aria-invalid={Boolean(errors?.zipCode)}
                 aria-describedby={
                   errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
                 }
               >
-                <SelectValue placeholder="Select ZIP code" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={value.zipCode}>{value.zipCode}</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : (
-            <div
-              id={`${idPrefix}-zipCode`}
-              className="flex h-12 min-h-12 items-center rounded-xl border border-input bg-muted/30 px-3 text-sm"
-              aria-invalid={Boolean(errors?.zipCode)}
-              aria-describedby={
-                errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
-              }
-            >
-              {value.zipCode || (value.cityOrMunicipality ? "—" : "Select a city first")}
-            </div>
-          )}
-          {errors?.zipCode ? (
-            <span
-              id={`${idPrefix}-zipCode-error`}
-              className="text-sm leading-5 text-destructive"
-            >
-              {errors.zipCode}
-            </span>
-          ) : null}
-        </div>
+                {value.zipCode || (value.cityOrMunicipality ? "—" : "Select a city first")}
+              </div>
+            )}
+            {errors?.zipCode ? (
+              <span
+                id={`${idPrefix}-zipCode-error`}
+                className="text-sm leading-5 text-destructive"
+              >
+                {errors.zipCode}
+              </span>
+            ) : null}
+          </div>
+        ) : null}
 
         {onStreetAddressChange ? (
           <div className="grid gap-1.5 sm:col-span-2">

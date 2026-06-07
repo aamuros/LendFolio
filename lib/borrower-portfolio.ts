@@ -1,8 +1,9 @@
 import { z } from "zod";
 import type { Database } from "@/lib/supabase/types";
 import {
-  isValidPhilippineAddressSelection,
   formatPhilippineAddress,
+  isValidPhilippineAddressSelection,
+  parseLegacyAddress,
 } from "@/lib/philippine-addresses";
 import type { PhilippineAddressSelection } from "@/lib/philippine-addresses";
 
@@ -156,9 +157,19 @@ const addressSelectionSchema = z
     }
   });
 
+const emptyAddressSelection = {
+  regionCode: "",
+  regionName: "",
+  cityOrMunicipality: "",
+  barangay: "",
+  zipCode: "",
+};
+
 const borrowerPortfolioBaseSchema = z.object({
   mobileNumber: shortText(30),
   homeAddress: shortText(240),
+  homeAddressSelection: addressSelectionSchema.default(emptyAddressSelection),
+  homeStreetAddress: shortText(240),
   yearsAtCurrentAddress: numberField(100),
   emergencyContactName: shortText(120),
   emergencyContactNumber: shortText(30),
@@ -167,13 +178,8 @@ const borrowerPortfolioBaseSchema = z.object({
   businessName: shortText(120),
   businessType: z.enum(businessTypeOptions).default("sari_sari_store"),
   location: shortText(240),
-  address: addressSelectionSchema.default({
-    regionCode: "",
-    regionName: "",
-    cityOrMunicipality: "",
-    barangay: "",
-    zipCode: "",
-  }),
+  country: z.literal("Philippines").default("Philippines"),
+  address: addressSelectionSchema.default(emptyAddressSelection),
   streetAddress: shortText(240),
   isBusinessAddressSameAsHome: z.boolean().default(false),
   ownershipType: z.enum(ownershipTypeOptions).default("sole_proprietor"),
@@ -292,12 +298,114 @@ const borrowerPortfolioBaseSchema = z.object({
   consentsToCreditCheck: z.boolean().default(false),
 });
 
+const borrowerPortfolioValidatedSchema = z
+  .preprocess((input) => {
+    if (!input || typeof input !== "object") {
+      return input;
+    }
+
+    if (
+      "operatingModel" in input &&
+      input.operatingModel === "online_only"
+    ) {
+      return {
+        ...input,
+        address: emptyAddressSelection,
+        streetAddress: "",
+        location: "Online only",
+        isBusinessAddressSameAsHome: false,
+      };
+    }
+
+    if (
+      "isBusinessAddressSameAsHome" in input &&
+      input.isBusinessAddressSameAsHome === true
+    ) {
+      const homeAddressSelection =
+        "homeAddressSelection" in input &&
+        input.homeAddressSelection &&
+        typeof input.homeAddressSelection === "object"
+          ? (input.homeAddressSelection as PhilippineAddressSelection)
+          : emptyAddressSelection;
+
+      return {
+        ...input,
+        address: homeAddressSelection,
+        streetAddress:
+          "homeStreetAddress" in input &&
+          typeof input.homeStreetAddress === "string"
+            ? input.homeStreetAddress
+            : "",
+      };
+    }
+
+    return input;
+  }, borrowerPortfolioBaseSchema)
+  .superRefine((value, context) => {
+    const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
+    const hasCompleteStructuredHomeAddress =
+      isValidPhilippineAddressSelection(value.homeAddressSelection) &&
+      Boolean(value.homeStreetAddress?.trim());
+
+    if (!isPhysicalBusinessAddressRequired(value.operatingModel)) {
+      return;
+    }
+
+    if (value.isBusinessAddressSameAsHome) {
+      if (!hasCompleteStructuredHomeAddress && !hasLegacyHomeAddress) {
+        context.addIssue({
+          code: "custom",
+          path: ["homeAddressSelection", "regionCode"],
+          message: "Complete your home address.",
+        });
+      }
+
+      return;
+    }
+
+    if (value.location?.trim()) {
+      return;
+    }
+
+    if (!value.address.regionCode) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "regionCode"],
+        message: "Select your business region.",
+      });
+    }
+
+    if (!value.address.cityOrMunicipality) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "cityOrMunicipality"],
+        message: "Select your business city or municipality.",
+      });
+    }
+
+    if (!value.address.barangay) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "barangay"],
+        message: "Select your business barangay.",
+      });
+    }
+
+    if (!value.streetAddress?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["streetAddress"],
+        message: "Enter your business street address.",
+      });
+    }
+  });
+
 export type BorrowerPortfolioFormInput = z.infer<
   typeof borrowerPortfolioBaseSchema
 >;
 export type BorrowerPortfolioInput = BorrowerPortfolioFormInput;
 
-export const borrowerPortfolioSchema = borrowerPortfolioBaseSchema.transform(
+export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transform(
   (value): BorrowerPortfolioInput => {
     const monthlyGrossRevenue: number =
       value.monthlyGrossRevenue > 0
@@ -311,6 +419,29 @@ export const borrowerPortfolioSchema = borrowerPortfolioBaseSchema.transform(
 
     return {
       ...value,
+      homeAddress: formatHomeAddress(value),
+      address:
+        value.operatingModel === "online_only"
+          ? emptyAddressSelection
+          : value.isBusinessAddressSameAsHome
+          ? value.homeAddressSelection
+          : value.address,
+      streetAddress:
+        value.operatingModel === "online_only"
+          ? ""
+          : value.isBusinessAddressSameAsHome
+          ? value.homeStreetAddress
+          : value.streetAddress,
+      isBusinessAddressSameAsHome:
+        value.operatingModel === "online_only"
+          ? false
+          : value.isBusinessAddressSameAsHome,
+      location:
+        value.operatingModel === "online_only"
+          ? "Online only"
+          : value.isBusinessAddressSameAsHome
+            ? formatHomeAddress(value)
+            : value.location,
       monthlyGrossRevenue,
       monthlyExpenses: totalBusinessExpenses,
       existingLoanPayments: totalExistingDebtPayments,
@@ -322,7 +453,7 @@ type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 
 export function getBorrowerPortfolioDefaultValues(): BorrowerPortfolioInput {
-  return borrowerPortfolioSchema.parse({});
+  return borrowerPortfolioBaseSchema.parse({});
 }
 
 export function calculateTotalBusinessExpenses(
@@ -416,6 +547,7 @@ export function mapBorrowerPortfolioRow(
   const cityOrMunicipality = row.city_or_municipality ?? "";
   const barangay = row.barangay ?? "";
   const zipCode = row.zip_code ?? "";
+  const parsedHomeAddress = parseLegacyAddress(row.home_address ?? "");
   const expenseBreakdown = asRecord(row.expense_breakdown);
   const debtSummary = asRecord(row.debt_obligation_summary);
 
@@ -430,6 +562,17 @@ export function mapBorrowerPortfolioRow(
   const mapped = {
     mobileNumber: stringFrom(row.mobile_number),
     homeAddress: stringFrom(row.home_address),
+    homeAddressSelection: {
+      regionCode: parsedHomeAddress?.regionCode ?? "",
+      regionName: parsedHomeAddress?.regionName ?? "",
+      cityOrMunicipality: parsedHomeAddress?.cityOrMunicipality ?? "",
+      barangay: parsedHomeAddress?.barangay ?? "",
+      zipCode: parsedHomeAddress?.zipCode ?? "",
+    },
+    homeStreetAddress: deriveLegacyStreetAddress(
+      row.home_address ?? "",
+      parsedHomeAddress,
+    ),
     yearsAtCurrentAddress: toNumber(row.years_at_current_address),
     emergencyContactName: stringFrom(row.emergency_contact_name),
     emergencyContactNumber: stringFrom(row.emergency_contact_number),
@@ -439,6 +582,7 @@ export function mapBorrowerPortfolioRow(
     businessName: row.business_name ?? "",
     businessType: mapBusinessType(row.business_type),
     location: row.location === draftLocationPlaceholder ? "" : row.location ?? "",
+    country: "Philippines" as const,
     address,
     streetAddress: row.business_address ?? "",
     isBusinessAddressSameAsHome: Boolean(row.is_business_address_same_as_home),
@@ -542,7 +686,7 @@ export function mapBorrowerPortfolioRow(
     consentsToCreditCheck: Boolean(row.consents_to_credit_check),
   };
 
-  return borrowerPortfolioSchema.parse(backfillDetailedTotals(mapped));
+  return borrowerPortfolioBaseSchema.parse(backfillDetailedTotals(mapped));
 }
 
 export function resolveBorrowerAddressFields(
@@ -555,23 +699,79 @@ export function resolveBorrowerAddressFields(
   region: string | null;
   zipCode: string | null;
 } {
+  if (input.operatingModel === "online_only") {
+    return {
+      location: "Online only",
+      businessAddress: null,
+      barangay: null,
+      cityOrMunicipality: null,
+      region: null,
+      zipCode: null,
+    };
+  }
+
+  if (input.isBusinessAddressSameAsHome) {
+    const homeAddress = formatHomeAddress(input);
+
+    return {
+      location: homeAddress || draftLocationPlaceholder,
+      businessAddress: input.homeStreetAddress?.trim() || null,
+      barangay: input.homeAddressSelection.barangay || null,
+      cityOrMunicipality:
+        input.homeAddressSelection.cityOrMunicipality || null,
+      region: input.homeAddressSelection.regionCode || null,
+      zipCode: input.homeAddressSelection.zipCode || null,
+    };
+  }
+
   const hasStructuredAddress =
     input.address.regionCode &&
     input.address.cityOrMunicipality &&
     input.address.barangay &&
     input.address.zipCode;
+  const regionName = input.address.regionName || input.address.regionCode;
   const formatted = hasStructuredAddress
-    ? formatPhilippineAddress(input.address, input.streetAddress || undefined)
+    ? [
+        input.address.barangay,
+        input.address.cityOrMunicipality,
+        regionName,
+        input.country,
+      ]
+        .filter(Boolean)
+        .join(", ")
     : (input.location ?? "").trim();
+  const businessAddress = input.streetAddress?.trim() ?? "";
 
   return {
     location: formatted || draftLocationPlaceholder,
-    businessAddress: input.streetAddress?.trim() || null,
+    businessAddress: businessAddress || null,
     barangay: input.address.barangay || null,
     cityOrMunicipality: input.address.cityOrMunicipality || null,
     region: input.address.regionCode || null,
     zipCode: input.address.zipCode || null,
   };
+}
+
+export function isPhysicalBusinessAddressRequired(
+  operatingModel: BorrowerPortfolioInput["operatingModel"],
+) {
+  return operatingModel !== "online_only";
+}
+
+export function formatHomeAddress(
+  input: Pick<
+    BorrowerPortfolioInput,
+    "homeAddressSelection" | "homeStreetAddress" | "homeAddress"
+  >,
+) {
+  if (isValidPhilippineAddressSelection(input.homeAddressSelection)) {
+    return formatPhilippineAddress(
+      input.homeAddressSelection,
+      input.homeStreetAddress,
+    );
+  }
+
+  return input.homeAddress?.trim() ?? "";
 }
 
 export const businessTypeLabels: Record<
@@ -704,6 +904,24 @@ function numberFrom(...values: unknown[]) {
 
 function stringFrom(value: unknown) {
   return typeof value === "string" ? value : "";
+}
+
+function deriveLegacyStreetAddress(
+  address: string,
+  parsedAddress: Partial<PhilippineAddressSelection> | null,
+) {
+  if (!address || !parsedAddress) return "";
+
+  const firstStructuredPart = [
+    parsedAddress.barangay,
+    parsedAddress.cityOrMunicipality,
+    parsedAddress.regionName,
+    parsedAddress.zipCode,
+  ].find(Boolean);
+
+  if (!firstStructuredPart) return "";
+
+  return address.split(firstStructuredPart)[0]?.replace(/,\s*$/, "").trim() ?? "";
 }
 
 function asRecord(value: unknown): Record<string, unknown> {
