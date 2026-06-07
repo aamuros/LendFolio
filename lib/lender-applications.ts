@@ -497,8 +497,14 @@ function toLenderApplicationReview(
 ): LenderApplicationReview {
   const mappedApplication = mapLoanApplicationRow(application);
   const reviewPortfolio = getSubmittedPortfolio(application, portfolio);
+  const businessType = reviewPortfolio.business_type ?? "other";
+  const location = reviewPortfolio.location ?? "Not provided";
+  const monthlyGrossRevenue = reviewPortfolio.monthly_gross_revenue ?? 0;
+  const monthlyExpenses = reviewPortfolio.monthly_expenses ?? 0;
+  const existingLoanPayments = reviewPortfolio.existing_loan_payments ?? 0;
+  const yearsInOperation = reviewPortfolio.years_in_operation ?? 0;
   const estimatedNetMonthlyRevenue =
-    reviewPortfolio.monthly_gross_revenue - reviewPortfolio.monthly_expenses;
+    monthlyGrossRevenue - monthlyExpenses;
 
   return {
     ...mappedApplication,
@@ -506,19 +512,19 @@ function toLenderApplicationReview(
     currentLenderOfferState: getCurrentLenderOfferState(offers),
     hasAcceptedOffer,
     portfolio: {
-      businessType: reviewPortfolio.business_type,
-      businessTypeLabel: businessTypeLabels[reviewPortfolio.business_type],
-      location: reviewPortfolio.location,
-      monthlyGrossRevenue: reviewPortfolio.monthly_gross_revenue,
-      monthlyExpenses: reviewPortfolio.monthly_expenses,
-      existingLoanPayments: reviewPortfolio.existing_loan_payments,
-      yearsInOperation: reviewPortfolio.years_in_operation,
+      businessType,
+      businessTypeLabel: businessTypeLabels[businessType],
+      location,
+      monthlyGrossRevenue,
+      monthlyExpenses,
+      existingLoanPayments,
+      yearsInOperation,
       loanPurposeContext: reviewPortfolio.loan_purpose_context,
     },
     financialIndicators: {
       estimatedNetMonthlyRevenue,
       monthlyCashAfterLoanPayments:
-        estimatedNetMonthlyRevenue - reviewPortfolio.existing_loan_payments,
+        estimatedNetMonthlyRevenue - existingLoanPayments,
     },
     offers: offers.map(mapLoanOfferRow),
   };
@@ -647,8 +653,9 @@ function combineOffersWithApplications(
         submittedAt: mappedApplication.submittedAt,
         portfolio: portfolio
           ? {
-              businessTypeLabel: businessTypeLabels[portfolio.business_type],
-              location: portfolio.location,
+              businessTypeLabel:
+                businessTypeLabels[portfolio.business_type ?? "other"],
+              location: portfolio.location ?? "Not provided",
             }
           : null,
       },

@@ -10,9 +10,14 @@ import {
   calculateTotalBusinessExpenses,
   calculateTotalExistingDebtPayments,
   calculateTotalHouseholdExpenses,
+  borrowerPortfolioStepLabels,
+  borrowerPortfolioStepSchemas,
   borrowerPortfolioSchema,
+  getCompletedBorrowerPortfolioSteps,
+  getNextIncompleteBorrowerPortfolioStep,
   mapBorrowerPortfolioRow,
   resolveBorrowerAddressFields,
+  type BorrowerPortfolioStep,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import {
@@ -60,6 +65,22 @@ export type BorrowerPortfolioSaveResult =
       ok: true;
       mode: "supabase";
       message: string;
+    }
+  | {
+      ok: false;
+      mode: "auth" | "validation" | "supabase";
+      message: string;
+      fieldErrors?: Partial<Record<keyof BorrowerPortfolioInput, string[]>>;
+    };
+
+export type BorrowerPortfolioStepSaveResult =
+  | {
+      ok: true;
+      mode: "supabase";
+      message: string;
+      portfolio: BorrowerPortfolioInput;
+      completedSteps: BorrowerPortfolioStep[];
+      nextIncompleteStep: BorrowerPortfolioStep;
     }
   | {
       ok: false;
@@ -469,6 +490,333 @@ export async function saveBorrowerPortfolio(
   }
 }
 
+export async function saveBorrowerPortfolioStep(
+  step: BorrowerPortfolioStep,
+  values: BorrowerPortfolioInput,
+): Promise<BorrowerPortfolioStepSaveResult> {
+  const schema = borrowerPortfolioStepSchemas[step];
+  const parsed = schema.safeParse(values);
+
+  if (!parsed.success) {
+    const { fieldErrors } = parsed.error.flatten();
+
+    return {
+      ok: false,
+      mode: "validation",
+      message: "Review the highlighted fields before saving.",
+      fieldErrors,
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        mode: "auth",
+        message: access.message,
+      };
+    }
+
+    const { data: existingRow, error: loadError } = await supabase
+      .from("borrower_portfolios")
+      .select(borrowerPortfolioCreditSelect)
+      .eq("borrower_id", access.profile.id)
+      .maybeSingle();
+
+    if (loadError) {
+      return {
+        ok: false,
+        mode: "supabase",
+        message: "Could not load your profile.",
+      };
+    }
+
+    const existingPortfolio = existingRow
+      ? mapBorrowerPortfolioRow(existingRow)
+      : null;
+    const mergedPortfolio = {
+      ...(existingPortfolio ?? {}),
+      ...values,
+    } as BorrowerPortfolioInput;
+    const payload = buildBorrowerPortfolioStepPayload(
+      step,
+      mergedPortfolio,
+      access.profile.id,
+    );
+
+    const { data: savedRow, error: saveError } = await supabase
+      .from("borrower_portfolios")
+      .upsert(payload as never, { onConflict: "borrower_id" })
+      .select(borrowerPortfolioCreditSelect)
+      .single();
+
+    if (saveError || !savedRow) {
+      return {
+        ok: false,
+        mode: "supabase",
+        message: "Could not save this profile section.",
+      };
+    }
+
+    const savedPortfolio = mapBorrowerPortfolioRow(savedRow);
+    const completedSteps = getCompletedBorrowerPortfolioSteps(savedPortfolio);
+    const nextIncompleteStep =
+      getNextIncompleteBorrowerPortfolioStep(savedPortfolio);
+
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      mode: "supabase",
+      message: `${borrowerPortfolioStepLabels[step]} saved.`,
+      portfolio: savedPortfolio,
+      completedSteps,
+      nextIncompleteStep,
+    };
+  } catch {
+    return {
+      ok: false,
+      mode: "auth",
+      message: "Sign in to continue.",
+    };
+  }
+}
+
+function buildBorrowerPortfolioStepPayload(
+  step: BorrowerPortfolioStep,
+  portfolio: BorrowerPortfolioInput,
+  borrowerId: string,
+) {
+  const now = new Date().toISOString();
+  const base = {
+    borrower_id: borrowerId,
+    updated_at: now,
+  };
+
+  if (step === "businessBasics") {
+    return {
+      ...base,
+      business_name: portfolio.businessName,
+      business_type: portfolio.businessType,
+      ownership_type: portfolio.ownershipType,
+      borrower_role: portfolio.borrowerRole,
+      years_in_operation: portfolio.yearsInOperation,
+      operating_model: portfolio.operatingModel,
+      primary_sales_channel: portfolio.primarySalesChannel,
+      business_schedule: portfolio.businessSchedule,
+      number_of_employees: portfolio.numberOfEmployees,
+      main_products_or_services:
+        portfolio.mainProductsOrServices?.trim() || null,
+      main_suppliers: portfolio.mainSuppliers?.trim() || null,
+      keeps_sales_records: portfolio.keepsSalesRecords,
+      uses_bank_or_ewallet: portfolio.usesBankOrEwallet,
+    };
+  }
+
+  if (step === "businessAddress") {
+    const resolvedAddress = resolveBorrowerAddressFields(portfolio);
+
+    return {
+      ...base,
+      location: resolvedAddress.location,
+      business_address: resolvedAddress.businessAddress,
+      barangay: resolvedAddress.barangay,
+      city_or_municipality: resolvedAddress.cityOrMunicipality,
+      region: resolvedAddress.region,
+      zip_code: resolvedAddress.zipCode,
+      is_business_address_same_as_home:
+        portfolio.isBusinessAddressSameAsHome,
+    };
+  }
+
+  if (step === "businessOperations") {
+    return {
+      ...base,
+      has_business_registration: portfolio.hasBusinessRegistration,
+      business_registration_type: portfolio.hasBusinessRegistration
+        ? portfolio.businessRegistrationType
+        : null,
+      registration_number: portfolio.registrationNumber || null,
+      registration_date: portfolio.registrationDate || null,
+      unregistered_reason: portfolio.unregisteredReason || null,
+      profile_review_status: portfolio.hasBusinessRegistration
+        ? "self_declared"
+        : "needs_review",
+    };
+  }
+
+  if (step === "financials") {
+    const monthlyGrossRevenue =
+      portfolio.monthlyGrossRevenue > 0
+        ? portfolio.monthlyGrossRevenue
+        : portfolio.averageDailySales > 0
+          ? portfolio.averageDailySales * 30
+          : 0;
+
+    return {
+      ...base,
+      average_daily_sales: portfolio.averageDailySales,
+      average_weekly_sales: portfolio.averageWeeklySales,
+      monthly_gross_revenue: monthlyGrossRevenue,
+      revenue_period: portfolio.revenuePeriod,
+      revenue_confidence: portfolio.revenueConfidence,
+      best_month_sales: portfolio.bestMonthSales,
+      worst_month_sales: portfolio.worstMonthSales,
+    };
+  }
+
+  if (step === "debtAndExpenses") {
+    const totalBusinessExpenses = calculateTotalBusinessExpenses(portfolio);
+    const totalExistingDebtPayments =
+      calculateTotalExistingDebtPayments(portfolio);
+    const totalHouseholdExpenses = calculateTotalHouseholdExpenses(portfolio);
+
+    return {
+      ...base,
+      monthly_inventory_cost: portfolio.monthlyInventoryCost,
+      monthly_business_rent: portfolio.monthlyBusinessRent,
+      monthly_business_electricity: portfolio.monthlyBusinessElectricity,
+      monthly_business_water: portfolio.monthlyBusinessWater,
+      monthly_helper_salary: portfolio.monthlyHelperSalary,
+      monthly_transportation_delivery:
+        portfolio.monthlyTransportationDelivery,
+      monthly_packaging_cost: portfolio.monthlyPackagingCost,
+      monthly_platform_fees: portfolio.monthlyPlatformFees,
+      monthly_maintenance_repairs: portfolio.monthlyMaintenanceRepairs,
+      monthly_supplier_credit_payment:
+        portfolio.monthlySupplierCreditPayment,
+      other_business_expenses: portfolio.otherBusinessExpenses,
+      monthly_expenses: totalBusinessExpenses,
+      monthly_rent_or_mortgage: portfolio.monthlyRentOrMortgage,
+      monthly_electricity_bill: portfolio.monthlyElectricityBill,
+      monthly_water_bill: portfolio.monthlyWaterBill,
+      monthly_internet_phone_bill: portfolio.monthlyInternetPhoneBill,
+      monthly_food_groceries: portfolio.monthlyFoodGroceries,
+      monthly_transportation: portfolio.monthlyTransportation,
+      monthly_tuition_education: portfolio.monthlyTuitionEducation,
+      monthly_medical_expenses: portfolio.monthlyMedicalExpenses,
+      monthly_insurance: portfolio.monthlyInsurance,
+      monthly_family_support: portfolio.monthlyFamilySupport,
+      other_household_expenses: portfolio.otherHouseholdExpenses,
+      number_of_dependents: portfolio.numberOfDependents,
+      number_of_earning_household_members:
+        portfolio.numberOfEarningHouseholdMembers,
+      household_expenses_completed: true,
+      has_existing_debts: portfolio.hasExistingDebts,
+      personal_loan_payments: portfolio.personalLoanPayments,
+      business_loan_payments: portfolio.businessLoanPayments,
+      vehicle_loan_payments: portfolio.vehicleLoanPayments,
+      home_loan_payments: portfolio.homeLoanPayments,
+      lending_app_payments: portfolio.lendingAppPayments,
+      informal_loan_payments: portfolio.informalLoanPayments,
+      buy_now_pay_later_payments: portfolio.buyNowPayLaterPayments,
+      credit_card_payments: portfolio.creditCardPayments,
+      co_maker_guaranteed_loan_payments:
+        portfolio.coMakerGuaranteedLoanPayments,
+      other_debt_payments: portfolio.otherDebtPayments,
+      existing_loan_payments: totalExistingDebtPayments,
+      existing_debt_declaration_completed: true,
+      cash_on_hand: portfolio.cashOnHand,
+      bank_savings: portfolio.bankSavings,
+      ewallet_balance: portfolio.ewalletBalance,
+      inventory_value: portfolio.inventoryValue,
+      business_equipment_value: portfolio.businessEquipmentValue,
+      vehicle_value: portfolio.vehicleValue,
+      property_land_value: portfolio.propertyLandValue,
+      other_assets_value: portfolio.otherAssetsValue,
+      expense_breakdown: {
+        inventory: portfolio.monthlyInventoryCost,
+        rent: portfolio.monthlyBusinessRent,
+        utilities:
+          portfolio.monthlyBusinessElectricity +
+          portfolio.monthlyBusinessWater,
+        payroll: portfolio.monthlyHelperSalary,
+        supplier_credit: portfolio.monthlySupplierCreditPayment,
+        other: portfolio.otherBusinessExpenses,
+        total_business_expenses: totalBusinessExpenses,
+        total_household_expenses: totalHouseholdExpenses,
+      },
+      debt_obligation_summary: {
+        has_existing_debts: portfolio.hasExistingDebts,
+        total_existing_debt_payments: totalExistingDebtPayments,
+      },
+    };
+  }
+
+  if (step === "loanUse") {
+    return {
+      ...base,
+      offers_customer_credit: portfolio.offersCustomerCredit,
+      estimated_customer_credit_amount:
+        portfolio.estimatedCustomerCreditAmount,
+      average_collection_period: portfolio.averageCollectionPeriod,
+      keeps_customer_debt_list: portfolio.keepsCustomerDebtList,
+      loan_purpose_context: formatBorrowerLoanPurposeContext(portfolio),
+      has_overdue_loans: portfolio.hasOverdueLoans,
+      missed_payments_last_12_months: portfolio.missedPaymentsLast12Months,
+      has_unpaid_lending_app_loans: portfolio.hasUnpaidLendingAppLoans,
+      has_bounced_checks: portfolio.hasBouncedChecks,
+      is_co_maker_or_guarantor: portfolio.isCoMakerOrGuarantor,
+      has_debt_related_legal_case: portfolio.hasDebtRelatedLegalCase,
+      has_repossession_history: portfolio.hasRepossessionHistory,
+      has_tax_arrears: portfolio.hasTaxArrears,
+      business_temporarily_stopped: portfolio.businessTemporarilyStopped,
+      confirms_business_operating: portfolio.confirmsBusinessOperating,
+    };
+  }
+
+  return {
+    ...base,
+    mobile_number: portfolio.mobileNumber || null,
+    home_address:
+      portfolio.homeAddress?.trim() ||
+      [
+        portfolio.homeStreetAddress,
+        portfolio.homeAddressSelection.barangay,
+        portfolio.homeAddressSelection.cityOrMunicipality,
+        portfolio.homeAddressSelection.regionName ||
+          portfolio.homeAddressSelection.regionCode,
+        portfolio.homeAddressSelection.zipCode,
+      ]
+        .filter(Boolean)
+        .join(", ") ||
+      null,
+    years_at_current_address: portfolio.yearsAtCurrentAddress,
+    emergency_contact_name: portfolio.emergencyContactName || null,
+    emergency_contact_number: portfolio.emergencyContactNumber || null,
+    emergency_contact_relationship:
+      portfolio.emergencyContactRelationship || null,
+    confirms_information_true: portfolio.confirmsInformationTrue,
+    consents_to_data_processing: portfolio.consentsToDataProcessing,
+    consents_to_credit_check: portfolio.consentsToCreditCheck,
+    profile_last_confirmed_at: now,
+  };
+}
+
+function formatBorrowerLoanPurposeContext(
+  portfolio: Pick<
+    BorrowerPortfolioInput,
+    | "loanPurposeCategory"
+    | "loanPurposeOther"
+    | "loanPurposeDetails"
+    | "loanPurposeContext"
+  >,
+) {
+  const category =
+    portfolio.loanPurposeCategory === "other"
+      ? portfolio.loanPurposeOther?.trim()
+      : portfolio.loanPurposeCategory.replace(/_/g, " ");
+  const details = portfolio.loanPurposeDetails?.trim();
+  const existingContext = portfolio.loanPurposeContext?.trim();
+
+  if (category && details) return `${category}: ${details}`;
+  if (existingContext) return existingContext;
+  return category ?? "";
+}
+
 export async function loadBorrowerLoanApplications(
   verifiedAccess?: AccessResult,
 ): Promise<LoanApplicationsLoadResult> {
@@ -676,10 +1024,10 @@ export async function loadBorrowerLoanApplications(
 async function loadBorrowerCreditSummary(
   borrowerId: string,
   portfolio: {
-    monthly_gross_revenue: number;
-    monthly_expenses: number;
-    existing_loan_payments: number;
-    years_in_operation: number;
+    monthly_gross_revenue: number | null;
+    monthly_expenses: number | null;
+    existing_loan_payments: number | null;
+    years_in_operation: number | null;
     monthly_rent_or_mortgage?: number | null;
     monthly_electricity_bill?: number | null;
     monthly_water_bill?: number | null;
@@ -715,10 +1063,10 @@ async function loadBorrowerCreditSummary(
 
   return calculateBorrowerAvailableCredit({
     portfolio: {
-      monthlyGrossRevenue: portfolio.monthly_gross_revenue,
-      monthlyExpenses: portfolio.monthly_expenses,
-      existingLoanPayments: portfolio.existing_loan_payments,
-      yearsInOperation: portfolio.years_in_operation,
+      monthlyGrossRevenue: portfolio.monthly_gross_revenue ?? 0,
+      monthlyExpenses: portfolio.monthly_expenses ?? 0,
+      existingLoanPayments: portfolio.existing_loan_payments ?? 0,
+      yearsInOperation: portfolio.years_in_operation ?? 0,
       totalHouseholdExpenses: [
         portfolio.monthly_rent_or_mortgage,
         portfolio.monthly_electricity_bill,

@@ -480,6 +480,312 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
   },
 );
 
+export const borrowerPortfolioCompletionSchema = borrowerPortfolioSchema;
+
+const requiredShortText = (max: number, message: string) =>
+  z.string().trim().min(1, message).max(max);
+
+const positiveNumberField = (message: string, max = 10_000_000) =>
+  z.preprocess(
+    normalizeNumberInput,
+    z
+      .number({ error: "Enter a valid amount." })
+      .positive(message)
+      .max(max, `Amount must be below PHP ${max.toLocaleString("en-PH")}.`),
+  );
+
+export const borrowerBusinessBasicsSchema = borrowerPortfolioBaseSchema
+  .pick({
+    businessName: true,
+    businessType: true,
+    ownershipType: true,
+    borrowerRole: true,
+    yearsInOperation: true,
+    operatingModel: true,
+    primarySalesChannel: true,
+    businessSchedule: true,
+    numberOfEmployees: true,
+    mainProductsOrServices: true,
+    mainSuppliers: true,
+    keepsSalesRecords: true,
+    usesBankOrEwallet: true,
+  })
+  .extend({
+    businessName: requiredShortText(120, "Enter your business name."),
+  });
+
+export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
+  .pick({
+    country: true,
+    address: true,
+    streetAddress: true,
+    isBusinessAddressSameAsHome: true,
+    homeAddress: true,
+    homeAddressSelection: true,
+    homeStreetAddress: true,
+    operatingModel: true,
+  })
+  .superRefine((value, context) => {
+    if (!isPhysicalBusinessAddressRequired(value.operatingModel)) return;
+
+    if (value.isBusinessAddressSameAsHome) {
+      const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
+      const hasCompleteStructuredHomeAddress =
+        isValidPhilippineAddressSelection(value.homeAddressSelection) &&
+        Boolean(value.homeStreetAddress?.trim());
+
+      if (!hasLegacyHomeAddress && !hasCompleteStructuredHomeAddress) {
+        context.addIssue({
+          code: "custom",
+          path: ["homeAddressSelection", "regionCode"],
+          message: "Complete your home address.",
+        });
+      }
+
+      return;
+    }
+
+    if (!value.address.regionCode) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "regionCode"],
+        message: "Select your business region.",
+      });
+    }
+
+    if (!value.address.cityOrMunicipality) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "cityOrMunicipality"],
+        message: "Select your business city or municipality.",
+      });
+    }
+
+    if (!value.address.barangay) {
+      context.addIssue({
+        code: "custom",
+        path: ["address", "barangay"],
+        message: "Select your business barangay.",
+      });
+    }
+
+    if (!value.streetAddress?.trim()) {
+      context.addIssue({
+        code: "custom",
+        path: ["streetAddress"],
+        message: "Enter your business street address.",
+      });
+    }
+  });
+
+export const borrowerBusinessOperationsSchema = borrowerPortfolioBaseSchema.pick({
+  hasBusinessRegistration: true,
+  businessRegistrationType: true,
+  registrationNumber: true,
+  registrationDate: true,
+  unregisteredReason: true,
+});
+
+export const borrowerFinancialsSchema = borrowerPortfolioBaseSchema
+  .pick({
+    averageDailySales: true,
+    averageWeeklySales: true,
+    monthlyGrossRevenue: true,
+    revenuePeriod: true,
+    revenueConfidence: true,
+    bestMonthSales: true,
+    worstMonthSales: true,
+  })
+  .extend({
+    monthlyGrossRevenue: positiveNumberField("Enter monthly gross sales."),
+  });
+
+export const borrowerDebtAndExpensesSchema = borrowerPortfolioBaseSchema.pick({
+  monthlyInventoryCost: true,
+  monthlyBusinessRent: true,
+  monthlyBusinessElectricity: true,
+  monthlyBusinessWater: true,
+  monthlyHelperSalary: true,
+  monthlyTransportationDelivery: true,
+  monthlyPackagingCost: true,
+  monthlyPlatformFees: true,
+  monthlyMaintenanceRepairs: true,
+  monthlySupplierCreditPayment: true,
+  otherBusinessExpenses: true,
+  monthlyRentOrMortgage: true,
+  monthlyElectricityBill: true,
+  monthlyWaterBill: true,
+  monthlyInternetPhoneBill: true,
+  monthlyFoodGroceries: true,
+  monthlyTransportation: true,
+  monthlyTuitionEducation: true,
+  monthlyMedicalExpenses: true,
+  monthlyInsurance: true,
+  monthlyFamilySupport: true,
+  otherHouseholdExpenses: true,
+  numberOfDependents: true,
+  numberOfEarningHouseholdMembers: true,
+  hasExistingDebts: true,
+  personalLoanPayments: true,
+  businessLoanPayments: true,
+  vehicleLoanPayments: true,
+  homeLoanPayments: true,
+  lendingAppPayments: true,
+  informalLoanPayments: true,
+  buyNowPayLaterPayments: true,
+  creditCardPayments: true,
+  coMakerGuaranteedLoanPayments: true,
+  otherDebtPayments: true,
+  cashOnHand: true,
+  bankSavings: true,
+  ewalletBalance: true,
+  inventoryValue: true,
+  businessEquipmentValue: true,
+  vehicleValue: true,
+  propertyLandValue: true,
+  otherAssetsValue: true,
+});
+
+export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
+  loanPurposeCategory: true,
+  loanPurposeOther: true,
+  loanPurposeDetails: true,
+  loanPurposeContext: true,
+  offersCustomerCredit: true,
+  estimatedCustomerCreditAmount: true,
+  averageCollectionPeriod: true,
+  keepsCustomerDebtList: true,
+  hasOverdueLoans: true,
+  missedPaymentsLast12Months: true,
+  hasUnpaidLendingAppLoans: true,
+  hasBouncedChecks: true,
+  isCoMakerOrGuarantor: true,
+  hasDebtRelatedLegalCase: true,
+  hasRepossessionHistory: true,
+  hasTaxArrears: true,
+  businessTemporarilyStopped: true,
+  confirmsBusinessOperating: true,
+});
+
+export const borrowerReviewSchema = borrowerPortfolioBaseSchema
+  .pick({
+    mobileNumber: true,
+    yearsAtCurrentAddress: true,
+    homeAddress: true,
+    homeAddressSelection: true,
+    homeStreetAddress: true,
+    emergencyContactName: true,
+    emergencyContactNumber: true,
+    emergencyContactRelationship: true,
+    confirmsInformationTrue: true,
+    consentsToDataProcessing: true,
+    consentsToCreditCheck: true,
+  })
+  .extend({
+    mobileNumber: requiredShortText(30, "Enter your mobile number."),
+    emergencyContactName: requiredShortText(
+      120,
+      "Enter your emergency contact name.",
+    ),
+    emergencyContactNumber: requiredShortText(
+      30,
+      "Enter your emergency contact number.",
+    ),
+    emergencyContactRelationship: requiredShortText(
+      80,
+      "Enter your emergency contact relationship.",
+    ),
+    confirmsInformationTrue: z.literal(true, {
+      error: "Confirm that this information is true.",
+    }),
+    consentsToDataProcessing: z.literal(true, {
+      error: "Consent is required.",
+    }),
+    consentsToCreditCheck: z.literal(true, {
+      error: "Credit review consent is required.",
+    }),
+  })
+  .superRefine((value, context) => {
+    const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
+    const hasCompleteStructuredHomeAddress =
+      isValidPhilippineAddressSelection(value.homeAddressSelection) &&
+      Boolean(value.homeStreetAddress?.trim());
+
+    if (!hasLegacyHomeAddress && !hasCompleteStructuredHomeAddress) {
+      context.addIssue({
+        code: "custom",
+        path: ["homeAddressSelection", "regionCode"],
+        message: "Complete your home address.",
+      });
+    }
+  });
+
+export const borrowerPortfolioStepIds = [
+  "businessBasics",
+  "businessAddress",
+  "businessOperations",
+  "financials",
+  "debtAndExpenses",
+  "loanUse",
+  "review",
+] as const;
+
+export type BorrowerPortfolioStep = (typeof borrowerPortfolioStepIds)[number];
+
+export const borrowerPortfolioStepLabels = {
+  businessBasics: "Business basics",
+  businessAddress: "Business address",
+  businessOperations: "Business operations",
+  financials: "Financials",
+  debtAndExpenses: "Debt and expenses",
+  loanUse: "Loan use",
+  review: "Review",
+} satisfies Record<BorrowerPortfolioStep, string>;
+
+export const borrowerPortfolioStepSchemas = {
+  businessBasics: borrowerBusinessBasicsSchema,
+  businessAddress: borrowerBusinessAddressSchema,
+  businessOperations: borrowerBusinessOperationsSchema,
+  financials: borrowerFinancialsSchema,
+  debtAndExpenses: borrowerDebtAndExpensesSchema,
+  loanUse: borrowerLoanUseSchema,
+  review: borrowerReviewSchema,
+} satisfies Record<BorrowerPortfolioStep, z.ZodTypeAny>;
+
+export function getCompletedBorrowerPortfolioSteps(
+  portfolio: Partial<BorrowerPortfolioInput> | null,
+): BorrowerPortfolioStep[] {
+  if (!portfolio) return [];
+
+  const candidate = {
+    ...getBorrowerPortfolioDefaultValues(),
+    ...portfolio,
+  };
+
+  return borrowerPortfolioStepIds.filter((step) =>
+    borrowerPortfolioStepSchemas[step].safeParse(candidate).success,
+  );
+}
+
+export function getNextIncompleteBorrowerPortfolioStep(
+  portfolio: Partial<BorrowerPortfolioInput> | null,
+): BorrowerPortfolioStep {
+  const completed = new Set(getCompletedBorrowerPortfolioSteps(portfolio));
+
+  return (
+    borrowerPortfolioStepIds.find((step) => !completed.has(step)) ?? "review"
+  );
+}
+
+export function isBorrowerPortfolioComplete(
+  portfolio: Partial<BorrowerPortfolioInput> | null,
+) {
+  return borrowerPortfolioCompletionSchema.safeParse({
+    ...getBorrowerPortfolioDefaultValues(),
+    ...portfolio,
+  }).success;
+}
+
 type BorrowerPortfolioRow =
   Database["public"]["Tables"]["borrower_portfolios"]["Row"];
 

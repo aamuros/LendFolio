@@ -1,6 +1,5 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -13,7 +12,7 @@ import {
 } from "react-hook-form";
 import {
   loadBorrowerPortfolio,
-  saveBorrowerPortfolio,
+  saveBorrowerPortfolioStep,
 } from "@/app/borrower/actions";
 import { AddressSelect } from "@/components/address/address-select";
 import { CurrencyInput } from "@/components/currency-input";
@@ -37,6 +36,8 @@ import {
   averageCollectionPeriodLabels,
   averageCollectionPeriodOptions,
   borrowerPortfolioSchema,
+  borrowerPortfolioStepIds,
+  borrowerPortfolioStepLabels,
   borrowerRoleLabels,
   borrowerRoleOptions,
   businessRegistrationTypeLabels,
@@ -52,7 +53,10 @@ import {
   calculateTotalExistingDebtPayments,
   calculateTotalHouseholdExpenses,
   getBorrowerPortfolioDefaultValues,
+  getCompletedBorrowerPortfolioSteps,
+  getNextIncompleteBorrowerPortfolioStep,
   isPhysicalBusinessAddressRequired,
+  isBorrowerPortfolioComplete,
   loanPurposeCategoryLabels,
   loanPurposeCategoryOptions,
   operatingModelLabels,
@@ -67,20 +71,24 @@ import {
   revenuePeriodOptions,
   type BorrowerPortfolioFormInput,
   type BorrowerPortfolioInput,
+  type BorrowerPortfolioStep,
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import { parseMoneyInput } from "@/lib/money-input";
+import { cn } from "@/lib/utils";
 
 const defaultValues = getBorrowerPortfolioDefaultValues();
 type LoadState = "loading" | "empty" | "ready" | "error";
 
 type BorrowerPortfolioFormProps = {
+  initialStep?: BorrowerPortfolioStep;
   onCancel?: () => void;
   onSaved?: (portfolio: BorrowerPortfolioInput) => void;
 };
 
 export function BorrowerPortfolioForm({
+  initialStep,
   onCancel,
   onSaved,
 }: BorrowerPortfolioFormProps = {}) {
@@ -88,21 +96,27 @@ export function BorrowerPortfolioForm({
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [statusMessage, setStatusMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [completedSteps, setCompletedSteps] = useState<BorrowerPortfolioStep[]>(
+    [],
+  );
+  const [serverErrors, setServerErrors] = useState<
+    Partial<Record<keyof BorrowerPortfolioInput, string[]>>
+  >({});
 
   const {
     register,
     handleSubmit,
     reset,
-    trigger,
     control,
     formState: { errors },
   } = useForm<BorrowerPortfolioFormInput, unknown, BorrowerPortfolioInput>({
-    resolver: zodResolver(borrowerPortfolioSchema as never) as never,
     defaultValues,
     mode: "onBlur",
     reValidateMode: "onChange",
   });
-  const [currentStepIndex, setCurrentStepIndex] = useState(0);
+  const [currentStepIndex, setCurrentStepIndex] = useState(() =>
+    getStepIndex(initialStep),
+  );
   const currentValues = useWatch({ control }) as BorrowerPortfolioFormInput;
   const isBusinessAddressSameAsHome = useWatch({
     control,
@@ -123,7 +137,10 @@ export function BorrowerPortfolioForm({
     : defaultValues;
   const readiness = evaluateBorrowerReadiness(currentPortfolio);
   const currentStep = profileSteps[currentStepIndex];
-  const progressValue = ((currentStepIndex + 1) / profileSteps.length) * 100;
+  const progressValue =
+    currentStep.id === "review"
+      ? 100
+      : ((currentStepIndex + 1) / (profileSteps.length - 1)) * 100;
   const isFinalStep = currentStepIndex === profileSteps.length - 1;
 
   useEffect(() => {
@@ -135,12 +152,21 @@ export function BorrowerPortfolioForm({
 
         if (result.ok && result.data) {
           reset(result.data);
+          const savedCompletedSteps = getCompletedBorrowerPortfolioSteps(
+            result.data,
+          );
+          setCompletedSteps(savedCompletedSteps);
+          setCurrentStepIndex(
+            getStepIndex(initialStep ?? getNextIncompleteBorrowerPortfolioStep(result.data)),
+          );
           setLoadState("ready");
           setStatusMessage("");
           setSuccessMessage("");
           return;
         }
 
+        setCurrentStepIndex(getStepIndex(initialStep));
+        setCompletedSteps([]);
         setLoadState(result.ok ? "empty" : "error");
         setStatusMessage(result.message);
         setSuccessMessage("");
@@ -150,7 +176,7 @@ export function BorrowerPortfolioForm({
     return () => {
       isActive = false;
     };
-  }, [reset, startTransition]);
+  }, [initialStep, reset, startTransition]);
 
   useEffect(() => {
     if (!successMessage) return;
@@ -161,34 +187,36 @@ export function BorrowerPortfolioForm({
   }, [successMessage]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
-    setStatusMessage("Saving profile...");
+    void saveCurrentStep(values);
+  }
+
+  async function saveCurrentStep(values: BorrowerPortfolioInput) {
+    setStatusMessage(`Saving ${currentStep.title.toLowerCase()}...`);
     setSuccessMessage("");
+    setServerErrors({});
 
     startTransition(async () => {
-      const result = await saveBorrowerPortfolio(values);
+      const result = await saveBorrowerPortfolioStep(currentStep.id, values);
       setLoadState(result.ok ? "ready" : "error");
       if (result.ok) {
         setStatusMessage("");
         setSuccessMessage(result.message);
-        reset(values);
-        onSaved?.(values);
+        setCompletedSteps(result.completedSteps);
+        reset(result.portfolio);
+        if (isBorrowerPortfolioComplete(result.portfolio)) {
+          setCurrentStepIndex(getStepIndex("review"));
+          onSaved?.(result.portfolio);
+        } else {
+          setCurrentStepIndex(getStepIndex(result.nextIncompleteStep));
+        }
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
         setStatusMessage(result.message);
+        if (result.fieldErrors) {
+          setServerErrors(result.fieldErrors);
+        }
       }
     });
-  }
-
-  async function goToNextStep() {
-    const isStepValid = await trigger(currentStep.fields as never, {
-      shouldFocus: true,
-    });
-
-    if (!isStepValid) return;
-
-    setCurrentStepIndex((index) =>
-      Math.min(index + 1, profileSteps.length - 1),
-    );
   }
 
   if (loadState === "loading") {
@@ -202,6 +230,7 @@ export function BorrowerPortfolioForm({
           onSubmit={handleSubmit(onSubmit)}
           onChange={() => {
             if (successMessage) setSuccessMessage("");
+            if (Object.keys(serverErrors).length > 0) setServerErrors({});
           }}
           className="grid gap-6"
           aria-describedby="portfolio-save-state"
@@ -215,9 +244,10 @@ export function BorrowerPortfolioForm({
 
           <WizardHeader
             stepNumber={currentStepIndex + 1}
-            totalSteps={profileSteps.length}
+            totalSteps={profileSteps.length - 1}
             title={currentStep.title}
             progressValue={progressValue}
+            completedSteps={completedSteps}
           />
 
           {currentStepIndex === 0 ? (
@@ -370,8 +400,35 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           {currentStepIndex === 2 ? (
+            <FormSection title="Business operations">
+              <CheckboxField control={control} name="hasBusinessRegistration" label="Has business registration" />
+              <SelectField control={control} name="businessRegistrationType" label="Registration type" options={businessRegistrationTypeOptions} labels={businessRegistrationTypeLabels} error={errors.businessRegistrationType?.message} optional />
+              <TextField
+                id="registrationNumber"
+                label="Registration number"
+                error={errors.registrationNumber?.message}
+                register={register("registrationNumber")}
+              />
+              <TextField
+                id="registrationDate"
+                label="Registration date"
+                error={errors.registrationDate?.message}
+                register={register("registrationDate")}
+                type="date"
+              />
+              <TextField
+                id="unregisteredReason"
+                label="If unregistered, reason"
+                error={errors.unregisteredReason?.message}
+                register={register("unregisteredReason")}
+                className="sm:col-span-2"
+              />
+            </FormSection>
+          ) : null}
+
+          {currentStepIndex === 3 ? (
             <FormSection
-            title="Business income"
+            title="Financials"
           >
             <MoneyField
               id="averageDailySales"
@@ -429,32 +486,10 @@ export function BorrowerPortfolioForm({
                 setValueAs: parseMoneyInput,
               })}
             />
-            <CheckboxField control={control} name="hasBusinessRegistration" label="Has business registration" />
-            <SelectField control={control} name="businessRegistrationType" label="Registration type" options={businessRegistrationTypeOptions} labels={businessRegistrationTypeLabels} error={errors.businessRegistrationType?.message} optional />
-            <TextField
-              id="registrationNumber"
-              label="Registration number"
-              error={errors.registrationNumber?.message}
-              register={register("registrationNumber")}
-            />
-            <TextField
-              id="registrationDate"
-              label="Registration date"
-              error={errors.registrationDate?.message}
-              register={register("registrationDate")}
-              type="date"
-            />
-            <TextField
-              id="unregisteredReason"
-              label="If unregistered, reason"
-              error={errors.unregisteredReason?.message}
-              register={register("unregisteredReason")}
-              className="sm:col-span-2"
-            />
           </FormSection>
           ) : null}
 
-          {currentStepIndex === 3 ? (
+          {currentStepIndex === 4 ? (
             <FormSection title="Expenses and obligations">
             {businessExpenseFields.map(([name, label]) => (
               <MoneyField
@@ -518,7 +553,7 @@ export function BorrowerPortfolioForm({
           </FormSection>
           ) : null}
 
-          {currentStepIndex === 4 ? (
+          {currentStepIndex === 5 ? (
             <FormSection title="Loan use">
             <SelectField control={control} name="loanPurposeCategory" label="Loan purpose" options={loanPurposeCategoryOptions} labels={loanPurposeCategoryLabels} error={errors.loanPurposeCategory?.message} />
             {currentValues.loanPurposeCategory === "other" ? (
@@ -563,7 +598,7 @@ export function BorrowerPortfolioForm({
           </FormSection>
           ) : null}
 
-          {currentStepIndex === 5 ? (
+          {currentStepIndex === 6 ? (
             <>
             <FormSection title="Review and submit">
               <TextField id="mobileNumber" label="Mobile number" error={errors.mobileNumber?.message} register={register("mobileNumber")} />
@@ -648,15 +683,13 @@ export function BorrowerPortfolioForm({
               <Button type="button" variant="outline" onClick={() => setCurrentStepIndex((index) => Math.max(index - 1, 0))} disabled={currentStepIndex === 0 || isPending} className="h-11 rounded-full font-semibold">
                 Previous
               </Button>
-              {isFinalStep ? (
-                <Button type="submit" disabled={isPending} className="h-11 rounded-full font-semibold">
-                  {isPending ? "Saving..." : "Finish profile"}
-                </Button>
-              ) : (
-                <Button type="button" onClick={goToNextStep} disabled={isPending} className="h-11 rounded-full font-semibold">
-                  Next
-                </Button>
-              )}
+              <Button type="submit" disabled={isPending} className="h-11 rounded-full font-semibold">
+                {isPending
+                  ? "Saving..."
+                  : isFinalStep
+                    ? "Save and continue to verification"
+                    : "Save and continue"}
+              </Button>
             </div>
             {onCancel ? (
               <Button
@@ -752,7 +785,8 @@ const riskDeclarationFields = [
 
 const profileSteps = [
   {
-    title: "Business basics",
+    id: "businessBasics",
+    title: borrowerPortfolioStepLabels.businessBasics,
     fields: [
       "businessName",
       "businessType",
@@ -770,7 +804,8 @@ const profileSteps = [
     ],
   },
   {
-    title: "Business address",
+    id: "businessAddress",
+    title: borrowerPortfolioStepLabels.businessAddress,
     fields: [
       "country",
       "address",
@@ -781,15 +816,9 @@ const profileSteps = [
     ],
   },
   {
-    title: "Revenue and operations",
+    id: "businessOperations",
+    title: borrowerPortfolioStepLabels.businessOperations,
     fields: [
-      "averageDailySales",
-      "averageWeeklySales",
-      "monthlyGrossRevenue",
-      "revenuePeriod",
-      "revenueConfidence",
-      "bestMonthSales",
-      "worstMonthSales",
       "hasBusinessRegistration",
       "businessRegistrationType",
       "registrationNumber",
@@ -798,7 +827,21 @@ const profileSteps = [
     ],
   },
   {
-    title: "Expenses and obligations",
+    id: "financials",
+    title: borrowerPortfolioStepLabels.financials,
+    fields: [
+      "averageDailySales",
+      "averageWeeklySales",
+      "monthlyGrossRevenue",
+      "revenuePeriod",
+      "revenueConfidence",
+      "bestMonthSales",
+      "worstMonthSales",
+    ],
+  },
+  {
+    id: "debtAndExpenses",
+    title: borrowerPortfolioStepLabels.debtAndExpenses,
     fields: [
       ...businessExpenseFields.map(([name]) => name),
       ...householdExpenseFields.map(([name]) => name),
@@ -810,7 +853,8 @@ const profileSteps = [
     ],
   },
   {
-    title: "Loan use",
+    id: "loanUse",
+    title: borrowerPortfolioStepLabels.loanUse,
     fields: [
       "loanPurposeCategory",
       "loanPurposeOther",
@@ -823,7 +867,8 @@ const profileSteps = [
     ],
   },
   {
-    title: "Review and submit",
+    id: "review",
+    title: borrowerPortfolioStepLabels.review,
     fields: [
       "mobileNumber",
       "yearsAtCurrentAddress",
@@ -837,30 +882,63 @@ const profileSteps = [
       "consentsToCreditCheck",
     ],
   },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: BorrowerPortfolioStep;
+  title: string;
+  fields: readonly (keyof BorrowerPortfolioFormInput)[];
+}>;
+
+function getStepIndex(step?: BorrowerPortfolioStep) {
+  if (!step) return 0;
+
+  const index = profileSteps.findIndex((profileStep) => profileStep.id === step);
+
+  return index >= 0 ? index : 0;
+}
 
 function WizardHeader({
   stepNumber,
   totalSteps,
   title,
   progressValue,
+  completedSteps,
 }: {
   stepNumber: number;
   totalSteps: number;
   title: string;
   progressValue: number;
+  completedSteps: BorrowerPortfolioStep[];
 }) {
+  const isReview = stepNumber > totalSteps;
+
   return (
     <div className="grid gap-3">
       <div className="flex items-end justify-between gap-3">
         <div className="grid gap-1">
           <p className="text-sm font-medium text-muted-foreground">
-            Part {stepNumber} of {totalSteps}
+            {isReview ? "Review" : `Part ${stepNumber} of ${totalSteps}`}
           </p>
           <h3 className="text-lg font-semibold">{title}</h3>
         </div>
       </div>
       <Progress value={progressValue} aria-label="Profile progress" />
+      <div className="flex flex-wrap gap-2">
+        {borrowerPortfolioStepIds
+          .filter((step) => step !== "review")
+          .map((step) => (
+            <span
+              key={step}
+              className={cn(
+                "rounded-full border px-2.5 py-1 text-xs font-medium",
+                completedSteps.includes(step)
+                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  : "border-border bg-muted/30 text-muted-foreground",
+              )}
+            >
+              {borrowerPortfolioStepLabels[step]}
+            </span>
+          ))}
+      </div>
     </div>
   );
 }

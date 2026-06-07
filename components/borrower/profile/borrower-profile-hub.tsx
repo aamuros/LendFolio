@@ -14,7 +14,13 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
+  borrowerRoleLabels,
   businessTypeLabels,
+  operatingModelLabels,
+  ownershipTypeLabels,
+  primarySalesChannelLabels,
+  revenueConfidenceLabels,
+  revenuePeriodLabels,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import {
@@ -113,6 +119,22 @@ export function BorrowerProfileHub({
             }
           />
           <SummaryRow
+            label="Ownership type"
+            value={
+              portfolio
+                ? ownershipTypeLabels[portfolio.ownershipType]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Role"
+            value={
+              portfolio
+                ? borrowerRoleLabels[portfolio.borrowerRole]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
             label="Business location"
             value={portfolio?.location || "Not provided"}
           />
@@ -123,6 +145,38 @@ export function BorrowerProfileHub({
                 ? formatYearsInOperation(portfolio.yearsInOperation)
                 : "Not provided"
             }
+          />
+          <SummaryRow
+            label="Operating model"
+            value={
+              portfolio
+                ? operatingModelLabels[portfolio.operatingModel]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Sales channel"
+            value={
+              portfolio
+                ? primarySalesChannelLabels[portfolio.primarySalesChannel]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Products or services"
+            value={portfolio?.mainProductsOrServices || "Not provided"}
+          />
+          <SummaryRow
+            label="Suppliers"
+            value={portfolio?.mainSuppliers || "Not provided"}
+          />
+          <SummaryRow
+            label="Sales records"
+            value={portfolio ? yesNo(portfolio.keepsSalesRecords) : "Not provided"}
+          />
+          <SummaryRow
+            label="Bank or e-wallet"
+            value={portfolio ? yesNo(portfolio.usesBankOrEwallet) : "Not provided"}
           />
           <SummaryRow
             label="Loan use"
@@ -160,6 +214,38 @@ export function BorrowerProfileHub({
             value={
               portfolio
                 ? formatCreditAmount(portfolio.monthlyGrossRevenue)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Average daily sales"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.averageDailySales)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Average weekly sales"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.averageWeeklySales)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Revenue period"
+            value={
+              portfolio
+                ? revenuePeriodLabels[portfolio.revenuePeriod]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Revenue basis"
+            value={
+              portfolio
+                ? revenueConfidenceLabels[portfolio.revenueConfidence]
                 : "Not provided"
             }
           />
@@ -357,6 +443,10 @@ export function BorrowerProfileHub({
       )}
     </div>
   );
+}
+
+function yesNo(value: boolean) {
+  return value ? "Yes" : "No";
 }
 
 function ProfileHubSkeleton() {

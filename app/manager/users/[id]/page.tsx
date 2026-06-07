@@ -259,7 +259,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
                 <DetailItem
                   label="Monthly revenue"
                   value={
-                    user.portfolio
+                    user.portfolio?.monthly_gross_revenue != null
                       ? formatCurrency(user.portfolio.monthly_gross_revenue)
                       : "Not provided"
                   }
@@ -267,7 +267,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
                 <DetailItem
                   label="Monthly expenses"
                   value={
-                    user.portfolio
+                    user.portfolio?.monthly_expenses != null
                       ? formatCurrency(user.portfolio.monthly_expenses)
                       : "Not provided"
                   }
@@ -275,7 +275,7 @@ export default async function ManagerUserDetailPage({ params }: PageProps) {
                 <DetailItem
                   label="Existing loan payments"
                   value={
-                    user.portfolio
+                    user.portfolio?.existing_loan_payments != null
                       ? formatCurrency(user.portfolio.existing_loan_payments)
                       : "Not provided"
                   }

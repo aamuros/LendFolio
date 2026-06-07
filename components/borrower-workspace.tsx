@@ -18,7 +18,12 @@ import { AppHeader, type AppHeaderNavItem } from "@/components/app-header";
 import { cn } from "@/lib/utils";
 import { borrowerPageBottomPadding } from "@/components/borrower/ui";
 
-import { type BorrowerPortfolioInput } from "@/lib/borrower-portfolio";
+import {
+  getNextIncompleteBorrowerPortfolioStep,
+  isBorrowerPortfolioComplete,
+  type BorrowerPortfolioInput,
+  type BorrowerPortfolioStep,
+} from "@/lib/borrower-portfolio";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import { type BorrowerCreditSummary } from "@/lib/credit-limit";
@@ -65,6 +70,8 @@ export function BorrowerWorkspace({
   const [activeTab, setActiveTab] = useState<BorrowerTab>(initialTab);
   const [profileMode, setProfileMode] = useState<ProfileMode>("index");
   const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
+  const [editInitialStep, setEditInitialStep] =
+    useState<BorrowerPortfolioStep>();
   const [portfolioLoadState, setPortfolioLoadState] =
     useState<PortfolioLoadState>("loading");
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
@@ -182,6 +189,7 @@ export function BorrowerWorkspace({
   function openProfileEdit(returnMode: ProfileMode = "index") {
     setPostSaveVerification(false);
     setEditReturnMode(returnMode);
+    setEditInitialStep(resolveEditInitialStep(returnMode, portfolio));
     setProfileMode("edit");
     requestAnimationFrame(() => {
       document
@@ -191,7 +199,6 @@ export function BorrowerWorkspace({
   }
 
   function handlePortfolioSaved(savedPortfolio: BorrowerPortfolioInput) {
-    const wasEmpty = !hasSavedPortfolioRef.current;
     setPortfolio(savedPortfolio);
     setPortfolioLoadState("ready");
     setPortfolioMessage("");
@@ -202,15 +209,11 @@ export function BorrowerWorkspace({
     const needsVerification =
       verificationStatus !== null && verificationStatus !== "approved";
 
-    if (needsVerification) {
+    if (needsVerification && isBorrowerPortfolioComplete(savedPortfolio)) {
       setPostSaveVerification(true);
     }
 
-    if (wasEmpty) {
-      setProfileMode("verification");
-    } else {
-      setProfileMode(editReturnMode);
-    }
+    setProfileMode(editReturnMode);
   }
 
   const showProfile = activeTab === "profile";
@@ -243,6 +246,7 @@ export function BorrowerWorkspace({
                   onBack={() => setProfileMode(editReturnMode)}
                 />
                 <BorrowerPortfolioForm
+                  initialStep={editInitialStep}
                   onCancel={() => setProfileMode(editReturnMode)}
                   onSaved={handlePortfolioSaved}
                 />
@@ -284,4 +288,16 @@ export function BorrowerWorkspace({
       </div>
     </div>
   );
+}
+
+function resolveEditInitialStep(
+  returnMode: ProfileMode,
+  portfolio: BorrowerPortfolioInput | null,
+): BorrowerPortfolioStep {
+  if (returnMode === "business") return "businessBasics";
+  if (returnMode === "financial" || returnMode === "borrowingPower") {
+    return "financials";
+  }
+
+  return getNextIncompleteBorrowerPortfolioStep(portfolio);
 }

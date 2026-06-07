@@ -348,7 +348,7 @@ export type Database = {
           emergency_contact_relationship?: string | null;
           business_name: string | null;
           business_description: string | null;
-          business_type: BusinessType;
+          business_type: BusinessType | null;
           started_operating_at: string | null;
           business_address: string | null;
           barangay: string | null;
@@ -356,7 +356,7 @@ export type Database = {
           province: string | null;
           region: string | null;
           zip_code: string | null;
-          location: string;
+          location: string | null;
           is_business_address_same_as_home?: boolean;
           ownership_type?: BorrowerOwnershipType | null;
           borrower_role?: BorrowerRole | null;
@@ -380,7 +380,7 @@ export type Database = {
           revenue_confidence: BorrowerRevenueConfidence | null;
           best_month_sales?: number;
           worst_month_sales?: number;
-          monthly_gross_revenue: number;
+          monthly_gross_revenue: number | null;
           monthly_inventory_cost?: number;
           monthly_business_rent?: number;
           monthly_business_electricity?: number;
@@ -392,7 +392,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
-          monthly_expenses: number;
+          monthly_expenses: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;
           monthly_water_bill?: number;
@@ -418,7 +418,7 @@ export type Database = {
           credit_card_payments?: number;
           co_maker_guaranteed_loan_payments?: number;
           other_debt_payments?: number;
-          existing_loan_payments: number;
+          existing_loan_payments: number | null;
           existing_debt_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
@@ -431,7 +431,7 @@ export type Database = {
           estimated_customer_credit_amount?: number;
           average_collection_period?: BorrowerAverageCollectionPeriod | null;
           keeps_customer_debt_list?: boolean | null;
-          years_in_operation: number;
+          years_in_operation: number | null;
           expense_breakdown: Json;
           debt_obligation_summary: Json;
           loan_purpose_context: string | null;
@@ -464,7 +464,7 @@ export type Database = {
           emergency_contact_relationship?: string | null;
           business_name?: string | null;
           business_description?: string | null;
-          business_type: BusinessType;
+          business_type?: BusinessType | null;
           started_operating_at?: string | null;
           business_address?: string | null;
           barangay?: string | null;
@@ -472,7 +472,7 @@ export type Database = {
           province?: string | null;
           region?: string | null;
           zip_code?: string | null;
-          location: string;
+          location?: string | null;
           is_business_address_same_as_home?: boolean;
           ownership_type?: BorrowerOwnershipType | null;
           borrower_role?: BorrowerRole | null;
@@ -496,7 +496,7 @@ export type Database = {
           revenue_confidence?: BorrowerRevenueConfidence | null;
           best_month_sales?: number;
           worst_month_sales?: number;
-          monthly_gross_revenue: number;
+          monthly_gross_revenue?: number | null;
           monthly_inventory_cost?: number;
           monthly_business_rent?: number;
           monthly_business_electricity?: number;
@@ -508,7 +508,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
-          monthly_expenses: number;
+          monthly_expenses?: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;
           monthly_water_bill?: number;
@@ -534,7 +534,7 @@ export type Database = {
           credit_card_payments?: number;
           co_maker_guaranteed_loan_payments?: number;
           other_debt_payments?: number;
-          existing_loan_payments: number;
+          existing_loan_payments?: number | null;
           existing_debt_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
@@ -547,7 +547,7 @@ export type Database = {
           estimated_customer_credit_amount?: number;
           average_collection_period?: BorrowerAverageCollectionPeriod | null;
           keeps_customer_debt_list?: boolean | null;
-          years_in_operation: number;
+          years_in_operation?: number | null;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
@@ -580,7 +580,7 @@ export type Database = {
           emergency_contact_relationship?: string | null;
           business_name?: string | null;
           business_description?: string | null;
-          business_type?: BusinessType;
+          business_type?: BusinessType | null;
           started_operating_at?: string | null;
           business_address?: string | null;
           barangay?: string | null;
@@ -588,7 +588,7 @@ export type Database = {
           province?: string | null;
           region?: string | null;
           zip_code?: string | null;
-          location?: string;
+          location?: string | null;
           is_business_address_same_as_home?: boolean;
           ownership_type?: BorrowerOwnershipType | null;
           borrower_role?: BorrowerRole | null;
@@ -612,7 +612,7 @@ export type Database = {
           revenue_confidence?: BorrowerRevenueConfidence | null;
           best_month_sales?: number;
           worst_month_sales?: number;
-          monthly_gross_revenue?: number;
+          monthly_gross_revenue?: number | null;
           monthly_inventory_cost?: number;
           monthly_business_rent?: number;
           monthly_business_electricity?: number;
@@ -624,7 +624,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
-          monthly_expenses?: number;
+          monthly_expenses?: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;
           monthly_water_bill?: number;
@@ -650,7 +650,7 @@ export type Database = {
           credit_card_payments?: number;
           co_maker_guaranteed_loan_payments?: number;
           other_debt_payments?: number;
-          existing_loan_payments?: number;
+          existing_loan_payments?: number | null;
           existing_debt_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
@@ -663,7 +663,7 @@ export type Database = {
           estimated_customer_credit_amount?: number;
           average_collection_period?: BorrowerAverageCollectionPeriod | null;
           keeps_customer_debt_list?: boolean | null;
-          years_in_operation?: number;
+          years_in_operation?: number | null;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
