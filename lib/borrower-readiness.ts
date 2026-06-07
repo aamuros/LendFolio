@@ -129,12 +129,6 @@ export function evaluateBorrowerReadiness(
   const profileIsStale = false;
 
   if (!hasBusinessLocation(parsedPortfolio)) missingFields.push("Business location");
-  if (!parsedPortfolio.householdExpensesCompleted) {
-    missingFields.push("Household expense declaration");
-  }
-  if (!parsedPortfolio.existingDebtDeclarationCompleted) {
-    missingFields.push("Existing debt declaration");
-  }
   if (parsedPortfolio.monthlyGrossRevenue <= 0) {
     riskFlags.add("zero_revenue");
     blockingFlags.add("zero_revenue");

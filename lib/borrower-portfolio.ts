@@ -97,6 +97,18 @@ export const averageCollectionPeriodOptions = [
   "irregular",
 ] as const;
 
+export const loanPurposeCategoryOptions = [
+  "inventory_stock",
+  "equipment",
+  "stall_store_improvement",
+  "working_capital",
+  "rent_utilities",
+  "marketing",
+  "debt_consolidation",
+  "emergency_repair",
+  "other",
+] as const;
+
 export const profileReviewStatusOptions = [
   "self_declared",
   "needs_review",
@@ -281,6 +293,11 @@ const borrowerPortfolioBaseSchema = z.object({
     .max(800, "Keep the loan purpose context under 800 characters.")
     .optional()
     .or(z.literal("")),
+  loanPurposeCategory: z
+    .enum(loanPurposeCategoryOptions)
+    .default("working_capital"),
+  loanPurposeOther: shortText(80),
+  loanPurposeDetails: shortText(160),
 
   hasOverdueLoans: z.boolean().default(false),
   missedPaymentsLast12Months: z.boolean().default(false),
@@ -346,6 +363,17 @@ const borrowerPortfolioValidatedSchema = z
     const hasCompleteStructuredHomeAddress =
       isValidPhilippineAddressSelection(value.homeAddressSelection) &&
       Boolean(value.homeStreetAddress?.trim());
+
+    if (
+      value.loanPurposeCategory === "other" &&
+      !value.loanPurposeOther?.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["loanPurposeOther"],
+        message: "Enter a short loan purpose.",
+      });
+    }
 
     if (!isPhysicalBusinessAddressRequired(value.operatingModel)) {
       return;
@@ -445,6 +473,9 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
       monthlyGrossRevenue,
       monthlyExpenses: totalBusinessExpenses,
       existingLoanPayments: totalExistingDebtPayments,
+      householdExpensesCompleted: true,
+      existingDebtDeclarationCompleted: true,
+      loanPurposeContext: formatLoanPurposeContext(value),
     };
   },
 );
@@ -670,7 +701,7 @@ export function mapBorrowerPortfolioRow(
       averageCollectionPeriodOptions,
     ),
     keepsCustomerDebtList: row.keeps_customer_debt_list,
-    loanPurposeContext: row.loan_purpose_context ?? "",
+    ...parseLoanPurposeContext(row.loan_purpose_context ?? ""),
     hasOverdueLoans: Boolean(row.has_overdue_loans),
     missedPaymentsLast12Months: Boolean(row.missed_payments_last_12_months),
     hasUnpaidLendingAppLoans: Boolean(row.has_unpaid_lending_app_loans),
@@ -864,6 +895,77 @@ export const averageCollectionPeriodLabels = {
   monthly: "Monthly",
   irregular: "Irregular",
 } satisfies Record<(typeof averageCollectionPeriodOptions)[number], string>;
+
+export const loanPurposeCategoryLabels = {
+  inventory_stock: "Inventory / stock",
+  equipment: "Equipment",
+  stall_store_improvement: "Stall or store improvement",
+  working_capital: "Working capital",
+  rent_utilities: "Rent / utilities",
+  marketing: "Marketing",
+  debt_consolidation: "Debt consolidation",
+  emergency_repair: "Emergency repair",
+  other: "Other",
+} satisfies Record<(typeof loanPurposeCategoryOptions)[number], string>;
+
+function formatLoanPurposeContext(
+  value: Pick<
+    BorrowerPortfolioFormInput,
+    "loanPurposeCategory" | "loanPurposeOther" | "loanPurposeDetails" | "loanPurposeContext"
+  >,
+) {
+  const category =
+    value.loanPurposeCategory === "other"
+      ? value.loanPurposeOther?.trim()
+      : loanPurposeCategoryLabels[value.loanPurposeCategory];
+  const details = value.loanPurposeDetails?.trim();
+  const existingContext = value.loanPurposeContext?.trim();
+
+  if (category && details) return `${category}: ${details}`;
+  if (existingContext) return existingContext;
+  if (category) return category;
+
+  return "";
+}
+
+function parseLoanPurposeContext(value: string): Pick<
+  BorrowerPortfolioFormInput,
+  "loanPurposeContext" | "loanPurposeCategory" | "loanPurposeOther" | "loanPurposeDetails"
+> {
+  const trimmed = value.trim();
+  const matchingCategory = loanPurposeCategoryOptions.find(
+    (option) => loanPurposeCategoryLabels[option] === trimmed,
+  );
+  const [rawCategory, ...detailParts] = trimmed.split(":");
+  const categoryFromPrefix = loanPurposeCategoryOptions.find(
+    (option) => loanPurposeCategoryLabels[option] === rawCategory.trim(),
+  );
+
+  if (categoryFromPrefix) {
+    return {
+      loanPurposeContext: trimmed,
+      loanPurposeCategory: categoryFromPrefix,
+      loanPurposeOther: "",
+      loanPurposeDetails: detailParts.join(":").trim(),
+    };
+  }
+
+  if (matchingCategory) {
+    return {
+      loanPurposeContext: trimmed,
+      loanPurposeCategory: matchingCategory,
+      loanPurposeOther: "",
+      loanPurposeDetails: "",
+    };
+  }
+
+  return {
+    loanPurposeContext: trimmed,
+    loanPurposeCategory: "other",
+    loanPurposeOther: trimmed.slice(0, 80),
+    loanPurposeDetails: "",
+  };
+}
 
 function backfillDetailedTotals(
   input: BorrowerPortfolioFormInput,

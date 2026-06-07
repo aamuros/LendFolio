@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   borrowerPortfolioSchema,
   calculateDisposableIncome,
@@ -253,6 +254,48 @@ describe("microbusiness borrower readiness", () => {
 
     expect(readiness.readinessStatus).toBe("incomplete");
     expect(readiness.missingFields).toContain("Business operating confirmation");
+  });
+
+  it("infers household and debt declarations from saved profile values", () => {
+    const profile = completeProfile({
+      householdExpensesCompleted: false,
+      existingDebtDeclarationCompleted: false,
+    });
+    const readiness = evaluateBorrowerReadiness(profile);
+
+    expect(profile.householdExpensesCompleted).toBe(true);
+    expect(profile.existingDebtDeclarationCompleted).toBe(true);
+    expect(readiness.missingFields).not.toContain(
+      "Household expense declaration",
+    );
+    expect(readiness.missingFields).not.toContain("Existing debt declaration");
+  });
+
+  it("requires a short purpose when loan purpose is other", () => {
+    const result = borrowerPortfolioSchema.safeParse({
+      ...completeProfile(),
+      loanPurposeCategory: "other",
+      loanPurposeOther: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(result.error.flatten().fieldErrors.loanPurposeOther).toContain(
+        "Enter a short loan purpose.",
+      );
+    }
+  });
+
+  it("does not render borrower-facing completion checkboxes", () => {
+    const formSource = readFileSync(
+      "components/borrower-portfolio-form.tsx",
+      "utf8",
+    );
+
+    expect(formSource).not.toContain(
+      "Household expense declaration is complete",
+    );
+    expect(formSource).not.toContain("Existing debt declaration is complete");
   });
 
   it("calculates business, household, debt, and disposable totals", () => {
