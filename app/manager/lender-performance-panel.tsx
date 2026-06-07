@@ -37,6 +37,11 @@ const businessTypeLabels: Record<BusinessType, string> = {
   online_seller: "Online seller",
   market_vendor: "Market vendor",
   service_provider: "Service provider",
+  small_retail_shop: "Small retail shop",
+  laundry_service: "Laundry service",
+  beauty_barber_service: "Beauty / barber service",
+  repair_service: "Repair service",
+  transport_delivery_operator: "Transport / delivery",
   other: "Other",
 };
 const businessTypeOptions: BusinessType[] = [
@@ -45,6 +50,11 @@ const businessTypeOptions: BusinessType[] = [
   "online_seller",
   "market_vendor",
   "service_provider",
+  "small_retail_shop",
+  "laundry_service",
+  "beauty_barber_service",
+  "repair_service",
+  "transport_delivery_operator",
   "other",
 ];
 

@@ -163,7 +163,6 @@ export function SignupForm() {
                     </>
                   }
                   error={state.fieldErrors?.termsAccepted}
-                  defaultChecked={state.values?.termsAccepted}
                 />
                 <ConsentCheckbox
                   name="privacyAccepted"
@@ -182,7 +181,6 @@ export function SignupForm() {
                     </>
                   }
                   error={state.fieldErrors?.privacyAccepted}
-                  defaultChecked={state.values?.privacyAccepted}
                 />
             </div>
 
@@ -258,18 +256,16 @@ function ConsentCheckbox({
   id,
   label,
   error,
-  defaultChecked,
 }: {
   name: string;
   id: string;
   label: React.ReactNode;
   error?: string[];
-  defaultChecked?: boolean;
 }) {
   return (
     <div className="grid gap-1">
       <div className="grid grid-cols-[1.125rem_1fr] items-start gap-x-2.5 gap-y-0">
-        <Checkbox id={id} name={name} value="on" className="mt-0.5" defaultChecked={defaultChecked} required />
+        <Checkbox id={id} name={name} value="on" className="mt-0.5" required />
         <Label htmlFor={id} className="text-sm font-normal leading-snug inline peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label}
         </Label>

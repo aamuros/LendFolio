@@ -13,6 +13,11 @@ export type BusinessType =
   | "online_seller"
   | "market_vendor"
   | "service_provider"
+  | "small_retail_shop"
+  | "laundry_service"
+  | "beauty_barber_service"
+  | "repair_service"
+  | "transport_delivery_operator"
   | "other";
 export type ApplicationStatus =
   | "submitted"
@@ -65,6 +70,10 @@ export type UserConsentType =
   | "document_processing_consent"
   | "lender_review_consent";
 export type BorrowerOperatingModel =
+  | "physical_store"
+  | "mobile_delivery_based"
+  | "online_only"
+  | "mixed_online_physical"
   | "fixed_store"
   | "market_stall"
   | "home_based"
@@ -73,6 +82,11 @@ export type BorrowerOperatingModel =
   | "mixed"
   | "other";
 export type BorrowerPrimarySalesChannel =
+  | "walk_in_customers"
+  | "online_orders"
+  | "facebook_marketplace"
+  | "ecommerce_platform"
+  | "regular_clients"
   | "walk_in"
   | "online_marketplace"
   | "social_media"
@@ -81,11 +95,19 @@ export type BorrowerPrimarySalesChannel =
   | "mixed"
   | "other";
 export type BorrowerRevenuePeriod =
+  | "last_7_days"
   | "last_30_days"
+  | "last_3_months_average"
+  | "last_6_months_average"
+  | "self_estimated_normal_month"
   | "average_monthly_last_3_months"
   | "average_monthly_last_6_months"
   | "seasonal_estimate";
 export type BorrowerRevenueConfidence =
+  | "sales_records"
+  | "bank_ewallet_proof"
+  | "supplier_receipts"
+  | "self_declared_only"
   | "self_declared"
   | "partially_documented"
   | "document_supported"
@@ -102,6 +124,36 @@ export type BorrowerCreditReadinessStatus =
   | "needs_review"
   | "not_eligible"
   | "eligible_to_apply";
+export type BorrowerOwnershipType =
+  | "sole_proprietor"
+  | "family_owned"
+  | "partnership"
+  | "informal_unregistered"
+  | "other";
+export type BorrowerRole =
+  | "owner_proprietor"
+  | "co_owner"
+  | "manager"
+  | "family_operator";
+export type BorrowerBusinessSchedule =
+  | "daily"
+  | "weekdays_only"
+  | "weekends_only"
+  | "seasonal"
+  | "irregular";
+export type BorrowerBusinessRegistrationType =
+  | "barangay_permit"
+  | "dti"
+  | "mayors_permit"
+  | "bir"
+  | "sec"
+  | "other";
+export type BorrowerAverageCollectionPeriod =
+  | "daily"
+  | "weekly"
+  | "every_payday"
+  | "monthly"
+  | "irregular";
 export type LenderVerificationDocumentType =
   | "business_registration"
   | "authorized_representative_id"
@@ -288,6 +340,12 @@ export type Database = {
         Row: {
           id: string;
           borrower_id: string;
+          mobile_number?: string | null;
+          home_address?: string | null;
+          years_at_current_address?: number;
+          emergency_contact_name?: string | null;
+          emergency_contact_number?: string | null;
+          emergency_contact_relationship?: string | null;
           business_name: string | null;
           business_description: string | null;
           business_type: BusinessType;
@@ -299,17 +357,97 @@ export type Database = {
           region: string | null;
           zip_code: string | null;
           location: string;
+          is_business_address_same_as_home?: boolean;
+          ownership_type?: BorrowerOwnershipType | null;
+          borrower_role?: BorrowerRole | null;
           operating_model: BorrowerOperatingModel | null;
           primary_sales_channel: BorrowerPrimarySalesChannel | null;
+          business_schedule?: BorrowerBusinessSchedule | null;
+          number_of_employees?: number;
+          main_products_or_services?: string | null;
+          main_suppliers?: string | null;
+          keeps_sales_records?: boolean;
+          uses_bank_or_ewallet?: boolean;
+          offers_customer_credit?: boolean;
+          has_business_registration?: boolean;
+          business_registration_type?: BorrowerBusinessRegistrationType | null;
+          registration_number?: string | null;
+          registration_date?: string | null;
+          unregistered_reason?: string | null;
+          average_daily_sales?: number;
+          average_weekly_sales?: number;
           revenue_period: BorrowerRevenuePeriod | null;
           revenue_confidence: BorrowerRevenueConfidence | null;
+          best_month_sales?: number;
+          worst_month_sales?: number;
           monthly_gross_revenue: number;
+          monthly_inventory_cost?: number;
+          monthly_business_rent?: number;
+          monthly_business_electricity?: number;
+          monthly_business_water?: number;
+          monthly_helper_salary?: number;
+          monthly_transportation_delivery?: number;
+          monthly_packaging_cost?: number;
+          monthly_platform_fees?: number;
+          monthly_maintenance_repairs?: number;
+          monthly_supplier_credit_payment?: number;
+          other_business_expenses?: number;
           monthly_expenses: number;
+          monthly_rent_or_mortgage?: number;
+          monthly_electricity_bill?: number;
+          monthly_water_bill?: number;
+          monthly_internet_phone_bill?: number;
+          monthly_food_groceries?: number;
+          monthly_transportation?: number;
+          monthly_tuition_education?: number;
+          monthly_medical_expenses?: number;
+          monthly_insurance?: number;
+          monthly_family_support?: number;
+          other_household_expenses?: number;
+          number_of_dependents?: number;
+          number_of_earning_household_members?: number;
+          household_expenses_completed?: boolean;
+          has_existing_debts?: boolean;
+          personal_loan_payments?: number;
+          business_loan_payments?: number;
+          vehicle_loan_payments?: number;
+          home_loan_payments?: number;
+          lending_app_payments?: number;
+          informal_loan_payments?: number;
+          buy_now_pay_later_payments?: number;
+          credit_card_payments?: number;
+          co_maker_guaranteed_loan_payments?: number;
+          other_debt_payments?: number;
           existing_loan_payments: number;
+          existing_debt_declaration_completed?: boolean;
+          cash_on_hand?: number;
+          bank_savings?: number;
+          ewallet_balance?: number;
+          inventory_value?: number;
+          business_equipment_value?: number;
+          vehicle_value?: number;
+          property_land_value?: number;
+          other_assets_value?: number;
+          estimated_customer_credit_amount?: number;
+          average_collection_period?: BorrowerAverageCollectionPeriod | null;
+          keeps_customer_debt_list?: boolean | null;
           years_in_operation: number;
           expense_breakdown: Json;
           debt_obligation_summary: Json;
           loan_purpose_context: string | null;
+          has_overdue_loans?: boolean;
+          missed_payments_last_12_months?: boolean;
+          has_unpaid_lending_app_loans?: boolean;
+          has_bounced_checks?: boolean;
+          is_co_maker_or_guarantor?: boolean;
+          has_debt_related_legal_case?: boolean;
+          has_repossession_history?: boolean;
+          has_tax_arrears?: boolean;
+          business_temporarily_stopped?: boolean;
+          confirms_business_operating?: boolean;
+          confirms_information_true?: boolean;
+          consents_to_data_processing?: boolean;
+          consents_to_credit_check?: boolean;
           profile_last_confirmed_at: string | null;
           profile_review_status: BorrowerProfileReviewStatus;
           created_at: string;
@@ -318,6 +456,12 @@ export type Database = {
         Insert: {
           id?: string;
           borrower_id: string;
+          mobile_number?: string | null;
+          home_address?: string | null;
+          years_at_current_address?: number;
+          emergency_contact_name?: string | null;
+          emergency_contact_number?: string | null;
+          emergency_contact_relationship?: string | null;
           business_name?: string | null;
           business_description?: string | null;
           business_type: BusinessType;
@@ -329,17 +473,97 @@ export type Database = {
           region?: string | null;
           zip_code?: string | null;
           location: string;
+          is_business_address_same_as_home?: boolean;
+          ownership_type?: BorrowerOwnershipType | null;
+          borrower_role?: BorrowerRole | null;
           operating_model?: BorrowerOperatingModel | null;
           primary_sales_channel?: BorrowerPrimarySalesChannel | null;
+          business_schedule?: BorrowerBusinessSchedule | null;
+          number_of_employees?: number;
+          main_products_or_services?: string | null;
+          main_suppliers?: string | null;
+          keeps_sales_records?: boolean;
+          uses_bank_or_ewallet?: boolean;
+          offers_customer_credit?: boolean;
+          has_business_registration?: boolean;
+          business_registration_type?: BorrowerBusinessRegistrationType | null;
+          registration_number?: string | null;
+          registration_date?: string | null;
+          unregistered_reason?: string | null;
+          average_daily_sales?: number;
+          average_weekly_sales?: number;
           revenue_period?: BorrowerRevenuePeriod | null;
           revenue_confidence?: BorrowerRevenueConfidence | null;
+          best_month_sales?: number;
+          worst_month_sales?: number;
           monthly_gross_revenue: number;
+          monthly_inventory_cost?: number;
+          monthly_business_rent?: number;
+          monthly_business_electricity?: number;
+          monthly_business_water?: number;
+          monthly_helper_salary?: number;
+          monthly_transportation_delivery?: number;
+          monthly_packaging_cost?: number;
+          monthly_platform_fees?: number;
+          monthly_maintenance_repairs?: number;
+          monthly_supplier_credit_payment?: number;
+          other_business_expenses?: number;
           monthly_expenses: number;
+          monthly_rent_or_mortgage?: number;
+          monthly_electricity_bill?: number;
+          monthly_water_bill?: number;
+          monthly_internet_phone_bill?: number;
+          monthly_food_groceries?: number;
+          monthly_transportation?: number;
+          monthly_tuition_education?: number;
+          monthly_medical_expenses?: number;
+          monthly_insurance?: number;
+          monthly_family_support?: number;
+          other_household_expenses?: number;
+          number_of_dependents?: number;
+          number_of_earning_household_members?: number;
+          household_expenses_completed?: boolean;
+          has_existing_debts?: boolean;
+          personal_loan_payments?: number;
+          business_loan_payments?: number;
+          vehicle_loan_payments?: number;
+          home_loan_payments?: number;
+          lending_app_payments?: number;
+          informal_loan_payments?: number;
+          buy_now_pay_later_payments?: number;
+          credit_card_payments?: number;
+          co_maker_guaranteed_loan_payments?: number;
+          other_debt_payments?: number;
           existing_loan_payments: number;
+          existing_debt_declaration_completed?: boolean;
+          cash_on_hand?: number;
+          bank_savings?: number;
+          ewallet_balance?: number;
+          inventory_value?: number;
+          business_equipment_value?: number;
+          vehicle_value?: number;
+          property_land_value?: number;
+          other_assets_value?: number;
+          estimated_customer_credit_amount?: number;
+          average_collection_period?: BorrowerAverageCollectionPeriod | null;
+          keeps_customer_debt_list?: boolean | null;
           years_in_operation: number;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
+          has_overdue_loans?: boolean;
+          missed_payments_last_12_months?: boolean;
+          has_unpaid_lending_app_loans?: boolean;
+          has_bounced_checks?: boolean;
+          is_co_maker_or_guarantor?: boolean;
+          has_debt_related_legal_case?: boolean;
+          has_repossession_history?: boolean;
+          has_tax_arrears?: boolean;
+          business_temporarily_stopped?: boolean;
+          confirms_business_operating?: boolean;
+          confirms_information_true?: boolean;
+          consents_to_data_processing?: boolean;
+          consents_to_credit_check?: boolean;
           profile_last_confirmed_at?: string | null;
           profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
@@ -348,6 +572,12 @@ export type Database = {
         Update: {
           id?: string;
           borrower_id?: string;
+          mobile_number?: string | null;
+          home_address?: string | null;
+          years_at_current_address?: number;
+          emergency_contact_name?: string | null;
+          emergency_contact_number?: string | null;
+          emergency_contact_relationship?: string | null;
           business_name?: string | null;
           business_description?: string | null;
           business_type?: BusinessType;
@@ -356,18 +586,100 @@ export type Database = {
           barangay?: string | null;
           city_or_municipality?: string | null;
           province?: string | null;
+          region?: string | null;
+          zip_code?: string | null;
           location?: string;
+          is_business_address_same_as_home?: boolean;
+          ownership_type?: BorrowerOwnershipType | null;
+          borrower_role?: BorrowerRole | null;
           operating_model?: BorrowerOperatingModel | null;
           primary_sales_channel?: BorrowerPrimarySalesChannel | null;
+          business_schedule?: BorrowerBusinessSchedule | null;
+          number_of_employees?: number;
+          main_products_or_services?: string | null;
+          main_suppliers?: string | null;
+          keeps_sales_records?: boolean;
+          uses_bank_or_ewallet?: boolean;
+          offers_customer_credit?: boolean;
+          has_business_registration?: boolean;
+          business_registration_type?: BorrowerBusinessRegistrationType | null;
+          registration_number?: string | null;
+          registration_date?: string | null;
+          unregistered_reason?: string | null;
+          average_daily_sales?: number;
+          average_weekly_sales?: number;
           revenue_period?: BorrowerRevenuePeriod | null;
           revenue_confidence?: BorrowerRevenueConfidence | null;
+          best_month_sales?: number;
+          worst_month_sales?: number;
           monthly_gross_revenue?: number;
+          monthly_inventory_cost?: number;
+          monthly_business_rent?: number;
+          monthly_business_electricity?: number;
+          monthly_business_water?: number;
+          monthly_helper_salary?: number;
+          monthly_transportation_delivery?: number;
+          monthly_packaging_cost?: number;
+          monthly_platform_fees?: number;
+          monthly_maintenance_repairs?: number;
+          monthly_supplier_credit_payment?: number;
+          other_business_expenses?: number;
           monthly_expenses?: number;
+          monthly_rent_or_mortgage?: number;
+          monthly_electricity_bill?: number;
+          monthly_water_bill?: number;
+          monthly_internet_phone_bill?: number;
+          monthly_food_groceries?: number;
+          monthly_transportation?: number;
+          monthly_tuition_education?: number;
+          monthly_medical_expenses?: number;
+          monthly_insurance?: number;
+          monthly_family_support?: number;
+          other_household_expenses?: number;
+          number_of_dependents?: number;
+          number_of_earning_household_members?: number;
+          household_expenses_completed?: boolean;
+          has_existing_debts?: boolean;
+          personal_loan_payments?: number;
+          business_loan_payments?: number;
+          vehicle_loan_payments?: number;
+          home_loan_payments?: number;
+          lending_app_payments?: number;
+          informal_loan_payments?: number;
+          buy_now_pay_later_payments?: number;
+          credit_card_payments?: number;
+          co_maker_guaranteed_loan_payments?: number;
+          other_debt_payments?: number;
           existing_loan_payments?: number;
+          existing_debt_declaration_completed?: boolean;
+          cash_on_hand?: number;
+          bank_savings?: number;
+          ewallet_balance?: number;
+          inventory_value?: number;
+          business_equipment_value?: number;
+          vehicle_value?: number;
+          property_land_value?: number;
+          other_assets_value?: number;
+          estimated_customer_credit_amount?: number;
+          average_collection_period?: BorrowerAverageCollectionPeriod | null;
+          keeps_customer_debt_list?: boolean | null;
           years_in_operation?: number;
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
+          has_overdue_loans?: boolean;
+          missed_payments_last_12_months?: boolean;
+          has_unpaid_lending_app_loans?: boolean;
+          has_bounced_checks?: boolean;
+          is_co_maker_or_guarantor?: boolean;
+          has_debt_related_legal_case?: boolean;
+          has_repossession_history?: boolean;
+          has_tax_arrears?: boolean;
+          business_temporarily_stopped?: boolean;
+          confirms_business_operating?: boolean;
+          confirms_information_true?: boolean;
+          consents_to_data_processing?: boolean;
+          consents_to_credit_check?: boolean;
           profile_last_confirmed_at?: string | null;
           profile_review_status?: BorrowerProfileReviewStatus;
           created_at?: string;
@@ -1377,6 +1689,11 @@ export type Database = {
       borrower_revenue_confidence: BorrowerRevenueConfidence;
       borrower_profile_review_status: BorrowerProfileReviewStatus;
       borrower_credit_readiness_status: BorrowerCreditReadinessStatus;
+      borrower_ownership_type: BorrowerOwnershipType;
+      borrower_role: BorrowerRole;
+      borrower_business_schedule: BorrowerBusinessSchedule;
+      borrower_business_registration_type: BorrowerBusinessRegistrationType;
+      borrower_average_collection_period: BorrowerAverageCollectionPeriod;
       borrower_verification_status: BorrowerVerificationStatus;
       borrower_verification_document_status: BorrowerVerificationDocumentStatus;
       borrower_verification_document_type: BorrowerVerificationDocumentType;

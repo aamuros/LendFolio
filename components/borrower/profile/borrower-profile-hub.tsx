@@ -79,7 +79,8 @@ export function BorrowerProfileHub({
       : "Not started";
   const isLoadingProfile = loadState === "loading";
   const displayName =
-    portfolio?.businessName.trim() || (isLoadingProfile ? "" : "Borrower profile");
+    portfolio?.businessName?.trim() ||
+    (isLoadingProfile ? "" : "Borrower profile");
 
   if (activeView === "business") {
     const businessHeaderSubtitle = portfolio

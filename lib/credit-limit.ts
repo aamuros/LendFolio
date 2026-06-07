@@ -5,6 +5,7 @@ export type CreditLimitPortfolioInput = {
   monthlyExpenses: number;
   existingLoanPayments: number;
   yearsInOperation: number;
+  totalHouseholdExpenses?: number;
 };
 
 export type CreditLimitLoanInput = {
@@ -32,9 +33,13 @@ export function calculateBorrowerCreditLimit(
   const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
   const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
   const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
+  const totalHouseholdExpenses = toFiniteNumber(portfolio.totalHouseholdExpenses);
   const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
   const monthlyNetCashFlow =
-    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
+    monthlyGrossRevenue -
+    monthlyExpenses -
+    totalHouseholdExpenses -
+    existingLoanPayments;
   const baseLimit = monthlyNetCashFlow * 3;
   const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
   const grossRevenueCap = monthlyGrossRevenue * 2;
@@ -53,9 +58,13 @@ export function explainBorrowerCreditLimit(
   const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
   const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
   const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
+  const totalHouseholdExpenses = toFiniteNumber(portfolio.totalHouseholdExpenses);
   const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
   const monthlyNetCashFlow =
-    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
+    monthlyGrossRevenue -
+    monthlyExpenses -
+    totalHouseholdExpenses -
+    existingLoanPayments;
   const baseLimit = monthlyNetCashFlow * 3;
   const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
   const grossRevenueCap = monthlyGrossRevenue * 2;
@@ -66,7 +75,7 @@ export function explainBorrowerCreditLimit(
   if (monthlyExpenses > monthlyGrossRevenue) {
     riskFlags.push("expenses_exceed_revenue");
   }
-  if (existingLoanPayments > monthlyNetCashFlow * 0.4) {
+  if (monthlyGrossRevenue > 0 && existingLoanPayments / monthlyGrossRevenue >= 0.4) {
     riskFlags.push("high_existing_debt_payments");
   }
   if (yearsInOperation < 1) riskFlags.push("very_new_business");
@@ -132,7 +141,7 @@ function floorToNearest100(value: number) {
   return Math.floor(value / 100) * 100;
 }
 
-function toFiniteNumber(value: number) {
+function toFiniteNumber(value: number | null | undefined) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }

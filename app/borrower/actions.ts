@@ -7,6 +7,9 @@ import {
   type ActiveLoanSummary,
 } from "@/lib/active-loans";
 import {
+  calculateTotalBusinessExpenses,
+  calculateTotalExistingDebtPayments,
+  calculateTotalHouseholdExpenses,
   borrowerPortfolioSchema,
   mapBorrowerPortfolioRow,
   resolveBorrowerAddressFields,
@@ -212,7 +215,7 @@ const repaymentProofAllowedTypes = new Set([
 ]);
 
 const borrowerPortfolioCreditSelect =
-  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at, mobile_number, home_address, years_at_current_address, emergency_contact_name, emergency_contact_number, emergency_contact_relationship, is_business_address_same_as_home, ownership_type, borrower_role, business_schedule, number_of_employees, main_products_or_services, main_suppliers, keeps_sales_records, uses_bank_or_ewallet, offers_customer_credit, has_business_registration, business_registration_type, registration_number, registration_date, unregistered_reason, average_daily_sales, average_weekly_sales, best_month_sales, worst_month_sales, monthly_inventory_cost, monthly_business_rent, monthly_business_electricity, monthly_business_water, monthly_helper_salary, monthly_transportation_delivery, monthly_packaging_cost, monthly_platform_fees, monthly_maintenance_repairs, monthly_supplier_credit_payment, other_business_expenses, monthly_rent_or_mortgage, monthly_electricity_bill, monthly_water_bill, monthly_internet_phone_bill, monthly_food_groceries, monthly_transportation, monthly_tuition_education, monthly_medical_expenses, monthly_insurance, monthly_family_support, other_household_expenses, number_of_dependents, number_of_earning_household_members, household_expenses_completed, has_existing_debts, personal_loan_payments, business_loan_payments, vehicle_loan_payments, home_loan_payments, lending_app_payments, informal_loan_payments, buy_now_pay_later_payments, credit_card_payments, co_maker_guaranteed_loan_payments, other_debt_payments, existing_debt_declaration_completed, cash_on_hand, bank_savings, ewallet_balance, inventory_value, business_equipment_value, vehicle_value, property_land_value, other_assets_value, estimated_customer_credit_amount, average_collection_period, keeps_customer_debt_list, has_overdue_loans, missed_payments_last_12_months, has_unpaid_lending_app_loans, has_bounced_checks, is_co_maker_or_guarantor, has_debt_related_legal_case, has_repossession_history, has_tax_arrears, business_temporarily_stopped, confirms_business_operating, confirms_information_true, consents_to_data_processing, consents_to_credit_check";
 
 export async function loadBorrowerPortfolio(
   verifiedAccess?: AccessResult,
@@ -235,9 +238,7 @@ export async function loadBorrowerPortfolio(
 
     const { data, error } = await supabase
       .from("borrower_portfolios")
-      .select(
-        "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at",
-      )
+      .select(borrowerPortfolioCreditSelect)
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
 
@@ -295,10 +296,21 @@ export async function saveBorrowerPortfolio(
     }
 
     const resolvedAddress = resolveBorrowerAddressFields(parsed.data);
+    const totalBusinessExpenses = calculateTotalBusinessExpenses(parsed.data);
+    const totalExistingDebtPayments =
+      calculateTotalExistingDebtPayments(parsed.data);
+    const totalHouseholdExpenses = calculateTotalHouseholdExpenses(parsed.data);
 
     const { error } = await supabase.from("borrower_portfolios").upsert(
       {
         borrower_id: access.profile.id,
+        mobile_number: parsed.data.mobileNumber || null,
+        home_address: parsed.data.homeAddress || null,
+        years_at_current_address: parsed.data.yearsAtCurrentAddress,
+        emergency_contact_name: parsed.data.emergencyContactName || null,
+        emergency_contact_number: parsed.data.emergencyContactNumber || null,
+        emergency_contact_relationship:
+          parsed.data.emergencyContactRelationship || null,
         business_name: parsed.data.businessName,
         business_type: parsed.data.businessType,
         location: resolvedAddress.location,
@@ -307,15 +319,127 @@ export async function saveBorrowerPortfolio(
         city_or_municipality: resolvedAddress.cityOrMunicipality,
         region: resolvedAddress.region,
         zip_code: resolvedAddress.zipCode,
-        revenue_period: "last_30_days",
-        revenue_confidence: "self_declared",
+        is_business_address_same_as_home:
+          parsed.data.isBusinessAddressSameAsHome,
+        ownership_type: parsed.data.ownershipType,
+        borrower_role: parsed.data.borrowerRole,
+        operating_model: parsed.data.operatingModel,
+        primary_sales_channel: parsed.data.primarySalesChannel,
+        business_schedule: parsed.data.businessSchedule,
+        number_of_employees: parsed.data.numberOfEmployees,
+        main_products_or_services:
+          parsed.data.mainProductsOrServices?.trim() || null,
+        main_suppliers: parsed.data.mainSuppliers?.trim() || null,
+        keeps_sales_records: parsed.data.keepsSalesRecords,
+        uses_bank_or_ewallet: parsed.data.usesBankOrEwallet,
+        offers_customer_credit: parsed.data.offersCustomerCredit,
+        has_business_registration: parsed.data.hasBusinessRegistration,
+        business_registration_type: parsed.data.hasBusinessRegistration
+          ? parsed.data.businessRegistrationType
+          : null,
+        registration_number: parsed.data.registrationNumber || null,
+        registration_date: parsed.data.registrationDate || null,
+        unregistered_reason: parsed.data.unregisteredReason || null,
+        average_daily_sales: parsed.data.averageDailySales,
+        average_weekly_sales: parsed.data.averageWeeklySales,
+        revenue_period: parsed.data.revenuePeriod,
+        revenue_confidence: parsed.data.revenueConfidence,
+        best_month_sales: parsed.data.bestMonthSales,
+        worst_month_sales: parsed.data.worstMonthSales,
         monthly_gross_revenue: parsed.data.monthlyGrossRevenue,
-        monthly_expenses: parsed.data.monthlyExpenses,
-        existing_loan_payments: parsed.data.existingLoanPayments,
+        monthly_inventory_cost: parsed.data.monthlyInventoryCost,
+        monthly_business_rent: parsed.data.monthlyBusinessRent,
+        monthly_business_electricity: parsed.data.monthlyBusinessElectricity,
+        monthly_business_water: parsed.data.monthlyBusinessWater,
+        monthly_helper_salary: parsed.data.monthlyHelperSalary,
+        monthly_transportation_delivery:
+          parsed.data.monthlyTransportationDelivery,
+        monthly_packaging_cost: parsed.data.monthlyPackagingCost,
+        monthly_platform_fees: parsed.data.monthlyPlatformFees,
+        monthly_maintenance_repairs: parsed.data.monthlyMaintenanceRepairs,
+        monthly_supplier_credit_payment:
+          parsed.data.monthlySupplierCreditPayment,
+        other_business_expenses: parsed.data.otherBusinessExpenses,
+        monthly_expenses: totalBusinessExpenses,
+        monthly_rent_or_mortgage: parsed.data.monthlyRentOrMortgage,
+        monthly_electricity_bill: parsed.data.monthlyElectricityBill,
+        monthly_water_bill: parsed.data.monthlyWaterBill,
+        monthly_internet_phone_bill: parsed.data.monthlyInternetPhoneBill,
+        monthly_food_groceries: parsed.data.monthlyFoodGroceries,
+        monthly_transportation: parsed.data.monthlyTransportation,
+        monthly_tuition_education: parsed.data.monthlyTuitionEducation,
+        monthly_medical_expenses: parsed.data.monthlyMedicalExpenses,
+        monthly_insurance: parsed.data.monthlyInsurance,
+        monthly_family_support: parsed.data.monthlyFamilySupport,
+        other_household_expenses: parsed.data.otherHouseholdExpenses,
+        number_of_dependents: parsed.data.numberOfDependents,
+        number_of_earning_household_members:
+          parsed.data.numberOfEarningHouseholdMembers,
+        household_expenses_completed: parsed.data.householdExpensesCompleted,
+        has_existing_debts: parsed.data.hasExistingDebts,
+        personal_loan_payments: parsed.data.personalLoanPayments,
+        business_loan_payments: parsed.data.businessLoanPayments,
+        vehicle_loan_payments: parsed.data.vehicleLoanPayments,
+        home_loan_payments: parsed.data.homeLoanPayments,
+        lending_app_payments: parsed.data.lendingAppPayments,
+        informal_loan_payments: parsed.data.informalLoanPayments,
+        buy_now_pay_later_payments: parsed.data.buyNowPayLaterPayments,
+        credit_card_payments: parsed.data.creditCardPayments,
+        co_maker_guaranteed_loan_payments:
+          parsed.data.coMakerGuaranteedLoanPayments,
+        other_debt_payments: parsed.data.otherDebtPayments,
+        existing_loan_payments: totalExistingDebtPayments,
+        existing_debt_declaration_completed:
+          parsed.data.existingDebtDeclarationCompleted,
+        cash_on_hand: parsed.data.cashOnHand,
+        bank_savings: parsed.data.bankSavings,
+        ewallet_balance: parsed.data.ewalletBalance,
+        inventory_value: parsed.data.inventoryValue,
+        business_equipment_value: parsed.data.businessEquipmentValue,
+        vehicle_value: parsed.data.vehicleValue,
+        property_land_value: parsed.data.propertyLandValue,
+        other_assets_value: parsed.data.otherAssetsValue,
+        estimated_customer_credit_amount:
+          parsed.data.estimatedCustomerCreditAmount,
+        average_collection_period: parsed.data.averageCollectionPeriod,
+        keeps_customer_debt_list: parsed.data.keepsCustomerDebtList,
         years_in_operation: parsed.data.yearsInOperation,
-        loan_purpose_context: parsed.data.loanPurposeContext.trim() || null,
+        loan_purpose_context: parsed.data.loanPurposeContext?.trim() || null,
+        has_overdue_loans: parsed.data.hasOverdueLoans,
+        missed_payments_last_12_months:
+          parsed.data.missedPaymentsLast12Months,
+        has_unpaid_lending_app_loans:
+          parsed.data.hasUnpaidLendingAppLoans,
+        has_bounced_checks: parsed.data.hasBouncedChecks,
+        is_co_maker_or_guarantor: parsed.data.isCoMakerOrGuarantor,
+        has_debt_related_legal_case: parsed.data.hasDebtRelatedLegalCase,
+        has_repossession_history: parsed.data.hasRepossessionHistory,
+        has_tax_arrears: parsed.data.hasTaxArrears,
+        business_temporarily_stopped: parsed.data.businessTemporarilyStopped,
+        confirms_business_operating: parsed.data.confirmsBusinessOperating,
+        confirms_information_true: parsed.data.confirmsInformationTrue,
+        consents_to_data_processing: parsed.data.consentsToDataProcessing,
+        consents_to_credit_check: parsed.data.consentsToCreditCheck,
+        expense_breakdown: {
+          inventory: parsed.data.monthlyInventoryCost,
+          rent: parsed.data.monthlyBusinessRent,
+          utilities:
+            parsed.data.monthlyBusinessElectricity +
+            parsed.data.monthlyBusinessWater,
+          payroll: parsed.data.monthlyHelperSalary,
+          supplier_credit: parsed.data.monthlySupplierCreditPayment,
+          other: parsed.data.otherBusinessExpenses,
+          total_business_expenses: totalBusinessExpenses,
+          total_household_expenses: totalHouseholdExpenses,
+        },
+        debt_obligation_summary: {
+          has_existing_debts: parsed.data.hasExistingDebts,
+          total_existing_debt_payments: totalExistingDebtPayments,
+        },
         profile_last_confirmed_at: new Date().toISOString(),
-        profile_review_status: "self_declared",
+        profile_review_status: parsed.data.hasBusinessRegistration
+          ? "self_declared"
+          : "needs_review",
         updated_at: new Date().toISOString(),
       },
       { onConflict: "borrower_id" },
@@ -556,6 +680,17 @@ async function loadBorrowerCreditSummary(
     monthly_expenses: number;
     existing_loan_payments: number;
     years_in_operation: number;
+    monthly_rent_or_mortgage?: number | null;
+    monthly_electricity_bill?: number | null;
+    monthly_water_bill?: number | null;
+    monthly_internet_phone_bill?: number | null;
+    monthly_food_groceries?: number | null;
+    monthly_transportation?: number | null;
+    monthly_tuition_education?: number | null;
+    monthly_medical_expenses?: number | null;
+    monthly_insurance?: number | null;
+    monthly_family_support?: number | null;
+    other_household_expenses?: number | null;
   },
   verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ) {
@@ -584,6 +719,19 @@ async function loadBorrowerCreditSummary(
       monthlyExpenses: portfolio.monthly_expenses,
       existingLoanPayments: portfolio.existing_loan_payments,
       yearsInOperation: portfolio.years_in_operation,
+      totalHouseholdExpenses: [
+        portfolio.monthly_rent_or_mortgage,
+        portfolio.monthly_electricity_bill,
+        portfolio.monthly_water_bill,
+        portfolio.monthly_internet_phone_bill,
+        portfolio.monthly_food_groceries,
+        portfolio.monthly_transportation,
+        portfolio.monthly_tuition_education,
+        portfolio.monthly_medical_expenses,
+        portfolio.monthly_insurance,
+        portfolio.monthly_family_support,
+        portfolio.other_household_expenses,
+      ].reduce<number>((total, value) => total + (Number(value) || 0), 0),
     },
     activeLoans: activeLoans.map((loan) => ({
       outstandingBalance: loan.outstanding_balance,

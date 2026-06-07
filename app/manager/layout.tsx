@@ -10,7 +10,7 @@ export default async function ManagerLayout({
   children: ReactNode;
 }) {
   let userEmail: string | null = null;
-  let alternateWorkspaces: ReturnType<typeof getAlternateWorkspaces> = [];
+  const alternateWorkspaces: ReturnType<typeof getAlternateWorkspaces> = [];
 
   try {
     const access = await getManagerAccess();
