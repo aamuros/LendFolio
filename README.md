@@ -65,7 +65,7 @@ LendFolio addresses this gap by providing a self-serve digital platform where bo
 | File Storage | Supabase Storage (private buckets) |
 | Form Handling | React Hook Form 7 + Zod 4 |
 | Unit / Integration Testing | Vitest 4 |
-| End-to-End Testing | Playwright (configured, not yet active) |
+| End-to-End Testing | Playwright (not yet installed) |
 | CI | GitHub Actions |
 | Hosting Target | Vercel |
 | Charts | Recharts 3.8 |
@@ -111,21 +111,43 @@ Borrower signup ──> Business profile ──> Verification upload
 │   ├── consents/                    # Consent recording server actions
 │   ├── notifications/               # Notification server actions and page
 │   ├── borrower/                    # Borrower workspace (profile, applications, offers, loans)
+│   │   ├── actions.ts               # Borrower server actions
+│   │   └── page.tsx                 # Borrower dashboard page
 │   ├── lender/                      # Lender workspace
+│   │   ├── page.tsx                 # Lender dashboard page
+│   │   ├── actions.ts               # Lender server actions
+│   │   ├── proof-preview-button.tsx # Repayment proof preview component
 │   │   ├── onboarding/              # Lender profile onboarding form
 │   │   ├── register/                # Lender registration
 │   │   └── applications/            # Application list and detail with offer form
 │   │       └── [id]/
 │   └── manager/                     # Manager operations dashboard
+│       ├── page.tsx                 # Manager dashboard page
+│       ├── layout.tsx               # Manager layout with sidebar
+│       ├── actions.ts               # Manager server actions
+│       ├── manager-access.ts        # Manager access control
+│       ├── manager-ui.tsx           # Manager UI utilities
+│       ├── auto-filter-form.tsx     # Reusable filter form
+│       ├── borrower-readiness-panel.tsx # Borrower readiness display
+│       ├── document-review-dialog.tsx # Document review dialog
+│       ├── evidence-document-row.tsx # Evidence document row
+│       ├── lender-performance-panel.tsx # Lender performance display
+│       ├── loading-skeletons.tsx    # Loading skeleton components
+│       ├── verification-decision-form.tsx # Verification decision form
 │       ├── applications/            # Application monitoring
+│       │   └── [id]/
 │       ├── audit-logs/              # Audit event log
+│       │   └── [id]/
 │       ├── borrower-verifications/  # Borrower verification queue
 │       ├── lenders/                 # Lender review queue
 │       ├── loans/                   # Active loan monitoring
+│       │   └── [id]/
 │       ├── lookup/                  # Borrower record search
-│       ├── repayments/              # Repayment proof monitoring
 │       ├── notifications/           # Manager notifications
+│       ├── repayments/              # Repayment proof monitoring
+│       │   └── [id]/
 │       └── users/                   # User detail
+│           └── [id]/
 │
 ├── components/                      # Shared UI components
 │   ├── ui/                          # 30 shadcn/ui primitives (button, card, dialog, table, etc.)
@@ -143,32 +165,46 @@ Borrower signup ──> Business profile ──> Verification upload
 │   │   ├── env.ts                   # Environment variable validation
 │   │   └── types.ts                 # Checked-in database types (auto-generated)
 │   ├── access-control.ts            # Role-based access helpers (requireBorrower, requireManager, etc.)
+│   ├── app-roles.ts                 # Role definitions and role-based rules
+│   ├── borrower-access.ts           # Borrower-specific access helpers
 │   ├── borrower-portfolio.ts        # Business profile schema and mapping
 │   ├── borrower-readiness.ts        # Credit readiness evaluation logic
 │   ├── borrower-credit-profile-grade.ts  # Explainable credit profile grade
 │   ├── borrower-verification.ts     # Verification document helpers
+│   ├── borrower-workflow-events.ts  # Borrower workflow event logging
+│   ├── consent-recording.ts         # Consent recording helpers
+│   ├── consents.ts                  # Consent version management
 │   ├── credit-limit.ts              # Credit limit calculation and enforcement
+│   ├── date-ranges.ts               # Date range utilities
+│   ├── lender-access.ts             # Lender-specific access helpers
+│   ├── lender-applications.ts       # Lender application review helpers
+│   ├── lender-onboarding.ts         # Lender onboarding helpers
+│   ├── lender-register.ts           # Lender registration helpers
+│   ├── lender-verification.ts       # Lender verification document helpers
 │   ├── loan-application.ts          # Loan application schema and mapping
 │   ├── loan-offer.ts                # Loan offer schema and mapping
 │   ├── active-loans.ts              # Active loan loading for borrower/lender/manager
-│   ├── lender-applications.ts       # Lender application review helpers
-│   ├── lender-verification.ts       # Lender verification document helpers
-│   ├── manager-operations.ts        # Manager data loading (applications, loans, audit, etc.)
 │   ├── manager-dashboard.ts         # Dashboard KPI and chart data loading
+│   ├── manager-operations.ts        # Manager data loading (applications, loans, audit, etc.)
+│   ├── money-input.ts               # Money input formatting helpers
 │   ├── notifications.ts             # Notification mapping and utilities
-│   ├── consents.ts                  # Consent version management
+│   ├── role-rules.ts                # Role-based business rules
+│   ├── signup.ts                    # Signup helpers
+│   ├── user-consents.ts             # User consent helpers
 │   ├── workflow-rules.ts            # Workflow state transition helpers
+│   ├── validation/
+│   │   └── uuid.ts                  # UUID validation
 │   └── utils.ts                     # cn() utility for Tailwind class merging
 │
 ├── docs/                            # Design and setup documentation
 ├── tests/                           # Vitest test suite (unit + database integration)
 ├── e2e/                             # Playwright E2E tests (performance benchmarks)
 ├── supabase/
-│   ├── migrations/                  # 54 SQL migrations
+│   ├── migrations/                  # 55 SQL migrations
 │   ├── seed.sql                     # Local demo data
 │   └── config.toml                  # Supabase local configuration
-├── hooks/                           # React hooks
-├── scripts/                         # Build and performance scripts
+├── hooks/                           # React hooks (use-mobile)
+├── scripts/                         # Build and performance scripts (perf)
 └── .github/workflows/ci.yml        # CI pipeline
 ```
 
@@ -234,7 +270,7 @@ npm run dev
 
 ## Database Setup
 
-LendFolio uses Supabase Postgres with 54 migration files covering all tables, enums, functions, triggers, and RLS policies.
+LendFolio uses Supabase Postgres with 55 migration files covering all tables, enums, functions, triggers, and RLS policies.
 
 ### Commands
 
@@ -325,7 +361,7 @@ LendFolio is ready for deployment to Vercel with Supabase as the production back
 
 ### Quick Checklist
 
-1. Create a Supabase project and apply all 54 migrations (`supabase db push`).
+1. Create a Supabase project and apply all 55 migrations (`supabase db push`).
 2. Configure Supabase Auth: enable Email provider, set Site URL and Redirect URLs.
 3. Provision a manager account manually in the production database.
 4. Create a Vercel project, import the repository, and set environment variables.
@@ -394,6 +430,8 @@ Application deletion is intentionally excluded from the borrower workflow. Close
 | [Foundation Verification](docs/foundation-verification.md) | Local database integration test setup |
 | [Sprint 1 Validation](docs/sprint-1-validation.md) | Manual QA checklist |
 | [Vercel Deployment](docs/vercel-deployment.md) | Complete Vercel + Supabase deployment guide with checklists |
+| [Performance Testing Plan](docs/performance-testing-plan.md) | Performance testing strategy and benchmarks |
+| [Contribution Workflow](docs/contribution-workflow.md) | Contribution guidelines and workflow |
 
 ## CI Pipeline
 
