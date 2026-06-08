@@ -663,6 +663,14 @@ export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
         });
       }
 
+      if (!value.address.barangay) {
+        context.addIssue({
+          code: "custom",
+          path: ["address", "barangay"],
+          message: "Select your business barangay.",
+        });
+      }
+
       return;
     }
 
@@ -1026,6 +1034,20 @@ export function calculateTotalDeclaredAssets(
     "propertyLandValue",
     "otherAssetsValue",
   ]);
+}
+
+export function copyHomeAddressToBusinessAddress(
+  homeAddressSelection: Partial<PhilippineAddressSelection> | null | undefined,
+  homeStreetAddress: string | null | undefined,
+) {
+  return {
+    regionCode: homeAddressSelection?.regionCode ?? "",
+    regionName: homeAddressSelection?.regionName ?? "",
+    cityOrMunicipality: homeAddressSelection?.cityOrMunicipality ?? "",
+    barangay: homeAddressSelection?.barangay ?? "",
+    zipCode: homeAddressSelection?.zipCode ?? "",
+    streetAddress: homeStreetAddress?.trim() ?? "",
+  };
 }
 
 export function calculateNetMonthlyBusinessIncome(

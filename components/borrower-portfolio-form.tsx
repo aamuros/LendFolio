@@ -35,6 +35,7 @@ import { AlertCircle } from "lucide-react";
 import {
   averageCollectionPeriodLabels,
   averageCollectionPeriodOptions,
+  copyHomeAddressToBusinessAddress,
   borrowerPortfolioSchema,
   borrowerPortfolioStepIds,
   borrowerPortfolioStepLabels,
@@ -77,6 +78,7 @@ import {
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import { getBarangaysByCity } from "@/lib/philippine-addresses";
 import { parseMoneyInput } from "@/lib/money-input";
 import { cn } from "@/lib/utils";
 
@@ -137,6 +139,10 @@ export function BorrowerPortfolioForm({
   const homeStreetAddress = useWatch({
     control,
     name: "homeStreetAddress",
+  });
+  const businessAddress = useWatch({
+    control,
+    name: "address",
   });
   const mainProductsOrServicesCategory = useWatch({
     control,
@@ -217,17 +223,76 @@ export function BorrowerPortfolioForm({
   useEffect(() => {
     if (!isBusinessAddressSameAsHome) return;
 
-    setValue("address", homeAddressSelection ?? defaultValues.homeAddressSelection, {
+    const copiedAddress = copyHomeAddressToBusinessAddress(
+      homeAddressSelection,
+      homeStreetAddress,
+    );
+
+    setValue("address.regionCode", copiedAddress.regionCode, {
       shouldDirty: true,
       shouldTouch: true,
+      shouldValidate: true,
     });
-    setValue("streetAddress", homeStreetAddress ?? "", {
+    setValue("address.regionName", copiedAddress.regionName, {
       shouldDirty: true,
       shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("address.cityOrMunicipality", copiedAddress.cityOrMunicipality, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("address.zipCode", copiedAddress.zipCode, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("streetAddress", copiedAddress.streetAddress, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+    setValue("address.barangay", "", {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
     });
   }, [
     homeAddressSelection,
     homeStreetAddress,
+    isBusinessAddressSameAsHome,
+    setValue,
+  ]);
+
+  useEffect(() => {
+    if (!isBusinessAddressSameAsHome) return;
+
+    const copiedBarangay = homeAddressSelection?.barangay ?? "";
+    const businessBarangays =
+      businessAddress?.regionCode && businessAddress.cityOrMunicipality
+        ? getBarangaysByCity(
+            businessAddress.regionCode,
+            businessAddress.cityOrMunicipality,
+          )
+        : [];
+    if (!copiedBarangay) return;
+    if (!businessAddress?.regionCode || !businessAddress?.cityOrMunicipality) {
+      return;
+    }
+    if (!businessBarangays.includes(copiedBarangay)) return;
+    if (businessAddress.barangay === copiedBarangay) return;
+
+    setValue("address.barangay", copiedBarangay, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: true,
+    });
+  }, [
+    businessAddress?.barangay,
+    businessAddress?.cityOrMunicipality,
+    businessAddress?.regionCode,
+    homeAddressSelection?.barangay,
     isBusinessAddressSameAsHome,
     setValue,
   ]);
