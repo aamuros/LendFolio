@@ -301,6 +301,7 @@ const borrowerPortfolioBaseSchema = z.object({
   existingDebtDeclarationCompleted: z.boolean().default(false),
   assetDeclarationCompleted: z.boolean().default(false),
 
+  hasInventory: z.boolean().nullable().optional().default(null),
   cashOnHand: numberField(),
   bankSavings: numberField(),
   ewalletBalance: numberField(),
@@ -871,6 +872,7 @@ export const borrowerExistingDebtsSchema = borrowerPortfolioBaseSchema
   }));
 
 export const borrowerAssetsSchema = borrowerPortfolioBaseSchema.pick({
+  hasInventory: true,
   cashOnHand: true,
   bankSavings: true,
   ewalletBalance: true,
@@ -1266,6 +1268,8 @@ export function mapBorrowerPortfolioRow(
   const bankSavings = toNumber(row.bank_savings);
   const ewalletBalance = toNumber(row.ewallet_balance);
   const inventoryValue = toNumber(row.inventory_value);
+  const hasInventory =
+    row.has_inventory ?? (inventoryValue > 0 ? true : null);
   const businessEquipmentValue = toNumber(row.business_equipment_value);
   const vehicleValue = toNumber(row.vehicle_value);
   const propertyLandValue = toNumber(row.property_land_value);
@@ -1412,10 +1416,11 @@ export function mapBorrowerPortfolioRow(
         row.existing_debt_declaration_completed ||
         hasSavedAssetValues,
     ),
+    hasInventory,
     cashOnHand,
     bankSavings,
     ewalletBalance,
-    inventoryValue,
+    inventoryValue: hasInventory === true ? inventoryValue : 0,
     businessEquipmentValue,
     vehicleValue,
     propertyLandValue,
