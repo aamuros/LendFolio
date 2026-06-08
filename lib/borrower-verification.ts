@@ -131,7 +131,9 @@ export function calculateBorrowerVerificationDocumentPolicy(
     BorrowerVerificationDocumentSummary,
     "documentType" | "status"
   >[],
+  verificationStatus?: BorrowerVerificationStatus | "missing",
 ): BorrowerVerificationDocumentPolicy {
+  const replacementRequired = verificationStatus === "needs_resubmission";
   const latestByType = new Map<
     BorrowerVerificationDocumentType,
     (typeof documents)[number]
@@ -147,11 +149,14 @@ export function calculateBorrowerVerificationDocumentPolicy(
   const rejected = new Set<BorrowerVerificationDocumentType>();
 
   for (const document of latestByType.values()) {
-    if (document.status === "submitted" || document.status === "accepted") {
+    if (
+      document.status === "submitted" ||
+      (document.status === "accepted" && !replacementRequired)
+    ) {
       submitted.add(document.documentType);
     }
 
-    if (document.status === "accepted") {
+    if (document.status === "accepted" && !replacementRequired) {
       accepted.add(document.documentType);
     }
 
@@ -275,7 +280,10 @@ export async function getBorrowerVerificationStatus(
     submittedAt: data.submitted_at,
     reviewedAt: data.reviewed_at,
     documents: mappedDocuments,
-    documentPolicy: calculateBorrowerVerificationDocumentPolicy(mappedDocuments),
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy(
+      mappedDocuments,
+      data.verification_status,
+    ),
   };
 }
 
@@ -327,7 +335,8 @@ export const borrowerFacingVerificationStateDescriptions: Record<
   waiting_review:
     "Your required documents are uploaded and waiting for manager review.",
   under_review: "A manager is reviewing your verification documents.",
-  needs_update: "One or more documents need to be replaced.",
+  needs_update:
+    "Some profile details changed after approval. Please replace your verification documents so we can review the updated information.",
   approved: "Your borrower verification is approved.",
 };
 

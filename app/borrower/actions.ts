@@ -222,6 +222,7 @@ export type BorrowerVerificationDocumentSubmitResult =
       ok: true;
       message: string;
       documentId: string;
+      verificationStatus?: string;
     }
   | {
       ok: false;
@@ -1931,6 +1932,7 @@ export async function submitBorrowerVerificationDocument(
           code?: string;
           message?: string;
           document_id?: string;
+          verification_status?: string;
         }
       | null;
 
@@ -1953,8 +1955,15 @@ export async function submitBorrowerVerificationDocument(
 
     return {
       ok: true,
-      message: result.message ?? "Verification document uploaded.",
+      message:
+        result.verification_status === "submitted"
+          ? "Updated documents submitted for review."
+          : result.message ?? "Verification document uploaded.",
       documentId: result.document_id,
+      verificationStatus:
+        typeof result.verification_status === "string"
+          ? result.verification_status
+          : undefined,
     };
   } catch {
     return {
