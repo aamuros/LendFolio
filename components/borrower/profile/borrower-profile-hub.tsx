@@ -15,6 +15,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   borrowerRoleLabels,
+  businessProfileSectionLabels,
+  type BusinessProfileSection,
   businessTypeLabels,
   operatingModelLabels,
   ownershipTypeLabels,
@@ -64,7 +66,10 @@ export function BorrowerProfileHub({
   creditSummary: BorrowerCreditSummary | null;
   loadState: PortfolioLoadState;
   message: string;
-  onEditProfile: (returnMode?: ProfileMode) => void;
+  onEditProfile: (
+    returnMode?: ProfileMode,
+    businessSection?: BusinessProfileSection,
+  ) => void;
   onNavigateHome: () => void;
   onProfileViewChange: (view: ProfileMode) => void;
   portfolio: BorrowerPortfolioInput | null;
@@ -104,9 +109,9 @@ export function BorrowerProfileHub({
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
           headerLabel="Business profile"
-          headerTitle={portfolio?.businessName || undefined}
+          headerTitle={businessProfileSectionLabels.basic}
           headerSubtitle={businessHeaderSubtitle}
-          onAction={() => onEditProfile("business")}
+          onAction={() => onEditProfile("business", "basic")}
         >
           <SummaryRow
             label="Business name"
@@ -134,10 +139,26 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.address}
+          onAction={() => onEditProfile("business", "address")}
+        >
           <SummaryRow
             label="Business location"
             value={portfolio?.location || "Not provided"}
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.operations}
+          onAction={() => onEditProfile("business", "operations")}
+        >
           <SummaryRow
             label="Years in operation"
             value={
@@ -162,6 +183,14 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.products}
+          onAction={() => onEditProfile("business", "products")}
+        >
           <SummaryRow
             label="Products or services"
             value={portfolio?.mainProductsOrServices || "Not provided"}
@@ -170,6 +199,14 @@ export function BorrowerProfileHub({
             label="Suppliers"
             value={portfolio?.mainSuppliers || "Not provided"}
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.records}
+          onAction={() => onEditProfile("business", "records")}
+        >
           <SummaryRow
             label="Sales records"
             value={portfolio ? yesNo(portfolio.keepsSalesRecords) : "Not provided"}
@@ -178,6 +215,14 @@ export function BorrowerProfileHub({
             label="Bank or e-wallet"
             value={portfolio ? yesNo(portfolio.usesBankOrEwallet) : "Not provided"}
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.loanUse}
+          onAction={() => onEditProfile("business", "loanUse")}
+        >
           <SummaryRow
             label="Loan use"
             value={portfolio?.loanPurposeContext || "Not provided"}

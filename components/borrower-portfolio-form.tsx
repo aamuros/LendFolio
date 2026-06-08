@@ -13,6 +13,7 @@ import {
 } from "react-hook-form";
 import {
   loadBorrowerPortfolio,
+  saveBorrowerBusinessProfileSection,
   saveBorrowerPortfolioStep,
 } from "@/app/borrower/actions";
 import { AddressSelect } from "@/components/address/address-select";
@@ -44,6 +45,7 @@ import {
   borrowerRoleOptions,
   businessRegistrationTypeLabels,
   businessRegistrationTypeOptions,
+  businessProfileSectionLabels,
   businessScheduleLabels,
   businessScheduleOptions,
   businessTypeLabels,
@@ -76,6 +78,7 @@ import {
   type BorrowerPortfolioFormInput,
   type BorrowerPortfolioInput,
   type BorrowerPortfolioStep,
+  type BusinessProfileSection,
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
@@ -93,12 +96,14 @@ const formSyncOptions = {
 
 type BorrowerPortfolioFormProps = {
   initialStep?: BorrowerPortfolioStep;
+  businessSection?: BusinessProfileSection;
   mode?: "completion" | "edit";
   onCancel?: () => void;
   onSaved?: (portfolio: BorrowerPortfolioInput) => void;
 };
 
 export function BorrowerPortfolioForm({
+  businessSection,
   initialStep,
   mode = "completion",
   onCancel,
@@ -192,6 +197,10 @@ export function BorrowerPortfolioForm({
       : ((currentStepIndex + 1) / (profileSteps.length - 1)) * 100;
   const isFinalStep = currentStepIndex === profileSteps.length - 1;
   const isEditMode = mode === "edit";
+  const editTitle =
+    isEditMode && businessSection
+      ? businessProfileSectionLabels[businessSection]
+      : currentStep.title;
   const previousBusinessRegistration = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
@@ -334,7 +343,10 @@ export function BorrowerPortfolioForm({
     setServerErrors({});
 
     startTransition(async () => {
-      const result = await saveBorrowerPortfolioStep(currentStep.id, values);
+      const result =
+        isEditMode && businessSection
+          ? await saveBorrowerBusinessProfileSection(businessSection, values)
+          : await saveBorrowerPortfolioStep(currentStep.id, values);
       setLoadState(result.ok ? "ready" : "error");
       if (result.ok) {
         setStatusMessage("");
@@ -344,12 +356,10 @@ export function BorrowerPortfolioForm({
         if (isEditMode || isFinalStep) {
           onSaved?.(result.portfolio);
         } else {
-          const nextIncompleteIndex = getStepIndex(result.nextIncompleteStep);
-          setCurrentStepIndex((index) =>
-            nextIncompleteIndex > index
-              ? nextIncompleteIndex
-              : Math.min(index + 1, profileSteps.length - 1),
-          );
+          setCurrentStepIndex((index) => {
+            const nextIndex = Math.min(index + 1, profileSteps.length - 1);
+            return nextIndex;
+          });
         }
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
@@ -393,10 +403,10 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           <WizardHeader
-            stepNumber={currentStepIndex + 1}
-            totalSteps={profileSteps.length - 1}
-            title={currentStep.title}
-            progressValue={progressValue}
+            stepNumber={isEditMode ? 1 : currentStepIndex + 1}
+            totalSteps={isEditMode ? 1 : profileSteps.length - 1}
+            title={editTitle}
+            progressValue={isEditMode ? 100 : progressValue}
             completedSteps={completedSteps}
           />
 
@@ -477,7 +487,8 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessBasics" ? (
+          {currentStep.id === "businessBasics" &&
+          (!isEditMode || !businessSection || businessSection === "basic") ? (
             <FormSection title="Business basics">
               <TextField
                 id="businessName"
@@ -509,6 +520,12 @@ export function BorrowerPortfolioForm({
                 labels={borrowerRoleLabels}
                 error={errors.borrowerRole?.message}
               />
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "businessBasics" &&
+          (!isEditMode || !businessSection || businessSection === "operations") ? (
+            <FormSection title="Operations and sales">
               <NumberField
                 id="yearsInOperation"
                 label="Years in operation"
@@ -551,6 +568,12 @@ export function BorrowerPortfolioForm({
                 })}
                 step="1"
               />
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "businessBasics" &&
+          (!isEditMode || !businessSection || businessSection === "products") ? (
+            <FormSection title="Products, services, and suppliers">
               <SelectField
                 control={control}
                 name="mainProductsOrServicesCategory"
@@ -573,6 +596,12 @@ export function BorrowerPortfolioForm({
                 error={errors.mainSuppliers?.message}
                 register={register("mainSuppliers")}
               />
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "businessBasics" &&
+          (!isEditMode || !businessSection || businessSection === "records") ? (
+            <FormSection title="Records and payment channels">
               <CheckboxField
                 control={control}
                 name="keepsSalesRecords"
@@ -1077,17 +1106,19 @@ export function BorrowerPortfolioForm({
               ) : null}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() =>
-                  setCurrentStepIndex((index) => Math.max(index - 1, 0))
-                }
-                disabled={currentStepIndex === 0 || isPending}
-                className="h-11 rounded-full font-semibold"
-              >
-                Previous
-              </Button>
+              {!isEditMode ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() =>
+                    setCurrentStepIndex((index) => Math.max(index - 1, 0))
+                  }
+                  disabled={currentStepIndex === 0 || isPending}
+                  className="h-11 rounded-full font-semibold"
+                >
+                  Previous
+                </Button>
+              ) : null}
               {isEditMode ? (
                 <Button
                   type="submit"
@@ -1106,7 +1137,7 @@ export function BorrowerPortfolioForm({
                     ? "Saving..."
                     : isFinalStep
                       ? "Save and continue to verification"
-                      : "Save and continue"}
+                      : "Save and Continue"}
                 </Button>
               )}
             </div>

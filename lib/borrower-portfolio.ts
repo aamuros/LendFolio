@@ -965,6 +965,64 @@ export const borrowerPortfolioStepLabels = {
   review: "Review",
 } satisfies Record<BorrowerPortfolioStep, string>;
 
+export const businessProfileSectionIds = [
+  "basic",
+  "address",
+  "operations",
+  "products",
+  "records",
+  "loanUse",
+] as const;
+
+export type BusinessProfileSection = (typeof businessProfileSectionIds)[number];
+
+export const businessProfileSectionLabels = {
+  basic: "Basic business information",
+  address: "Business address/location",
+  operations: "Operations and sales",
+  products: "Products, services, and suppliers",
+  records: "Records and payment channels",
+  loanUse: "Loan use",
+} satisfies Record<BusinessProfileSection, string>;
+
+export const businessProfileSectionStepMap = {
+  basic: "businessBasics",
+  address: "businessAddress",
+  operations: "businessBasics",
+  products: "businessBasics",
+  records: "businessBasics",
+  loanUse: "loanUse",
+} satisfies Record<BusinessProfileSection, BorrowerPortfolioStep>;
+
+export function getBusinessProfileSectionStep(
+  section: BusinessProfileSection,
+): BorrowerPortfolioStep {
+  return businessProfileSectionStepMap[section];
+}
+
+export function getNextBorrowerPortfolioStep(
+  currentStep: BorrowerPortfolioStep,
+): BorrowerPortfolioStep | null {
+  const index = borrowerPortfolioStepIds.indexOf(currentStep);
+
+  if (index < 0 || index >= borrowerPortfolioStepIds.length - 1) {
+    return null;
+  }
+
+  return borrowerPortfolioStepIds[index + 1];
+}
+
+export function mergeBorrowerPortfolioSectionValues(
+  existingPortfolio: Partial<BorrowerPortfolioInput> | null,
+  sectionValues: Partial<BorrowerPortfolioInput>,
+): BorrowerPortfolioInput {
+  return {
+    ...getBorrowerPortfolioDefaultValues(),
+    ...(existingPortfolio ?? {}),
+    ...sectionValues,
+  };
+}
+
 export const borrowerPortfolioStepSchemas = {
   homeAddress: borrowerHomeAddressSchema,
   businessBasics: borrowerBusinessBasicsSchema,

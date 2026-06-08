@@ -17,10 +17,13 @@ import {
   formatLoanPurposeContext,
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
+  getBusinessProfileSectionStep,
   mapBorrowerPortfolioRow,
+  mergeBorrowerPortfolioSectionValues,
   normalizeBorrowerBusinessRegistrationFields,
   resolveMainProductsOrServicesValue,
   resolveBorrowerAddressFields,
+  type BusinessProfileSection,
   type BorrowerPortfolioStep,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
@@ -93,6 +96,9 @@ export type BorrowerPortfolioStepSaveResult =
       fieldErrors?: Partial<Record<keyof BorrowerPortfolioInput, string[]>>;
       debugMessage?: string;
     };
+
+export type BorrowerBusinessProfileSectionSaveResult =
+  BorrowerPortfolioStepSaveResult;
 
 export type BorrowerPortfolioLoadResult =
   | {
@@ -582,10 +588,10 @@ export async function saveBorrowerPortfolioStep(
     const existingPortfolio = existingRow
       ? mapBorrowerPortfolioRow(existingRow)
       : null;
-    const mergedPortfolio = {
-      ...(existingPortfolio ?? {}),
-      ...values,
-    } as BorrowerPortfolioInput;
+    const mergedPortfolio = mergeBorrowerPortfolioSectionValues(
+      existingPortfolio,
+      values,
+    );
     const payload = buildBorrowerPortfolioStepPayload(
       step,
       mergedPortfolio,
@@ -657,6 +663,113 @@ export async function saveBorrowerPortfolioStep(
         status: "exception",
         error,
       }),
+    };
+  }
+}
+
+export async function saveBorrowerBusinessProfileSection(
+  section: BusinessProfileSection,
+  values: BorrowerPortfolioInput,
+): Promise<BorrowerBusinessProfileSectionSaveResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        mode: "auth",
+        message: access.message,
+      };
+    }
+
+    const { data: existingRow, error: loadError } = await supabase
+      .from("borrower_portfolios")
+      .select(borrowerPortfolioCreditSelect)
+      .eq("borrower_id", access.profile.id)
+      .maybeSingle();
+
+    if (loadError) {
+      logBorrowerPortfolioStepError({
+        action: "saveBorrowerBusinessProfileSection",
+        step: getBusinessProfileSectionStep(section),
+        status: "load_failed",
+        error: loadError,
+      });
+
+      return {
+        ok: false,
+        mode: "supabase",
+        message: "Could not load your profile.",
+      };
+    }
+
+    const existingPortfolio = existingRow
+      ? mapBorrowerPortfolioRow(existingRow)
+      : null;
+    const mergedPortfolio = mergeBorrowerPortfolioSectionValues(
+      existingPortfolio,
+      values,
+    );
+    const payload = buildBorrowerBusinessProfileSectionPayload(
+      section,
+      mergedPortfolio,
+      access.profile.id,
+    );
+
+    const saveQuery = existingRow
+      ? supabase
+          .from("borrower_portfolios")
+          .update(payload as never)
+          .eq("borrower_id", access.profile.id)
+      : supabase.from("borrower_portfolios").insert(payload as never);
+
+    const { data: savedRow, error: saveError } = await saveQuery
+      .select(borrowerPortfolioCreditSelect)
+      .single();
+
+    if (saveError || !savedRow) {
+      logBorrowerPortfolioStepError({
+        action: "saveBorrowerBusinessProfileSection",
+        step: getBusinessProfileSectionStep(section),
+        status: existingRow ? "update_failed" : "insert_failed",
+        error: saveError,
+      });
+
+      return {
+        ok: false,
+        mode: "supabase",
+        message: "Could not save this profile section.",
+      };
+    }
+
+    const savedPortfolio = mapBorrowerPortfolioRow(savedRow);
+    const completedSteps = getCompletedBorrowerPortfolioSteps(savedPortfolio);
+    const nextIncompleteStep =
+      getNextIncompleteBorrowerPortfolioStep(savedPortfolio);
+
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      mode: "supabase",
+      message: "Business profile section saved.",
+      portfolio: savedPortfolio,
+      completedSteps,
+      nextIncompleteStep,
+    };
+  } catch (error) {
+    logBorrowerPortfolioStepError({
+      action: "saveBorrowerBusinessProfileSection",
+      step: getBusinessProfileSectionStep(section),
+      status: "exception",
+      error,
+    });
+
+    return {
+      ok: false,
+      mode: "auth",
+      message: "Sign in to continue.",
     };
   }
 }
@@ -1039,6 +1152,79 @@ function buildBorrowerPortfolioStepPayload(
     consents_to_data_processing: portfolio.consentsToDataProcessing,
     consents_to_credit_check: portfolio.consentsToCreditCheck,
     profile_last_confirmed_at: now,
+  };
+}
+
+function buildBorrowerBusinessProfileSectionPayload(
+  section: BusinessProfileSection,
+  portfolio: BorrowerPortfolioInput,
+  borrowerId: string,
+) {
+  const now = new Date().toISOString();
+  const base = {
+    borrower_id: borrowerId,
+    updated_at: now,
+  };
+
+  if (section === "basic") {
+    return {
+      ...base,
+      business_name: portfolio.businessName,
+      business_type: portfolio.businessType,
+      ownership_type: portfolio.ownershipType,
+      borrower_role: portfolio.borrowerRole,
+    };
+  }
+
+  if (section === "address") {
+    const resolvedAddress = resolveBorrowerAddressFields(portfolio);
+
+    return {
+      ...base,
+      location: resolvedAddress.location,
+      business_address: resolvedAddress.businessAddress,
+      barangay: resolvedAddress.barangay,
+      city_or_municipality: resolvedAddress.cityOrMunicipality,
+      region: resolvedAddress.region,
+      zip_code: resolvedAddress.zipCode,
+      is_business_address_same_as_home:
+        portfolio.isBusinessAddressSameAsHome,
+    };
+  }
+
+  if (section === "operations") {
+    return {
+      ...base,
+      years_in_operation: portfolio.yearsInOperation,
+      operating_model: portfolio.operatingModel,
+      primary_sales_channel: portfolio.primarySalesChannel,
+      business_schedule: portfolio.businessSchedule,
+      number_of_employees: portfolio.numberOfEmployees,
+    };
+  }
+
+  if (section === "products") {
+    return {
+      ...base,
+      main_products_or_services:
+        resolveMainProductsOrServicesValue(portfolio) || null,
+      main_suppliers: portfolio.mainSuppliers?.trim() || null,
+    };
+  }
+
+  if (section === "records") {
+    return {
+      ...base,
+      keeps_sales_records: portfolio.keepsSalesRecords,
+      uses_bank_or_ewallet: portfolio.usesBankOrEwallet,
+    };
+  }
+
+  return {
+    ...base,
+    loan_purpose_context: formatLoanPurposeContext(portfolio, {
+      preferSelectedCategory: true,
+    }),
   };
 }
 

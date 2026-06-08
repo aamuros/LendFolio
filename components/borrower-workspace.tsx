@@ -20,7 +20,9 @@ import { borrowerPageBottomPadding } from "@/components/borrower/ui";
 
 import {
   getNextIncompleteBorrowerPortfolioStep,
+  getBusinessProfileSectionStep,
   isBorrowerPortfolioComplete,
+  type BusinessProfileSection,
   type BorrowerPortfolioInput,
   type BorrowerPortfolioStep,
 } from "@/lib/borrower-portfolio";
@@ -72,6 +74,8 @@ export function BorrowerWorkspace({
   const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
   const [editInitialStep, setEditInitialStep] =
     useState<BorrowerPortfolioStep>();
+  const [editBusinessSection, setEditBusinessSection] =
+    useState<BusinessProfileSection>();
   const [portfolioLoadState, setPortfolioLoadState] =
     useState<PortfolioLoadState>("loading");
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
@@ -186,10 +190,18 @@ export function BorrowerWorkspace({
     };
   }, [activeTab, startTransition]);
 
-  function openProfileEdit(returnMode: ProfileMode = "index") {
+  function openProfileEdit(
+    returnMode: ProfileMode = "index",
+    businessSection?: BusinessProfileSection,
+  ) {
     setPostSaveVerification(false);
     setEditReturnMode(returnMode);
-    setEditInitialStep(resolveEditInitialStep(returnMode, portfolio));
+    setEditBusinessSection(businessSection);
+    setEditInitialStep(
+      businessSection
+        ? getBusinessProfileSectionStep(businessSection)
+        : resolveEditInitialStep(returnMode, portfolio),
+    );
     setProfileMode("edit");
     requestAnimationFrame(() => {
       document
@@ -241,11 +253,20 @@ export function BorrowerWorkspace({
             {profileMode === "edit" ? (
               <div id="business-profile-edit" className="grid gap-6">
                 <ProfileSubviewHeader
-                  title="Edit Profile"
-                  description="Keep your business and loan-use details current."
+                  title={
+                    editReturnMode === "business"
+                      ? "Edit Business Profile"
+                      : "Edit Profile"
+                  }
+                  description={
+                    editReturnMode === "business"
+                      ? "Update this business profile section."
+                      : "Keep your business and loan-use details current."
+                  }
                   onBack={() => setProfileMode(editReturnMode)}
                 />
                 <BorrowerPortfolioForm
+                  businessSection={editBusinessSection}
                   initialStep={editInitialStep}
                   mode="edit"
                   onCancel={() => setProfileMode(editReturnMode)}
