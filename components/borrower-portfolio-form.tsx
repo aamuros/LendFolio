@@ -353,7 +353,15 @@ export function BorrowerPortfolioForm({
         }
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
-        setStatusMessage(result.message);
+        if (result.debugMessage) {
+          console.error("[borrower-profile-step-save]", result.debugMessage);
+        }
+
+        setStatusMessage(
+          result.debugMessage && process.env.NODE_ENV !== "production"
+            ? `${result.message} ${result.debugMessage}`
+            : result.message,
+        );
         if (result.fieldErrors) {
           setServerErrors(result.fieldErrors);
         }

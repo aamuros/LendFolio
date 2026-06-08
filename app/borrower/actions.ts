@@ -91,6 +91,7 @@ export type BorrowerPortfolioStepSaveResult =
       mode: "auth" | "validation" | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof BorrowerPortfolioInput, string[]>>;
+      debugMessage?: string;
     };
 
 export type BorrowerPortfolioLoadResult =
@@ -529,6 +530,12 @@ export async function saveBorrowerPortfolioStep(
       mode: "validation",
       message: "Review the highlighted fields before saving.",
       fieldErrors,
+      debugMessage: createBorrowerPortfolioStepDebugMessage({
+        action: "saveBorrowerPortfolioStep",
+        step,
+        status: "validation",
+        fieldErrors,
+      }),
     };
   }
 
@@ -551,10 +558,23 @@ export async function saveBorrowerPortfolioStep(
       .maybeSingle();
 
     if (loadError) {
+      logBorrowerPortfolioStepError({
+        action: "saveBorrowerPortfolioStep",
+        step,
+        status: "load_failed",
+        error: loadError,
+      });
+
       return {
         ok: false,
         mode: "supabase",
         message: "Could not load your profile.",
+        debugMessage: createBorrowerPortfolioStepDebugMessage({
+          action: "saveBorrowerPortfolioStep",
+          step,
+          status: "load_failed",
+          error: loadError,
+        }),
       };
     }
 
@@ -571,17 +591,35 @@ export async function saveBorrowerPortfolioStep(
       access.profile.id,
     );
 
-    const { data: savedRow, error: saveError } = await supabase
-      .from("borrower_portfolios")
-      .upsert(payload as never, { onConflict: "borrower_id" })
+    const saveQuery = existingRow
+      ? supabase
+          .from("borrower_portfolios")
+          .update(payload as never)
+          .eq("borrower_id", access.profile.id)
+      : supabase.from("borrower_portfolios").insert(payload as never);
+
+    const { data: savedRow, error: saveError } = await saveQuery
       .select(borrowerPortfolioCreditSelect)
       .single();
 
     if (saveError || !savedRow) {
+      logBorrowerPortfolioStepError({
+        action: "saveBorrowerPortfolioStep",
+        step,
+        status: existingRow ? "update_failed" : "insert_failed",
+        error: saveError,
+      });
+
       return {
         ok: false,
         mode: "supabase",
         message: "Could not save this profile section.",
+        debugMessage: createBorrowerPortfolioStepDebugMessage({
+          action: "saveBorrowerPortfolioStep",
+          step,
+          status: existingRow ? "update_failed" : "insert_failed",
+          error: saveError,
+        }),
       };
     }
 
@@ -600,13 +638,92 @@ export async function saveBorrowerPortfolioStep(
       completedSteps,
       nextIncompleteStep,
     };
-  } catch {
+  } catch (error) {
+    logBorrowerPortfolioStepError({
+      action: "saveBorrowerPortfolioStep",
+      step,
+      status: "exception",
+      error,
+    });
+
     return {
       ok: false,
       mode: "auth",
       message: "Sign in to continue.",
+      debugMessage: createBorrowerPortfolioStepDebugMessage({
+        action: "saveBorrowerPortfolioStep",
+        step,
+        status: "exception",
+        error,
+      }),
     };
   }
+}
+
+function logBorrowerPortfolioStepError({
+  action,
+  step,
+  status,
+  error,
+}: {
+  action: string;
+  step: BorrowerPortfolioStep;
+  status: string;
+  error: unknown;
+}) {
+  console.error("[borrower-profile-step-save]", {
+    action,
+    step,
+    status,
+    error,
+  });
+}
+
+function createBorrowerPortfolioStepDebugMessage({
+  action,
+  step,
+  status,
+  fieldErrors,
+  error,
+}: {
+  action: string;
+  step: BorrowerPortfolioStep;
+  status: string;
+  fieldErrors?: Partial<Record<keyof BorrowerPortfolioInput, string[]>>;
+  error?: unknown;
+}) {
+  if (process.env.NODE_ENV === "production") {
+    return undefined;
+  }
+
+  const rejectedFields = fieldErrors
+    ? Object.keys(fieldErrors).filter(
+        (field) => fieldErrors[field as keyof BorrowerPortfolioInput]?.length,
+      )
+    : [];
+  const backendMessage =
+    error && typeof error === "object" && "message" in error
+      ? String((error as { message?: unknown }).message)
+      : error instanceof Error
+        ? error.message
+        : error
+          ? String(error)
+          : "";
+  const backendCode =
+    error && typeof error === "object" && "code" in error
+      ? String((error as { code?: unknown }).code)
+      : "";
+
+  return [
+    `${action} failed`,
+    `step=${step}`,
+    `status=${status}`,
+    backendCode ? `code=${backendCode}` : "",
+    backendMessage ? `message=${backendMessage}` : "",
+    rejectedFields.length ? `fields=${rejectedFields.join(",")}` : "",
+  ]
+    .filter(Boolean)
+    .join(" | ");
 }
 
 function buildBorrowerPortfolioStepPayload(
