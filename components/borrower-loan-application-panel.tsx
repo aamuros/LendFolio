@@ -1398,23 +1398,33 @@ function FinancingSummaryCard({
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">Credit limit</p>
+                <p className="text-xs text-muted-foreground">
+                  Income-based starting limit
+                </p>
                 <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.calculatedCreditLimit)}
+                  {formatMoney(creditSummary.incomeBasedCapacity)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Credit history cap
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.repaymentHistoryCap)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Safe monthly repayment
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.safeMonthlyRepaymentCapacity)}
                 </p>
               </div>
               <div className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">Used credit</p>
                 <p className="text-sm font-semibold tabular-nums">
                   {formatMoney(creditSummary.usedCredit)}
-                </p>
-              </div>
-              <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">
-                  Monthly cash flow
-                </p>
-                <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.monthlyNetCashFlow)}
                 </p>
               </div>
               <div className="grid gap-0.5">
@@ -1437,6 +1447,11 @@ function FinancingSummaryCard({
                 </div>
               </div>
             </div>
+
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Your starting limit is based on your declared cash flow. Higher
+              limits unlock after successful repayments.
+            </p>
 
             {hasDebt ? (
               <>

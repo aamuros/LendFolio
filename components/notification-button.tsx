@@ -120,8 +120,13 @@ export function NotificationButton() {
           ) : null}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" sideOffset={8} className="w-80 p-0">
-        <div className="flex items-center justify-between px-4 py-3">
+      <PopoverContent
+        align="end"
+        collisionPadding={12}
+        sideOffset={8}
+        className="z-[60] flex max-h-[min(520px,calc(100vh-120px))] w-[min(360px,calc(100vw-24px))] flex-col overflow-hidden rounded-lg border border-border bg-popover p-0 text-popover-foreground shadow-xl"
+      >
+        <div className="flex shrink-0 items-center justify-between px-4 py-3">
           <span className="text-sm font-semibold text-foreground">
             Notifications
           </span>
@@ -134,8 +139,8 @@ export function NotificationButton() {
             </Badge>
           ) : null}
         </div>
-        <Separator />
-        <ScrollArea className="max-h-80">
+        <Separator className="shrink-0" />
+        <ScrollArea className="min-h-0 flex-auto overflow-hidden">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <div className="size-5 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -145,22 +150,22 @@ export function NotificationButton() {
               No notifications yet.
             </div>
           ) : (
-            <ul role="list">
+            <ul role="list" className="divide-y divide-border/60">
               {notifications.map((notification) => (
                 <li key={notification.id}>
                   <a
                     href={notification.href ?? "#"}
                     onClick={() => handleNotificationClick(notification)}
                     className={cn(
-                      "flex items-start gap-3 px-4 py-3 transition hover:bg-muted/50",
+                      "flex min-w-0 items-start gap-3 px-4 py-3 transition hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none",
                       notification.isUnread && "bg-primary/[0.03]",
                     )}
                   >
                     <span className="grid min-w-0 flex-1 gap-0.5">
-                      <span className="flex items-center gap-1.5">
+                      <span className="flex min-w-0 items-center gap-1.5">
                         <span
                           className={cn(
-                            "truncate text-sm",
+                            "min-w-0 truncate text-sm leading-5",
                             notification.isUnread
                               ? "font-semibold text-foreground"
                               : "font-medium text-foreground/80",
@@ -172,10 +177,10 @@ export function NotificationButton() {
                           <span className="size-1.5 shrink-0 rounded-full bg-primary" />
                         ) : null}
                       </span>
-                      <span className="text-xs text-muted-foreground line-clamp-1">
+                      <span className="truncate text-xs leading-5 text-muted-foreground">
                         {notification.message}
                       </span>
-                      <span className="text-xs text-muted-foreground/70">
+                      <span className="text-xs leading-5 text-muted-foreground/70">
                         {formatNotificationDate(notification.createdAt)}
                       </span>
                     </span>
@@ -188,15 +193,13 @@ export function NotificationButton() {
             </ul>
           )}
         </ScrollArea>
-        <Separator />
-        <div className="px-4 py-2">
-          <Link
-            href="/notifications"
-            onClick={() => setOpen(false)}
-            className="block text-center text-sm font-medium text-primary hover:underline"
-          >
-            View all notifications
-          </Link>
+        <Separator className="shrink-0" />
+        <div className="shrink-0 bg-popover px-3 py-2">
+          <Button asChild variant="ghost" className="w-full justify-center">
+            <Link href="/notifications" onClick={() => setOpen(false)}>
+              View all notifications
+            </Link>
+          </Button>
         </div>
       </PopoverContent>
     </Popover>

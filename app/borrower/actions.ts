@@ -1268,23 +1268,40 @@ async function loadBorrowerCreditSummary(
   verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ) {
   const supabase = verifiedClient ?? (await createSupabaseServerClient());
-  const [{ data: activeLoans, error: loansError }, { data: pendingApps, error: appsError }] =
-    await Promise.all([
-      supabase
-        .from("active_loans")
-        .select("outstanding_balance, status")
-        .eq("borrower_id", borrowerId)
-        .gt("outstanding_balance", 0),
-      supabase
-        .from("loan_applications")
-        .select("requested_amount")
-        .eq("borrower_id", borrowerId)
-        .in("status", ["submitted", "open"]),
-    ]);
+  const [
+    { data: loans, error: loansError },
+    { data: pendingApps, error: appsError },
+    { data: lateRepayments, error: lateRepaymentsError },
+  ] = await Promise.all([
+    supabase
+      .from("active_loans")
+      .select("id, outstanding_balance, status")
+      .eq("borrower_id", borrowerId),
+    supabase
+      .from("loan_applications")
+      .select("requested_amount")
+      .eq("borrower_id", borrowerId)
+      .in("status", ["submitted", "open"]),
+    supabase
+      .from("loan_repayment_schedules")
+      .select("active_loan_id")
+      .eq("borrower_id", borrowerId)
+      .eq("status", "late"),
+  ]);
 
-  if (loansError) {
+  if (loansError || lateRepaymentsError) {
     return null;
   }
+
+  const lateLoanIds = new Set(
+    (lateRepayments ?? []).map((repayment) => repayment.active_loan_id),
+  );
+  const cleanCompletedLoanCount = (loans ?? []).filter(
+    (loan) => loan.status === "paid" && !lateLoanIds.has(loan.id),
+  ).length;
+  const defaultedLoanCount = (loans ?? []).filter(
+    (loan) => loan.status === "defaulted",
+  ).length;
 
   return calculateBorrowerAvailableCredit({
     portfolio: {
@@ -1306,13 +1323,18 @@ async function loadBorrowerCreditSummary(
         portfolio.other_household_expenses,
       ].reduce<number>((total, value) => total + (Number(value) || 0), 0),
     },
-    activeLoans: activeLoans.map((loan) => ({
+    activeLoans: (loans ?? []).map((loan) => ({
       outstandingBalance: loan.outstanding_balance,
       status: loan.status,
     })),
     pendingApplicationAmounts: appsError
       ? []
       : (pendingApps ?? []).map((app) => app.requested_amount),
+    repaymentHistory: {
+      cleanCompletedLoanCount,
+      lateRepaymentCount: lateRepayments?.length ?? 0,
+      defaultedLoanCount,
+    },
   });
 }
 

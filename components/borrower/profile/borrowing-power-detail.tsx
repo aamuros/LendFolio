@@ -38,25 +38,49 @@ export function BorrowingPowerDetail({
             : "Not available"}
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
-          Lenders will add interest and fees on top of your principal. The total
-          repayment must fit within this amount.
+          Your starting limit is based on your declared cash flow. Higher limits
+          unlock after successful repayments.
         </p>
       </div>
       <div className="grid gap-4 px-5 pb-5">
         <div className="rounded-xl bg-muted/50 px-4 py-1">
           <SummaryRow
-            label="Used credit"
+            label="Available credit"
             value={
               creditSummary
-                ? formatCreditAmount(creditSummary.usedCredit)
+                ? formatCreditAmount(creditSummary.availableCredit)
                 : "Not available"
             }
           />
           <SummaryRow
-            label="Max eligible amount"
+            label="Income-based starting limit"
             value={
               creditSummary
-                ? formatCreditAmount(creditSummary.calculatedCreditLimit)
+                ? formatCreditAmount(creditSummary.incomeBasedCapacity)
+                : "Not available"
+            }
+          />
+          <SummaryRow
+            label="Safe monthly repayment capacity"
+            value={
+              creditSummary
+                ? formatCreditAmount(creditSummary.safeMonthlyRepaymentCapacity)
+                : "Not available"
+            }
+          />
+          <SummaryRow
+            label="Credit history cap"
+            value={
+              creditSummary
+                ? formatCreditAmount(creditSummary.repaymentHistoryCap)
+                : "Not available"
+            }
+          />
+          <SummaryRow
+            label="Used credit"
+            value={
+              creditSummary
+                ? formatCreditAmount(creditSummary.usedCredit)
                 : "Not available"
             }
           />
@@ -105,9 +129,9 @@ export function BorrowingPowerDetail({
         </div>
 
         <p className="text-xs leading-relaxed text-muted-foreground">
-          LendFolio estimates borrowing power from net monthly cash flow, time in
-          operation, revenue limits, and existing active loans. Updating your
-          profile refreshes this amount.
+          Income decides the safe starting amount. Repayment history decides how
+          far the limit can grow. Active loans and pending applications reduce
+          available credit.
         </p>
 
         <Button

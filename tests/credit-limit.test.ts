@@ -1,0 +1,115 @@
+import { describe, expect, it } from "vitest";
+import {
+  calculateBorrowerAvailableCredit,
+  calculateBorrowerCreditLimit,
+  explainBorrowerCreditLimit,
+} from "@/lib/credit-limit";
+
+const basePortfolio = {
+  monthlyGrossRevenue: 50_000,
+  monthlyExpenses: 30_000,
+  existingLoanPayments: 5_000,
+  yearsInOperation: 2,
+};
+
+describe("borrower credit limit", () => {
+  it("gives a new low-income borrower a low income-based starting limit", () => {
+    const limit = calculateBorrowerCreditLimit({
+      ...basePortfolio,
+      monthlyGrossRevenue: 12_000,
+      monthlyExpenses: 8_000,
+      existingLoanPayments: 1_000,
+    });
+
+    expect(limit).toBe(2_700);
+  });
+
+  it("caps a new high-income borrower at the new borrower cap", () => {
+    const summary = explainBorrowerCreditLimit({
+      ...basePortfolio,
+      monthlyGrossRevenue: 150_000,
+      monthlyExpenses: 50_000,
+      existingLoanPayments: 0,
+    });
+
+    expect(summary.incomeBasedCapacity).toBe(90_000);
+    expect(summary.repaymentHistoryCap).toBe(10_000);
+    expect(summary.calculatedCreditLimit).toBe(10_000);
+  });
+
+  it("does not give registered borrowers a higher limit than unregistered borrowers", () => {
+    const registeredLimit = calculateBorrowerCreditLimit(basePortfolio, {
+      cleanCompletedLoanCount: 2,
+    });
+    const unregisteredLimit = calculateBorrowerCreditLimit(basePortfolio, {
+      cleanCompletedLoanCount: 2,
+    });
+
+    expect(registeredLimit).toBe(unregisteredLimit);
+  });
+
+  it("raises the repayment history cap after clean completed loans", () => {
+    expect(
+      explainBorrowerCreditLimit(basePortfolio, {
+        cleanCompletedLoanCount: 0,
+      }).repaymentHistoryCap,
+    ).toBe(10_000);
+    expect(
+      explainBorrowerCreditLimit(basePortfolio, {
+        cleanCompletedLoanCount: 1,
+      }).repaymentHistoryCap,
+    ).toBe(15_000);
+    expect(
+      explainBorrowerCreditLimit(basePortfolio, {
+        cleanCompletedLoanCount: 3,
+      }).repaymentHistoryCap,
+    ).toBe(40_000);
+    expect(
+      explainBorrowerCreditLimit(basePortfolio, {
+        cleanCompletedLoanCount: 6,
+      }).repaymentHistoryCap,
+    ).toBe(100_000);
+  });
+
+  it("freezes or reduces the cap when late repayments exist", () => {
+    const clean = explainBorrowerCreditLimit(basePortfolio, {
+      cleanCompletedLoanCount: 3,
+    });
+    const late = explainBorrowerCreditLimit(basePortfolio, {
+      cleanCompletedLoanCount: 3,
+      lateRepaymentCount: 1,
+    });
+
+    expect(clean.repaymentHistoryCap).toBe(40_000);
+    expect(late.repaymentHistoryCap).toBe(25_000);
+    expect(late.riskFlags).toContain("late_repayment_history");
+  });
+
+  it("marks defaulted repayment history as not eligible for available credit", () => {
+    const summary = explainBorrowerCreditLimit(basePortfolio, {
+      cleanCompletedLoanCount: 6,
+      defaultedLoanCount: 1,
+    });
+
+    expect(summary.repaymentHistoryCap).toBe(0);
+    expect(summary.calculatedCreditLimit).toBe(0);
+    expect(summary.riskFlags).toContain("defaulted_repayment_history");
+  });
+
+  it("shows no available credit when the requested amount is above available credit", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [8_000],
+    });
+
+    expect(summary.calculatedCreditLimit).toBe(10_000);
+    expect(summary.availableCredit).toBe(2_000);
+    expect(5_000 > summary.availableCredit).toBe(true);
+  });
+});

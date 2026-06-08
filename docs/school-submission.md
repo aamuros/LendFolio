@@ -135,7 +135,7 @@ Lender registers ──> Completes onboarding profile ──> Uploads 5 required
 
 - Business profile storage with 20+ fields covering identity, operations, finances, and risk factors
 - Credit readiness evaluation returning structured statuses (incomplete, complete, needs_review, not_eligible, eligible_to_apply)
-- Credit limit calculation: `min(net_cash_flow × 3 × years_multiplier, gross_revenue × 2, 1,000,000)`
+- Credit limit calculation: `min((monthly_net_cash_flow × 0.30) × 3, repayment_history_cap, 100,000)`
 - Explainable credit profile grade (A/B/C/review_needed/not_eligible/incomplete) for lender and manager review
 - Profile snapshots captured at loan application submission time for immutability
 
