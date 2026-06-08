@@ -392,6 +392,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
+          business_expenses_completed?: boolean;
           monthly_expenses: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;
@@ -508,6 +509,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
+          business_expenses_completed?: boolean;
           monthly_expenses?: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;
@@ -624,6 +626,7 @@ export type Database = {
           monthly_maintenance_repairs?: number;
           monthly_supplier_credit_payment?: number;
           other_business_expenses?: number;
+          business_expenses_completed?: boolean;
           monthly_expenses?: number | null;
           monthly_rent_or_mortgage?: number;
           monthly_electricity_bill?: number;

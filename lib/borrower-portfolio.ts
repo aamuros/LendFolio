@@ -156,6 +156,17 @@ function numberField(max = 10_000_000) {
   );
 }
 
+function wholeNumberField(max = 10_000_000) {
+  return z.preprocess(
+    normalizeNumberInput,
+    z
+      .number({ error: "Enter a valid whole number." })
+      .int("Enter a whole number.")
+      .min(0, "Number cannot be negative.")
+      .max(max, `Number must be ${max.toLocaleString("en-PH")} or less.`),
+  );
+}
+
 const shortText = (max: number) =>
   z.string().trim().max(max).optional().or(z.literal(""));
 
@@ -259,6 +270,7 @@ const borrowerPortfolioBaseSchema = z.object({
   monthlySupplierCreditPayment: numberField(),
   otherBusinessExpenses: numberField(),
   monthlyExpenses: numberField(),
+  businessExpensesCompleted: z.boolean().default(false),
 
   monthlyRentOrMortgage: numberField(),
   monthlyElectricityBill: numberField(),
@@ -271,8 +283,8 @@ const borrowerPortfolioBaseSchema = z.object({
   monthlyInsurance: numberField(),
   monthlyFamilySupport: numberField(),
   otherHouseholdExpenses: numberField(),
-  numberOfDependents: numberField(100),
-  numberOfEarningHouseholdMembers: numberField(100),
+  numberOfDependents: wholeNumberField(100),
+  numberOfEarningHouseholdMembers: wholeNumberField(100),
   householdExpensesCompleted: z.boolean().default(false),
 
   hasExistingDebts: z.boolean().default(false),
@@ -483,9 +495,11 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
     const totalBusinessExpenses: number = calculateTotalBusinessExpenses(value);
     const totalExistingDebtPayments: number =
       calculateTotalExistingDebtPayments(value);
+    const debtValues = normalizeDebtPaymentValues(value);
 
     return {
       ...value,
+      ...debtValues,
       homeAddress: formatHomeAddress(value),
       mainProductsOrServices: resolveMainProductsOrServicesValue(value),
       address:
@@ -512,6 +526,7 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
             : value.location,
       monthlyGrossRevenue,
       monthlyExpenses: totalBusinessExpenses,
+      businessExpensesCompleted: true,
       existingLoanPayments: totalExistingDebtPayments,
       householdExpensesCompleted: true,
       existingDebtDeclarationCompleted: true,
@@ -706,7 +721,7 @@ export const borrowerFinancialsSchema = borrowerPortfolioBaseSchema
     monthlyGrossRevenue: positiveNumberField("Enter monthly gross sales."),
   });
 
-export const borrowerDebtAndExpensesSchema = borrowerPortfolioBaseSchema.pick({
+export const borrowerBusinessExpensesSchema = borrowerPortfolioBaseSchema.pick({
   monthlyInventoryCost: true,
   monthlyBusinessRent: true,
   monthlyBusinessElectricity: true,
@@ -718,6 +733,9 @@ export const borrowerDebtAndExpensesSchema = borrowerPortfolioBaseSchema.pick({
   monthlyMaintenanceRepairs: true,
   monthlySupplierCreditPayment: true,
   otherBusinessExpenses: true,
+});
+
+export const borrowerHouseholdExpensesSchema = borrowerPortfolioBaseSchema.pick({
   monthlyRentOrMortgage: true,
   monthlyElectricityBill: true,
   monthlyWaterBill: true,
@@ -731,26 +749,46 @@ export const borrowerDebtAndExpensesSchema = borrowerPortfolioBaseSchema.pick({
   otherHouseholdExpenses: true,
   numberOfDependents: true,
   numberOfEarningHouseholdMembers: true,
-  hasExistingDebts: true,
-  personalLoanPayments: true,
-  businessLoanPayments: true,
-  vehicleLoanPayments: true,
-  homeLoanPayments: true,
-  lendingAppPayments: true,
-  informalLoanPayments: true,
-  buyNowPayLaterPayments: true,
-  creditCardPayments: true,
-  coMakerGuaranteedLoanPayments: true,
-  otherDebtPayments: true,
-  cashOnHand: true,
-  bankSavings: true,
-  ewalletBalance: true,
-  inventoryValue: true,
-  businessEquipmentValue: true,
-  vehicleValue: true,
-  propertyLandValue: true,
-  otherAssetsValue: true,
 });
+
+export const borrowerExistingDebtsAndAssetsSchema = borrowerPortfolioBaseSchema
+  .pick({
+    hasExistingDebts: true,
+    personalLoanPayments: true,
+    businessLoanPayments: true,
+    vehicleLoanPayments: true,
+    homeLoanPayments: true,
+    lendingAppPayments: true,
+    informalLoanPayments: true,
+    buyNowPayLaterPayments: true,
+    creditCardPayments: true,
+    coMakerGuaranteedLoanPayments: true,
+    otherDebtPayments: true,
+    cashOnHand: true,
+    bankSavings: true,
+    ewalletBalance: true,
+    inventoryValue: true,
+    businessEquipmentValue: true,
+    vehicleValue: true,
+    propertyLandValue: true,
+    otherAssetsValue: true,
+  })
+  .superRefine((value, context) => {
+    if (
+      value.hasExistingDebts &&
+      calculateTotalExistingDebtPayments(value) <= 0
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["hasExistingDebts"],
+        message: "Enter at least one monthly debt or installment payment.",
+      });
+    }
+  })
+  .transform((value) => ({
+    ...value,
+    ...normalizeDebtPaymentValues(value),
+  }));
 
 export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
   loanPurposeCategory: true,
@@ -797,7 +835,9 @@ export const borrowerPortfolioStepIds = [
   "businessAddress",
   "businessOperations",
   "financials",
-  "debtAndExpenses",
+  "businessExpenses",
+  "householdExpenses",
+  "existingDebtsAndAssets",
   "loanUse",
   "review",
 ] as const;
@@ -810,7 +850,9 @@ export const borrowerPortfolioStepLabels = {
   businessAddress: "Business address",
   businessOperations: "Business operations",
   financials: "Financials",
-  debtAndExpenses: "Debt and expenses",
+  businessExpenses: "Business expenses",
+  householdExpenses: "Household expenses",
+  existingDebtsAndAssets: "Existing loans/installments and assets",
   loanUse: "Loan use",
   review: "Review",
 } satisfies Record<BorrowerPortfolioStep, string>;
@@ -821,7 +863,9 @@ export const borrowerPortfolioStepSchemas = {
   businessAddress: borrowerBusinessAddressSchema,
   businessOperations: borrowerBusinessOperationsSchema,
   financials: borrowerFinancialsSchema,
-  debtAndExpenses: borrowerDebtAndExpensesSchema,
+  businessExpenses: borrowerBusinessExpensesSchema,
+  householdExpenses: borrowerHouseholdExpensesSchema,
+  existingDebtsAndAssets: borrowerExistingDebtsAndAssetsSchema,
   loanUse: borrowerLoanUseSchema,
   review: borrowerReviewSchema,
 } satisfies Record<BorrowerPortfolioStep, z.ZodTypeAny>;
@@ -837,7 +881,7 @@ export function getCompletedBorrowerPortfolioSteps(
   };
 
   return borrowerPortfolioStepIds.filter((step) =>
-    borrowerPortfolioStepSchemas[step].safeParse(candidate).success,
+    isBorrowerPortfolioStepComplete(step, candidate),
   );
 }
 
@@ -860,8 +904,31 @@ export function isBorrowerPortfolioComplete(
   };
 
   return borrowerPortfolioStepIds.every(
-    (step) => borrowerPortfolioStepSchemas[step].safeParse(candidate).success,
+    (step) => isBorrowerPortfolioStepComplete(step, candidate),
   );
+}
+
+function isBorrowerPortfolioStepComplete(
+  step: BorrowerPortfolioStep,
+  portfolio: BorrowerPortfolioInput,
+) {
+  if (!borrowerPortfolioStepSchemas[step].safeParse(portfolio).success) {
+    return false;
+  }
+
+  if (step === "businessExpenses") {
+    return portfolio.businessExpensesCompleted;
+  }
+
+  if (step === "householdExpenses") {
+    return portfolio.householdExpensesCompleted;
+  }
+
+  if (step === "existingDebtsAndAssets") {
+    return portfolio.existingDebtDeclarationCompleted;
+  }
+
+  return true;
 }
 
 type BorrowerPortfolioRow =
@@ -910,6 +977,8 @@ export function calculateTotalHouseholdExpenses(
 export function calculateTotalExistingDebtPayments(
   portfolio: Partial<Record<keyof BorrowerPortfolioInput, unknown>>,
 ): number {
+  if (!portfolio.hasExistingDebts) return 0;
+
   return sumFields(portfolio, [
     "personalLoanPayments",
     "businessLoanPayments",
@@ -922,6 +991,26 @@ export function calculateTotalExistingDebtPayments(
     "coMakerGuaranteedLoanPayments",
     "otherDebtPayments",
   ]);
+}
+
+export function normalizeDebtPaymentValues(
+  portfolio: Partial<Record<keyof BorrowerPortfolioInput, unknown>>,
+) {
+  if (portfolio.hasExistingDebts) return {};
+
+  return {
+    personalLoanPayments: 0,
+    businessLoanPayments: 0,
+    vehicleLoanPayments: 0,
+    homeLoanPayments: 0,
+    lendingAppPayments: 0,
+    informalLoanPayments: 0,
+    buyNowPayLaterPayments: 0,
+    creditCardPayments: 0,
+    coMakerGuaranteedLoanPayments: 0,
+    otherDebtPayments: 0,
+    existingLoanPayments: 0,
+  };
 }
 
 export function calculateTotalDeclaredAssets(
@@ -1041,6 +1130,7 @@ export function mapBorrowerPortfolioRow(
     monthlySupplierCreditPayment: numberFrom(row.monthly_supplier_credit_payment),
     otherBusinessExpenses: numberFrom(row.other_business_expenses, expenseBreakdown.other),
     monthlyExpenses: toNumber(row.monthly_expenses),
+    businessExpensesCompleted: Boolean(row.business_expenses_completed),
     monthlyRentOrMortgage: toNumber(row.monthly_rent_or_mortgage),
     monthlyElectricityBill: toNumber(row.monthly_electricity_bill),
     monthlyWaterBill: toNumber(row.monthly_water_bill),

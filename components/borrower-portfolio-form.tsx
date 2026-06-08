@@ -57,7 +57,6 @@ import {
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
   isPhysicalBusinessAddressRequired,
-  isBorrowerPortfolioComplete,
   loanPurposeCategoryLabels,
   loanPurposeCategoryOptions,
   mainProductsOrServicesCategoryLabels,
@@ -142,6 +141,10 @@ export function BorrowerPortfolioForm({
   const mainProductsOrServicesCategory = useWatch({
     control,
     name: "mainProductsOrServicesCategory",
+  });
+  const hasExistingDebts = useWatch({
+    control,
+    name: "hasExistingDebts",
   });
   const shouldShowBusinessAddress =
     isPhysicalBusinessAddressRequired(operatingModel);
@@ -229,6 +232,23 @@ export function BorrowerPortfolioForm({
     setValue,
   ]);
 
+  useEffect(() => {
+    if (hasExistingDebts) return;
+
+    debtFields.forEach(([name]) => {
+      setValue(name, 0, {
+        shouldDirty: true,
+        shouldTouch: true,
+        shouldValidate: false,
+      });
+    });
+    setValue("existingLoanPayments", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: false,
+    });
+  }, [hasExistingDebts, setValue]);
+
   function onSubmit(values: BorrowerPortfolioInput) {
     void saveCurrentStep(values);
   }
@@ -246,11 +266,12 @@ export function BorrowerPortfolioForm({
         setSuccessMessage(result.message);
         setCompletedSteps(result.completedSteps);
         reset(result.portfolio);
-        if (isBorrowerPortfolioComplete(result.portfolio)) {
-          setCurrentStepIndex(getStepIndex("review"));
+        if (isFinalStep) {
           onSaved?.(result.portfolio);
         } else {
-          setCurrentStepIndex(getStepIndex(result.nextIncompleteStep));
+          setCurrentStepIndex((index) =>
+            Math.min(index + 1, profileSteps.length - 1),
+          );
         }
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
       } else {
@@ -695,8 +716,8 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "debtAndExpenses" ? (
-            <FormSection title="Expenses and obligations">
+          {currentStep.id === "businessExpenses" ? (
+            <FormSection title="Business expenses">
               {businessExpenseFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
@@ -706,6 +727,11 @@ export function BorrowerPortfolioForm({
                   register={register(name, { setValueAs: parseMoneyInput })}
                 />
               ))}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "householdExpenses" ? (
+            <FormSection title="Household expenses">
               {householdExpenseFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
@@ -733,20 +759,35 @@ export function BorrowerPortfolioForm({
                 })}
                 step="1"
               />
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "existingDebtsAndAssets" ? (
+            <FormSection
+              title="Existing loans/installments and assets"
+              description="Add monthly debt payments only if you currently have active debts or installment plans."
+            >
               <CheckboxField
                 control={control}
                 name="hasExistingDebts"
                 label="Has existing debts or installments"
+                error={errors.hasExistingDebts?.message}
               />
-              {debtFields.map(([name, label]) => (
-                <MoneyField
-                  key={name}
-                  id={name}
-                  label={label}
-                  error={fieldError(errors, name)}
-                  register={register(name, { setValueAs: parseMoneyInput })}
-                />
-              ))}
+              {hasExistingDebts ? (
+                <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
+                  {debtFields.map(([name, label]) => (
+                    <MoneyField
+                      key={name}
+                      id={name}
+                      label={label}
+                      error={fieldError(errors, name)}
+                      register={register(name, {
+                        setValueAs: parseMoneyInput,
+                      })}
+                    />
+                  ))}
+                </div>
+              ) : null}
               {assetFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
@@ -1067,13 +1108,25 @@ const profileSteps = [
     ],
   },
   {
-    id: "debtAndExpenses",
-    title: borrowerPortfolioStepLabels.debtAndExpenses,
+    id: "businessExpenses",
+    title: borrowerPortfolioStepLabels.businessExpenses,
     fields: [
       ...businessExpenseFields.map(([name]) => name),
+    ],
+  },
+  {
+    id: "householdExpenses",
+    title: borrowerPortfolioStepLabels.householdExpenses,
+    fields: [
       ...householdExpenseFields.map(([name]) => name),
       "numberOfDependents",
       "numberOfEarningHouseholdMembers",
+    ],
+  },
+  {
+    id: "existingDebtsAndAssets",
+    title: borrowerPortfolioStepLabels.existingDebtsAndAssets,
+    fields: [
       "hasExistingDebts",
       ...debtFields.map(([name]) => name),
       ...assetFields.map(([name]) => name),
@@ -1244,28 +1297,39 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
   control,
   name,
   label,
+  error,
 }: {
   control: Control<BorrowerPortfolioFormInput>;
   name: TName;
   label: string;
+  error?: string;
 }) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field }) => (
-        <div className="flex items-center gap-3 rounded-xl bg-muted/25 px-4 py-3 transition-colors hover:bg-muted/40">
-          <Checkbox
-            id={String(name)}
-            checked={Boolean(field.value)}
-            onCheckedChange={(checked) => field.onChange(Boolean(checked))}
-          />
-          <Label
-            htmlFor={String(name)}
-            className="cursor-pointer text-sm leading-5"
-          >
-            {label}
-          </Label>
+        <div className="grid gap-2">
+          <div className="flex items-center gap-3 rounded-xl bg-muted/25 px-4 py-3 transition-colors hover:bg-muted/40">
+            <Checkbox
+              id={String(name)}
+              checked={Boolean(field.value)}
+              onCheckedChange={(checked) => field.onChange(Boolean(checked))}
+              aria-invalid={Boolean(error)}
+              aria-describedby={error ? `${String(name)}-error` : undefined}
+            />
+            <Label
+              htmlFor={String(name)}
+              className="cursor-pointer text-sm leading-5"
+            >
+              {label}
+            </Label>
+          </div>
+          {error ? (
+            <p id={`${String(name)}-error`} className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
         </div>
       )}
     />

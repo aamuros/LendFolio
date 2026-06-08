@@ -65,6 +65,7 @@ describe("borrower portfolio schema", () => {
       monthlyExpenses: 28_000,
       existingLoanPayments: 3_500,
       yearsInOperation: 2,
+      mainProductsOrServicesCategory: "groceries_household_items",
       loanPurposeContext:
         "Additional working capital for inventory before the holiday season.",
     });
@@ -88,6 +89,7 @@ describe("borrower portfolio schema", () => {
       monthlyExpenses: 15_000,
       existingLoanPayments: 0,
       yearsInOperation: 1,
+      mainProductsOrServicesCategory: "food_beverages",
       loanPurposeContext: "Inventory",
     });
 
@@ -995,12 +997,15 @@ describe("borrower readiness gates", () => {
     monthlyGrossRevenue: 45_000,
     monthlyExpenses: 28_000,
     monthlyInventoryCost: 28_000,
+    businessExpensesCompleted: true,
     existingLoanPayments: 3_500,
+    hasExistingDebts: true,
     personalLoanPayments: 3_500,
     householdExpensesCompleted: true,
     existingDebtDeclarationCompleted: true,
     hasBusinessRegistration: true,
     revenueConfidence: "sales_records" as const,
+    mainProductsOrServicesCategory: "groceries_household_items" as const,
     confirmsInformationTrue: true,
     consentsToDataProcessing: true,
     consentsToCreditCheck: true,
