@@ -32,6 +32,7 @@ import { type BorrowerCreditSummary } from "@/lib/credit-limit";
 
 type ProfileMode =
   | "index"
+  | "complete"
   | "edit"
   | "business"
   | "financial"
@@ -210,6 +211,19 @@ export function BorrowerWorkspace({
     });
   }
 
+  function openProfileCompletion() {
+    setPostSaveVerification(false);
+    setEditReturnMode("index");
+    setEditBusinessSection(undefined);
+    setEditInitialStep(getNextIncompleteBorrowerPortfolioStep(portfolio));
+    setProfileMode("complete");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("borrower-profile-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function handlePortfolioSaved(savedPortfolio: BorrowerPortfolioInput) {
     setPortfolio(savedPortfolio);
     setPortfolioLoadState("ready");
@@ -250,26 +264,40 @@ export function BorrowerWorkspace({
       <div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8">
         {showProfile ? (
           <section>
-            {profileMode === "edit" ? (
-              <div id="business-profile-edit" className="grid gap-6">
+            {profileMode === "edit" || profileMode === "complete" ? (
+              <div id="borrower-profile-form" className="grid gap-6">
                 <ProfileSubviewHeader
                   title={
-                    editReturnMode === "business"
+                    profileMode === "complete"
+                      ? "Finish your profile"
+                      : editReturnMode === "business"
                       ? "Edit Business Profile"
                       : "Edit Profile"
                   }
                   description={
-                    editReturnMode === "business"
+                    profileMode === "complete"
+                      ? "Complete the required profile sections before applying."
+                      : editReturnMode === "business"
                       ? "Update this business profile section."
                       : "Keep your business and loan-use details current."
                   }
-                  onBack={() => setProfileMode(editReturnMode)}
+                  onBack={() =>
+                    setProfileMode(
+                      profileMode === "complete" ? "index" : editReturnMode,
+                    )
+                  }
                 />
                 <BorrowerPortfolioForm
-                  businessSection={editBusinessSection}
+                  businessSection={
+                    profileMode === "edit" ? editBusinessSection : undefined
+                  }
                   initialStep={editInitialStep}
-                  mode="edit"
-                  onCancel={() => setProfileMode(editReturnMode)}
+                  mode={profileMode === "complete" ? "completion" : "edit"}
+                  onCancel={() =>
+                    setProfileMode(
+                      profileMode === "complete" ? "index" : editReturnMode,
+                    )
+                  }
                   onSaved={handlePortfolioSaved}
                 />
               </div>
@@ -281,6 +309,7 @@ export function BorrowerWorkspace({
                 loadState={portfolioLoadState}
                 message={portfolioMessage}
                 onEditProfile={openProfileEdit}
+                onCompleteProfile={openProfileCompletion}
                 onNavigateHome={() => changeTab("home")}
                 onProfileViewChange={handleProfileViewChange}
                 portfolio={portfolio}

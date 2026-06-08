@@ -39,7 +39,6 @@ import {
   averageCollectionPeriodOptions,
   copyHomeAddressToBusinessAddress,
   borrowerPortfolioSchema,
-  borrowerPortfolioStepIds,
   borrowerPortfolioStepLabels,
   borrowerRoleLabels,
   borrowerRoleOptions,
@@ -201,6 +200,13 @@ export function BorrowerPortfolioForm({
     isEditMode && businessSection
       ? businessProfileSectionLabels[businessSection]
       : currentStep.title;
+  const visibleSteps = isEditMode
+    ? [currentStep.id]
+    : profileSteps
+        .map((step) => step.id)
+        .filter((step) => step !== "review");
+  const visibleStepIndex = Math.max(visibleSteps.indexOf(currentStep.id), 0);
+  const visibleStepTotal = visibleSteps.length;
   const previousBusinessRegistration = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
@@ -403,11 +409,17 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           <WizardHeader
-            stepNumber={isEditMode ? 1 : currentStepIndex + 1}
-            totalSteps={isEditMode ? 1 : profileSteps.length - 1}
+            activeStep={currentStep.id}
+            stepNumber={
+              currentStep.id === "review"
+                ? visibleStepTotal + 1
+                : visibleStepIndex + 1
+            }
+            totalSteps={visibleStepTotal}
             title={editTitle}
             progressValue={isEditMode ? 100 : progressValue}
             completedSteps={completedSteps}
+            visibleSteps={visibleSteps}
           />
 
           {currentStep.id === "homeAddress" ? (
@@ -1428,17 +1440,21 @@ function syncBusinessAddressFromHome({
 }
 
 function WizardHeader({
+  activeStep,
   stepNumber,
   totalSteps,
   title,
   progressValue,
   completedSteps,
+  visibleSteps,
 }: {
+  activeStep: BorrowerPortfolioStep;
   stepNumber: number;
   totalSteps: number;
   title: string;
   progressValue: number;
   completedSteps: BorrowerPortfolioStep[];
+  visibleSteps: BorrowerPortfolioStep[];
 }) {
   const isReview = stepNumber > totalSteps;
 
@@ -1454,14 +1470,15 @@ function WizardHeader({
       </div>
       <Progress value={progressValue} aria-label="Profile progress" />
       <div className="flex flex-wrap gap-2">
-        {borrowerPortfolioStepIds
-          .filter((step) => step !== "review")
+        {visibleSteps
           .map((step) => (
             <span
               key={step}
               className={cn(
                 "rounded-full border px-2.5 py-1 text-xs font-medium",
-                completedSteps.includes(step)
+                step === activeStep
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : completedSteps.includes(step)
                   ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                   : "border-border bg-muted/30 text-muted-foreground",
               )}

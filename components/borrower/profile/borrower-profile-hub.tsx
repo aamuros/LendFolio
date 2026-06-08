@@ -54,6 +54,7 @@ export function BorrowerProfileHub({
   loadState,
   message,
   onEditProfile,
+  onCompleteProfile,
   onNavigateHome,
   onProfileViewChange,
   portfolio,
@@ -70,6 +71,7 @@ export function BorrowerProfileHub({
     returnMode?: ProfileMode,
     businessSection?: BusinessProfileSection,
   ) => void;
+  onCompleteProfile: () => void;
   onNavigateHome: () => void;
   onProfileViewChange: (view: ProfileMode) => void;
   portfolio: BorrowerPortfolioInput | null;
@@ -408,9 +410,7 @@ export function BorrowerProfileHub({
           {profileStatus.tone !== "ready" ? (
             <ProfileStatusBanner
               status={profileStatus}
-              onAction={() => {
-                onEditProfile("index");
-              }}
+              onAction={onCompleteProfile}
             />
           ) : null}
 

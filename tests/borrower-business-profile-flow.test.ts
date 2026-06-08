@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   getBorrowerPortfolioDefaultValues,
   getBusinessProfileSectionStep,
+  getNextIncompleteBorrowerPortfolioStep,
   getNextBorrowerPortfolioStep,
   mergeBorrowerPortfolioSectionValues,
 } from "@/lib/borrower-portfolio";
@@ -24,6 +25,41 @@ describe("borrower business profile flow", () => {
     expect(getBusinessProfileSectionStep("products")).toBe("businessBasics");
     expect(getBusinessProfileSectionStep("records")).toBe("businessBasics");
     expect(getBusinessProfileSectionStep("loanUse")).toBe("loanUse");
+  });
+
+  it("starts profile completion at the first missing required step", () => {
+    const incompleteProfile = {
+      ...getBorrowerPortfolioDefaultValues(),
+      mobileNumber: "09171234567",
+      yearsAtCurrentAddress: 2,
+      emergencyContactName: "Ana Santos",
+      emergencyContactNumber: "09170000000",
+      emergencyContactRelationship: "Sister",
+      homeAddressSelection: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Quezon City",
+        barangay: "Diliman",
+        zipCode: "1100",
+      },
+      homeStreetAddress: "123 Maginhawa Street",
+      businessName: "Aling Nena Sari-Sari Store",
+      businessType: "sari_sari_store" as const,
+      ownershipType: "sole_proprietor" as const,
+      borrowerRole: "owner_proprietor" as const,
+      yearsInOperation: 2,
+      operatingModel: "physical_store" as const,
+      primarySalesChannel: "walk_in_customers" as const,
+      businessSchedule: "daily" as const,
+      mainProductsOrServicesCategory: "groceries_household_items" as const,
+      mainSuppliers: "Local wholesaler",
+      keepsSalesRecords: true,
+      usesBankOrEwallet: true,
+    };
+
+    expect(getNextIncompleteBorrowerPortfolioStep(incompleteProfile)).toBe(
+      "businessAddress",
+    );
   });
 
   it("merges a partial section update without clearing existing profile fields", () => {
