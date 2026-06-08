@@ -1,13 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import {
   Controller,
   useForm,
   useWatch,
   type Control,
   type FieldErrors,
+  type UseFormSetValue,
   type UseFormRegisterReturn,
 } from "react-hook-form";
 import {
@@ -84,6 +85,11 @@ import { cn } from "@/lib/utils";
 
 const defaultValues = getBorrowerPortfolioDefaultValues();
 type LoadState = "loading" | "empty" | "ready" | "error";
+const formSyncOptions = {
+  shouldDirty: true,
+  shouldTouch: true,
+  shouldValidate: true,
+} as const;
 
 type BorrowerPortfolioFormProps = {
   initialStep?: BorrowerPortfolioStep;
@@ -144,6 +150,10 @@ export function BorrowerPortfolioForm({
     control,
     name: "address",
   });
+  const hasBusinessRegistration = useWatch({
+    control,
+    name: "hasBusinessRegistration",
+  });
   const mainProductsOrServicesCategory = useWatch({
     control,
     name: "mainProductsOrServicesCategory",
@@ -175,6 +185,7 @@ export function BorrowerPortfolioForm({
       ? 100
       : ((currentStepIndex + 1) / (profileSteps.length - 1)) * 100;
   const isFinalStep = currentStepIndex === profileSteps.length - 1;
+  const previousBusinessRegistration = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
     let isActive = true;
@@ -223,51 +234,26 @@ export function BorrowerPortfolioForm({
   useEffect(() => {
     if (!isBusinessAddressSameAsHome) return;
 
-    const copiedAddress = copyHomeAddressToBusinessAddress(
+    const copiedBarangay = homeAddressSelection?.barangay ?? "";
+    const copiedCity = homeAddressSelection?.cityOrMunicipality ?? "";
+    const copiedRegion = homeAddressSelection?.regionCode ?? "";
+    const businessBarangays = copiedRegion && copiedCity
+      ? getBarangaysByCity(copiedRegion, copiedCity)
+      : [];
+
+    syncBusinessAddressFromHome({
       homeAddressSelection,
       homeStreetAddress,
-    );
-
-    setValue("address", {
-      regionCode: copiedAddress.regionCode,
-      regionName: copiedAddress.regionName,
-      cityOrMunicipality: copiedAddress.cityOrMunicipality,
-      barangay: copiedAddress.barangay,
-      zipCode: copiedAddress.zipCode,
-    }, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
+      setValue,
+      syncedBarangay:
+        copiedBarangay && businessBarangays.includes(copiedBarangay)
+          ? copiedBarangay
+          : "",
     });
-    setValue("streetAddress", copiedAddress.streetAddress, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-  }, [
-    homeAddressSelection,
-    homeStreetAddress,
-    isBusinessAddressSameAsHome,
-    setValue,
-  ]);
 
-  useEffect(() => {
-    if (!isBusinessAddressSameAsHome) return;
-
-    const copiedBarangay = homeAddressSelection?.barangay ?? "";
-    const businessBarangays =
-      businessAddress?.regionCode && businessAddress.cityOrMunicipality
-        ? getBarangaysByCity(
-            businessAddress.regionCode,
-            businessAddress.cityOrMunicipality,
-          )
-        : [];
     if (!copiedBarangay) return;
-    if (!businessAddress?.regionCode || !businessAddress?.cityOrMunicipality) {
-      return;
-    }
     if (!businessBarangays.includes(copiedBarangay)) return;
-    if (businessAddress.barangay === copiedBarangay) return;
+    if (businessAddress?.barangay === copiedBarangay) return;
 
     setValue("address.barangay", copiedBarangay, {
       shouldDirty: true,
@@ -276,9 +262,11 @@ export function BorrowerPortfolioForm({
     });
   }, [
     businessAddress?.barangay,
-    businessAddress?.cityOrMunicipality,
-    businessAddress?.regionCode,
+    homeAddressSelection,
     homeAddressSelection?.barangay,
+    homeAddressSelection?.cityOrMunicipality,
+    homeAddressSelection?.regionCode,
+    homeStreetAddress,
     isBusinessAddressSameAsHome,
     setValue,
   ]);
@@ -299,6 +287,30 @@ export function BorrowerPortfolioForm({
       shouldValidate: false,
     });
   }, [hasExistingDebts, setValue]);
+
+  useEffect(() => {
+    const currentValue = Boolean(hasBusinessRegistration);
+
+    if (previousBusinessRegistration.current === undefined) {
+      previousBusinessRegistration.current = currentValue;
+      return;
+    }
+
+    if (previousBusinessRegistration.current === currentValue) {
+      return;
+    }
+
+    previousBusinessRegistration.current = currentValue;
+
+    if (currentValue) {
+      setValue("unregisteredReason", "", formSyncOptions);
+      return;
+    }
+
+    setValue("businessRegistrationType", null, formSyncOptions);
+    setValue("registrationNumber", "", formSyncOptions);
+    setValue("registrationDate", "", formSyncOptions);
+  }, [hasBusinessRegistration, setValue]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
     void saveCurrentStep(values);
@@ -635,7 +647,7 @@ export function BorrowerPortfolioForm({
                           onChange={field.onChange}
                           idPrefix="borrower-business-address"
                           required
-                          disabled={Boolean(isBusinessAddressSameAsHome)}
+                          readOnly={Boolean(isBusinessAddressSameAsHome)}
                           errors={{
                             regionCode: errors.address?.regionCode?.message,
                             cityOrMunicipality:
@@ -654,7 +666,7 @@ export function BorrowerPortfolioForm({
                     error={errors.streetAddress?.message}
                     register={register("streetAddress")}
                     className="sm:col-span-2"
-                    disabled={Boolean(isBusinessAddressSameAsHome)}
+                    readOnly={Boolean(isBusinessAddressSameAsHome)}
                   />
                 </>
               ) : (
@@ -674,35 +686,39 @@ export function BorrowerPortfolioForm({
                 name="hasBusinessRegistration"
                 label="Has business registration"
               />
-              <SelectField
-                control={control}
-                name="businessRegistrationType"
-                label="Registration type"
-                options={businessRegistrationTypeOptions}
-                labels={businessRegistrationTypeLabels}
-                error={errors.businessRegistrationType?.message}
-                optional
-              />
-              <TextField
-                id="registrationNumber"
-                label="Registration number"
-                error={errors.registrationNumber?.message}
-                register={register("registrationNumber")}
-              />
-              <TextField
-                id="registrationDate"
-                label="Registration date"
-                error={errors.registrationDate?.message}
-                register={register("registrationDate")}
-                type="date"
-              />
-              <TextField
-                id="unregisteredReason"
-                label="If unregistered, reason"
-                error={errors.unregisteredReason?.message}
-                register={register("unregisteredReason")}
-                className="sm:col-span-2"
-              />
+              {hasBusinessRegistration ? (
+                <>
+                  <SelectField
+                    control={control}
+                    name="businessRegistrationType"
+                    label="Registration type"
+                    options={businessRegistrationTypeOptions}
+                    labels={businessRegistrationTypeLabels}
+                    error={errors.businessRegistrationType?.message}
+                  />
+                  <TextField
+                    id="registrationNumber"
+                    label="Registration number"
+                    error={errors.registrationNumber?.message}
+                    register={register("registrationNumber")}
+                  />
+                  <TextField
+                    id="registrationDate"
+                    label="Registration date"
+                    error={errors.registrationDate?.message}
+                    register={register("registrationDate")}
+                    type="date"
+                  />
+                </>
+              ) : (
+                <TextField
+                  id="unregisteredReason"
+                  label="If unregistered, reason"
+                  error={errors.unregisteredReason?.message}
+                  register={register("unregisteredReason")}
+                  className="sm:col-span-2"
+                />
+              )}
             </FormSection>
           ) : null}
 
@@ -1219,6 +1235,34 @@ function getStepIndex(step?: BorrowerPortfolioStep) {
   return index >= 0 ? index : 0;
 }
 
+function syncBusinessAddressFromHome({
+  homeAddressSelection,
+  homeStreetAddress,
+  setValue,
+  syncedBarangay,
+}: {
+  homeAddressSelection: BorrowerPortfolioFormInput["homeAddressSelection"];
+  homeStreetAddress: BorrowerPortfolioFormInput["homeStreetAddress"];
+  setValue: UseFormSetValue<BorrowerPortfolioFormInput>;
+  syncedBarangay: string;
+}) {
+  const copiedAddress = copyHomeAddressToBusinessAddress(
+    homeAddressSelection,
+    homeStreetAddress,
+  );
+
+  setValue("address.regionCode", copiedAddress.regionCode, formSyncOptions);
+  setValue("address.regionName", copiedAddress.regionName, formSyncOptions);
+  setValue(
+    "address.cityOrMunicipality",
+    copiedAddress.cityOrMunicipality,
+    formSyncOptions,
+  );
+  setValue("address.zipCode", copiedAddress.zipCode, formSyncOptions);
+  setValue("streetAddress", copiedAddress.streetAddress, formSyncOptions);
+  setValue("address.barangay", syncedBarangay, formSyncOptions);
+}
+
 function WizardHeader({
   stepNumber,
   totalSteps,
@@ -1395,13 +1439,20 @@ function TextField({
   className,
   type = "text",
   disabled = false,
-}: FieldControlProps & { type?: string; disabled?: boolean }) {
+  readOnly = false,
+}: FieldControlProps & {
+  type?: string;
+  disabled?: boolean;
+  readOnly?: boolean;
+}) {
   return (
     <Field label={label} error={error} id={id} className={className}>
       <Input
         id={id}
         type={type}
         disabled={disabled}
+        readOnly={readOnly}
+        aria-disabled={readOnly || undefined}
         aria-invalid={Boolean(error)}
         {...register}
       />

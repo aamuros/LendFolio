@@ -23,6 +23,7 @@ export type AddressSelectProps = {
   onChange: (value: AddressSelectValue) => void;
   idPrefix?: string;
   disabled?: boolean;
+  readOnly?: boolean;
   required?: boolean;
   errors?: Partial<Record<keyof AddressSelectValue, string>>;
   className?: string;
@@ -39,6 +40,7 @@ export function AddressSelect({
   onChange,
   idPrefix = "address",
   disabled = false,
+  readOnly = false,
   required = false,
   errors,
   className,
@@ -84,6 +86,8 @@ export function AddressSelect({
 
   const handleRegionChange = useCallback(
     (regionCode: string) => {
+      if (readOnly) return;
+
       const region = regions.find((r) => r.code === regionCode);
       onChange({
         regionCode,
@@ -93,11 +97,13 @@ export function AddressSelect({
         zipCode: "",
       });
     },
-    [regions, onChange],
+    [readOnly, regions, onChange],
   );
 
   const handleCityChange = useCallback(
     (city: string) => {
+      if (readOnly) return;
+
       const newZip = getZipCodeByCity(value.regionCode, city) ?? "";
       onChange({
         ...value,
@@ -106,14 +112,16 @@ export function AddressSelect({
         zipCode: newZip,
       });
     },
-    [value, onChange],
+    [readOnly, value, onChange],
   );
 
   const handleBarangayChange = useCallback(
     (barangay: string) => {
+      if (readOnly) return;
+
       onChange({ ...value, barangay });
     },
-    [value, onChange],
+    [readOnly, value, onChange],
   );
 
   const showZipDropdown = false;
@@ -145,6 +153,7 @@ export function AddressSelect({
             <SelectTrigger
               id={`${idPrefix}-region`}
               className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+              aria-disabled={readOnly || undefined}
               aria-invalid={Boolean(errors?.regionCode)}
               aria-describedby={
                 errors?.regionCode ? `${idPrefix}-region-error` : undefined
@@ -187,6 +196,7 @@ export function AddressSelect({
             <SelectTrigger
               id={`${idPrefix}-city`}
               className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+              aria-disabled={readOnly || undefined}
               aria-invalid={Boolean(errors?.cityOrMunicipality)}
               aria-describedby={
                 errors?.cityOrMunicipality
@@ -236,6 +246,7 @@ export function AddressSelect({
             <SelectTrigger
               id={`${idPrefix}-barangay`}
               className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+              aria-disabled={readOnly || undefined}
               aria-invalid={Boolean(errors?.barangay)}
               aria-describedby={
                 errors?.barangay ? `${idPrefix}-barangay-error` : undefined
@@ -278,13 +289,18 @@ export function AddressSelect({
             {showZipDropdown && value.cityOrMunicipality ? (
               <Select
                 value={value.zipCode}
-                onValueChange={(zip) => onChange({ ...value, zipCode: zip })}
+                onValueChange={(zip) => {
+                  if (readOnly) return;
+
+                  onChange({ ...value, zipCode: zip });
+                }}
                 disabled={disabled || !value.cityOrMunicipality}
                 required={required}
               >
                 <SelectTrigger
                   id={`${idPrefix}-zipCode`}
                   className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+                  aria-disabled={readOnly || undefined}
                   aria-invalid={Boolean(errors?.zipCode)}
                   aria-describedby={
                     errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined

@@ -345,6 +345,98 @@ const borrowerPortfolioBaseSchema = z.object({
   consentsToCreditCheck: z.boolean().default(false),
 });
 
+type BorrowerBusinessRegistrationFields = {
+  hasBusinessRegistration?: boolean | null;
+  businessRegistrationType?:
+    | (typeof businessRegistrationTypeOptions)[number]
+    | null;
+  registrationNumber?: string | null;
+  registrationDate?: string | null;
+  unregisteredReason?: string | null;
+};
+
+function trimOptionalText(value: string | null | undefined) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+export function normalizeBorrowerBusinessRegistrationFields(
+  value: BorrowerBusinessRegistrationFields,
+) {
+  const registrationNumber = trimOptionalText(value.registrationNumber);
+  const registrationDate = trimOptionalText(value.registrationDate);
+  const unregisteredReason = trimOptionalText(value.unregisteredReason);
+  const businessRegistrationType = value.businessRegistrationType ?? null;
+  const hasRegistrationData = Boolean(
+    businessRegistrationType || registrationNumber || registrationDate,
+  );
+  const hasBusinessRegistration = hasRegistrationData
+    ? true
+    : unregisteredReason
+      ? false
+      : Boolean(value.hasBusinessRegistration);
+
+  if (hasBusinessRegistration) {
+    return {
+      hasBusinessRegistration: true,
+      businessRegistrationType,
+      registrationNumber,
+      registrationDate,
+      unregisteredReason: "",
+    };
+  }
+
+  return {
+    hasBusinessRegistration: false,
+    businessRegistrationType: null,
+    registrationNumber: "",
+    registrationDate: "",
+    unregisteredReason,
+  };
+}
+
+function validateBorrowerBusinessRegistrationFields(
+  value: BorrowerBusinessRegistrationFields,
+  context: z.RefinementCtx,
+) {
+  const normalized = normalizeBorrowerBusinessRegistrationFields(value);
+
+  if (normalized.hasBusinessRegistration) {
+    if (!normalized.businessRegistrationType) {
+      context.addIssue({
+        code: "custom",
+        path: ["businessRegistrationType"],
+        message: "Select your registration type.",
+      });
+    }
+
+    if (!normalized.registrationNumber) {
+      context.addIssue({
+        code: "custom",
+        path: ["registrationNumber"],
+        message: "Enter your registration number.",
+      });
+    }
+
+    if (!normalized.registrationDate) {
+      context.addIssue({
+        code: "custom",
+        path: ["registrationDate"],
+        message: "Enter your registration date.",
+      });
+    }
+
+    return;
+  }
+
+  if (!normalized.unregisteredReason) {
+    context.addIssue({
+      code: "custom",
+      path: ["unregisteredReason"],
+      message: "Explain why the business is unregistered.",
+    });
+  }
+}
+
 const borrowerPortfolioValidatedSchema = z
   .preprocess((input) => {
     if (!input || typeof input !== "object") {
@@ -426,6 +518,8 @@ const borrowerPortfolioValidatedSchema = z
       });
     }
 
+    validateBorrowerBusinessRegistrationFields(value, context);
+
     if (!isPhysicalBusinessAddressRequired(value.operatingModel)) {
       return;
     }
@@ -496,9 +590,12 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
     const totalExistingDebtPayments: number =
       calculateTotalExistingDebtPayments(value);
     const debtValues = normalizeDebtPaymentValues(value);
+    const businessRegistration =
+      normalizeBorrowerBusinessRegistrationFields(value);
 
     return {
       ...value,
+      ...businessRegistration,
       ...debtValues,
       homeAddress: formatHomeAddress(value),
       mainProductsOrServices: resolveMainProductsOrServicesValue(value),
@@ -713,6 +810,8 @@ export const borrowerBusinessOperationsSchema = borrowerPortfolioBaseSchema.pick
   registrationNumber: true,
   registrationDate: true,
   unregisteredReason: true,
+}).superRefine((value, context) => {
+  validateBorrowerBusinessRegistrationFields(value, context);
 });
 
 export const borrowerFinancialsSchema = borrowerPortfolioBaseSchema
@@ -1214,7 +1313,12 @@ export function mapBorrowerPortfolioRow(
     consentsToCreditCheck: Boolean(row.consents_to_credit_check),
   };
 
-  return borrowerPortfolioBaseSchema.parse(backfillDetailedTotals(mapped));
+  return borrowerPortfolioBaseSchema.parse(
+    backfillDetailedTotals({
+      ...mapped,
+      ...normalizeBorrowerBusinessRegistrationFields(mapped),
+    }),
+  );
 }
 
 export function resolveBorrowerAddressFields(

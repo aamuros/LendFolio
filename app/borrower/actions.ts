@@ -17,6 +17,7 @@ import {
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
   mapBorrowerPortfolioRow,
+  normalizeBorrowerBusinessRegistrationFields,
   resolveMainProductsOrServicesValue,
   resolveBorrowerAddressFields,
   type BorrowerPortfolioStep,
@@ -324,6 +325,8 @@ export async function saveBorrowerPortfolio(
       calculateTotalExistingDebtPayments(parsed.data);
     const debtValues = normalizeDebtPaymentValues(parsed.data);
     const totalHouseholdExpenses = calculateTotalHouseholdExpenses(parsed.data);
+    const businessRegistration =
+      normalizeBorrowerBusinessRegistrationFields(parsed.data);
 
     const { error } = await supabase.from("borrower_portfolios").upsert(
       {
@@ -357,13 +360,19 @@ export async function saveBorrowerPortfolio(
         keeps_sales_records: parsed.data.keepsSalesRecords,
         uses_bank_or_ewallet: parsed.data.usesBankOrEwallet,
         offers_customer_credit: parsed.data.offersCustomerCredit,
-        has_business_registration: parsed.data.hasBusinessRegistration,
-        business_registration_type: parsed.data.hasBusinessRegistration
-          ? parsed.data.businessRegistrationType
+        has_business_registration: businessRegistration.hasBusinessRegistration,
+        business_registration_type: businessRegistration.hasBusinessRegistration
+          ? businessRegistration.businessRegistrationType
           : null,
-        registration_number: parsed.data.registrationNumber || null,
-        registration_date: parsed.data.registrationDate || null,
-        unregistered_reason: parsed.data.unregisteredReason || null,
+        registration_number: businessRegistration.hasBusinessRegistration
+          ? businessRegistration.registrationNumber || null
+          : null,
+        registration_date: businessRegistration.hasBusinessRegistration
+          ? businessRegistration.registrationDate || null
+          : null,
+        unregistered_reason: businessRegistration.hasBusinessRegistration
+          ? null
+          : businessRegistration.unregisteredReason || null,
         average_daily_sales: parsed.data.averageDailySales,
         average_weekly_sales: parsed.data.averageWeeklySales,
         revenue_period: parsed.data.revenuePeriod,
@@ -473,7 +482,7 @@ export async function saveBorrowerPortfolio(
           total_existing_debt_payments: totalExistingDebtPayments,
         },
         profile_last_confirmed_at: new Date().toISOString(),
-        profile_review_status: parsed.data.hasBusinessRegistration
+        profile_review_status: businessRegistration.hasBusinessRegistration
           ? "self_declared"
           : "needs_review",
         updated_at: new Date().toISOString(),
@@ -673,16 +682,25 @@ function buildBorrowerPortfolioStepPayload(
   }
 
   if (step === "businessOperations") {
+    const businessRegistration =
+      normalizeBorrowerBusinessRegistrationFields(portfolio);
+
     return {
       ...base,
-      has_business_registration: portfolio.hasBusinessRegistration,
-      business_registration_type: portfolio.hasBusinessRegistration
-        ? portfolio.businessRegistrationType
+      has_business_registration: businessRegistration.hasBusinessRegistration,
+      business_registration_type: businessRegistration.hasBusinessRegistration
+        ? businessRegistration.businessRegistrationType
         : null,
-      registration_number: portfolio.registrationNumber || null,
-      registration_date: portfolio.registrationDate || null,
-      unregistered_reason: portfolio.unregisteredReason || null,
-      profile_review_status: portfolio.hasBusinessRegistration
+      registration_number: businessRegistration.hasBusinessRegistration
+        ? businessRegistration.registrationNumber || null
+        : null,
+      registration_date: businessRegistration.hasBusinessRegistration
+        ? businessRegistration.registrationDate || null
+        : null,
+      unregistered_reason: businessRegistration.hasBusinessRegistration
+        ? null
+        : businessRegistration.unregisteredReason || null,
+      profile_review_status: businessRegistration.hasBusinessRegistration
         ? "self_declared"
         : "needs_review",
     };

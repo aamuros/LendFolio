@@ -66,6 +66,8 @@ describe("borrower portfolio schema", () => {
       existingLoanPayments: 3_500,
       yearsInOperation: 2,
       mainProductsOrServicesCategory: "groceries_household_items",
+      hasBusinessRegistration: false,
+      unregisteredReason: "Barangay registration is still being processed.",
       loanPurposeContext:
         "Additional working capital for inventory before the holiday season.",
     });
@@ -90,6 +92,8 @@ describe("borrower portfolio schema", () => {
       existingLoanPayments: 0,
       yearsInOperation: 1,
       mainProductsOrServicesCategory: "food_beverages",
+      hasBusinessRegistration: false,
+      unregisteredReason: "New food stall and still preparing permit documents.",
       loanPurposeContext: "Inventory",
     });
 
@@ -1004,6 +1008,9 @@ describe("borrower readiness gates", () => {
     householdExpensesCompleted: true,
     existingDebtDeclarationCompleted: true,
     hasBusinessRegistration: true,
+    businessRegistrationType: "barangay_permit" as const,
+    registrationNumber: "BRGY-2026-001",
+    registrationDate: "2026-01-15",
     revenueConfidence: "sales_records" as const,
     mainProductsOrServicesCategory: "groceries_household_items" as const,
     confirmsInformationTrue: true,
