@@ -228,32 +228,18 @@ export function BorrowerPortfolioForm({
       homeStreetAddress,
     );
 
-    setValue("address.regionCode", copiedAddress.regionCode, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("address.regionName", copiedAddress.regionName, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("address.cityOrMunicipality", copiedAddress.cityOrMunicipality, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("address.zipCode", copiedAddress.zipCode, {
+    setValue("address", {
+      regionCode: copiedAddress.regionCode,
+      regionName: copiedAddress.regionName,
+      cityOrMunicipality: copiedAddress.cityOrMunicipality,
+      barangay: copiedAddress.barangay,
+      zipCode: copiedAddress.zipCode,
+    }, {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
     });
     setValue("streetAddress", copiedAddress.streetAddress, {
-      shouldDirty: true,
-      shouldTouch: true,
-      shouldValidate: true,
-    });
-    setValue("address.barangay", "", {
       shouldDirty: true,
       shouldTouch: true,
       shouldValidate: true,
