@@ -173,10 +173,35 @@ describe("microbusiness borrower readiness", () => {
     }
   });
 
-  it("accepts a separate assets step with blank values", () => {
+  it("requires an inventory answer on the assets step", () => {
     const result = borrowerAssetsSchema.safeParse({});
 
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.path).toEqual(["hasInventory"]);
+  });
+
+  it("sets inventory value to zero when the borrower has no stocks for sale", () => {
+    const result = borrowerAssetsSchema.safeParse({
+      hasInventory: false,
+      inventoryValue: 25_000,
+    });
+
     expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.inventoryValue).toBe(0);
+    }
+  });
+
+  it("keeps inventory value when the borrower has stocks for sale", () => {
+    const result = borrowerAssetsSchema.safeParse({
+      hasInventory: true,
+      inventoryValue: 25_000,
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.inventoryValue).toBe(25_000);
+    }
   });
 
   it("loads saved loan purpose labels without falling back to other", () => {

@@ -25,6 +25,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   Select,
   SelectContent,
@@ -167,6 +168,10 @@ export function BorrowerPortfolioForm({
   const hasExistingDebts = useWatch({
     control,
     name: "hasExistingDebts",
+  });
+  const hasInventory = useWatch({
+    control,
+    name: "hasInventory",
   });
   const offersCustomerCredit = useWatch({
     control,
@@ -338,6 +343,16 @@ export function BorrowerPortfolioForm({
     setValue("registrationNumber", "", formSyncOptions);
     setValue("registrationDate", "", formSyncOptions);
   }, [hasBusinessRegistration, setValue]);
+
+  useEffect(() => {
+    if (hasInventory !== false) return;
+
+    setValue("inventoryValue", 0, {
+      shouldDirty: true,
+      shouldTouch: true,
+      shouldValidate: false,
+    });
+  }, [hasInventory, setValue]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
     void saveCurrentStep(values);
@@ -917,8 +932,26 @@ export function BorrowerPortfolioForm({
           {currentStep.id === "assets" ? (
             <FormSection
               title="Assets"
-              description="Declare cash, savings, inventory, equipment, property, and other assets owned by the borrower or business."
+              description="Declare cash, savings, equipment, property, and other assets owned by the borrower or business."
             >
+              <RadioBooleanField
+                control={control}
+                name="hasInventory"
+                label="Do you keep products or stocks for sale?"
+                error={errors.hasInventory?.message}
+                className="sm:col-span-2"
+              />
+              {hasInventory === true ? (
+                <MoneyField
+                  id="inventoryValue"
+                  label="Estimated value of current unsold stock/products"
+                  error={fieldError(errors, "inventoryValue")}
+                  register={register("inventoryValue", {
+                    setValueAs: parseMoneyInput,
+                  })}
+                  description="Use the purchase/cost price of your remaining stocks, not the selling price. Inventory means products or materials you still have and plan to sell. Do not include equipment, tools, vehicles, or cash here."
+                />
+              ) : null}
               {assetFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
@@ -1221,7 +1254,6 @@ const assetFields = [
   ["cashOnHand", "Cash on hand"],
   ["bankSavings", "Bank savings"],
   ["ewalletBalance", "E-wallet balance"],
-  ["inventoryValue", "Inventory value"],
   ["businessEquipmentValue", "Business equipment"],
   ["vehicleValue", "Vehicle value"],
   ["propertyLandValue", "Property / land"],
@@ -1352,6 +1384,8 @@ const profileSteps = [
     id: "assets",
     title: borrowerPortfolioStepLabels.assets,
     fields: [
+      "hasInventory",
+      "inventoryValue",
       ...assetFields.map(([name]) => name),
     ],
   },
@@ -1624,6 +1658,67 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
   );
 }
 
+function RadioBooleanField<TName extends keyof BorrowerPortfolioFormInput>({
+  control,
+  name,
+  label,
+  error,
+  className,
+}: {
+  control: Control<BorrowerPortfolioFormInput>;
+  name: TName;
+  label: string;
+  error?: string;
+  className?: string;
+}) {
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => (
+        <div className={cn("grid gap-2", className)}>
+          <Label className="text-sm font-medium">{label}</Label>
+          <RadioGroup
+            value={
+              field.value === true
+                ? "yes"
+                : field.value === false
+                  ? "no"
+                  : undefined
+            }
+            onValueChange={(value) => field.onChange(value === "yes")}
+            className="grid gap-2 sm:grid-cols-2"
+            aria-invalid={Boolean(error)}
+            aria-describedby={error ? `${String(name)}-error` : undefined}
+          >
+            {[
+              ["yes", "Yes"],
+              ["no", "No"],
+            ].map(([value, optionLabel]) => (
+              <Label
+                key={value}
+                htmlFor={`${String(name)}-${value}`}
+                className="flex cursor-pointer items-center gap-3 rounded-xl bg-muted/25 px-4 py-3 text-sm leading-5 transition-colors hover:bg-muted/40"
+              >
+                <RadioGroupItem
+                  id={`${String(name)}-${value}`}
+                  value={value}
+                />
+                {optionLabel}
+              </Label>
+            ))}
+          </RadioGroup>
+          {error ? (
+            <p id={`${String(name)}-error`} className="text-sm text-destructive">
+              {error}
+            </p>
+          ) : null}
+        </div>
+      )}
+    />
+  );
+}
+
 function TextField({
   id,
   label,
@@ -1659,9 +1754,10 @@ function MoneyField({
   error,
   register,
   emptyValue = 0,
-}: FieldControlProps & { emptyValue?: number }) {
+  description,
+}: FieldControlProps & { emptyValue?: number; description?: string }) {
   return (
-    <Field label={label} error={error} id={id}>
+    <Field label={label} error={error} id={id} description={description}>
       <CurrencyInput
         id={id}
         aria-invalid={Boolean(error)}
@@ -1717,6 +1813,10 @@ function ReadinessPanel({
   const totalAssets = calculateTotalDeclaredAssets(portfolio);
   const cashBankEwallet =
     portfolio.cashOnHand + portfolio.bankSavings + portfolio.ewalletBalance;
+  const inventorySummary =
+    portfolio.hasInventory === null || portfolio.hasInventory === undefined
+      ? "Not provided"
+      : formatMoney(portfolio.inventoryValue);
 
   return (
     <Card className="rounded-xl bg-muted/30">
@@ -1770,7 +1870,7 @@ function ReadinessPanel({
           />
           <Summary
             label="Inventory value"
-            value={formatMoney(portfolio.inventoryValue)}
+            value={inventorySummary}
           />
           <Summary
             label="Cash / bank / e-wallet"
@@ -1837,12 +1937,14 @@ function Field({
   id,
   children,
   className,
+  description,
 }: {
   label: string;
   error?: string;
   id: string;
   children: ReactNode;
   className?: string;
+  description?: string;
 }) {
   return (
     <div className={`grid gap-1.5 ${className ?? ""}`}>
@@ -1850,6 +1952,11 @@ function Field({
         {label}
       </Label>
       {children}
+      {description ? (
+        <p className="text-xs leading-5 text-muted-foreground">
+          {description}
+        </p>
+      ) : null}
       {error ? (
         <span id={`${id}-error`} className="text-sm leading-5 text-destructive">
           {error}

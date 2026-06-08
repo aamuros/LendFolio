@@ -871,17 +871,39 @@ export const borrowerExistingDebtsSchema = borrowerPortfolioBaseSchema
     ...normalizeDebtPaymentValues(value),
   }));
 
-export const borrowerAssetsSchema = borrowerPortfolioBaseSchema.pick({
-  hasInventory: true,
-  cashOnHand: true,
-  bankSavings: true,
-  ewalletBalance: true,
-  inventoryValue: true,
-  businessEquipmentValue: true,
-  vehicleValue: true,
-  propertyLandValue: true,
-  otherAssetsValue: true,
-});
+export const borrowerAssetsSchema = borrowerPortfolioBaseSchema
+  .pick({
+    hasInventory: true,
+    cashOnHand: true,
+    bankSavings: true,
+    ewalletBalance: true,
+    inventoryValue: true,
+    businessEquipmentValue: true,
+    vehicleValue: true,
+    propertyLandValue: true,
+    otherAssetsValue: true,
+  })
+  .superRefine((value, context) => {
+    if (value.hasInventory === null || value.hasInventory === undefined) {
+      context.addIssue({
+        code: "custom",
+        path: ["hasInventory"],
+        message: "Select whether you keep products or stocks for sale.",
+      });
+    }
+
+    if (value.hasInventory && value.inventoryValue < 0) {
+      context.addIssue({
+        code: "custom",
+        path: ["inventoryValue"],
+        message: "Inventory value must be zero or higher.",
+      });
+    }
+  })
+  .transform((value) => ({
+    ...value,
+    inventoryValue: value.hasInventory ? value.inventoryValue : 0,
+  }));
 
 export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
   loanPurposeCategory: true,

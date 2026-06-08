@@ -425,6 +425,7 @@ export type Database = {
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;
+          has_inventory?: boolean | null;
           inventory_value?: number;
           business_equipment_value?: number;
           vehicle_value?: number;
@@ -543,6 +544,7 @@ export type Database = {
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;
+          has_inventory?: boolean | null;
           inventory_value?: number;
           business_equipment_value?: number;
           vehicle_value?: number;
@@ -661,6 +663,7 @@ export type Database = {
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;
+          has_inventory?: boolean | null;
           inventory_value?: number;
           business_equipment_value?: number;
           vehicle_value?: number;
