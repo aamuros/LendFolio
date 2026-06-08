@@ -421,6 +421,7 @@ export type Database = {
           other_debt_payments?: number;
           existing_loan_payments: number | null;
           existing_debt_declaration_completed?: boolean;
+          asset_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;
@@ -538,6 +539,7 @@ export type Database = {
           other_debt_payments?: number;
           existing_loan_payments?: number | null;
           existing_debt_declaration_completed?: boolean;
+          asset_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;
@@ -655,6 +657,7 @@ export type Database = {
           other_debt_payments?: number;
           existing_loan_payments?: number | null;
           existing_debt_declaration_completed?: boolean;
+          asset_declaration_completed?: boolean;
           cash_on_hand?: number;
           bank_savings?: number;
           ewallet_balance?: number;

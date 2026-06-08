@@ -274,6 +274,12 @@ export function BorrowerPortfolioForm({
   useEffect(() => {
     if (hasExistingDebts) return;
 
+    const hasDebtValues =
+      Number(currentValues.existingLoanPayments ?? 0) > 0 ||
+      debtFields.some(([name]) => Number(currentValues[name] ?? 0) > 0);
+
+    if (!hasDebtValues) return;
+
     debtFields.forEach(([name]) => {
       setValue(name, 0, {
         shouldDirty: true,
@@ -286,7 +292,7 @@ export function BorrowerPortfolioForm({
       shouldTouch: true,
       shouldValidate: false,
     });
-  }, [hasExistingDebts, setValue]);
+  }, [currentValues, hasExistingDebts, setValue]);
 
   useEffect(() => {
     const currentValue = Boolean(hasBusinessRegistration);
@@ -303,7 +309,6 @@ export function BorrowerPortfolioForm({
     previousBusinessRegistration.current = currentValue;
 
     if (currentValue) {
-      setValue("unregisteredReason", "", formSyncOptions);
       return;
     }
 
@@ -686,8 +691,8 @@ export function BorrowerPortfolioForm({
                 name="hasBusinessRegistration"
                 label="Has business registration"
               />
-              {hasBusinessRegistration ? (
-                <>
+              {hasBusinessRegistration && (
+                <div className="contents">
                   <SelectField
                     control={control}
                     name="businessRegistrationType"
@@ -709,15 +714,7 @@ export function BorrowerPortfolioForm({
                     register={register("registrationDate")}
                     type="date"
                   />
-                </>
-              ) : (
-                <TextField
-                  id="unregisteredReason"
-                  label="If unregistered, reason"
-                  error={errors.unregisteredReason?.message}
-                  register={register("unregisteredReason")}
-                  className="sm:col-span-2"
-                />
+                </div>
               )}
             </FormSection>
           ) : null}
@@ -829,15 +826,15 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "existingDebtsAndAssets" ? (
+          {currentStep.id === "existingDebts" ? (
             <FormSection
-              title="Existing loans/installments and assets"
-              description="Add monthly debt payments only if you currently have active debts or installment plans."
+              title="Existing loans / debts"
+              description="Declare active loans, debts, or installment payments only if you currently have them."
             >
               <CheckboxField
                 control={control}
                 name="hasExistingDebts"
-                label="Has existing debts or installments"
+                label="Do you currently have any existing loans, debts, or installment payments?"
                 error={errors.hasExistingDebts?.message}
               />
               {hasExistingDebts ? (
@@ -855,6 +852,14 @@ export function BorrowerPortfolioForm({
                   ))}
                 </div>
               ) : null}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "assets" ? (
+            <FormSection
+              title="Assets"
+              description="Declare cash, savings, inventory, equipment, property, and other assets owned by the borrower or business."
+            >
               {assetFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
@@ -1158,7 +1163,6 @@ const profileSteps = [
       "businessRegistrationType",
       "registrationNumber",
       "registrationDate",
-      "unregisteredReason",
     ],
   },
   {
@@ -1191,11 +1195,17 @@ const profileSteps = [
     ],
   },
   {
-    id: "existingDebtsAndAssets",
-    title: borrowerPortfolioStepLabels.existingDebtsAndAssets,
+    id: "existingDebts",
+    title: borrowerPortfolioStepLabels.existingDebts,
     fields: [
       "hasExistingDebts",
       ...debtFields.map(([name]) => name),
+    ],
+  },
+  {
+    id: "assets",
+    title: borrowerPortfolioStepLabels.assets,
+    fields: [
       ...assetFields.map(([name]) => name),
     ],
   },

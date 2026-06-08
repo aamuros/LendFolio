@@ -67,7 +67,6 @@ describe("borrower portfolio schema", () => {
       yearsInOperation: 2,
       mainProductsOrServicesCategory: "groceries_household_items",
       hasBusinessRegistration: false,
-      unregisteredReason: "Barangay registration is still being processed.",
       loanPurposeContext:
         "Additional working capital for inventory before the holiday season.",
     });
@@ -93,7 +92,6 @@ describe("borrower portfolio schema", () => {
       yearsInOperation: 1,
       mainProductsOrServicesCategory: "food_beverages",
       hasBusinessRegistration: false,
-      unregisteredReason: "New food stall and still preparing permit documents.",
       loanPurposeContext: "Inventory",
     });
 

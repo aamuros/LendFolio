@@ -1,13 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
+  borrowerAssetsSchema,
   borrowerBusinessOperationsSchema,
+  borrowerExistingDebtsSchema,
   borrowerPortfolioSchema,
   calculateDisposableIncome,
   calculateTotalBusinessExpenses,
   calculateTotalExistingDebtPayments,
   calculateTotalHouseholdExpenses,
   getBorrowerPortfolioDefaultValues,
+  getNextIncompleteBorrowerPortfolioStep,
   mapBorrowerPortfolioRow,
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
@@ -70,6 +73,27 @@ function completeProfile(overrides = {}) {
   });
 }
 
+function completeWizardProfile(overrides = {}) {
+  return {
+    ...completeProfile(),
+    mobileNumber: "09171234567",
+    yearsAtCurrentAddress: 3,
+    homeAddressSelection: {
+      regionCode: "NCR",
+      regionName: "NCR - National Capital Region",
+      cityOrMunicipality: "Quezon City",
+      barangay: "Diliman",
+      zipCode: "1100",
+    },
+    homeStreetAddress: "12 Ilang-Ilang Street",
+    emergencyContactName: "Maria Dela Cruz",
+    emergencyContactNumber: "09181234567",
+    emergencyContactRelationship: "Sister",
+    streetAddress: "45 Market Road",
+    ...overrides,
+  };
+}
+
 describe("microbusiness borrower readiness", () => {
   it("accepts a complete sari-sari store profile", () => {
     const profile = completeProfile();
@@ -91,7 +115,6 @@ describe("microbusiness borrower readiness", () => {
         registrationNumber: "",
         registrationDate: "",
         ownershipType: "informal_unregistered",
-        unregisteredReason: "Operates as an informal home-based store.",
       }),
     );
 
@@ -106,7 +129,6 @@ describe("microbusiness borrower readiness", () => {
       businessRegistrationType: null,
       registrationNumber: "",
       registrationDate: "",
-      unregisteredReason: "",
     });
 
     expect(result.success).toBe(false);
@@ -123,21 +145,38 @@ describe("microbusiness borrower readiness", () => {
     }
   });
 
-  it("requires an unregistered reason when the business is not registered", () => {
+  it("allows unregistered businesses to omit registration details", () => {
     const result = borrowerBusinessOperationsSchema.safeParse({
       hasBusinessRegistration: false,
       businessRegistrationType: null,
       registrationNumber: "",
       registrationDate: "",
-      unregisteredReason: "",
     });
 
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.flatten().fieldErrors.unregisteredReason).toContain(
-        "Explain why the business is unregistered.",
+    expect(result.success).toBe(true);
+  });
+
+  it("requires debt amounts only when existing debts are declared", () => {
+    const withExistingDebts = borrowerExistingDebtsSchema.safeParse({
+      hasExistingDebts: true,
+    });
+    const withoutExistingDebts = borrowerExistingDebtsSchema.safeParse({
+      hasExistingDebts: false,
+    });
+
+    expect(withExistingDebts.success).toBe(false);
+    expect(withoutExistingDebts.success).toBe(true);
+    if (!withExistingDebts.success) {
+      expect(withExistingDebts.error.flatten().fieldErrors.hasExistingDebts).toContain(
+        "Enter at least one monthly debt or installment payment.",
       );
     }
+  });
+
+  it("accepts a separate assets step with blank values", () => {
+    const result = borrowerAssetsSchema.safeParse({});
+
+    expect(result.success).toBe(true);
   });
 
   it("normalizes saved registration data into a checked state", () => {
@@ -175,14 +214,12 @@ describe("microbusiness borrower readiness", () => {
       business_registration_type: "dti",
       registration_number: "DTI-12345",
       registration_date: "2026-01-15",
-      unregistered_reason: "Legacy stale value",
     });
 
     expect(mapped.hasBusinessRegistration).toBe(true);
     expect(mapped.businessRegistrationType).toBe("dti");
     expect(mapped.registrationNumber).toBe("DTI-12345");
     expect(mapped.registrationDate).toBe("2026-01-15");
-    expect(mapped.unregisteredReason).toBe("");
   });
 
   it("normalizes saved unregistered profiles into an unchecked state", () => {
@@ -220,16 +257,51 @@ describe("microbusiness borrower readiness", () => {
       business_registration_type: null,
       registration_number: null,
       registration_date: null,
-      unregistered_reason: "Still processing registration.",
     });
 
     expect(mapped.hasBusinessRegistration).toBe(false);
     expect(mapped.businessRegistrationType).toBeNull();
     expect(mapped.registrationNumber).toBe("");
     expect(mapped.registrationDate).toBe("");
-    expect(mapped.unregisteredReason).toBe(
-      "Still processing registration.",
-    );
+  });
+
+  it("infers existing debts from saved debt values", () => {
+    const mapped = mapBorrowerPortfolioRow({
+      id: "portfolio-debt-1",
+      borrower_id: "borrower-1",
+      business_name: "Old Store",
+      business_description: null,
+      business_type: "sari_sari_store",
+      started_operating_at: null,
+      business_address: null,
+      barangay: null,
+      city_or_municipality: null,
+      province: null,
+      region: null,
+      zip_code: null,
+      location: "Quezon City",
+      operating_model: null,
+      primary_sales_channel: null,
+      revenue_period: null,
+      revenue_confidence: null,
+      monthly_gross_revenue: 50_000,
+      monthly_expenses: 30_000,
+      existing_loan_payments: 2_500,
+      years_in_operation: 1,
+      main_products_or_services: null,
+      expense_breakdown: {},
+      debt_obligation_summary: {},
+      profile_last_confirmed_at: null,
+      profile_review_status: "self_declared",
+      loan_purpose_context: "Inventory restock for continued store operations.",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+      has_existing_debts: false,
+      business_loan_payments: 2_500,
+    });
+
+    expect(mapped.hasExistingDebts).toBe(true);
+    expect(mapped.businessLoanPayments).toBe(2_500);
   });
 
   it("marks missing business name as incomplete", () => {
@@ -409,6 +481,16 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.missingFields).not.toContain("Existing debt declaration");
   });
 
+  it("returns the new assets step when only assets remain incomplete", () => {
+    const nextStep = getNextIncompleteBorrowerPortfolioStep(
+      completeWizardProfile({
+        assetDeclarationCompleted: false,
+      }),
+    );
+
+    expect(nextStep).toBe("assets");
+  });
+
   it("requires a short purpose when loan purpose is other", () => {
     const result = borrowerPortfolioSchema.safeParse({
       ...completeProfile(),
@@ -501,6 +583,13 @@ describe("microbusiness borrower readiness", () => {
       "Household expense declaration is complete",
     );
     expect(formSource).not.toContain("Existing debt declaration is complete");
+    expect(formSource).not.toContain(
+      "Existing loans/installments and assets",
+    );
+    expect(formSource).not.toContain("Has existing debts or installments");
+    expect(formSource).toContain("Existing loans / debts");
+    expect(formSource).toContain("Do you currently have any existing loans, debts, or installment payments?");
+    expect(formSource).toContain('title="Assets"');
   });
 
   it("calculates business, household, debt, and disposable totals", () => {

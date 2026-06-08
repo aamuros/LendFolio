@@ -246,7 +246,6 @@ const borrowerPortfolioBaseSchema = z.object({
     .optional(),
   registrationNumber: shortText(120),
   registrationDate: shortText(40),
-  unregisteredReason: shortText(500),
 
   averageDailySales: numberField(),
   averageWeeklySales: numberField(),
@@ -300,6 +299,7 @@ const borrowerPortfolioBaseSchema = z.object({
   otherDebtPayments: numberField(),
   existingLoanPayments: numberField(),
   existingDebtDeclarationCompleted: z.boolean().default(false),
+  assetDeclarationCompleted: z.boolean().default(false),
 
   cashOnHand: numberField(),
   bankSavings: numberField(),
@@ -352,7 +352,6 @@ type BorrowerBusinessRegistrationFields = {
     | null;
   registrationNumber?: string | null;
   registrationDate?: string | null;
-  unregisteredReason?: string | null;
 };
 
 function trimOptionalText(value: string | null | undefined) {
@@ -364,16 +363,8 @@ export function normalizeBorrowerBusinessRegistrationFields(
 ) {
   const registrationNumber = trimOptionalText(value.registrationNumber);
   const registrationDate = trimOptionalText(value.registrationDate);
-  const unregisteredReason = trimOptionalText(value.unregisteredReason);
   const businessRegistrationType = value.businessRegistrationType ?? null;
-  const hasRegistrationData = Boolean(
-    businessRegistrationType || registrationNumber || registrationDate,
-  );
-  const hasBusinessRegistration = hasRegistrationData
-    ? true
-    : unregisteredReason
-      ? false
-      : Boolean(value.hasBusinessRegistration);
+  const hasBusinessRegistration = Boolean(value.hasBusinessRegistration);
 
   if (hasBusinessRegistration) {
     return {
@@ -381,7 +372,6 @@ export function normalizeBorrowerBusinessRegistrationFields(
       businessRegistrationType,
       registrationNumber,
       registrationDate,
-      unregisteredReason: "",
     };
   }
 
@@ -390,7 +380,6 @@ export function normalizeBorrowerBusinessRegistrationFields(
     businessRegistrationType: null,
     registrationNumber: "",
     registrationDate: "",
-    unregisteredReason,
   };
 }
 
@@ -398,10 +387,12 @@ function validateBorrowerBusinessRegistrationFields(
   value: BorrowerBusinessRegistrationFields,
   context: z.RefinementCtx,
 ) {
-  const normalized = normalizeBorrowerBusinessRegistrationFields(value);
+  if (value.hasBusinessRegistration) {
+    const businessRegistrationType = value.businessRegistrationType ?? null;
+    const registrationNumber = trimOptionalText(value.registrationNumber);
+    const registrationDate = trimOptionalText(value.registrationDate);
 
-  if (normalized.hasBusinessRegistration) {
-    if (!normalized.businessRegistrationType) {
+    if (!businessRegistrationType) {
       context.addIssue({
         code: "custom",
         path: ["businessRegistrationType"],
@@ -409,7 +400,7 @@ function validateBorrowerBusinessRegistrationFields(
       });
     }
 
-    if (!normalized.registrationNumber) {
+    if (!registrationNumber) {
       context.addIssue({
         code: "custom",
         path: ["registrationNumber"],
@@ -417,23 +408,13 @@ function validateBorrowerBusinessRegistrationFields(
       });
     }
 
-    if (!normalized.registrationDate) {
+    if (!registrationDate) {
       context.addIssue({
         code: "custom",
         path: ["registrationDate"],
         message: "Enter your registration date.",
       });
     }
-
-    return;
-  }
-
-  if (!normalized.unregisteredReason) {
-    context.addIssue({
-      code: "custom",
-      path: ["unregisteredReason"],
-      message: "Explain why the business is unregistered.",
-    });
   }
 }
 
@@ -627,6 +608,7 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
       existingLoanPayments: totalExistingDebtPayments,
       householdExpensesCompleted: true,
       existingDebtDeclarationCompleted: true,
+      assetDeclarationCompleted: true,
       loanPurposeContext: formatLoanPurposeContext(value),
     };
   },
@@ -809,7 +791,6 @@ export const borrowerBusinessOperationsSchema = borrowerPortfolioBaseSchema.pick
   businessRegistrationType: true,
   registrationNumber: true,
   registrationDate: true,
-  unregisteredReason: true,
 }).superRefine((value, context) => {
   validateBorrowerBusinessRegistrationFields(value, context);
 });
@@ -858,7 +839,7 @@ export const borrowerHouseholdExpensesSchema = borrowerPortfolioBaseSchema.pick(
   numberOfEarningHouseholdMembers: true,
 });
 
-export const borrowerExistingDebtsAndAssetsSchema = borrowerPortfolioBaseSchema
+export const borrowerExistingDebtsSchema = borrowerPortfolioBaseSchema
   .pick({
     hasExistingDebts: true,
     personalLoanPayments: true,
@@ -871,14 +852,6 @@ export const borrowerExistingDebtsAndAssetsSchema = borrowerPortfolioBaseSchema
     creditCardPayments: true,
     coMakerGuaranteedLoanPayments: true,
     otherDebtPayments: true,
-    cashOnHand: true,
-    bankSavings: true,
-    ewalletBalance: true,
-    inventoryValue: true,
-    businessEquipmentValue: true,
-    vehicleValue: true,
-    propertyLandValue: true,
-    otherAssetsValue: true,
   })
   .superRefine((value, context) => {
     if (
@@ -896,6 +869,17 @@ export const borrowerExistingDebtsAndAssetsSchema = borrowerPortfolioBaseSchema
     ...value,
     ...normalizeDebtPaymentValues(value),
   }));
+
+export const borrowerAssetsSchema = borrowerPortfolioBaseSchema.pick({
+  cashOnHand: true,
+  bankSavings: true,
+  ewalletBalance: true,
+  inventoryValue: true,
+  businessEquipmentValue: true,
+  vehicleValue: true,
+  propertyLandValue: true,
+  otherAssetsValue: true,
+});
 
 export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
   loanPurposeCategory: true,
@@ -944,7 +928,8 @@ export const borrowerPortfolioStepIds = [
   "financials",
   "businessExpenses",
   "householdExpenses",
-  "existingDebtsAndAssets",
+  "existingDebts",
+  "assets",
   "loanUse",
   "review",
 ] as const;
@@ -959,7 +944,8 @@ export const borrowerPortfolioStepLabels = {
   financials: "Financials",
   businessExpenses: "Business expenses",
   householdExpenses: "Household expenses",
-  existingDebtsAndAssets: "Existing loans/installments and assets",
+  existingDebts: "Existing loans / debts",
+  assets: "Assets",
   loanUse: "Loan use",
   review: "Review",
 } satisfies Record<BorrowerPortfolioStep, string>;
@@ -972,7 +958,8 @@ export const borrowerPortfolioStepSchemas = {
   financials: borrowerFinancialsSchema,
   businessExpenses: borrowerBusinessExpensesSchema,
   householdExpenses: borrowerHouseholdExpensesSchema,
-  existingDebtsAndAssets: borrowerExistingDebtsAndAssetsSchema,
+  existingDebts: borrowerExistingDebtsSchema,
+  assets: borrowerAssetsSchema,
   loanUse: borrowerLoanUseSchema,
   review: borrowerReviewSchema,
 } satisfies Record<BorrowerPortfolioStep, z.ZodTypeAny>;
@@ -1031,8 +1018,12 @@ function isBorrowerPortfolioStepComplete(
     return portfolio.householdExpensesCompleted;
   }
 
-  if (step === "existingDebtsAndAssets") {
+  if (step === "existingDebts") {
     return portfolio.existingDebtDeclarationCompleted;
+  }
+
+  if (step === "assets") {
+    return portfolio.assetDeclarationCompleted;
   }
 
   return true;
@@ -1044,6 +1035,30 @@ type BorrowerPortfolioRow =
 export function getBorrowerPortfolioDefaultValues(): BorrowerPortfolioInput {
   return borrowerPortfolioBaseSchema.parse({});
 }
+
+const debtPaymentFieldNames = [
+  "personalLoanPayments",
+  "businessLoanPayments",
+  "vehicleLoanPayments",
+  "homeLoanPayments",
+  "lendingAppPayments",
+  "informalLoanPayments",
+  "buyNowPayLaterPayments",
+  "creditCardPayments",
+  "coMakerGuaranteedLoanPayments",
+  "otherDebtPayments",
+] as const satisfies ReadonlyArray<keyof BorrowerPortfolioInput>;
+
+const assetValueFieldNames = [
+  "cashOnHand",
+  "bankSavings",
+  "ewalletBalance",
+  "inventoryValue",
+  "businessEquipmentValue",
+  "vehicleValue",
+  "propertyLandValue",
+  "otherAssetsValue",
+] as const satisfies ReadonlyArray<keyof BorrowerPortfolioInput>;
 
 export function calculateTotalBusinessExpenses(
   portfolio: Partial<Record<keyof BorrowerPortfolioInput, unknown>>,
@@ -1086,18 +1101,7 @@ export function calculateTotalExistingDebtPayments(
 ): number {
   if (!portfolio.hasExistingDebts) return 0;
 
-  return sumFields(portfolio, [
-    "personalLoanPayments",
-    "businessLoanPayments",
-    "vehicleLoanPayments",
-    "homeLoanPayments",
-    "lendingAppPayments",
-    "informalLoanPayments",
-    "buyNowPayLaterPayments",
-    "creditCardPayments",
-    "coMakerGuaranteedLoanPayments",
-    "otherDebtPayments",
-  ]);
+  return sumFields(portfolio, debtPaymentFieldNames);
 }
 
 export function normalizeDebtPaymentValues(
@@ -1123,16 +1127,7 @@ export function normalizeDebtPaymentValues(
 export function calculateTotalDeclaredAssets(
   portfolio: Partial<Record<keyof BorrowerPortfolioInput, unknown>>,
 ): number {
-  return sumFields(portfolio, [
-    "cashOnHand",
-    "bankSavings",
-    "ewalletBalance",
-    "inventoryValue",
-    "businessEquipmentValue",
-    "vehicleValue",
-    "propertyLandValue",
-    "otherAssetsValue",
-  ]);
+  return sumFields(portfolio, assetValueFieldNames);
 }
 
 export function copyHomeAddressToBusinessAddress(
@@ -1175,6 +1170,56 @@ export function mapBorrowerPortfolioRow(
   const parsedHomeAddress = parseLegacyAddress(row.home_address ?? "");
   const expenseBreakdown = asRecord(row.expense_breakdown);
   const debtSummary = asRecord(row.debt_obligation_summary);
+  const personalLoanPayments = numberFrom(row.personal_loan_payments);
+  const businessLoanPayments = numberFrom(row.business_loan_payments);
+  const vehicleLoanPayments = numberFrom(row.vehicle_loan_payments);
+  const homeLoanPayments = numberFrom(row.home_loan_payments);
+  const lendingAppPayments = numberFrom(row.lending_app_payments);
+  const informalLoanPayments = numberFrom(row.informal_loan_payments);
+  const buyNowPayLaterPayments = numberFrom(row.buy_now_pay_later_payments);
+  const creditCardPayments = numberFrom(row.credit_card_payments);
+  const coMakerGuaranteedLoanPayments = numberFrom(
+    row.co_maker_guaranteed_loan_payments,
+  );
+  const otherDebtPayments = numberFrom(
+    row.other_debt_payments,
+    debtSummary.total_outstanding_debt,
+  );
+  const existingLoanPayments = toNumber(row.existing_loan_payments);
+  const cashOnHand = toNumber(row.cash_on_hand);
+  const bankSavings = toNumber(row.bank_savings);
+  const ewalletBalance = toNumber(row.ewallet_balance);
+  const inventoryValue = toNumber(row.inventory_value);
+  const businessEquipmentValue = toNumber(row.business_equipment_value);
+  const vehicleValue = toNumber(row.vehicle_value);
+  const propertyLandValue = toNumber(row.property_land_value);
+  const otherAssetsValue = toNumber(row.other_assets_value);
+  const hasSavedDebtValues =
+    Boolean(row.has_existing_debts) ||
+    Boolean(debtSummary.has_existing_debts) ||
+    [
+      personalLoanPayments,
+      businessLoanPayments,
+      vehicleLoanPayments,
+      homeLoanPayments,
+      lendingAppPayments,
+      informalLoanPayments,
+      buyNowPayLaterPayments,
+      creditCardPayments,
+      coMakerGuaranteedLoanPayments,
+      otherDebtPayments,
+      existingLoanPayments,
+    ].some((value) => value > 0);
+  const hasSavedAssetValues = [
+    cashOnHand,
+    bankSavings,
+    ewalletBalance,
+    inventoryValue,
+    businessEquipmentValue,
+    vehicleValue,
+    propertyLandValue,
+    otherAssetsValue,
+  ].some((value) => value > 0);
 
   const address: PhilippineAddressSelection = {
     regionCode,
@@ -1224,14 +1269,17 @@ export function mapBorrowerPortfolioRow(
     keepsSalesRecords: Boolean(row.keeps_sales_records),
     usesBankOrEwallet: Boolean(row.uses_bank_or_ewallet),
     offersCustomerCredit: Boolean(row.offers_customer_credit),
-    hasBusinessRegistration: Boolean(row.has_business_registration),
+    hasBusinessRegistration: Boolean(
+      row.business_registration_type ||
+        row.registration_number ||
+        row.registration_date,
+    ),
     businessRegistrationType: mapNullableOption(
       row.business_registration_type,
       businessRegistrationTypeOptions,
     ),
     registrationNumber: stringFrom(row.registration_number),
     registrationDate: stringFrom(row.registration_date),
-    unregisteredReason: stringFrom(row.unregistered_reason),
     averageDailySales: toNumber(row.average_daily_sales),
     averageWeeklySales: toNumber(row.average_weekly_sales),
     monthlyGrossRevenue: toNumber(row.monthly_gross_revenue),
@@ -1268,29 +1316,34 @@ export function mapBorrowerPortfolioRow(
       row.number_of_earning_household_members,
     ),
     householdExpensesCompleted: Boolean(row.household_expenses_completed),
-    hasExistingDebts: Boolean(row.has_existing_debts),
-    personalLoanPayments: numberFrom(row.personal_loan_payments),
-    businessLoanPayments: numberFrom(row.business_loan_payments),
-    vehicleLoanPayments: numberFrom(row.vehicle_loan_payments),
-    homeLoanPayments: numberFrom(row.home_loan_payments),
-    lendingAppPayments: numberFrom(row.lending_app_payments),
-    informalLoanPayments: numberFrom(row.informal_loan_payments),
-    buyNowPayLaterPayments: numberFrom(row.buy_now_pay_later_payments),
-    creditCardPayments: numberFrom(row.credit_card_payments),
-    coMakerGuaranteedLoanPayments: numberFrom(row.co_maker_guaranteed_loan_payments),
-    otherDebtPayments: numberFrom(row.other_debt_payments, debtSummary.total_outstanding_debt),
-    existingLoanPayments: toNumber(row.existing_loan_payments),
+    hasExistingDebts: hasSavedDebtValues,
+    personalLoanPayments,
+    businessLoanPayments,
+    vehicleLoanPayments,
+    homeLoanPayments,
+    lendingAppPayments,
+    informalLoanPayments,
+    buyNowPayLaterPayments,
+    creditCardPayments,
+    coMakerGuaranteedLoanPayments,
+    otherDebtPayments,
+    existingLoanPayments,
     existingDebtDeclarationCompleted: Boolean(
-      row.existing_debt_declaration_completed,
+      row.existing_debt_declaration_completed || hasSavedDebtValues,
     ),
-    cashOnHand: toNumber(row.cash_on_hand),
-    bankSavings: toNumber(row.bank_savings),
-    ewalletBalance: toNumber(row.ewallet_balance),
-    inventoryValue: toNumber(row.inventory_value),
-    businessEquipmentValue: toNumber(row.business_equipment_value),
-    vehicleValue: toNumber(row.vehicle_value),
-    propertyLandValue: toNumber(row.property_land_value),
-    otherAssetsValue: toNumber(row.other_assets_value),
+    assetDeclarationCompleted: Boolean(
+      row.asset_declaration_completed ||
+        row.existing_debt_declaration_completed ||
+        hasSavedAssetValues,
+    ),
+    cashOnHand,
+    bankSavings,
+    ewalletBalance,
+    inventoryValue,
+    businessEquipmentValue,
+    vehicleValue,
+    propertyLandValue,
+    otherAssetsValue,
     estimatedCustomerCreditAmount: toNumber(row.estimated_customer_credit_amount),
     averageCollectionPeriod: mapNullableOption(
       row.average_collection_period,
@@ -1656,7 +1709,7 @@ function backfillDetailedTotals(
 
 function sumFields(
   portfolio: Partial<Record<string, unknown>>,
-  fields: string[],
+  fields: readonly string[],
 ) {
   return fields.reduce((total, field) => total + toNumber(portfolio[field]), 0);
 }
