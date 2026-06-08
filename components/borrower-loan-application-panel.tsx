@@ -215,6 +215,47 @@ export function BorrowerLoanApplicationPanel({
     mode: "onBlur",
   });
 
+  function applyLoadResult(result: LoanApplicationsLoadResult, options?: {
+    preserveFeedback?: boolean;
+  }) {
+    const nextHasPortfolio = result.hasPortfolio;
+    const nextApplications = result.ok ? result.applications : [];
+
+    setHasPortfolio(nextHasPortfolio);
+    setBorrowerVerification(result.borrowerVerification);
+    setReadiness(result.readiness);
+    setConsentStatuses(result.consentStatuses);
+    setLoanConsentStatus(
+      result.consentStatuses?.borrowerLoanApplication ?? null,
+    );
+    setApplications(nextApplications);
+    setCreditSummary(result.creditSummary);
+    setExpandedApplicationIds(
+      getDefaultExpandedApplicationIds(
+        nextApplications,
+        readStoredIdSet(collapsedApplicationsStorageKey),
+      ),
+    );
+    setExpandedOfferIds(
+      getDefaultExpandedOfferIds(
+        nextApplications,
+        readStoredIdSet(collapsedOffersStorageKey),
+      ),
+    );
+    setExpandedRepaymentIds(
+      getDefaultExpandedRepaymentIds(
+        nextApplications,
+        readStoredIdSet(collapsedRepaymentsStorageKey),
+      ),
+    );
+    setLoadState(nextHasPortfolio ? "ready" : "blocked");
+
+    if (!options?.preserveFeedback) {
+      setMessage(result.ok ? "" : result.message);
+      setSuccessMessage("");
+    }
+  }
+
   useEffect(() => {
     let isActive = true;
 
@@ -225,39 +266,7 @@ export function BorrowerLoanApplicationPanel({
             return;
           }
 
-          const nextHasPortfolio = result.hasPortfolio;
-          const nextApplications = result.ok ? result.applications : [];
-
-          setHasPortfolio(nextHasPortfolio);
-          setBorrowerVerification(result.borrowerVerification);
-          setReadiness(result.readiness);
-          setConsentStatuses(result.consentStatuses);
-          setLoanConsentStatus(
-            result.consentStatuses?.borrowerLoanApplication ?? null,
-          );
-          setApplications(nextApplications);
-          setCreditSummary(result.creditSummary);
-          setExpandedApplicationIds(
-            getDefaultExpandedApplicationIds(
-              nextApplications,
-              readStoredIdSet(collapsedApplicationsStorageKey),
-            ),
-          );
-          setExpandedOfferIds(
-            getDefaultExpandedOfferIds(
-              nextApplications,
-              readStoredIdSet(collapsedOffersStorageKey),
-            ),
-          );
-          setExpandedRepaymentIds(
-            getDefaultExpandedRepaymentIds(
-              nextApplications,
-              readStoredIdSet(collapsedRepaymentsStorageKey),
-            ),
-          );
-          setLoadState(nextHasPortfolio ? "ready" : "blocked");
-          setMessage(result.ok ? "" : result.message);
-          setSuccessMessage("");
+          applyLoadResult(result);
         });
       });
     }
@@ -455,13 +464,41 @@ export function BorrowerLoanApplicationPanel({
     setSuccessMessage("");
 
     startTransition(async () => {
+      const beforeSubmit = await loadBorrowerLoanApplications();
+
+      if (!beforeSubmit.ok) {
+        applyLoadResult(beforeSubmit);
+        return;
+      }
+
+      applyLoadResult(beforeSubmit, { preserveFeedback: true });
+
+      const currentAvailableCredit =
+        beforeSubmit.creditSummary?.availableCredit ?? 0;
+
+      if (currentAvailableCredit <= 0) {
+        setLoadState("ready");
+        setMessage(
+          "You have used your available credit. Repay an active loan or wait for an application decision before applying again.",
+        );
+        return;
+      }
+
+      if (values.requestedAmount > currentAvailableCredit) {
+        setLoadState("ready");
+        setMessage(
+          `Requested amount exceeds your available credit. Maximum request: ${formatCreditAmount(currentAvailableCredit)}.`,
+        );
+        return;
+      }
+
       const result = await submitLoanApplication(values);
+      const refreshed = await loadBorrowerLoanApplications();
 
       if (result.ok) {
-        setApplications((current) => [
-          { ...result.application, offers: [], activeLoan: null },
-          ...current,
-        ]);
+        if (refreshed.ok) {
+          applyLoadResult(refreshed, { preserveFeedback: true });
+        }
         setExpandedApplicationIds(
           (current) => new Set([...current, result.application.id]),
         );
@@ -470,6 +507,10 @@ export function BorrowerLoanApplicationPanel({
         setSuccessMessage(result.message);
         reset(defaultValues);
         return;
+      }
+
+      if (refreshed.ok) {
+        applyLoadResult(refreshed, { preserveFeedback: true });
       }
 
       setLoadState(
@@ -945,11 +986,8 @@ function ProfileReadinessBlocker({
   readiness: BorrowerReadinessResult;
   onEditProfile?: () => void;
 }) {
-  const hasVagueLoanPurpose =
-    readiness.riskFlags.includes("vague_loan_purpose");
-  const message = hasVagueLoanPurpose
-    ? "Add more detail to your loan purpose before applying."
-    : readiness.nextActions[0] ?? "Update your profile before applying.";
+  const message = getReadinessBlockerMessage(readiness);
+  const canEditProfile = hasEditableProfileIssue(readiness);
 
   return (
     <Card className="rounded-2xl" role="status" aria-live="polite">
@@ -960,7 +998,7 @@ function ProfileReadinessBlocker({
           </p>
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
-        {onEditProfile ? (
+        {onEditProfile && canEditProfile ? (
           <Button
             onClick={onEditProfile}
             className="w-fit rounded-full h-10 px-5 font-semibold"
@@ -970,6 +1008,39 @@ function ProfileReadinessBlocker({
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
+  if (readiness.missingFields.length > 0) {
+    return `Complete ${readiness.missingFields[0]} before applying.`;
+  }
+  if (readiness.riskFlags.includes("no_available_credit")) {
+    return "You have no available credit remaining.";
+  }
+  if (readiness.riskFlags.includes("vague_loan_purpose")) {
+    return "Add more detail to your loan purpose before applying.";
+  }
+  if (readiness.riskFlags.includes("no_business_proof")) {
+    return readiness.nextActions[0] ?? "Upload business proof in borrower verification.";
+  }
+
+  return readiness.nextActions[0] ?? "Update your profile before applying.";
+}
+
+function hasEditableProfileIssue(readiness: BorrowerReadinessResult) {
+  return (
+    readiness.missingFields.length > 0 ||
+    readiness.riskFlags.some((flag) =>
+      [
+        "vague_loan_purpose",
+        "self_declared_income_only",
+        "high_debt_burden",
+        "zero_revenue",
+        "non_positive_cash_flow",
+        "expenses_exceed_revenue",
+      ].includes(flag),
+    )
   );
 }
 
@@ -2114,6 +2185,22 @@ function ApplicationForm({
   requestedAmount: number;
   register: UseFormRegister<LoanApplicationFormInput>;
 }) {
+  if (creditSummary && creditSummary.availableCredit <= 0) {
+    return (
+      <Card className="rounded-2xl" role="status" aria-live="polite">
+        <CardContent className="grid gap-2 p-5">
+          <p className="text-sm font-semibold text-foreground">
+            No available credit remaining
+          </p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            You have used your available credit. Repay an active loan or wait
+            for an application decision before applying again.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const isOverAvailableCredit =
     creditSummary !== null && requestedAmount > creditSummary.availableCredit;
   const requestedAmountError = isOverAvailableCredit

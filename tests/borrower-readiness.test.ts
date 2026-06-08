@@ -14,6 +14,7 @@ import {
   mapBorrowerPortfolioRow,
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
+import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
 
 function completeProfile(overrides = {}) {
   return borrowerPortfolioSchema.parse({
@@ -94,6 +95,38 @@ function completeWizardProfile(overrides = {}) {
   };
 }
 
+function verificationWithBusinessProof(
+  status: "accepted" | "submitted" | "rejected" | "missing",
+): BorrowerVerificationSummary {
+  const acceptedDocumentTypes = status === "accepted" ? ["business_proof" as const] : [];
+  const submittedDocumentTypes =
+    status === "accepted" || status === "submitted"
+      ? ["business_proof" as const]
+      : [];
+  const rejectedDocumentTypes =
+    status === "rejected" ? ["business_proof" as const] : [];
+
+  return {
+    id: "verification-1",
+    status: status === "accepted" ? "approved" : "under_review",
+    managerReviewNotes: null,
+    rejectionReason: null,
+    submittedAt: null,
+    reviewedAt: null,
+    documents: [],
+    documentPolicy: {
+      requiredDocumentTypes: ["valid_id", "business_proof"],
+      missingRequiredDocumentTypes:
+        status === "accepted" ? ["valid_id"] : ["valid_id", "business_proof"],
+      submittedDocumentTypes,
+      acceptedDocumentTypes,
+      rejectedDocumentTypes,
+      readyForManagerReview: status === "submitted" || status === "accepted",
+      documentsAccepted: false,
+    },
+  };
+}
+
 describe("microbusiness borrower readiness", () => {
   it("accepts a complete sari-sari store profile", () => {
     const profile = completeProfile();
@@ -121,6 +154,81 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.readinessStatus).toBe("needs_review");
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.riskFlags).not.toContain("not_eligible");
+  });
+
+  it("uses accepted verification business proof for profile readiness", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        hasBusinessRegistration: false,
+        businessRegistrationType: null,
+        registrationNumber: "",
+        registrationDate: "",
+        ownershipType: "informal_unregistered",
+      }),
+      {
+        borrowerVerification: verificationWithBusinessProof("accepted"),
+      },
+    );
+
+    expect(readiness.riskFlags).not.toContain("no_business_proof");
+  });
+
+  it("shows pending business proof as under review instead of missing", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        hasBusinessRegistration: false,
+        businessRegistrationType: null,
+        registrationNumber: "",
+        registrationDate: "",
+        ownershipType: "informal_unregistered",
+      }),
+      {
+        borrowerVerification: verificationWithBusinessProof("submitted"),
+      },
+    );
+
+    expect(readiness.riskFlags).toContain("no_business_proof");
+    expect(readiness.nextActions).toContain("Business proof is still under review.");
+  });
+
+  it("asks for re-upload when business proof is rejected", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        hasBusinessRegistration: false,
+        businessRegistrationType: null,
+        registrationNumber: "",
+        registrationDate: "",
+        ownershipType: "informal_unregistered",
+      }),
+      {
+        borrowerVerification: verificationWithBusinessProof("rejected"),
+      },
+    );
+
+    expect(readiness.riskFlags).toContain("no_business_proof");
+    expect(readiness.nextActions).toContain(
+      "Business proof was rejected. Please upload a new document.",
+    );
+  });
+
+  it("asks for upload when business proof is missing", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        hasBusinessRegistration: false,
+        businessRegistrationType: null,
+        registrationNumber: "",
+        registrationDate: "",
+        ownershipType: "informal_unregistered",
+      }),
+      {
+        borrowerVerification: verificationWithBusinessProof("missing"),
+      },
+    );
+
+    expect(readiness.riskFlags).toContain("no_business_proof");
+    expect(readiness.nextActions).toContain(
+      "Upload business proof in borrower verification.",
+    );
   });
 
   it("requires registration details when the business is registered", () => {

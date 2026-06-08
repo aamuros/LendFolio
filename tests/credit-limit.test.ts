@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  applicationConsumesCredit,
   calculateBorrowerAvailableCredit,
   calculateBorrowerCreditLimit,
   explainBorrowerCreditLimit,
@@ -113,6 +114,39 @@ describe("borrower credit limit", () => {
     expect(5_000 > summary.availableCredit).toBe(true);
   });
 
+  it("calculates available credit from current submitted application reservations", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [3_000],
+    });
+
+    expect(summary.calculatedCreditLimit).toBe(10_000);
+    expect(summary.usedCredit).toBe(3_000);
+    expect(summary.availableCredit).toBe(7_000);
+  });
+
+  it("recomputes to zero after another application uses the remaining credit", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [3_000, 7_000],
+    });
+
+    expect(summary.usedCredit).toBe(10_000);
+    expect(summary.availableCredit).toBe(0);
+  });
+
   it("allows another application when active loan exposure leaves enough credit", () => {
     const summary = calculateBorrowerAvailableCredit({
       portfolio: {
@@ -146,6 +180,22 @@ describe("borrower credit limit", () => {
     expect(summary.usedCredit).toBe(8_000);
     expect(summary.availableCredit).toBe(2_000);
     expect(3_000 > summary.availableCredit).toBe(true);
+  });
+
+  it("blocks requested amounts above current available credit", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [7_000],
+    });
+
+    expect(summary.availableCredit).toBe(3_000);
+    expect(3_001 > summary.availableCredit).toBe(true);
   });
 
   it("allows simultaneous pending applications when total exposure fits", () => {
@@ -195,5 +245,27 @@ describe("borrower credit limit", () => {
 
     expect(summaryExcludingCurrentApplication.availableCredit).toBe(5_000);
     expect(6_000 > summaryExcludingCurrentApplication.availableCredit).toBe(true);
+  });
+
+  it("does not consume credit for closed application and loan statuses", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [
+        { outstandingBalance: 3_000, status: "paid" },
+        { outstandingBalance: 3_000, status: "defaulted" },
+        { outstandingBalance: 3_000, status: "closed" },
+      ],
+      pendingApplicationAmounts: [],
+    });
+
+    expect(summary.usedCredit).toBe(0);
+    expect(summary.availableCredit).toBe(10_000);
+    expect(applicationConsumesCredit("declined")).toBe(false);
+    expect(applicationConsumesCredit("withdrawn")).toBe(false);
   });
 });

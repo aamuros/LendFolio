@@ -149,7 +149,7 @@ export function evaluateBorrowerReadiness(
   if (parsedPortfolio.yearsInOperation < 0.5) {
     riskFlags.add("very_new_business");
   }
-  if (!parsedPortfolio.hasBusinessRegistration || !hasAcceptedBusinessProof(gates)) {
+  if (!hasAcceptedBusinessProof(gates)) {
     riskFlags.add("no_business_proof");
   }
   if (parsedPortfolio.revenueConfidence === "self_declared_only") {
@@ -181,7 +181,7 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
-      nextActions: ["Complete the missing microbusiness profile fields."],
+      nextActions: missingFields.map((field) => `Complete ${field} before applying.`),
     };
   }
 
@@ -193,7 +193,7 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
-      nextActions: ["Review your profile and account status before applying."],
+      nextActions: getNotEligibleActions(blockingFlags, gates),
     };
   }
 
@@ -205,7 +205,7 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
-      nextActions: [getNeedsReviewAction(riskFlags)],
+      nextActions: [getNeedsReviewAction(riskFlags, gates)],
     };
   }
 
@@ -317,7 +317,65 @@ function hasAcceptedBusinessProof(gates: BorrowerReadinessGateInput) {
   );
 }
 
-function getNeedsReviewAction(riskFlags: Set<string>) {
+function getBusinessProofState(gates: BorrowerReadinessGateInput) {
+  const policy = gates.borrowerVerification?.documentPolicy;
+
+  if (policy?.acceptedDocumentTypes.includes("business_proof")) {
+    return "accepted";
+  }
+  if (policy?.submittedDocumentTypes.includes("business_proof")) {
+    return "pending";
+  }
+  if (policy?.rejectedDocumentTypes.includes("business_proof")) {
+    return "rejected";
+  }
+
+  return "missing";
+}
+
+function getNotEligibleActions(
+  blockingFlags: Set<string>,
+  gates: BorrowerReadinessGateInput,
+) {
+  const actions: string[] = [];
+
+  if (blockingFlags.has("no_available_credit")) {
+    actions.push(
+      "You have no available credit remaining.",
+    );
+  }
+  if (blockingFlags.has("non_positive_cash_flow")) {
+    actions.push("Monthly cash flow must be positive before applying.");
+  }
+  if (blockingFlags.has("zero_revenue")) {
+    actions.push("Add monthly revenue before applying.");
+  }
+  if (blockingFlags.has("suspended")) {
+    actions.push("This account is suspended.");
+  } else if (blockingFlags.has("account_not_active")) {
+    actions.push("This account is not active.");
+  }
+
+  return actions.length > 0
+    ? actions
+    : [getBusinessProofAction(gates)];
+}
+
+function getBusinessProofAction(gates: BorrowerReadinessGateInput) {
+  const state = getBusinessProofState(gates);
+
+  if (state === "pending") return "Business proof is still under review.";
+  if (state === "rejected") {
+    return "Business proof was rejected. Please upload a new document.";
+  }
+  if (state === "accepted") return "Business proof accepted.";
+  return "Upload business proof in borrower verification.";
+}
+
+function getNeedsReviewAction(
+  riskFlags: Set<string>,
+  gates: BorrowerReadinessGateInput,
+) {
   if (riskFlags.has("vague_loan_purpose")) {
     return "Add more detail to your loan use context.";
   }
@@ -328,7 +386,7 @@ function getNeedsReviewAction(riskFlags: Set<string>) {
     return "Review existing debt payments before applying.";
   }
   if (riskFlags.has("no_business_proof")) {
-    return "Upload at least one business proof in borrower verification.";
+    return getBusinessProofAction(gates);
   }
 
   return "Your profile can be reviewed with the flagged details.";

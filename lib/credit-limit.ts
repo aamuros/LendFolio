@@ -1,4 +1,4 @@
-import type { ActiveLoanStatus } from "@/lib/supabase/types";
+import type { ActiveLoanStatus, ApplicationStatus } from "@/lib/supabase/types";
 
 export type CreditLimitPortfolioInput = {
   monthlyGrossRevenue: number;
@@ -36,6 +36,14 @@ export type BorrowerCreditSummary = {
 
 export const creditLimitMaximum = 100_000;
 export const safeRepaymentRatio = 0.3;
+export const creditConsumingApplicationStatuses = [
+  "submitted",
+  "open",
+] as const satisfies ApplicationStatus[];
+export const creditConsumingActiveLoanStatuses = [
+  "active",
+  "overdue",
+] as const satisfies ActiveLoanStatus[];
 
 export function calculateBorrowerCreditLimit(
   portfolio: CreditLimitPortfolioInput,
@@ -95,6 +103,7 @@ export function calculateBorrowerAvailableCredit(input: {
     input.repaymentHistory,
   );
   const activeLoanCredit = input.activeLoans
+    .filter((loan) => loanConsumesCredit(loan.status))
     .filter((loan) => loan.outstandingBalance > 0)
     .reduce((total, loan) => total + loan.outstandingBalance, 0);
   const pendingApplicationCredit = (input.pendingApplicationAmounts ?? []).reduce(
@@ -117,6 +126,18 @@ export function calculateBorrowerAvailableCredit(input: {
     defaultedLoanCount: creditLimit.defaultedLoanCount,
     riskFlags: creditLimit.riskFlags,
   };
+}
+
+export function applicationConsumesCredit(status: ApplicationStatus) {
+  return creditConsumingApplicationStatuses.includes(
+    status as (typeof creditConsumingApplicationStatuses)[number],
+  );
+}
+
+export function loanConsumesCredit(status: ActiveLoanStatus) {
+  return creditConsumingActiveLoanStatuses.includes(
+    status as (typeof creditConsumingActiveLoanStatuses)[number],
+  );
 }
 
 export function formatCreditAmount(value: number) {

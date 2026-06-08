@@ -29,6 +29,7 @@ import {
 } from "@/lib/borrower-portfolio";
 import {
   calculateBorrowerAvailableCredit,
+  creditConsumingApplicationStatuses,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 import {
@@ -1471,7 +1472,7 @@ async function loadBorrowerCreditSummary(
       .from("loan_applications")
       .select("requested_amount")
       .eq("borrower_id", borrowerId)
-      .in("status", ["submitted", "open"]),
+      .in("status", [...creditConsumingApplicationStatuses]),
     supabase
       .from("loan_repayment_schedules")
       .select("active_loan_id")
