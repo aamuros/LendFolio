@@ -247,6 +247,7 @@ export function BorrowerWorkspace({
                 />
                 <BorrowerPortfolioForm
                   initialStep={editInitialStep}
+                  mode="edit"
                   onCancel={() => setProfileMode(editReturnMode)}
                   onSaved={handlePortfolioSaved}
                 />
@@ -297,6 +298,10 @@ function resolveEditInitialStep(
   if (returnMode === "business") return "businessBasics";
   if (returnMode === "financial" || returnMode === "borrowingPower") {
     return "financials";
+  }
+
+  if (portfolio && isBorrowerPortfolioComplete(portfolio)) {
+    return "businessBasics";
   }
 
   return getNextIncompleteBorrowerPortfolioStep(portfolio);

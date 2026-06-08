@@ -14,6 +14,7 @@ import {
   borrowerPortfolioStepLabels,
   borrowerPortfolioStepSchemas,
   borrowerPortfolioSchema,
+  formatLoanPurposeContext,
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
   mapBorrowerPortfolioRow,
@@ -851,7 +852,9 @@ function buildBorrowerPortfolioStepPayload(
   if (step === "loanUse") {
     return {
       ...base,
-      loan_purpose_context: formatBorrowerLoanPurposeContext(portfolio),
+      loan_purpose_context: formatLoanPurposeContext(portfolio, {
+        preferSelectedCategory: true,
+      }),
     };
   }
 
@@ -919,27 +922,6 @@ function buildBorrowerPortfolioStepPayload(
     consents_to_credit_check: portfolio.consentsToCreditCheck,
     profile_last_confirmed_at: now,
   };
-}
-
-function formatBorrowerLoanPurposeContext(
-  portfolio: Pick<
-    BorrowerPortfolioInput,
-    | "loanPurposeCategory"
-    | "loanPurposeOther"
-    | "loanPurposeDetails"
-    | "loanPurposeContext"
-  >,
-) {
-  const category =
-    portfolio.loanPurposeCategory === "other"
-      ? portfolio.loanPurposeOther?.trim()
-      : portfolio.loanPurposeCategory.replace(/_/g, " ");
-  const details = portfolio.loanPurposeDetails?.trim();
-  const existingContext = portfolio.loanPurposeContext?.trim();
-
-  if (category && details) return `${category}: ${details}`;
-  if (existingContext) return existingContext;
-  return category ?? "";
 }
 
 export async function loadBorrowerLoanApplications(

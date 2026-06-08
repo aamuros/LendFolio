@@ -179,6 +179,30 @@ describe("microbusiness borrower readiness", () => {
     expect(result.success).toBe(true);
   });
 
+  it("loads saved loan purpose labels without falling back to other", () => {
+    const mapped = mapBorrowerPortfolioRow({
+      id: "portfolio-loan-purpose-1",
+      borrower_id: "borrower-1",
+      loan_purpose_context: "Inventory / stock: Restock sari-sari inventory",
+    } as Parameters<typeof mapBorrowerPortfolioRow>[0]);
+
+    expect(mapped.loanPurposeCategory).toBe("inventory_stock");
+    expect(mapped.loanPurposeOther).toBe("");
+    expect(mapped.loanPurposeDetails).toBe("Restock sari-sari inventory");
+  });
+
+  it("loads legacy saved loan purpose keys without falling back to other", () => {
+    const mapped = mapBorrowerPortfolioRow({
+      id: "portfolio-loan-purpose-2",
+      borrower_id: "borrower-1",
+      loan_purpose_context: "inventory stock: Restock sari-sari inventory",
+    } as Parameters<typeof mapBorrowerPortfolioRow>[0]);
+
+    expect(mapped.loanPurposeCategory).toBe("inventory_stock");
+    expect(mapped.loanPurposeOther).toBe("");
+    expect(mapped.loanPurposeDetails).toBe("Restock sari-sari inventory");
+  });
+
   it("normalizes saved registration data into a checked state", () => {
     const mapped = mapBorrowerPortfolioRow({
       id: "portfolio-registration-1",

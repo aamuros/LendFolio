@@ -93,12 +93,14 @@ const formSyncOptions = {
 
 type BorrowerPortfolioFormProps = {
   initialStep?: BorrowerPortfolioStep;
+  mode?: "completion" | "edit";
   onCancel?: () => void;
   onSaved?: (portfolio: BorrowerPortfolioInput) => void;
 };
 
 export function BorrowerPortfolioForm({
   initialStep,
+  mode = "completion",
   onCancel,
   onSaved,
 }: BorrowerPortfolioFormProps = {}) {
@@ -189,6 +191,7 @@ export function BorrowerPortfolioForm({
       ? 100
       : ((currentStepIndex + 1) / (profileSteps.length - 1)) * 100;
   const isFinalStep = currentStepIndex === profileSteps.length - 1;
+  const isEditMode = mode === "edit";
   const previousBusinessRegistration = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
@@ -338,11 +341,14 @@ export function BorrowerPortfolioForm({
         setSuccessMessage(result.message);
         setCompletedSteps(result.completedSteps);
         reset(result.portfolio);
-        if (isFinalStep) {
+        if (isEditMode || isFinalStep) {
           onSaved?.(result.portfolio);
         } else {
+          const nextIncompleteIndex = getStepIndex(result.nextIncompleteStep);
           setCurrentStepIndex((index) =>
-            Math.min(index + 1, profileSteps.length - 1),
+            nextIncompleteIndex > index
+              ? nextIncompleteIndex
+              : Math.min(index + 1, profileSteps.length - 1),
           );
         }
         window.dispatchEvent(new Event(borrowerPortfolioSavedEvent));
@@ -1074,17 +1080,27 @@ export function BorrowerPortfolioForm({
               >
                 Previous
               </Button>
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="h-11 rounded-full font-semibold"
-              >
-                {isPending
-                  ? "Saving..."
-                  : isFinalStep
-                    ? "Save and continue to verification"
-                    : "Save and continue"}
-              </Button>
+              {isEditMode ? (
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="h-11 rounded-full font-semibold"
+                >
+                  {isPending ? "Saving..." : "Save changes"}
+                </Button>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={isPending}
+                  className="h-11 rounded-full font-semibold"
+                >
+                  {isPending
+                    ? "Saving..."
+                    : isFinalStep
+                      ? "Save and continue to verification"
+                      : "Save and continue"}
+                </Button>
+              )}
             </div>
             {onCancel ? (
               <Button

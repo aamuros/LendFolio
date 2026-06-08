@@ -1596,11 +1596,12 @@ export const loanPurposeCategoryLabels = {
   other: "Other",
 } satisfies Record<(typeof loanPurposeCategoryOptions)[number], string>;
 
-function formatLoanPurposeContext(
+export function formatLoanPurposeContext(
   value: Pick<
     BorrowerPortfolioFormInput,
     "loanPurposeCategory" | "loanPurposeOther" | "loanPurposeDetails" | "loanPurposeContext"
   >,
+  options: { preferSelectedCategory?: boolean } = {},
 ) {
   const category =
     value.loanPurposeCategory === "other"
@@ -1610,8 +1611,11 @@ function formatLoanPurposeContext(
   const existingContext = value.loanPurposeContext?.trim();
 
   if (category && details) return `${category}: ${details}`;
-  if (existingContext) return existingContext;
+  if (!options.preferSelectedCategory && existingContext) {
+    return existingContext;
+  }
   if (category) return category;
+  if (existingContext) return existingContext;
 
   return "";
 }
@@ -1672,12 +1676,29 @@ function parseLoanPurposeContext(value: string): Pick<
   "loanPurposeContext" | "loanPurposeCategory" | "loanPurposeOther" | "loanPurposeDetails"
 > {
   const trimmed = value.trim();
+  if (!trimmed) {
+    return {
+      loanPurposeContext: "",
+      loanPurposeCategory: "working_capital",
+      loanPurposeOther: "",
+      loanPurposeDetails: "",
+    };
+  }
+
   const matchingCategory = loanPurposeCategoryOptions.find(
-    (option) => loanPurposeCategoryLabels[option] === trimmed,
+    (option) =>
+      loanPurposeCategoryLabels[option].toLowerCase() ===
+        trimmed.toLowerCase() ||
+      option === trimmed ||
+      option.replace(/_/g, " ") === trimmed.toLowerCase(),
   );
   const [rawCategory, ...detailParts] = trimmed.split(":");
   const categoryFromPrefix = loanPurposeCategoryOptions.find(
-    (option) => loanPurposeCategoryLabels[option] === rawCategory.trim(),
+    (option) =>
+      loanPurposeCategoryLabels[option].toLowerCase() ===
+        rawCategory.trim().toLowerCase() ||
+      option === rawCategory.trim() ||
+      option.replace(/_/g, " ") === rawCategory.trim().toLowerCase(),
   );
 
   if (categoryFromPrefix) {
