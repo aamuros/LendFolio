@@ -886,10 +886,16 @@ export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
   loanPurposeOther: true,
   loanPurposeDetails: true,
   loanPurposeContext: true,
+});
+
+export const borrowerCustomerCreditSchema = borrowerPortfolioBaseSchema.pick({
   offersCustomerCredit: true,
   estimatedCustomerCreditAmount: true,
   averageCollectionPeriod: true,
   keepsCustomerDebtList: true,
+});
+
+export const borrowerRepaymentHistorySchema = borrowerPortfolioBaseSchema.pick({
   hasOverdueLoans: true,
   missedPaymentsLast12Months: true,
   hasUnpaidLendingAppLoans: true,
@@ -898,6 +904,9 @@ export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
   hasDebtRelatedLegalCase: true,
   hasRepossessionHistory: true,
   hasTaxArrears: true,
+});
+
+export const borrowerBusinessStatusSchema = borrowerPortfolioBaseSchema.pick({
   businessTemporarilyStopped: true,
   confirmsBusinessOperating: true,
 });
@@ -931,6 +940,9 @@ export const borrowerPortfolioStepIds = [
   "existingDebts",
   "assets",
   "loanUse",
+  "customerCredit",
+  "repaymentHistory",
+  "businessStatus",
   "review",
 ] as const;
 
@@ -947,6 +959,9 @@ export const borrowerPortfolioStepLabels = {
   existingDebts: "Existing loans / debts",
   assets: "Assets",
   loanUse: "Loan use",
+  customerCredit: "Customer credit / utang",
+  repaymentHistory: "Existing loans, debts, and repayment history",
+  businessStatus: "Business status",
   review: "Review",
 } satisfies Record<BorrowerPortfolioStep, string>;
 
@@ -961,6 +976,9 @@ export const borrowerPortfolioStepSchemas = {
   existingDebts: borrowerExistingDebtsSchema,
   assets: borrowerAssetsSchema,
   loanUse: borrowerLoanUseSchema,
+  customerCredit: borrowerCustomerCreditSchema,
+  repaymentHistory: borrowerRepaymentHistorySchema,
+  businessStatus: borrowerBusinessStatusSchema,
   review: borrowerReviewSchema,
 } satisfies Record<BorrowerPortfolioStep, z.ZodTypeAny>;
 

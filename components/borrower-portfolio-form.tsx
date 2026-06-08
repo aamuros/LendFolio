@@ -162,6 +162,10 @@ export function BorrowerPortfolioForm({
     control,
     name: "hasExistingDebts",
   });
+  const offersCustomerCredit = useWatch({
+    control,
+    name: "offersCustomerCredit",
+  });
   const shouldShowBusinessAddress =
     isPhysicalBusinessAddressRequired(operatingModel);
   const isHomeAddressComplete = Boolean(
@@ -356,7 +360,7 @@ export function BorrowerPortfolioForm({
   }
 
   return (
-    <Card className="rounded-2xl">
+    <Card className="mx-auto w-full max-w-[960px] rounded-2xl">
       <CardContent className="p-5">
         <form
           onSubmit={handleSubmit(onSubmit)}
@@ -873,7 +877,10 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           {currentStep.id === "loanUse" ? (
-            <FormSection title="Loan use">
+            <FormSection
+              title="Loan purpose"
+              description="Tell lenders how you plan to use the loan. Keep it specific and practical."
+            >
               <SelectField
                 control={control}
                 name="loanPurposeCategory"
@@ -892,46 +899,108 @@ export function BorrowerPortfolioForm({
               ) : null}
               <TextField
                 id="loanPurposeDetails"
-                label="Additional details (optional)"
+                label="Additional details"
                 error={errors.loanPurposeDetails?.message}
                 register={register("loanPurposeDetails")}
                 className="sm:col-span-2"
               />
+              <Alert className="sm:col-span-2">
+                <AlertDescription>
+                  A clear loan purpose helps lenders understand what the funds
+                  will support, such as inventory, equipment, rent, or working
+                  capital.
+                </AlertDescription>
+              </Alert>
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "customerCredit" ? (
+            <FormSection
+              title="Customer credit / utang practices"
+              description="Share whether customers buy from you now and pay later."
+            >
               <CheckboxField
                 control={control}
                 name="offersCustomerCredit"
-                label="Offers customer credit"
+                label="Do you allow customers to buy now and pay later / utang?"
+                className="sm:col-span-2"
               />
-              <MoneyField
-                id="estimatedCustomerCreditAmount"
-                label="Estimated customer credit amount"
-                error={errors.estimatedCustomerCreditAmount?.message}
-                register={register("estimatedCustomerCreditAmount", {
-                  setValueAs: parseMoneyInput,
-                })}
-              />
-              <SelectField
-                control={control}
-                name="averageCollectionPeriod"
-                label="Average collection period"
-                options={averageCollectionPeriodOptions}
-                labels={averageCollectionPeriodLabels}
-                error={errors.averageCollectionPeriod?.message}
-                optional
-              />
-              <CheckboxField
-                control={control}
-                name="keepsCustomerDebtList"
-                label="Keeps a customer debt list"
-              />
-              {riskDeclarationFields.map(([name, label]) => (
+              {offersCustomerCredit ? (
+                <div className="grid gap-4 rounded-2xl border bg-muted/20 p-4 sm:col-span-2 sm:grid-cols-2">
+                  <div className="grid gap-1 sm:col-span-2">
+                    <h4 className="text-sm font-semibold">
+                      Customer credit details
+                    </h4>
+                    <p className="text-sm leading-5 text-muted-foreground">
+                      Estimate the amount customers currently owe and how you
+                      track collections.
+                    </p>
+                  </div>
+                  <MoneyField
+                    id="estimatedCustomerCreditAmount"
+                    label="Estimated amount customers owe"
+                    error={errors.estimatedCustomerCreditAmount?.message}
+                    register={register("estimatedCustomerCreditAmount", {
+                      setValueAs: parseMoneyInput,
+                    })}
+                    emptyValue={undefined}
+                  />
+                  <SelectField
+                    control={control}
+                    name="averageCollectionPeriod"
+                    label="Usual collection period"
+                    options={averageCollectionPeriodOptions}
+                    labels={averageCollectionPeriodLabels}
+                    error={errors.averageCollectionPeriod?.message}
+                    optional
+                  />
+                  <CheckboxField
+                    control={control}
+                    name="keepsCustomerDebtList"
+                    label="I keep a list of customers who still owe money."
+                    className="sm:col-span-2"
+                  />
+                </div>
+              ) : null}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "repaymentHistory" ? (
+            <FormSection
+              title="Existing loans, debts, and repayment history"
+              description="Answer only based on your current situation and the last 12 months."
+            >
+              {repaymentHistoryFields.map(([name, label, description]) => (
                 <CheckboxField
                   key={name}
                   control={control}
                   name={name}
                   label={label}
+                  description={description}
+                  className="sm:col-span-2"
                 />
               ))}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "businessStatus" ? (
+            <FormSection
+              title="Business status"
+              description="Confirm whether the business is operating now."
+            >
+              <CheckboxField
+                control={control}
+                name="confirmsBusinessOperating"
+                label="My business is currently operating."
+                className="sm:col-span-2"
+              />
+              <CheckboxField
+                control={control}
+                name="businessTemporarilyStopped"
+                label="My business is temporarily stopped."
+                description="Use this if operations are paused but you plan to resume."
+                className="sm:col-span-2"
+              />
             </FormSection>
           ) : null}
 
@@ -1094,19 +1163,29 @@ const assetFields = [
   readonly [keyof BorrowerPortfolioFormInput, string]
 >;
 
-const riskDeclarationFields = [
-  ["hasOverdueLoans", "Has overdue loans"],
-  ["missedPaymentsLast12Months", "Missed payments in the last 12 months"],
-  ["hasUnpaidLendingAppLoans", "Has unpaid lending app loans"],
-  ["hasBouncedChecks", "Has bounced checks"],
-  ["isCoMakerOrGuarantor", "Is a co-maker or guarantor"],
-  ["hasDebtRelatedLegalCase", "Has a debt-related legal case"],
-  ["hasRepossessionHistory", "Has repossession history"],
-  ["hasTaxArrears", "Has tax arrears"],
-  ["businessTemporarilyStopped", "Business is temporarily stopped"],
-  ["confirmsBusinessOperating", "Business is currently operating"],
+const repaymentHistoryFields = [
+  ["hasOverdueLoans", "I currently have overdue loan payments.", undefined],
+  [
+    "missedPaymentsLast12Months",
+    "I missed a loan payment in the last 12 months.",
+    undefined,
+  ],
+  ["hasUnpaidLendingAppLoans", "I still have unpaid lending app loans.", undefined],
+  ["hasBouncedChecks", "I have had a bounced check.", undefined],
+  [
+    "isCoMakerOrGuarantor",
+    "I am a co-maker or guarantor for someone else's loan.",
+    undefined,
+  ],
+  ["hasDebtRelatedLegalCase", "I have a debt-related legal case.", undefined],
+  [
+    "hasRepossessionHistory",
+    "I have had an item repossessed because of unpaid debt.",
+    undefined,
+  ],
+  ["hasTaxArrears", "I have unpaid tax obligations.", undefined],
 ] as const satisfies ReadonlyArray<
-  readonly [keyof BorrowerPortfolioFormInput, string]
+  readonly [keyof BorrowerPortfolioFormInput, string, string?]
 >;
 
 const profileSteps = [
@@ -1216,11 +1295,31 @@ const profileSteps = [
       "loanPurposeCategory",
       "loanPurposeOther",
       "loanPurposeDetails",
+    ],
+  },
+  {
+    id: "customerCredit",
+    title: borrowerPortfolioStepLabels.customerCredit,
+    fields: [
       "offersCustomerCredit",
       "estimatedCustomerCreditAmount",
       "averageCollectionPeriod",
       "keepsCustomerDebtList",
-      ...riskDeclarationFields.map(([name]) => name),
+    ],
+  },
+  {
+    id: "repaymentHistory",
+    title: borrowerPortfolioStepLabels.repaymentHistory,
+    fields: [
+      ...repaymentHistoryFields.map(([name]) => name),
+    ],
+  },
+  {
+    id: "businessStatus",
+    title: borrowerPortfolioStepLabels.businessStatus,
+    fields: [
+      "businessTemporarilyStopped",
+      "confirmsBusinessOperating",
     ],
   },
   {
@@ -1402,33 +1501,45 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
   control,
   name,
   label,
+  description,
   error,
+  className,
 }: {
   control: Control<BorrowerPortfolioFormInput>;
   name: TName;
   label: string;
+  description?: string;
   error?: string;
+  className?: string;
 }) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field }) => (
-        <div className="grid gap-2">
-          <div className="flex items-center gap-3 rounded-xl bg-muted/25 px-4 py-3 transition-colors hover:bg-muted/40">
+        <div className={cn("grid gap-2", className)}>
+          <div className="flex items-start gap-3 rounded-xl bg-muted/25 px-4 py-3 transition-colors hover:bg-muted/40">
             <Checkbox
               id={String(name)}
               checked={Boolean(field.value)}
               onCheckedChange={(checked) => field.onChange(Boolean(checked))}
               aria-invalid={Boolean(error)}
               aria-describedby={error ? `${String(name)}-error` : undefined}
+              className="mt-0.5"
             />
-            <Label
-              htmlFor={String(name)}
-              className="cursor-pointer text-sm leading-5"
-            >
-              {label}
-            </Label>
+            <div className="grid gap-1">
+              <Label
+                htmlFor={String(name)}
+                className="cursor-pointer text-sm leading-5"
+              >
+                {label}
+              </Label>
+              {description ? (
+                <p className="text-xs leading-5 text-muted-foreground">
+                  {description}
+                </p>
+              ) : null}
+            </div>
           </div>
           {error ? (
             <p id={`${String(name)}-error`} className="text-sm text-destructive">
@@ -1470,14 +1581,20 @@ function TextField({
   );
 }
 
-function MoneyField({ id, label, error, register }: FieldControlProps) {
+function MoneyField({
+  id,
+  label,
+  error,
+  register,
+  emptyValue = 0,
+}: FieldControlProps & { emptyValue?: number }) {
   return (
     <Field label={label} error={error} id={id}>
       <CurrencyInput
         id={id}
         aria-invalid={Boolean(error)}
         registration={register}
-        emptyValue={0}
+        emptyValue={emptyValue}
       />
     </Field>
   );

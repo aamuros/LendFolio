@@ -851,12 +851,29 @@ function buildBorrowerPortfolioStepPayload(
   if (step === "loanUse") {
     return {
       ...base,
-      offers_customer_credit: portfolio.offersCustomerCredit,
-      estimated_customer_credit_amount:
-        portfolio.estimatedCustomerCreditAmount,
-      average_collection_period: portfolio.averageCollectionPeriod,
-      keeps_customer_debt_list: portfolio.keepsCustomerDebtList,
       loan_purpose_context: formatBorrowerLoanPurposeContext(portfolio),
+    };
+  }
+
+  if (step === "customerCredit") {
+    return {
+      ...base,
+      offers_customer_credit: portfolio.offersCustomerCredit,
+      estimated_customer_credit_amount: portfolio.offersCustomerCredit
+        ? portfolio.estimatedCustomerCreditAmount
+        : 0,
+      average_collection_period: portfolio.offersCustomerCredit
+        ? portfolio.averageCollectionPeriod
+        : null,
+      keeps_customer_debt_list: portfolio.offersCustomerCredit
+        ? portfolio.keepsCustomerDebtList
+        : false,
+    };
+  }
+
+  if (step === "repaymentHistory") {
+    return {
+      ...base,
       has_overdue_loans: portfolio.hasOverdueLoans,
       missed_payments_last_12_months: portfolio.missedPaymentsLast12Months,
       has_unpaid_lending_app_loans: portfolio.hasUnpaidLendingAppLoans,
@@ -865,6 +882,12 @@ function buildBorrowerPortfolioStepPayload(
       has_debt_related_legal_case: portfolio.hasDebtRelatedLegalCase,
       has_repossession_history: portfolio.hasRepossessionHistory,
       has_tax_arrears: portfolio.hasTaxArrears,
+    };
+  }
+
+  if (step === "businessStatus") {
+    return {
+      ...base,
       business_temporarily_stopped: portfolio.businessTemporarilyStopped,
       confirms_business_operating: portfolio.confirmsBusinessOperating,
     };
