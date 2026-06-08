@@ -16,6 +16,7 @@ import {
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
   mapBorrowerPortfolioRow,
+  resolveMainProductsOrServicesValue,
   resolveBorrowerAddressFields,
   type BorrowerPortfolioStep,
   type BorrowerPortfolioInput,
@@ -349,7 +350,7 @@ export async function saveBorrowerPortfolio(
         business_schedule: parsed.data.businessSchedule,
         number_of_employees: parsed.data.numberOfEmployees,
         main_products_or_services:
-          parsed.data.mainProductsOrServices?.trim() || null,
+          resolveMainProductsOrServicesValue(parsed.data) || null,
         main_suppliers: parsed.data.mainSuppliers?.trim() || null,
         keeps_sales_records: parsed.data.keepsSalesRecords,
         uses_bank_or_ewallet: parsed.data.usesBankOrEwallet,
@@ -596,6 +597,31 @@ function buildBorrowerPortfolioStepPayload(
     updated_at: now,
   };
 
+  if (step === "homeAddress") {
+    return {
+      ...base,
+      mobile_number: portfolio.mobileNumber || null,
+      home_address:
+        portfolio.homeAddress?.trim() ||
+        [
+          portfolio.homeStreetAddress,
+          portfolio.homeAddressSelection.barangay,
+          portfolio.homeAddressSelection.cityOrMunicipality,
+          portfolio.homeAddressSelection.regionName ||
+            portfolio.homeAddressSelection.regionCode,
+          portfolio.homeAddressSelection.zipCode,
+        ]
+          .filter(Boolean)
+          .join(", ") ||
+        null,
+      years_at_current_address: portfolio.yearsAtCurrentAddress,
+      emergency_contact_name: portfolio.emergencyContactName || null,
+      emergency_contact_number: portfolio.emergencyContactNumber || null,
+      emergency_contact_relationship:
+        portfolio.emergencyContactRelationship || null,
+    };
+  }
+
   if (step === "businessBasics") {
     return {
       ...base,
@@ -609,7 +635,7 @@ function buildBorrowerPortfolioStepPayload(
       business_schedule: portfolio.businessSchedule,
       number_of_employees: portfolio.numberOfEmployees,
       main_products_or_services:
-        portfolio.mainProductsOrServices?.trim() || null,
+        resolveMainProductsOrServicesValue(portfolio) || null,
       main_suppliers: portfolio.mainSuppliers?.trim() || null,
       keeps_sales_records: portfolio.keepsSalesRecords,
       uses_bank_or_ewallet: portfolio.usesBankOrEwallet,

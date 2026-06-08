@@ -252,6 +252,8 @@ function getMissingFieldsFromIssues(
 }
 
 const validationMissingFieldLabels: Record<string, string> = {
+  mainProductsOrServicesCategory: "Main products or services",
+  mainProductsOrServicesOther: "Main products or services",
   "address.regionCode": "Business region",
   "address.cityOrMunicipality": "Business city or municipality",
   "address.barangay": "Business barangay",

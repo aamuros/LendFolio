@@ -65,6 +65,19 @@ export const businessScheduleOptions = [
   "irregular",
 ] as const;
 
+export const mainProductsOrServicesCategoryOptions = [
+  "groceries_household_items",
+  "food_beverages",
+  "cooked_food_carinderia",
+  "mobile_load_ewallet_services",
+  "personal_care_products",
+  "clothing_accessories",
+  "repair_or_local_services",
+  "online_selling_products",
+  "agriculture_fish_meat_produce",
+  "other",
+] as const;
+
 export const businessRegistrationTypeOptions = [
   "barangay_permit",
   "dti",
@@ -204,6 +217,11 @@ const borrowerPortfolioBaseSchema = z.object({
     .default("walk_in_customers"),
   businessSchedule: z.enum(businessScheduleOptions).default("daily"),
   numberOfEmployees: numberField(500),
+  mainProductsOrServicesCategory: z
+    .enum(mainProductsOrServicesCategoryOptions)
+    .nullable()
+    .default(null),
+  mainProductsOrServicesOther: shortText(120),
   mainProductsOrServices: shortText(800),
   mainSuppliers: shortText(800),
   keepsSalesRecords: z.boolean().default(false),
@@ -375,6 +393,27 @@ const borrowerPortfolioValidatedSchema = z
       });
     }
 
+    const resolvedProductsOrServices = resolveMainProductsOrServicesValue(value);
+
+    if (!resolvedProductsOrServices) {
+      context.addIssue({
+        code: "custom",
+        path: ["mainProductsOrServicesCategory"],
+        message: "Select your main products or services.",
+      });
+    }
+
+    if (
+      value.mainProductsOrServicesCategory === "other" &&
+      !value.mainProductsOrServicesOther?.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["mainProductsOrServicesOther"],
+        message: "Please specify your main products or services.",
+      });
+    }
+
     if (!isPhysicalBusinessAddressRequired(value.operatingModel)) {
       return;
     }
@@ -448,6 +487,7 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
     return {
       ...value,
       homeAddress: formatHomeAddress(value),
+      mainProductsOrServices: resolveMainProductsOrServicesValue(value),
       address:
         value.operatingModel === "online_only"
           ? emptyAddressSelection
@@ -505,6 +545,8 @@ export const borrowerBusinessBasicsSchema = borrowerPortfolioBaseSchema
     primarySalesChannel: true,
     businessSchedule: true,
     numberOfEmployees: true,
+    mainProductsOrServicesCategory: true,
+    mainProductsOrServicesOther: true,
     mainProductsOrServices: true,
     mainSuppliers: true,
     keepsSalesRecords: true,
@@ -512,6 +554,69 @@ export const borrowerBusinessBasicsSchema = borrowerPortfolioBaseSchema
   })
   .extend({
     businessName: requiredShortText(120, "Enter your business name."),
+  })
+  .superRefine((value, context) => {
+    if (!resolveMainProductsOrServicesValue(value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["mainProductsOrServicesCategory"],
+        message: "Select your main products or services.",
+      });
+    }
+
+    if (
+      value.mainProductsOrServicesCategory === "other" &&
+      !value.mainProductsOrServicesOther?.trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["mainProductsOrServicesOther"],
+        message: "Please specify your main products or services.",
+      });
+    }
+  });
+
+export const borrowerHomeAddressSchema = borrowerPortfolioBaseSchema
+  .pick({
+    country: true,
+    mobileNumber: true,
+    yearsAtCurrentAddress: true,
+    homeAddress: true,
+    homeAddressSelection: true,
+    homeStreetAddress: true,
+    emergencyContactName: true,
+    emergencyContactNumber: true,
+    emergencyContactRelationship: true,
+  })
+  .extend({
+    mobileNumber: requiredShortText(30, "Enter your mobile number."),
+    emergencyContactName: requiredShortText(
+      120,
+      "Enter your emergency contact name.",
+    ),
+    emergencyContactNumber: requiredShortText(
+      30,
+      "Enter your emergency contact number.",
+    ),
+    emergencyContactRelationship: requiredShortText(
+      80,
+      "Enter your emergency contact relationship.",
+    ),
+  })
+  .superRefine((value, context) => {
+    const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
+    const hasCompleteStructuredHomeAddress =
+      isValidPhilippineAddressSelection(value.homeAddressSelection) &&
+      Boolean(value.homeStreetAddress?.trim());
+
+    if (!hasLegacyHomeAddress && !hasCompleteStructuredHomeAddress) {
+      context.addIssue({
+        code: "custom",
+        path: ["homeAddressSelection", "regionCode"],
+        message:
+          "Complete your home address first before copying it to business address.",
+      });
+    }
   });
 
 export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
@@ -538,7 +643,8 @@ export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
         context.addIssue({
           code: "custom",
           path: ["homeAddressSelection", "regionCode"],
-          message: "Complete your home address.",
+          message:
+            "Complete your home address first before copying it to business address.",
         });
       }
 
@@ -669,32 +775,11 @@ export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
 
 export const borrowerReviewSchema = borrowerPortfolioBaseSchema
   .pick({
-    mobileNumber: true,
-    yearsAtCurrentAddress: true,
-    homeAddress: true,
-    homeAddressSelection: true,
-    homeStreetAddress: true,
-    emergencyContactName: true,
-    emergencyContactNumber: true,
-    emergencyContactRelationship: true,
     confirmsInformationTrue: true,
     consentsToDataProcessing: true,
     consentsToCreditCheck: true,
   })
   .extend({
-    mobileNumber: requiredShortText(30, "Enter your mobile number."),
-    emergencyContactName: requiredShortText(
-      120,
-      "Enter your emergency contact name.",
-    ),
-    emergencyContactNumber: requiredShortText(
-      30,
-      "Enter your emergency contact number.",
-    ),
-    emergencyContactRelationship: requiredShortText(
-      80,
-      "Enter your emergency contact relationship.",
-    ),
     confirmsInformationTrue: z.literal(true, {
       error: "Confirm that this information is true.",
     }),
@@ -704,23 +789,10 @@ export const borrowerReviewSchema = borrowerPortfolioBaseSchema
     consentsToCreditCheck: z.literal(true, {
       error: "Credit review consent is required.",
     }),
-  })
-  .superRefine((value, context) => {
-    const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
-    const hasCompleteStructuredHomeAddress =
-      isValidPhilippineAddressSelection(value.homeAddressSelection) &&
-      Boolean(value.homeStreetAddress?.trim());
-
-    if (!hasLegacyHomeAddress && !hasCompleteStructuredHomeAddress) {
-      context.addIssue({
-        code: "custom",
-        path: ["homeAddressSelection", "regionCode"],
-        message: "Complete your home address.",
-      });
-    }
   });
 
 export const borrowerPortfolioStepIds = [
+  "homeAddress",
   "businessBasics",
   "businessAddress",
   "businessOperations",
@@ -733,6 +805,7 @@ export const borrowerPortfolioStepIds = [
 export type BorrowerPortfolioStep = (typeof borrowerPortfolioStepIds)[number];
 
 export const borrowerPortfolioStepLabels = {
+  homeAddress: "Personal / Home address",
   businessBasics: "Business basics",
   businessAddress: "Business address",
   businessOperations: "Business operations",
@@ -743,6 +816,7 @@ export const borrowerPortfolioStepLabels = {
 } satisfies Record<BorrowerPortfolioStep, string>;
 
 export const borrowerPortfolioStepSchemas = {
+  homeAddress: borrowerHomeAddressSchema,
   businessBasics: borrowerBusinessBasicsSchema,
   businessAddress: borrowerBusinessAddressSchema,
   businessOperations: borrowerBusinessOperationsSchema,
@@ -780,10 +854,14 @@ export function getNextIncompleteBorrowerPortfolioStep(
 export function isBorrowerPortfolioComplete(
   portfolio: Partial<BorrowerPortfolioInput> | null,
 ) {
-  return borrowerPortfolioCompletionSchema.safeParse({
+  const candidate = {
     ...getBorrowerPortfolioDefaultValues(),
     ...portfolio,
-  }).success;
+  };
+
+  return borrowerPortfolioStepIds.every(
+    (step) => borrowerPortfolioStepSchemas[step].safeParse(candidate).success,
+  );
 }
 
 type BorrowerPortfolioRow =
@@ -930,6 +1008,7 @@ export function mapBorrowerPortfolioRow(
     primarySalesChannel: mapPrimarySalesChannel(row.primary_sales_channel),
     businessSchedule: mapOption(row.business_schedule, businessScheduleOptions, "daily"),
     numberOfEmployees: toNumber(row.number_of_employees),
+    ...parseMainProductsOrServices(row.main_products_or_services),
     mainProductsOrServices: stringFrom(row.main_products_or_services),
     mainSuppliers: stringFrom(row.main_suppliers),
     keepsSalesRecords: Boolean(row.keeps_sales_records),
@@ -1170,6 +1249,22 @@ export const businessScheduleLabels = {
   irregular: "Irregular",
 } satisfies Record<(typeof businessScheduleOptions)[number], string>;
 
+export const mainProductsOrServicesCategoryLabels = {
+  groceries_household_items: "Groceries and household items",
+  food_beverages: "Food and beverages",
+  cooked_food_carinderia: "Cooked food / carinderia",
+  mobile_load_ewallet_services: "Mobile load / e-wallet services",
+  personal_care_products: "Personal care products",
+  clothing_accessories: "Clothing / accessories",
+  repair_or_local_services: "Repair or local services",
+  online_selling_products: "Online selling products",
+  agriculture_fish_meat_produce: "Agriculture / fish / meat / produce",
+  other: "Other",
+} satisfies Record<
+  (typeof mainProductsOrServicesCategoryOptions)[number],
+  string
+>;
+
 export const businessRegistrationTypeLabels = {
   barangay_permit: "Barangay permit",
   dti: "DTI",
@@ -1232,6 +1327,57 @@ function formatLoanPurposeContext(
   if (category) return category;
 
   return "";
+}
+
+export function resolveMainProductsOrServicesValue(
+  value: Pick<
+    BorrowerPortfolioFormInput,
+    | "mainProductsOrServicesCategory"
+    | "mainProductsOrServicesOther"
+    | "mainProductsOrServices"
+  >,
+) {
+  if (value.mainProductsOrServicesCategory === "other") {
+    return value.mainProductsOrServicesOther?.trim() ?? "";
+  }
+
+  if (value.mainProductsOrServicesCategory) {
+    return mainProductsOrServicesCategoryLabels[value.mainProductsOrServicesCategory];
+  }
+
+  return value.mainProductsOrServices?.trim() ?? "";
+}
+
+function parseMainProductsOrServices(
+  value: string | null | undefined,
+): Pick<
+  BorrowerPortfolioFormInput,
+  | "mainProductsOrServicesCategory"
+  | "mainProductsOrServicesOther"
+> {
+  const trimmed = value?.trim() ?? "";
+  const matchedCategory = mainProductsOrServicesCategoryOptions.find(
+    (option) => mainProductsOrServicesCategoryLabels[option] === trimmed,
+  );
+
+  if (matchedCategory) {
+    return {
+      mainProductsOrServicesCategory: matchedCategory,
+      mainProductsOrServicesOther: "",
+    };
+  }
+
+  if (trimmed) {
+    return {
+      mainProductsOrServicesCategory: "other",
+      mainProductsOrServicesOther: trimmed.slice(0, 120),
+    };
+  }
+
+  return {
+    mainProductsOrServicesCategory: null,
+    mainProductsOrServicesOther: "",
+  };
 }
 
 function parseLoanPurposeContext(value: string): Pick<

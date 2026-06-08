@@ -52,6 +52,7 @@ import {
   calculateTotalDeclaredAssets,
   calculateTotalExistingDebtPayments,
   calculateTotalHouseholdExpenses,
+  formatHomeAddress,
   getBorrowerPortfolioDefaultValues,
   getCompletedBorrowerPortfolioSteps,
   getNextIncompleteBorrowerPortfolioStep,
@@ -59,6 +60,8 @@ import {
   isBorrowerPortfolioComplete,
   loanPurposeCategoryLabels,
   loanPurposeCategoryOptions,
+  mainProductsOrServicesCategoryLabels,
+  mainProductsOrServicesCategoryOptions,
   operatingModelLabels,
   operatingModelOptions,
   ownershipTypeLabels,
@@ -96,6 +99,7 @@ export function BorrowerPortfolioForm({
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [statusMessage, setStatusMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [sameAsHomeMessage, setSameAsHomeMessage] = useState("");
   const [completedSteps, setCompletedSteps] = useState<BorrowerPortfolioStep[]>(
     [],
   );
@@ -108,6 +112,7 @@ export function BorrowerPortfolioForm({
     handleSubmit,
     reset,
     control,
+    setValue,
     formState: { errors },
   } = useForm<BorrowerPortfolioFormInput, unknown, BorrowerPortfolioInput>({
     defaultValues,
@@ -126,8 +131,27 @@ export function BorrowerPortfolioForm({
     control,
     name: "operatingModel",
   });
+  const homeAddressSelection = useWatch({
+    control,
+    name: "homeAddressSelection",
+  });
+  const homeStreetAddress = useWatch({
+    control,
+    name: "homeStreetAddress",
+  });
+  const mainProductsOrServicesCategory = useWatch({
+    control,
+    name: "mainProductsOrServicesCategory",
+  });
   const shouldShowBusinessAddress =
     isPhysicalBusinessAddressRequired(operatingModel);
+  const isHomeAddressComplete = Boolean(
+    homeAddressSelection?.regionCode &&
+      homeAddressSelection?.cityOrMunicipality &&
+      homeAddressSelection?.barangay &&
+      homeAddressSelection?.zipCode &&
+      homeStreetAddress?.trim(),
+  );
   const parsedCurrent = borrowerPortfolioSchema.safeParse({
     ...defaultValues,
     ...currentValues,
@@ -157,7 +181,9 @@ export function BorrowerPortfolioForm({
           );
           setCompletedSteps(savedCompletedSteps);
           setCurrentStepIndex(
-            getStepIndex(initialStep ?? getNextIncompleteBorrowerPortfolioStep(result.data)),
+            getStepIndex(
+              initialStep ?? getNextIncompleteBorrowerPortfolioStep(result.data),
+            ),
           );
           setLoadState("ready");
           setStatusMessage("");
@@ -182,9 +208,26 @@ export function BorrowerPortfolioForm({
     if (!successMessage) return;
 
     const timeout = window.setTimeout(() => setSuccessMessage(""), 3000);
-
     return () => window.clearTimeout(timeout);
   }, [successMessage]);
+
+  useEffect(() => {
+    if (!isBusinessAddressSameAsHome) return;
+
+    setValue("address", homeAddressSelection ?? defaultValues.homeAddressSelection, {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+    setValue("streetAddress", homeStreetAddress ?? "", {
+      shouldDirty: true,
+      shouldTouch: true,
+    });
+  }, [
+    homeAddressSelection,
+    homeStreetAddress,
+    isBusinessAddressSameAsHome,
+    setValue,
+  ]);
 
   function onSubmit(values: BorrowerPortfolioInput) {
     void saveCurrentStep(values);
@@ -250,159 +293,324 @@ export function BorrowerPortfolioForm({
             completedSteps={completedSteps}
           />
 
-          {currentStepIndex === 0 ? (
-          <FormSection title="Business basics">
-            <TextField
-              id="businessName"
-              label="Business name"
-              error={errors.businessName?.message}
-              register={register("businessName")}
-            />
-            <SelectField
-              control={control}
-              name="businessType"
-              label="Business type"
-              options={businessTypeOptions}
-              labels={businessTypeLabels}
-              error={errors.businessType?.message}
-            />
-            <SelectField
-              control={control}
-              name="ownershipType"
-              label="Ownership type"
-              options={ownershipTypeOptions}
-              labels={ownershipTypeLabels}
-              error={errors.ownershipType?.message}
-            />
-            <SelectField
-              control={control}
-              name="borrowerRole"
-              label="Your role"
-              options={borrowerRoleOptions}
-              labels={borrowerRoleLabels}
-              error={errors.borrowerRole?.message}
-            />
-            <NumberField
-              id="yearsInOperation"
-              label="Years in operation"
-              error={errors.yearsInOperation?.message}
-              register={register("yearsInOperation", {
-                setValueAs: parseMoneyInput,
-              })}
-              step="0.5"
-            />
-            <SelectField
-              control={control}
-              name="operatingModel"
-              label="Operating model"
-              options={operatingModelOptions}
-              labels={operatingModelLabels}
-              error={errors.operatingModel?.message}
-            />
-            <SelectField
-              control={control}
-              name="primarySalesChannel"
-              label="Primary sales channel"
-              options={primarySalesChannelOptions}
-              labels={primarySalesChannelLabels}
-              error={errors.primarySalesChannel?.message}
-            />
-            <SelectField
-              control={control}
-              name="businessSchedule"
-              label="Business schedule"
-              options={businessScheduleOptions}
-              labels={businessScheduleLabels}
-              error={errors.businessSchedule?.message}
-            />
-            <NumberField
-              id="numberOfEmployees"
-              label="Number of employees"
-              error={errors.numberOfEmployees?.message}
-              register={register("numberOfEmployees", {
-                setValueAs: parseMoneyInput,
-              })}
-              step="1"
-            />
-            <TextField
-              id="mainProductsOrServices"
-              label="Main products or services"
-              error={errors.mainProductsOrServices?.message}
-              register={register("mainProductsOrServices")}
-            />
-            <TextField
-              id="mainSuppliers"
-              label="Main suppliers"
-              error={errors.mainSuppliers?.message}
-              register={register("mainSuppliers")}
-            />
-            <CheckboxField control={control} name="keepsSalesRecords" label="Keeps sales records" />
-            <CheckboxField control={control} name="usesBankOrEwallet" label="Uses bank or e-wallet" />
-          </FormSection>
+          {currentStep.id === "homeAddress" ? (
+            <FormSection title="Personal / Home address">
+              <SelectField
+                control={control}
+                name="country"
+                label="Country"
+                options={["Philippines"] as const}
+                labels={{ Philippines: "Philippines" }}
+                error={errors.country?.message}
+              />
+              <TextField
+                id="mobileNumber"
+                label="Mobile number"
+                error={errors.mobileNumber?.message}
+                register={register("mobileNumber")}
+              />
+              <NumberField
+                id="yearsAtCurrentAddress"
+                label="Years at current address"
+                error={errors.yearsAtCurrentAddress?.message}
+                register={register("yearsAtCurrentAddress", {
+                  setValueAs: parseMoneyInput,
+                })}
+                step="0.5"
+              />
+              <div className="sm:col-span-2">
+                <Controller
+                  control={control}
+                  name="homeAddressSelection"
+                  render={({ field }) => (
+                    <AddressSelect
+                      value={field.value}
+                      onChange={field.onChange}
+                      idPrefix="borrower-home-address"
+                      required
+                      errors={{
+                        regionCode: errors.homeAddressSelection?.regionCode?.message,
+                        cityOrMunicipality:
+                          errors.homeAddressSelection?.cityOrMunicipality
+                            ?.message,
+                        barangay: errors.homeAddressSelection?.barangay?.message,
+                        zipCode: errors.homeAddressSelection?.zipCode?.message,
+                      }}
+                      showZipCode={false}
+                      legacyAddress={currentValues.homeAddress}
+                    />
+                  )}
+                />
+              </div>
+              <TextField
+                id="homeStreetAddress"
+                label="Street / house no. / unit / landmark / specific address"
+                error={errors.homeStreetAddress?.message}
+                register={register("homeStreetAddress")}
+                className="sm:col-span-2"
+              />
+              <TextField
+                id="emergencyContactName"
+                label="Emergency contact name"
+                error={errors.emergencyContactName?.message}
+                register={register("emergencyContactName")}
+              />
+              <TextField
+                id="emergencyContactNumber"
+                label="Emergency contact number"
+                error={errors.emergencyContactNumber?.message}
+                register={register("emergencyContactNumber")}
+              />
+              <TextField
+                id="emergencyContactRelationship"
+                label="Emergency contact relationship"
+                error={errors.emergencyContactRelationship?.message}
+                register={register("emergencyContactRelationship")}
+              />
+            </FormSection>
           ) : null}
 
-          {currentStepIndex === 1 ? (
+          {currentStep.id === "businessBasics" ? (
+            <FormSection title="Business basics">
+              <TextField
+                id="businessName"
+                label="Business name"
+                error={errors.businessName?.message}
+                register={register("businessName")}
+              />
+              <SelectField
+                control={control}
+                name="businessType"
+                label="Business type"
+                options={businessTypeOptions}
+                labels={businessTypeLabels}
+                error={errors.businessType?.message}
+              />
+              <SelectField
+                control={control}
+                name="ownershipType"
+                label="Ownership type"
+                options={ownershipTypeOptions}
+                labels={ownershipTypeLabels}
+                error={errors.ownershipType?.message}
+              />
+              <SelectField
+                control={control}
+                name="borrowerRole"
+                label="Your role"
+                options={borrowerRoleOptions}
+                labels={borrowerRoleLabels}
+                error={errors.borrowerRole?.message}
+              />
+              <NumberField
+                id="yearsInOperation"
+                label="Years in operation"
+                error={errors.yearsInOperation?.message}
+                register={register("yearsInOperation", {
+                  setValueAs: parseMoneyInput,
+                })}
+                step="0.5"
+              />
+              <SelectField
+                control={control}
+                name="operatingModel"
+                label="Operating model"
+                options={operatingModelOptions}
+                labels={operatingModelLabels}
+                error={errors.operatingModel?.message}
+              />
+              <SelectField
+                control={control}
+                name="primarySalesChannel"
+                label="Primary sales channel"
+                options={primarySalesChannelOptions}
+                labels={primarySalesChannelLabels}
+                error={errors.primarySalesChannel?.message}
+              />
+              <SelectField
+                control={control}
+                name="businessSchedule"
+                label="Business schedule"
+                options={businessScheduleOptions}
+                labels={businessScheduleLabels}
+                error={errors.businessSchedule?.message}
+              />
+              <NumberField
+                id="numberOfEmployees"
+                label="Number of employees"
+                error={errors.numberOfEmployees?.message}
+                register={register("numberOfEmployees", {
+                  setValueAs: parseMoneyInput,
+                })}
+                step="1"
+              />
+              <SelectField
+                control={control}
+                name="mainProductsOrServicesCategory"
+                label="Main products or services"
+                options={mainProductsOrServicesCategoryOptions}
+                labels={mainProductsOrServicesCategoryLabels}
+                error={errors.mainProductsOrServicesCategory?.message}
+              />
+              {mainProductsOrServicesCategory === "other" ? (
+                <TextField
+                  id="mainProductsOrServicesOther"
+                  label="Please specify"
+                  error={errors.mainProductsOrServicesOther?.message}
+                  register={register("mainProductsOrServicesOther")}
+                />
+              ) : null}
+              <TextField
+                id="mainSuppliers"
+                label="Main suppliers"
+                error={errors.mainSuppliers?.message}
+                register={register("mainSuppliers")}
+              />
+              <CheckboxField
+                control={control}
+                name="keepsSalesRecords"
+                label="Keeps sales records"
+              />
+              <CheckboxField
+                control={control}
+                name="usesBankOrEwallet"
+                label="Uses bank or e-wallet"
+              />
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "businessAddress" ? (
             <FormSection title="Business address">
               {shouldShowBusinessAddress ? (
                 <>
-                  <CheckboxField control={control} name="isBusinessAddressSameAsHome" label="Business address is the same as home" />
+                  <Controller
+                    control={control}
+                    name="isBusinessAddressSameAsHome"
+                    render={({ field }) => {
+                      const checkboxDisabled =
+                        !isBusinessAddressSameAsHome && !isHomeAddressComplete;
+
+                      return (
+                        <div className="grid gap-2 sm:col-span-2">
+                          <div
+                            className={cn(
+                              "flex items-center gap-3 rounded-xl bg-muted/25 px-4 py-3 transition-colors",
+                              checkboxDisabled
+                                ? "cursor-not-allowed opacity-80"
+                                : "hover:bg-muted/40",
+                            )}
+                            onClick={() => {
+                              if (checkboxDisabled) {
+                                setSameAsHomeMessage(
+                                  "Complete your home address first before copying it to business address.",
+                                );
+                              }
+                            }}
+                          >
+                            <Checkbox
+                              id="isBusinessAddressSameAsHome"
+                              checked={Boolean(field.value)}
+                              disabled={checkboxDisabled}
+                              onCheckedChange={(checked) => {
+                                const nextValue = Boolean(checked);
+
+                                if (nextValue && !isHomeAddressComplete) {
+                                  setSameAsHomeMessage(
+                                    "Complete your home address first before copying it to business address.",
+                                  );
+                                  return;
+                                }
+
+                                setSameAsHomeMessage("");
+                                field.onChange(nextValue);
+                              }}
+                            />
+                            <Label
+                              htmlFor="isBusinessAddressSameAsHome"
+                              className="cursor-pointer text-sm leading-5"
+                            >
+                              Business address is the same as home address
+                            </Label>
+                          </div>
+                          <p className="text-sm text-muted-foreground">
+                            Copy your completed home address into the business
+                            address fields.
+                          </p>
+                          {sameAsHomeMessage ? (
+                            <p className="text-sm text-destructive">
+                              {sameAsHomeMessage}
+                            </p>
+                          ) : null}
+                        </div>
+                      );
+                    }}
+                  />
                   {isBusinessAddressSameAsHome ? (
                     <Alert className="sm:col-span-2">
-                      <AlertDescription>Using your home address as business address.</AlertDescription>
+                      <AlertDescription>
+                        Business address is being copied from your home address
+                        and will stay in sync while this option is selected.
+                      </AlertDescription>
                     </Alert>
-                  ) : (
-                    <>
-                      <SelectField
-                        control={control}
-                        name="country"
-                        label="Country"
-                        options={["Philippines"] as const}
-                        labels={{ Philippines: "Philippines" }}
-                        error={errors.country?.message}
-                      />
-                      <div className="sm:col-span-2">
-                        <Controller
-                          control={control}
-                          name="address"
-                          render={({ field }) => (
-                            <AddressSelect
-                              value={field.value}
-                              onChange={field.onChange}
-                              idPrefix="borrower-business-address"
-                              required
-                              errors={{
-                                regionCode: errors.address?.regionCode?.message,
-                                cityOrMunicipality: errors.address?.cityOrMunicipality?.message,
-                                barangay: errors.address?.barangay?.message,
-                                zipCode: errors.address?.zipCode?.message,
-                              }}
-                              showZipCode={false}
-                            />
-                          )}
+                  ) : null}
+                  <div className="sm:col-span-2">
+                    <Controller
+                      control={control}
+                      name="address"
+                      render={({ field }) => (
+                        <AddressSelect
+                          value={field.value}
+                          onChange={field.onChange}
+                          idPrefix="borrower-business-address"
+                          required
+                          disabled={Boolean(isBusinessAddressSameAsHome)}
+                          errors={{
+                            regionCode: errors.address?.regionCode?.message,
+                            cityOrMunicipality:
+                              errors.address?.cityOrMunicipality?.message,
+                            barangay: errors.address?.barangay?.message,
+                            zipCode: errors.address?.zipCode?.message,
+                          }}
+                          showZipCode={false}
                         />
-                      </div>
-                      <TextField
-                        id="streetAddress"
-                        label="Unit / building / street / landmark"
-                        error={errors.streetAddress?.message}
-                        register={register("streetAddress")}
-                        className="sm:col-span-2"
-                      />
-                    </>
-                  )}
+                      )}
+                    />
+                  </div>
+                  <TextField
+                    id="streetAddress"
+                    label="Street / house no. / unit / landmark / specific address"
+                    error={errors.streetAddress?.message}
+                    register={register("streetAddress")}
+                    className="sm:col-span-2"
+                    disabled={Boolean(isBusinessAddressSameAsHome)}
+                  />
                 </>
               ) : (
                 <Alert className="sm:col-span-2">
-                  <AlertDescription>Online-only business selected.</AlertDescription>
+                  <AlertDescription>
+                    Online-only business selected.
+                  </AlertDescription>
                 </Alert>
               )}
             </FormSection>
           ) : null}
 
-          {currentStepIndex === 2 ? (
+          {currentStep.id === "businessOperations" ? (
             <FormSection title="Business operations">
-              <CheckboxField control={control} name="hasBusinessRegistration" label="Has business registration" />
-              <SelectField control={control} name="businessRegistrationType" label="Registration type" options={businessRegistrationTypeOptions} labels={businessRegistrationTypeLabels} error={errors.businessRegistrationType?.message} optional />
+              <CheckboxField
+                control={control}
+                name="hasBusinessRegistration"
+                label="Has business registration"
+              />
+              <SelectField
+                control={control}
+                name="businessRegistrationType"
+                label="Registration type"
+                options={businessRegistrationTypeOptions}
+                labels={businessRegistrationTypeLabels}
+                error={errors.businessRegistrationType?.message}
+                optional
+              />
               <TextField
                 id="registrationNumber"
                 label="Registration number"
@@ -426,240 +634,233 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStepIndex === 3 ? (
-            <FormSection
-            title="Financials"
-          >
-            <MoneyField
-              id="averageDailySales"
-              label="Average daily sales"
-              error={errors.averageDailySales?.message}
-              register={register("averageDailySales", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-            <MoneyField
-              id="averageWeeklySales"
-              label="Average weekly sales"
-              error={errors.averageWeeklySales?.message}
-              register={register("averageWeeklySales", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-            <MoneyField
-              id="monthlyGrossRevenue"
-              label="Monthly gross sales"
-              error={errors.monthlyGrossRevenue?.message}
-              register={register("monthlyGrossRevenue", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-            <SelectField
-              control={control}
-              name="revenuePeriod"
-              label="Revenue period"
-              options={revenuePeriodOptions}
-              labels={revenuePeriodLabels}
-              error={errors.revenuePeriod?.message}
-            />
-            <SelectField
-              control={control}
-              name="revenueConfidence"
-              label="Revenue basis"
-              options={revenueConfidenceOptions}
-              labels={revenueConfidenceLabels}
-              error={errors.revenueConfidence?.message}
-            />
-            <MoneyField
-              id="bestMonthSales"
-              label="Best month sales"
-              error={errors.bestMonthSales?.message}
-              register={register("bestMonthSales", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-            <MoneyField
-              id="worstMonthSales"
-              label="Worst month sales"
-              error={errors.worstMonthSales?.message}
-              register={register("worstMonthSales", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-          </FormSection>
-          ) : null}
-
-          {currentStepIndex === 4 ? (
-            <FormSection title="Expenses and obligations">
-            {businessExpenseFields.map(([name, label]) => (
+          {currentStep.id === "financials" ? (
+            <FormSection title="Financials">
               <MoneyField
-                key={name}
-                id={name}
-                label={label}
-                error={fieldError(errors, name)}
-                register={register(name, { setValueAs: parseMoneyInput })}
+                id="averageDailySales"
+                label="Average daily sales"
+                error={errors.averageDailySales?.message}
+                register={register("averageDailySales", {
+                  setValueAs: parseMoneyInput,
+                })}
               />
-            ))}
-            {householdExpenseFields.map(([name, label]) => (
               <MoneyField
-                key={name}
-                id={name}
-                label={label}
-                error={fieldError(errors, name)}
-                register={register(name, { setValueAs: parseMoneyInput })}
+                id="averageWeeklySales"
+                label="Average weekly sales"
+                error={errors.averageWeeklySales?.message}
+                register={register("averageWeeklySales", {
+                  setValueAs: parseMoneyInput,
+                })}
               />
-            ))}
-            <NumberField
-              id="numberOfDependents"
-              label="Number of dependents"
-              error={errors.numberOfDependents?.message}
-              register={register("numberOfDependents", {
-                setValueAs: parseMoneyInput,
-              })}
-              step="1"
-            />
-            <NumberField
-              id="numberOfEarningHouseholdMembers"
-              label="Earning household members"
-              error={errors.numberOfEarningHouseholdMembers?.message}
-              register={register("numberOfEarningHouseholdMembers", {
-                setValueAs: parseMoneyInput,
-              })}
-              step="1"
-            />
-            <CheckboxField
-              control={control}
-              name="hasExistingDebts"
-              label="Has existing debts or installments"
-            />
-            {debtFields.map(([name, label]) => (
               <MoneyField
-                key={name}
-                id={name}
-                label={label}
-                error={fieldError(errors, name)}
-                register={register(name, { setValueAs: parseMoneyInput })}
+                id="monthlyGrossRevenue"
+                label="Monthly gross sales"
+                error={errors.monthlyGrossRevenue?.message}
+                register={register("monthlyGrossRevenue", {
+                  setValueAs: parseMoneyInput,
+                })}
               />
-            ))}
-            {assetFields.map(([name, label]) => (
-              <MoneyField
-                key={name}
-                id={name}
-                label={label}
-                error={fieldError(errors, name)}
-                register={register(name, { setValueAs: parseMoneyInput })}
-              />
-            ))}
-          </FormSection>
-          ) : null}
-
-          {currentStepIndex === 5 ? (
-            <FormSection title="Loan use">
-            <SelectField control={control} name="loanPurposeCategory" label="Loan purpose" options={loanPurposeCategoryOptions} labels={loanPurposeCategoryLabels} error={errors.loanPurposeCategory?.message} />
-            {currentValues.loanPurposeCategory === "other" ? (
-              <TextField id="loanPurposeOther" label="Short purpose" error={errors.loanPurposeOther?.message} register={register("loanPurposeOther")} />
-            ) : null}
-            <TextField id="loanPurposeDetails" label="Additional details (optional)" error={errors.loanPurposeDetails?.message} register={register("loanPurposeDetails")} className="sm:col-span-2" />
-            <CheckboxField
-              control={control}
-              name="offersCustomerCredit"
-              label="Offers customer credit"
-            />
-            <MoneyField
-              id="estimatedCustomerCreditAmount"
-              label="Estimated customer credit amount"
-              error={errors.estimatedCustomerCreditAmount?.message}
-              register={register("estimatedCustomerCreditAmount", {
-                setValueAs: parseMoneyInput,
-              })}
-            />
-            <SelectField
-              control={control}
-              name="averageCollectionPeriod"
-              label="Average collection period"
-              options={averageCollectionPeriodOptions}
-              labels={averageCollectionPeriodLabels}
-              error={errors.averageCollectionPeriod?.message}
-              optional
-            />
-            <CheckboxField
-              control={control}
-              name="keepsCustomerDebtList"
-              label="Keeps a customer debt list"
-            />
-            {riskDeclarationFields.map(([name, label]) => (
-              <CheckboxField
-                key={name}
+              <SelectField
                 control={control}
-                name={name}
-                label={label}
+                name="revenuePeriod"
+                label="Revenue period"
+                options={revenuePeriodOptions}
+                labels={revenuePeriodLabels}
+                error={errors.revenuePeriod?.message}
               />
-            ))}
-          </FormSection>
+              <SelectField
+                control={control}
+                name="revenueConfidence"
+                label="Revenue basis"
+                options={revenueConfidenceOptions}
+                labels={revenueConfidenceLabels}
+                error={errors.revenueConfidence?.message}
+              />
+              <MoneyField
+                id="bestMonthSales"
+                label="Best month sales"
+                error={errors.bestMonthSales?.message}
+                register={register("bestMonthSales", {
+                  setValueAs: parseMoneyInput,
+                })}
+              />
+              <MoneyField
+                id="worstMonthSales"
+                label="Worst month sales"
+                error={errors.worstMonthSales?.message}
+                register={register("worstMonthSales", {
+                  setValueAs: parseMoneyInput,
+                })}
+              />
+            </FormSection>
           ) : null}
 
-          {currentStepIndex === 6 ? (
-            <>
-            <FormSection title="Review and submit">
-              <TextField id="mobileNumber" label="Mobile number" error={errors.mobileNumber?.message} register={register("mobileNumber")} />
-              <NumberField id="yearsAtCurrentAddress" label="Years at current address" error={errors.yearsAtCurrentAddress?.message} register={register("yearsAtCurrentAddress", { setValueAs: parseMoneyInput })} step="0.5" />
-              <div className="sm:col-span-2">
-                <Controller
+          {currentStep.id === "debtAndExpenses" ? (
+            <FormSection title="Expenses and obligations">
+              {businessExpenseFields.map(([name, label]) => (
+                <MoneyField
+                  key={name}
+                  id={name}
+                  label={label}
+                  error={fieldError(errors, name)}
+                  register={register(name, { setValueAs: parseMoneyInput })}
+                />
+              ))}
+              {householdExpenseFields.map(([name, label]) => (
+                <MoneyField
+                  key={name}
+                  id={name}
+                  label={label}
+                  error={fieldError(errors, name)}
+                  register={register(name, { setValueAs: parseMoneyInput })}
+                />
+              ))}
+              <NumberField
+                id="numberOfDependents"
+                label="Number of dependents"
+                error={errors.numberOfDependents?.message}
+                register={register("numberOfDependents", {
+                  setValueAs: parseMoneyInput,
+                })}
+                step="1"
+              />
+              <NumberField
+                id="numberOfEarningHouseholdMembers"
+                label="Earning household members"
+                error={errors.numberOfEarningHouseholdMembers?.message}
+                register={register("numberOfEarningHouseholdMembers", {
+                  setValueAs: parseMoneyInput,
+                })}
+                step="1"
+              />
+              <CheckboxField
+                control={control}
+                name="hasExistingDebts"
+                label="Has existing debts or installments"
+              />
+              {debtFields.map(([name, label]) => (
+                <MoneyField
+                  key={name}
+                  id={name}
+                  label={label}
+                  error={fieldError(errors, name)}
+                  register={register(name, { setValueAs: parseMoneyInput })}
+                />
+              ))}
+              {assetFields.map(([name, label]) => (
+                <MoneyField
+                  key={name}
+                  id={name}
+                  label={label}
+                  error={fieldError(errors, name)}
+                  register={register(name, { setValueAs: parseMoneyInput })}
+                />
+              ))}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "loanUse" ? (
+            <FormSection title="Loan use">
+              <SelectField
+                control={control}
+                name="loanPurposeCategory"
+                label="Loan purpose"
+                options={loanPurposeCategoryOptions}
+                labels={loanPurposeCategoryLabels}
+                error={errors.loanPurposeCategory?.message}
+              />
+              {currentValues.loanPurposeCategory === "other" ? (
+                <TextField
+                  id="loanPurposeOther"
+                  label="Short purpose"
+                  error={errors.loanPurposeOther?.message}
+                  register={register("loanPurposeOther")}
+                />
+              ) : null}
+              <TextField
+                id="loanPurposeDetails"
+                label="Additional details (optional)"
+                error={errors.loanPurposeDetails?.message}
+                register={register("loanPurposeDetails")}
+                className="sm:col-span-2"
+              />
+              <CheckboxField
+                control={control}
+                name="offersCustomerCredit"
+                label="Offers customer credit"
+              />
+              <MoneyField
+                id="estimatedCustomerCreditAmount"
+                label="Estimated customer credit amount"
+                error={errors.estimatedCustomerCreditAmount?.message}
+                register={register("estimatedCustomerCreditAmount", {
+                  setValueAs: parseMoneyInput,
+                })}
+              />
+              <SelectField
+                control={control}
+                name="averageCollectionPeriod"
+                label="Average collection period"
+                options={averageCollectionPeriodOptions}
+                labels={averageCollectionPeriodLabels}
+                error={errors.averageCollectionPeriod?.message}
+                optional
+              />
+              <CheckboxField
+                control={control}
+                name="keepsCustomerDebtList"
+                label="Keeps a customer debt list"
+              />
+              {riskDeclarationFields.map(([name, label]) => (
+                <CheckboxField
+                  key={name}
                   control={control}
-                  name="homeAddressSelection"
-                  render={({ field }) => (
-                    <AddressSelect
-                      value={field.value}
-                      onChange={field.onChange}
-                      idPrefix="borrower-home-address"
-                      required
-                      errors={{
-                        regionCode: errors.homeAddressSelection?.regionCode?.message,
-                        cityOrMunicipality: errors.homeAddressSelection?.cityOrMunicipality?.message,
-                        barangay: errors.homeAddressSelection?.barangay?.message,
-                        zipCode: errors.homeAddressSelection?.zipCode?.message,
-                      }}
-                      showZipCode={false}
-                      legacyAddress={currentValues.homeAddress}
-                    />
-                  )}
+                  name={name}
+                  label={label}
+                />
+              ))}
+            </FormSection>
+          ) : null}
+
+          {currentStep.id === "review" ? (
+            <FormSection title="Review and submit">
+              <Alert className="sm:col-span-2">
+                <AlertDescription>
+                  Home address on file:{" "}
+                  {formatHomeAddress(currentPortfolio) || "Not provided yet."}
+                </AlertDescription>
+              </Alert>
+              <CheckboxField
+                control={control}
+                name="confirmsInformationTrue"
+                label="I confirm this information is true and complete."
+              />
+              <CheckboxField
+                control={control}
+                name="consentsToDataProcessing"
+                label="I consent to profile data processing."
+              />
+              <CheckboxField
+                control={control}
+                name="consentsToCreditCheck"
+                label="I consent to credit review checks."
+              />
+              <Alert className="sm:col-span-2">
+                <AlertDescription>
+                  Upload valid ID, selfie with ID, proof of address, and
+                  business proof in borrower verification. Business proof can
+                  include store photos, inventory photos, sales records,
+                  supplier receipts, e-wallet history, permits, leases, or
+                  platform sales screenshots.
+                </AlertDescription>
+              </Alert>
+              <div className="sm:col-span-2">
+                <ReadinessPanel
+                  portfolio={currentPortfolio}
+                  readiness={readiness}
                 />
               </div>
-              <TextField id="homeStreetAddress" label="Unit / building / street" error={errors.homeStreetAddress?.message} register={register("homeStreetAddress")} />
-              <TextField id="emergencyContactName" label="Emergency contact name" error={errors.emergencyContactName?.message} register={register("emergencyContactName")} />
-              <TextField id="emergencyContactNumber" label="Emergency contact number" error={errors.emergencyContactNumber?.message} register={register("emergencyContactNumber")} />
-              <TextField id="emergencyContactRelationship" label="Emergency contact relationship" error={errors.emergencyContactRelationship?.message} register={register("emergencyContactRelationship")} />
-            <CheckboxField
-              control={control}
-              name="confirmsInformationTrue"
-              label="I confirm this information is true and complete."
-            />
-            <CheckboxField
-              control={control}
-              name="consentsToDataProcessing"
-              label="I consent to profile data processing."
-            />
-            <CheckboxField
-              control={control}
-              name="consentsToCreditCheck"
-              label="I consent to credit review checks."
-            />
-            <Alert className="sm:col-span-2">
-              <AlertDescription>
-                Upload valid ID, selfie with ID, proof of address, and business
-                proof in borrower verification. Business proof can include store
-                photos, inventory photos, sales records, supplier receipts,
-                e-wallet history, permits, leases, or platform sales screenshots.
-              </AlertDescription>
-            </Alert>
-              <div className="sm:col-span-2">
-              <ReadinessPanel
-                portfolio={currentPortfolio}
-                readiness={readiness}
-              />
-              </div>
             </FormSection>
-            </>
           ) : null}
 
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
@@ -680,10 +881,22 @@ export function BorrowerPortfolioForm({
               ) : null}
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <Button type="button" variant="outline" onClick={() => setCurrentStepIndex((index) => Math.max(index - 1, 0))} disabled={currentStepIndex === 0 || isPending} className="h-11 rounded-full font-semibold">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() =>
+                  setCurrentStepIndex((index) => Math.max(index - 1, 0))
+                }
+                disabled={currentStepIndex === 0 || isPending}
+                className="h-11 rounded-full font-semibold"
+              >
                 Previous
               </Button>
-              <Button type="submit" disabled={isPending} className="h-11 rounded-full font-semibold">
+              <Button
+                type="submit"
+                disabled={isPending}
+                className="h-11 rounded-full font-semibold"
+              >
                 {isPending
                   ? "Saving..."
                   : isFinalStep
@@ -785,6 +998,20 @@ const riskDeclarationFields = [
 
 const profileSteps = [
   {
+    id: "homeAddress",
+    title: borrowerPortfolioStepLabels.homeAddress,
+    fields: [
+      "country",
+      "mobileNumber",
+      "yearsAtCurrentAddress",
+      "homeAddressSelection",
+      "homeStreetAddress",
+      "emergencyContactName",
+      "emergencyContactNumber",
+      "emergencyContactRelationship",
+    ],
+  },
+  {
     id: "businessBasics",
     title: borrowerPortfolioStepLabels.businessBasics,
     fields: [
@@ -797,7 +1024,8 @@ const profileSteps = [
       "primarySalesChannel",
       "businessSchedule",
       "numberOfEmployees",
-      "mainProductsOrServices",
+      "mainProductsOrServicesCategory",
+      "mainProductsOrServicesOther",
       "mainSuppliers",
       "keepsSalesRecords",
       "usesBankOrEwallet",
@@ -807,7 +1035,6 @@ const profileSteps = [
     id: "businessAddress",
     title: borrowerPortfolioStepLabels.businessAddress,
     fields: [
-      "country",
       "address",
       "streetAddress",
       "isBusinessAddressSameAsHome",
@@ -870,13 +1097,6 @@ const profileSteps = [
     id: "review",
     title: borrowerPortfolioStepLabels.review,
     fields: [
-      "mobileNumber",
-      "yearsAtCurrentAddress",
-      "homeAddressSelection",
-      "homeStreetAddress",
-      "emergencyContactName",
-      "emergencyContactNumber",
-      "emergencyContactRelationship",
       "confirmsInformationTrue",
       "consentsToDataProcessing",
       "consentsToCreditCheck",
@@ -892,7 +1112,6 @@ function getStepIndex(step?: BorrowerPortfolioStep) {
   if (!step) return 0;
 
   const index = profileSteps.findIndex((profileStep) => profileStep.id === step);
-
   return index >= 0 ? index : 0;
 }
 
@@ -994,7 +1213,9 @@ function SelectField<
       render={({ field }) => (
         <Field label={label} error={error} id={String(name)}>
           <Select
-            onValueChange={(value) => field.onChange(optional ? value || null : value)}
+            onValueChange={(value) =>
+              field.onChange(optional ? value || null : value)
+            }
             value={(field.value as string | null | undefined) ?? ""}
           >
             <SelectTrigger
@@ -1058,10 +1279,17 @@ function TextField({
   register,
   className,
   type = "text",
-}: FieldControlProps & { type?: string }) {
+  disabled = false,
+}: FieldControlProps & { type?: string; disabled?: boolean }) {
   return (
     <Field label={label} error={error} id={id} className={className}>
-      <Input id={id} type={type} aria-invalid={Boolean(error)} {...register} />
+      <Input
+        id={id}
+        type={type}
+        disabled={disabled}
+        aria-invalid={Boolean(error)}
+        {...register}
+      />
     </Field>
   );
 }
@@ -1143,17 +1371,50 @@ function ReadinessPanel({
                 : "Not provided"
             }
           />
-          <Summary label="Business name" value={portfolio.businessName || "Not provided"} />
-          <Summary label="Years operating" value={formatPlain(portfolio.yearsInOperation)} />
-          <Summary label="Monthly gross sales" value={formatMoney(portfolio.monthlyGrossRevenue)} />
-          <Summary label="Business expenses" value={formatMoney(totalBusinessExpenses)} />
-          <Summary label="Net business income" value={formatMoney(netBusinessIncome)} />
-          <Summary label="Household expenses" value={formatMoney(totalHouseholdExpenses)} />
-          <Summary label="Debt payments" value={formatMoney(totalDebtPayments)} />
-          <Summary label="Disposable income" value={formatMoney(disposableIncome)} />
-          <Summary label="Inventory value" value={formatMoney(portfolio.inventoryValue)} />
-          <Summary label="Cash / bank / e-wallet" value={formatMoney(cashBankEwallet)} />
-          <Summary label="Declared assets" value={formatMoney(totalAssets)} />
+          <Summary
+            label="Business name"
+            value={portfolio.businessName || "Not provided"}
+          />
+          <Summary
+            label="Years operating"
+            value={formatPlain(portfolio.yearsInOperation)}
+          />
+          <Summary
+            label="Monthly gross sales"
+            value={formatMoney(portfolio.monthlyGrossRevenue)}
+          />
+          <Summary
+            label="Business expenses"
+            value={formatMoney(totalBusinessExpenses)}
+          />
+          <Summary
+            label="Net business income"
+            value={formatMoney(netBusinessIncome)}
+          />
+          <Summary
+            label="Household expenses"
+            value={formatMoney(totalHouseholdExpenses)}
+          />
+          <Summary
+            label="Debt payments"
+            value={formatMoney(totalDebtPayments)}
+          />
+          <Summary
+            label="Disposable income"
+            value={formatMoney(disposableIncome)}
+          />
+          <Summary
+            label="Inventory value"
+            value={formatMoney(portfolio.inventoryValue)}
+          />
+          <Summary
+            label="Cash / bank / e-wallet"
+            value={formatMoney(cashBankEwallet)}
+          />
+          <Summary
+            label="Declared assets"
+            value={formatMoney(totalAssets)}
+          />
         </div>
         {readiness.missingFields.length ? (
           <p className="text-muted-foreground">
@@ -1238,7 +1499,6 @@ function fieldError(
   field: keyof BorrowerPortfolioFormInput,
 ) {
   const error = errors[field];
-
   return typeof error?.message === "string" ? error.message : undefined;
 }
 

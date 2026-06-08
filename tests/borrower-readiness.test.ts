@@ -30,6 +30,7 @@ function completeProfile(overrides = {}) {
     operatingModel: "physical_store",
     primarySalesChannel: "walk_in_customers",
     businessSchedule: "daily",
+    mainProductsOrServicesCategory: "groceries_household_items",
     monthlyGrossRevenue: 80_000,
     revenuePeriod: "last_30_days",
     revenueConfidence: "sales_records",
@@ -284,6 +285,73 @@ describe("microbusiness borrower readiness", () => {
         "Enter a short loan purpose.",
       );
     }
+  });
+
+  it("requires products or services when business basics are saved", () => {
+    const result = borrowerPortfolioSchema.safeParse({
+      ...completeProfile(),
+      mainProductsOrServicesCategory: null,
+      mainProductsOrServices: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.flatten().fieldErrors.mainProductsOrServicesCategory,
+      ).toContain("Select your main products or services.");
+    }
+  });
+
+  it("requires a custom products or services value for other", () => {
+    const result = borrowerPortfolioSchema.safeParse({
+      ...completeProfile(),
+      mainProductsOrServicesCategory: "other",
+      mainProductsOrServicesOther: "",
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      expect(
+        result.error.flatten().fieldErrors.mainProductsOrServicesOther,
+      ).toContain("Please specify your main products or services.");
+    }
+  });
+
+  it("maps standardized products or services labels from saved rows", () => {
+    const mapped = mapBorrowerPortfolioRow({
+      id: "portfolio-products-1",
+      borrower_id: "borrower-1",
+      business_name: "Old Store",
+      business_description: null,
+      business_type: "sari_sari_store",
+      started_operating_at: null,
+      business_address: null,
+      barangay: null,
+      city_or_municipality: null,
+      province: null,
+      region: null,
+      zip_code: null,
+      location: "Quezon City",
+      operating_model: null,
+      primary_sales_channel: null,
+      revenue_period: null,
+      revenue_confidence: null,
+      monthly_gross_revenue: 50_000,
+      monthly_expenses: 30_000,
+      existing_loan_payments: 2_000,
+      years_in_operation: 1,
+      main_products_or_services: "Food and beverages",
+      expense_breakdown: {},
+      debt_obligation_summary: {},
+      loan_purpose_context: "Inventory restock for continued store operations.",
+      profile_last_confirmed_at: null,
+      profile_review_status: "self_declared",
+      created_at: "2026-01-01T00:00:00.000Z",
+      updated_at: "2026-01-01T00:00:00.000Z",
+    });
+
+    expect(mapped.mainProductsOrServicesCategory).toBe("food_beverages");
+    expect(mapped.mainProductsOrServicesOther).toBe("");
   });
 
   it("does not render borrower-facing completion checkboxes", () => {
