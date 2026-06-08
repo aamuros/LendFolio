@@ -112,4 +112,88 @@ describe("borrower credit limit", () => {
     expect(summary.availableCredit).toBe(2_000);
     expect(5_000 > summary.availableCredit).toBe(true);
   });
+
+  it("allows another application when active loan exposure leaves enough credit", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      pendingApplicationAmounts: [],
+    });
+
+    expect(summary.calculatedCreditLimit).toBe(10_000);
+    expect(summary.usedCredit).toBe(5_000);
+    expect(summary.availableCredit).toBe(5_000);
+    expect(3_000 <= summary.availableCredit).toBe(true);
+  });
+
+  it("blocks a new application when active loans and pending applications exhaust credit", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      pendingApplicationAmounts: [3_000],
+    });
+
+    expect(summary.usedCredit).toBe(8_000);
+    expect(summary.availableCredit).toBe(2_000);
+    expect(3_000 > summary.availableCredit).toBe(true);
+  });
+
+  it("allows simultaneous pending applications when total exposure fits", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [5_000],
+    });
+
+    expect(summary.usedCredit).toBe(5_000);
+    expect(summary.availableCredit).toBe(5_000);
+    expect(3_000 <= summary.availableCredit).toBe(true);
+  });
+
+  it("allows editing an application when the current application is excluded", () => {
+    const summaryExcludingCurrentApplication = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [],
+      pendingApplicationAmounts: [],
+    });
+
+    expect(summaryExcludingCurrentApplication.availableCredit).toBe(10_000);
+    expect(6_000 <= summaryExcludingCurrentApplication.availableCredit).toBe(true);
+  });
+
+  it("blocks editing an application when other exposure leaves insufficient credit", () => {
+    const summaryExcludingCurrentApplication = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      pendingApplicationAmounts: [],
+    });
+
+    expect(summaryExcludingCurrentApplication.availableCredit).toBe(5_000);
+    expect(6_000 > summaryExcludingCurrentApplication.availableCredit).toBe(true);
+  });
 });

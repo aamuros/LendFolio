@@ -1479,4 +1479,22 @@ describe("manager lender review page", () => {
 
     expect(lendersPage).toContain("buildQueueHref");
   });
+
+  it("allows multiple borrower applications through credit-line migration safeguards", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260608203000_allow_multiple_applications_with_credit_line.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "calculate_borrower_used_credit_excluding_application",
+    );
+    expect(migration).toContain("status in ('submitted', 'open')");
+    expect(migration).toContain(
+      "perform pg_advisory_xact_lock(hashtext(v_actor_id::text));",
+    );
+    expect(migration).toContain("'code', 'credit_limit_exceeded'");
+    expect(migration).not.toContain("'code', 'active_application'");
+    expect(migration).not.toContain("You already have an open application");
+  });
 });

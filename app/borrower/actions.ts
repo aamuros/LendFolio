@@ -131,7 +131,6 @@ export type LoanApplicationSubmitResult =
         | "borrower-verification"
         | "consent-required"
         | "credit-limit"
-        | "active-application"
         | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
@@ -145,7 +144,7 @@ export type LoanApplicationUpdateResult =
     }
   | {
       ok: false;
-      mode: "auth" | "validation" | "supabase";
+      mode: "auth" | "validation" | "credit-limit" | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
     };
@@ -1592,8 +1591,6 @@ export async function submitLoanApplication(
               ? "auth"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
-            : result?.code === "active_application"
-              ? "active-application"
             : result?.code === "profile_needs_review" ||
                 result?.code === "profile_stale" ||
                 result?.code === "not_eligible"
@@ -1662,6 +1659,7 @@ export async function updateLoanApplication(
     const result = data as
       | {
           ok?: boolean;
+          code?: string;
           message?: string;
           application?: Json;
         }
@@ -1670,7 +1668,10 @@ export async function updateLoanApplication(
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
       return {
         ok: false,
-        mode: "supabase",
+        mode:
+          result?.code === "credit_limit_exceeded"
+            ? "credit-limit"
+            : "supabase",
         message: result?.message ?? "Could not save changes.",
       };
     }

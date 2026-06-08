@@ -413,22 +413,11 @@ export function BorrowerLoanApplicationPanel({
   );
   const borrowerVerificationMessage =
     getBorrowerVerificationMessage(borrowerVerification);
-  const hasOpenApplication = applications.some(
-    (app) => app.status === "submitted" || app.status === "open",
-  );
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
       setMessage("Save your business profile before applying.");
-      return;
-    }
-
-    if (hasOpenApplication) {
-      setLoadState("ready");
-      setMessage(
-        "You already have an open application. Withdraw it before submitting a new one.",
-      );
       return;
     }
 
@@ -489,7 +478,7 @@ export function BorrowerLoanApplicationPanel({
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required" ||
             result.mode === "readiness" ||
-            result.mode === "active-application"
+            result.mode === "credit-limit"
             ? "ready"
             : "error",
       );
@@ -508,7 +497,7 @@ export function BorrowerLoanApplicationPanel({
       const result = await updateLoanApplication(applicationId, values);
 
       if (!result.ok) {
-        setLoadState("error");
+        setLoadState(result.mode === "credit-limit" ? "ready" : "error");
         setMessage(result.message);
         return;
       }
@@ -805,19 +794,6 @@ export function BorrowerLoanApplicationPanel({
                 readiness={readiness}
                 onEditProfile={() => onNavigate?.("profile")}
               />
-            ) : hasOpenApplication ? (
-              <Card className="rounded-2xl">
-                <CardContent className="flex flex-col items-center gap-2 px-4 py-8 text-center sm:px-5">
-                  <AlertCircle className="size-5 text-muted-foreground" />
-                  <p className="text-sm font-semibold">
-                    You already have an open application
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Withdraw your current application before submitting a new
-                    one.
-                  </p>
-                </CardContent>
-              </Card>
             ) : (
               <ApplicationForm
                 control={control}
@@ -1376,8 +1352,8 @@ function FinancingSummaryCard({
                   className="text-3xl font-semibold sm:text-4xl"
                 />
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatMoney(creditSummary.availableCredit)} of{" "}
-                  {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                  You may apply for another loan up to{" "}
+                  {formatMoney(creditSummary.availableCredit)}.
                 </p>
               </div>
               <div className="flex flex-col items-center gap-0.5">
@@ -1398,19 +1374,23 @@ function FinancingSummaryCard({
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-3">
               <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">
-                  Income-based starting limit
-                </p>
+                <p className="text-xs text-muted-foreground">Credit limit</p>
                 <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.incomeBasedCapacity)}
+                  {formatMoney(creditSummary.calculatedCreditLimit)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">Used credit</p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.usedCredit)}
                 </p>
               </div>
               <div className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">
-                  Credit history cap
+                  Available credit
                 </p>
                 <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.repaymentHistoryCap)}
+                  {formatMoney(creditSummary.availableCredit)}
                 </p>
               </div>
               <div className="grid gap-0.5">
@@ -1419,12 +1399,6 @@ function FinancingSummaryCard({
                 </p>
                 <p className="text-sm font-semibold tabular-nums">
                   {formatMoney(creditSummary.safeMonthlyRepaymentCapacity)}
-                </p>
-              </div>
-              <div className="grid gap-0.5">
-                <p className="text-xs text-muted-foreground">Used credit</p>
-                <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.usedCredit)}
                 </p>
               </div>
               <div className="grid gap-0.5">
@@ -1449,8 +1423,8 @@ function FinancingSummaryCard({
             </div>
 
             <p className="text-xs leading-relaxed text-muted-foreground">
-              Your starting limit is based on your declared cash flow. Higher
-              limits unlock after successful repayments.
+              Active loan balances and submitted applications reduce available
+              credit until they are paid, accepted, or closed.
             </p>
 
             {hasDebt ? (
