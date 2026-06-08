@@ -96,11 +96,15 @@ function completeWizardProfile(overrides = {}) {
 }
 
 function verificationWithBusinessProof(
-  status: "accepted" | "submitted" | "rejected" | "missing",
+  status: "accepted" | "approved" | "verified" | "submitted" | "rejected" | "missing",
+  documentType: "business_proof" | "business_registration" = "business_proof",
 ): BorrowerVerificationSummary {
-  const acceptedDocumentTypes = status === "accepted" ? ["business_proof" as const] : [];
+  const acceptedDocumentTypes =
+    ["accepted", "approved", "verified"].includes(status)
+      ? ["business_proof" as const]
+      : [];
   const submittedDocumentTypes =
-    status === "accepted" || status === "submitted"
+    acceptedDocumentTypes.length > 0 || status === "submitted"
       ? ["business_proof" as const]
       : [];
   const rejectedDocumentTypes =
@@ -108,20 +112,42 @@ function verificationWithBusinessProof(
 
   return {
     id: "verification-1",
-    status: status === "accepted" ? "approved" : "under_review",
+    status: acceptedDocumentTypes.length > 0 ? "approved" : "under_review",
     managerReviewNotes: null,
     rejectionReason: null,
     submittedAt: null,
     reviewedAt: null,
-    documents: [],
+    documents:
+      status === "missing"
+        ? []
+        : [
+            {
+              id: "document-1",
+              borrowerVerificationId: "verification-1",
+              documentType,
+              status: status === "approved" || status === "verified"
+                ? ("accepted" as const)
+                : status,
+              fileName: "business-proof.pdf",
+              fileType: "application/pdf",
+              fileSize: 1000,
+              uploadedAt: "2026-06-01T00:00:00Z",
+              reviewedAt: null,
+              reviewNotes: null,
+              viewUrl: null,
+            },
+          ],
     documentPolicy: {
       requiredDocumentTypes: ["valid_id", "business_proof"],
       missingRequiredDocumentTypes:
-        status === "accepted" ? ["valid_id"] : ["valid_id", "business_proof"],
+        acceptedDocumentTypes.length > 0
+          ? ["valid_id"]
+          : ["valid_id", "business_proof"],
       submittedDocumentTypes,
       acceptedDocumentTypes,
       rejectedDocumentTypes,
-      readyForManagerReview: status === "submitted" || status === "accepted",
+      readyForManagerReview:
+        status === "submitted" || acceptedDocumentTypes.length > 0,
       documentsAccepted: false,
     },
   };
@@ -173,6 +199,46 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.riskFlags).not.toContain("no_business_proof");
   });
 
+  it.each(["approved", "verified"] as const)(
+    "uses %s verification business proof for profile readiness",
+    (status) => {
+      const readiness = evaluateBorrowerReadiness(
+        completeProfile({
+          hasBusinessRegistration: false,
+          businessRegistrationType: null,
+          registrationNumber: "",
+          registrationDate: "",
+          ownershipType: "informal_unregistered",
+        }),
+        {
+          borrowerVerification: verificationWithBusinessProof(status),
+        },
+      );
+
+      expect(readiness.riskFlags).not.toContain("no_business_proof");
+    },
+  );
+
+  it("uses accepted business registration documents as business proof", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        hasBusinessRegistration: false,
+        businessRegistrationType: null,
+        registrationNumber: "",
+        registrationDate: "",
+        ownershipType: "informal_unregistered",
+      }),
+      {
+        borrowerVerification: verificationWithBusinessProof(
+          "accepted",
+          "business_registration",
+        ),
+      },
+    );
+
+    expect(readiness.riskFlags).not.toContain("no_business_proof");
+  });
+
   it("shows pending business proof as under review instead of missing", () => {
     const readiness = evaluateBorrowerReadiness(
       completeProfile({
@@ -188,7 +254,7 @@ describe("microbusiness borrower readiness", () => {
     );
 
     expect(readiness.riskFlags).toContain("no_business_proof");
-    expect(readiness.nextActions).toContain("Business proof is still under review.");
+    expect(readiness.nextActions).toContain("Business proof is under review.");
   });
 
   it("asks for re-upload when business proof is rejected", () => {

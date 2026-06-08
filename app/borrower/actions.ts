@@ -161,6 +161,16 @@ export type LoanApplicationWithdrawResult =
       message: string;
     };
 
+export type LoanApplicationDismissResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type LoanApplicationsLoadResult =
   | {
       ok: true;
@@ -1309,9 +1319,10 @@ export async function loadBorrowerLoanApplications(
     const { data, error } = await supabase
       .from("loan_applications")
       .select(
-        "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at",
+        "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, purpose, preferred_term, remarks, status, submitted_at, borrower_removed_at, created_at, updated_at",
       )
       .eq("borrower_id", access.profile.id)
+      .is("borrower_removed_at", null)
       .order("submitted_at", { ascending: false });
 
     if (error) {
@@ -1739,6 +1750,55 @@ export async function withdrawLoanApplication(
     return {
       ok: false,
       message: "Could not withdraw application.",
+    };
+  }
+}
+
+export async function dismissWithdrawnLoanApplication(
+  applicationId: string,
+): Promise<LoanApplicationDismissResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "dismiss_withdrawn_loan_application",
+      {
+        p_application_id: applicationId,
+      },
+    );
+
+    const result = data as
+      | {
+          ok?: boolean;
+          message?: string;
+        }
+      | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not remove application.",
+      };
+    }
+
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      message: result.message ?? "Withdrawn application removed.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not remove application.",
     };
   }
 }

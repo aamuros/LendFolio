@@ -1,4 +1,7 @@
-import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
+import {
+  getBusinessProofStatus,
+  type BorrowerVerificationSummary,
+} from "@/lib/borrower-verification";
 import type { ConsentStatus } from "@/lib/consents";
 import {
   explainBorrowerCreditLimit,
@@ -310,27 +313,11 @@ function addDeclaredRiskFlags(
 }
 
 function hasAcceptedBusinessProof(gates: BorrowerReadinessGateInput) {
-  return Boolean(
-    gates.borrowerVerification?.documentPolicy.acceptedDocumentTypes.includes(
-      "business_proof",
-    ),
-  );
+  return getBusinessProofState(gates) === "accepted";
 }
 
 function getBusinessProofState(gates: BorrowerReadinessGateInput) {
-  const policy = gates.borrowerVerification?.documentPolicy;
-
-  if (policy?.acceptedDocumentTypes.includes("business_proof")) {
-    return "accepted";
-  }
-  if (policy?.submittedDocumentTypes.includes("business_proof")) {
-    return "pending";
-  }
-  if (policy?.rejectedDocumentTypes.includes("business_proof")) {
-    return "rejected";
-  }
-
-  return "missing";
+  return getBusinessProofStatus(gates.borrowerVerification?.documents ?? []);
 }
 
 function getNotEligibleActions(
@@ -364,7 +351,7 @@ function getNotEligibleActions(
 function getBusinessProofAction(gates: BorrowerReadinessGateInput) {
   const state = getBusinessProofState(gates);
 
-  if (state === "pending") return "Business proof is still under review.";
+  if (state === "pending") return "Business proof is under review.";
   if (state === "rejected") {
     return "Business proof was rejected. Please upload a new document.";
   }

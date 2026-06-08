@@ -22,6 +22,7 @@ import {
   acceptLoanOffer,
   type BorrowerLoanApplicationSummary,
   declineLoanOffer,
+  dismissWithdrawnLoanApplication,
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
   submitRepaymentProof,
@@ -37,7 +38,10 @@ import {
   getBorrowerVerificationMessage,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
-import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import {
+  borrowerPortfolioSavedEvent,
+  borrowerVerificationUpdatedEvent,
+} from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
   formatCreditAmount,
@@ -202,6 +206,7 @@ export function BorrowerLoanApplicationPanel({
   const [pendingWithdrawId, setPendingWithdrawId] = useState<string | null>(
     null,
   );
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
 
   const {
     register,
@@ -275,10 +280,12 @@ export function BorrowerLoanApplicationPanel({
       load();
     }
     window.addEventListener(borrowerPortfolioSavedEvent, load);
+    window.addEventListener(borrowerVerificationUpdatedEvent, load);
 
     return () => {
       isActive = false;
       window.removeEventListener(borrowerPortfolioSavedEvent, load);
+      window.removeEventListener(borrowerVerificationUpdatedEvent, load);
     };
   }, [initialLoadResult, startTransition]);
 
@@ -567,6 +574,10 @@ export function BorrowerLoanApplicationPanel({
     setPendingWithdrawId(applicationId);
   }
 
+  function onRemoveWithdrawnApplication(applicationId: string) {
+    setPendingRemoveId(applicationId);
+  }
+
   function confirmWithdraw() {
     const applicationId = pendingWithdrawId;
 
@@ -602,6 +613,41 @@ export function BorrowerLoanApplicationPanel({
             : application,
         ),
       );
+      setEditingApplicationId(null);
+      setLoadState("ready");
+      setMessage("");
+      setSuccessMessage(result.message);
+    });
+  }
+
+  function confirmRemoveWithdrawnApplication() {
+    const applicationId = pendingRemoveId;
+
+    if (!applicationId) {
+      return;
+    }
+
+    setPendingRemoveId(null);
+    setMessage("Removing withdrawn application...");
+    setSuccessMessage("");
+
+    startTransition(async () => {
+      const result = await dismissWithdrawnLoanApplication(applicationId);
+
+      if (!result.ok) {
+        setLoadState("error");
+        setMessage(result.message);
+        return;
+      }
+
+      setApplications((current) =>
+        current.filter((application) => application.id !== applicationId),
+      );
+      setExpandedApplicationIds((current) => {
+        const next = new Set(current);
+        next.delete(applicationId);
+        return next;
+      });
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -860,6 +906,7 @@ export function BorrowerLoanApplicationPanel({
               onSaveApplication={onSaveApplication}
               onToggleApplication={toggleApplication}
               onWithdrawApplication={onWithdrawApplication}
+              onRemoveWithdrawnApplication={onRemoveWithdrawnApplication}
             />
           </div>
         ) : null}
@@ -926,6 +973,33 @@ export function BorrowerLoanApplicationPanel({
               onClick={confirmWithdraw}
             >
               Withdraw
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog
+        open={pendingRemoveId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemoveId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove withdrawn application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this withdrawn application from your list?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmRemoveWithdrawnApplication}
+            >
+              Remove
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -2351,6 +2425,7 @@ function ApplicationList({
   onSaveApplication,
   onToggleApplication,
   onWithdrawApplication,
+  onRemoveWithdrawnApplication,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   editingApplicationId: string | null;
@@ -2364,6 +2439,7 @@ function ApplicationList({
   ) => void;
   onToggleApplication: (applicationId: string) => void;
   onWithdrawApplication: (applicationId: string) => void;
+  onRemoveWithdrawnApplication: (applicationId: string) => void;
 }) {
   if (applications.length === 0) {
     return <EmptyState message="Your applications will appear here." />;
@@ -2377,6 +2453,7 @@ function ApplicationList({
           const isExpanded = expandedApplicationIds.has(application.id);
           const isEditing = editingApplicationId === application.id;
           const isEditable = canEditApplication(application.status);
+          const isWithdrawn = application.status === "withdrawn";
           const applicationDetailsId = `application-${application.id}-details`;
 
           return (
@@ -2439,6 +2516,18 @@ function ApplicationList({
                         >
                           Withdraw
                         </Button>
+                        {isWithdrawn ? (
+                          <Button
+                            variant="ghost"
+                            disabled={isPending}
+                            onClick={() =>
+                              onRemoveWithdrawnApplication(application.id)
+                            }
+                            className="h-11 rounded-full font-semibold text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
                         {!isEditable ? (
                           <p className="text-sm text-muted-foreground">
                             Closed applications cannot be edited.

@@ -13,6 +13,7 @@ import {
   type BorrowerVerificationDocumentSubmitResult,
 } from "@/app/borrower/actions";
 import { acceptUserConsentsAction } from "@/app/consents/actions";
+import { borrowerVerificationUpdatedEvent } from "@/lib/borrower-workflow-events";
 import {
   borrowerFacingVerificationStateDescriptions,
   borrowerFacingVerificationStateLabels,
@@ -376,6 +377,7 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
+    window.dispatchEvent(new Event(borrowerVerificationUpdatedEvent));
     router.refresh();
   }, [router, state]);
 

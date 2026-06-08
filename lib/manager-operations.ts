@@ -335,7 +335,7 @@ export type ManagerBorrowerVerificationRow = {
 const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 const applicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, borrower_removed_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =

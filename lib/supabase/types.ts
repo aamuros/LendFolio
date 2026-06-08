@@ -812,6 +812,7 @@ export type Database = {
           remarks: string | null;
           status: ApplicationStatus;
           submitted_at: string;
+          borrower_removed_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -834,6 +835,7 @@ export type Database = {
           remarks?: string | null;
           status?: ApplicationStatus;
           submitted_at?: string;
+          borrower_removed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -856,6 +858,7 @@ export type Database = {
           remarks?: string | null;
           status?: ApplicationStatus;
           submitted_at?: string;
+          borrower_removed_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1603,6 +1606,12 @@ export type Database = {
         Returns: Json;
       };
       withdraw_loan_application: {
+        Args: {
+          p_application_id: string;
+        };
+        Returns: Json;
+      };
+      dismiss_withdrawn_loan_application: {
         Args: {
           p_application_id: string;
         };

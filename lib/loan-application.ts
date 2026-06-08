@@ -77,6 +77,7 @@ export type LoanApplicationSummary = {
   remarks: string | null;
   status: Database["public"]["Enums"]["application_status"];
   submittedAt: string;
+  borrowerRemovedAt: string | null;
 };
 
 type LoanApplicationRow =
@@ -91,6 +92,7 @@ type LoanApplicationRow =
     | "borrower_readiness_snapshot"
     | "borrower_credit_profile_grade"
     | "borrower_credit_profile_assessment"
+    | "borrower_removed_at"
   > &
     Partial<
       Pick<
@@ -104,6 +106,7 @@ type LoanApplicationRow =
         | "borrower_readiness_snapshot"
         | "borrower_credit_profile_grade"
         | "borrower_credit_profile_assessment"
+        | "borrower_removed_at"
       >
     >;
 
@@ -130,6 +133,7 @@ export function mapLoanApplicationRow(
     remarks: row.remarks,
     status: row.status,
     submittedAt: row.submitted_at,
+    borrowerRemovedAt: row.borrower_removed_at ?? null,
   };
 }
 
