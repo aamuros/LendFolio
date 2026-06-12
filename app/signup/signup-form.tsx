@@ -34,7 +34,7 @@ export function SignupForm() {
     : state.fieldErrors?.confirmPassword;
 
   return (
-    <Card className="rounded-3xl border border-[#D9D7D1]/85 bg-[#FFFFFC]/88 p-5 shadow-[0_32px_90px_rgba(14,26,18,0.16),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md sm:p-6">
+    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/94 p-5 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md sm:p-6">
       <CardHeader className="p-0 text-center">
         <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
           Create account
@@ -62,7 +62,7 @@ export function SignupForm() {
             setPasswordMismatch(false);
           }}
         >
-          <FieldGroup className="gap-5">
+          <FieldGroup className="gap-4 sm:gap-5">
             <fieldset className="grid gap-2">
               <input type="hidden" name="role" value={role} />
               <RadioGroup
@@ -149,7 +149,7 @@ export function SignupForm() {
               <FieldErrorHelper messages={confirmPasswordErrors} />
             </Field>
 
-            <div className="space-y-3 rounded-2xl border border-[#D9D7D1] bg-[#F8F7F3]/78 p-4" role="group" aria-label="Required disclosures">
+            <div className="space-y-3 rounded-2xl border border-[#D9D7D1]/85 bg-[#F8F7F3]/62 p-4" role="group" aria-label="Required disclosures">
                 <ConsentCheckbox
                   name="termsAccepted"
                   id="termsAccepted"
@@ -238,10 +238,10 @@ function RoleCard({
       <Label
         htmlFor={id}
         className={cn(
-          "flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-2xl border px-4 py-5 text-center transition-all duration-200",
+          "flex w-full cursor-pointer flex-col items-center gap-2.5 rounded-2xl border px-4 py-4 text-center transition-all duration-200 sm:py-5",
           isSelected
-            ? "border-[#33423C] bg-[#0E1A12] text-white shadow-[0_18px_35px_rgba(14,26,18,0.16)] ring-1 ring-[#33423C]/30"
-            : "border-[#D9D7D1] bg-[#FFFFFC]/78 text-[#161616] shadow-sm hover:border-[#C7C4BC] hover:bg-[#F8F7F3]",
+            ? "border-[#33423C] bg-[#0E1A12] text-white shadow-[0_14px_28px_rgba(14,26,18,0.12)] ring-1 ring-[#33423C]/24"
+            : "border-[#D9D7D1] bg-[#FFFFFC]/84 text-[#161616] shadow-[0_8px_22px_rgba(14,26,18,0.04)] hover:border-[#C7C4BC] hover:bg-[#F8F7F3]",
           "peer-focus-visible:ring-2 peer-focus-visible:ring-[#33423C] peer-focus-visible:ring-offset-2 peer-focus-visible:ring-offset-[#FFFFFC]"
         )}
       >

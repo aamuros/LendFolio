@@ -21,7 +21,7 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
 
   return (
-    <Card className="rounded-3xl border border-[#D9D7D1]/85 bg-[#FFFFFC]/88 p-6 shadow-[0_32px_90px_rgba(14,26,18,0.16),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md">
+    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md">
       <CardHeader className="p-0 text-center">
         <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
           Sign in
