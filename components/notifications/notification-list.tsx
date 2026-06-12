@@ -13,7 +13,7 @@ export function NotificationList({
   onRead: (notification: AppNotification) => void;
 }) {
   return (
-    <ul className="divide-y divide-border" role="list">
+    <ul className="divide-y divide-border/80" role="list">
       {notifications.map((notification) => (
         <li key={notification.id}>
           <NotificationItem
