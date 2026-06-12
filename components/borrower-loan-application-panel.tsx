@@ -1171,6 +1171,7 @@ type BorrowerDashboardState =
   | "needs-update"
   | "verification-needed"
   | "verification-pending"
+  | "credit-limit-reached"
   | "ready-to-apply"
   | "active-loan";
 
@@ -1179,14 +1180,15 @@ function getBorrowerDashboardState({
   profileNeedsUpdate,
   borrowerVerification,
   hasActiveLoans,
+  hasNoAvailableCredit,
 }: {
   hasPortfolio: boolean;
   profileNeedsUpdate: boolean;
   borrowerVerification: BorrowerVerificationSummary | null;
   hasActiveLoans: boolean;
+  hasNoAvailableCredit: boolean;
 }): BorrowerDashboardState {
   if (!hasPortfolio) return "no-profile";
-  if (profileNeedsUpdate) return "needs-update";
 
   const verificationStatus = borrowerVerification?.status ?? "missing";
   if (verificationStatus !== "approved") {
@@ -1200,6 +1202,8 @@ function getBorrowerDashboardState({
   }
 
   if (hasActiveLoans) return "active-loan";
+  if (profileNeedsUpdate) return "needs-update";
+  if (hasNoAvailableCredit) return "credit-limit-reached";
   return "ready-to-apply";
 }
 
@@ -1247,12 +1251,16 @@ function HomeSummary({
     0,
   );
   const hasPendingOffers = pendingOfferCount > 0;
+  const hasNoAvailableCredit =
+    readiness?.riskFlags.includes("no_available_credit") ||
+    (creditSummary ? creditSummary.availableCredit <= 0 : false);
 
   const borrowerState = getBorrowerDashboardState({
     hasPortfolio,
     profileNeedsUpdate: profileCompletion.profileNeedsUpdate,
     borrowerVerification,
     hasActiveLoans,
+    hasNoAvailableCredit,
   });
 
   return (
@@ -1358,6 +1366,14 @@ function PrimaryActionCard({
       cta = "View verification";
       showProgress = true;
       handleAction = () => onNavigateVerification?.();
+      break;
+    case "credit-limit-reached":
+      title = "Credit limit reached";
+      description =
+        "You have no available credit remaining. Wait for an application decision, withdraw a pending application, or repay an active loan before applying again.";
+      cta = "View applications";
+      showProgress = false;
+      handleAction = () => onNavigate?.("apply");
       break;
     case "ready-to-apply":
       title = "Ready to request financing";
@@ -2140,9 +2156,7 @@ function getProfileCompletion({
     borrowerVerification.documentPolicy.documentsAccepted;
   const loanConsentCurrent =
     consentStatuses?.borrowerLoanApplication.isCurrent ?? false;
-  const profileNeedsUpdate =
-    readiness?.readinessStatus === "needs_review" ||
-    readiness?.readinessStatus === "not_eligible";
+  const profileNeedsUpdate = hasProfileReadinessIssue(readiness);
   const profileHasVagueLoanPurpose =
     readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
   const percentage =
@@ -2179,6 +2193,26 @@ function getProfileCompletion({
     steps,
     profileNeedsUpdate,
   };
+}
+
+function hasProfileReadinessIssue(readiness: BorrowerReadinessResult | null) {
+  if (!readiness) {
+    return false;
+  }
+
+  if (readiness.missingFields.length > 0 || readiness.profileIsStale) {
+    return true;
+  }
+
+  if (
+    readiness.readinessStatus !== "incomplete" &&
+    readiness.readinessStatus !== "needs_review" &&
+    readiness.readinessStatus !== "not_eligible"
+  ) {
+    return false;
+  }
+
+  return readiness.riskFlags.some((flag) => flag !== "no_available_credit");
 }
 
 
