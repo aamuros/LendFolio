@@ -569,11 +569,11 @@ function RepaymentTimelineSection() {
           </div>
         </div>
         <div className="grid gap-5 lg:grid-cols-[1fr_0.42fr]">
-          <div className="rounded-3xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_24px_80px_rgba(14,26,18,0.07)]">
+          <div className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_24px_80px_rgba(14,26,18,0.07)]">
             <div className="grid gap-4">
               {repaymentTimeline.map((item, index) => (
                 <div key={item.label} className="grid gap-3 border-b border-[#E2DFD7] pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
                     {index + 1}
                   </span>
                   <div>
@@ -588,7 +588,7 @@ function RepaymentTimelineSection() {
             </div>
           </div>
           <div className="grid gap-4">
-            <div className="rounded-2xl border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+            <div className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#111612] p-5 text-white">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Proof review
               </p>
@@ -597,7 +597,7 @@ function RepaymentTimelineSection() {
                 Awaiting manager review before lender confirmation.
               </p>
             </div>
-            <div className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/80 p-5">
+            <div className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/80 p-5">
               <p className="text-xs tracking-[0.18em] text-[#77736A] uppercase">
                 Ledger state
               </p>
@@ -648,7 +648,7 @@ function LayerSection() {
               <RolePanel key={card.title} {...card} step={index + 1} />
             ))}
           </div>
-          <div className="relative rounded-3xl border border-[#D9D7D1] bg-[#FFFFFC]/82 p-5 shadow-[0_28px_90px_rgba(14,26,18,0.08)]">
+          <div className="relative overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/82 p-5 shadow-[0_28px_90px_rgba(14,26,18,0.08)]">
             <div className="absolute top-1/2 left-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
             <div className="absolute top-1/2 right-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
             <div className="flex flex-col gap-4 border-b border-[#D9D7D1] pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -660,13 +660,13 @@ function LayerSection() {
                   Platform manager overview
                 </h3>
               </div>
-              <span className="w-fit rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] px-3 py-1 text-xs font-semibold text-[#33423C]">
+              <span className="w-fit rounded-xl border border-[#33423C]/20 bg-[#E7E4DE] px-3 py-1 text-xs font-semibold text-[#33423C]">
                 Review queue
               </span>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {managerBoardItems.map((item) => (
-                <div key={item.label} className="rounded-xl border border-[#E2DFD7] bg-[#F6F5F2]/75 p-4">
+                <div key={item.label} className="rounded-2xl border border-[#E2DFD7] bg-[#F6F5F2]/75 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-[#161616]">{item.label}</p>
                     <span className="text-lg font-semibold tracking-[-0.03em] text-[#33423C]">
@@ -682,7 +682,7 @@ function LayerSection() {
             {layerCards.slice(2).map((card, index) => (
               <RolePanel key={card.title} {...card} step={index + 3} />
             ))}
-            <div className="rounded-2xl border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+            <div className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#111612] p-5 text-white">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Audit trail
               </p>
@@ -693,7 +693,7 @@ function LayerSection() {
             </div>
           </div>
         </div>
-        <div className="hidden grid-cols-6 overflow-hidden rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/60 text-center text-xs font-semibold tracking-[0.14em] text-[#77736A] uppercase md:grid">
+        <div className="hidden grid-cols-6 overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/60 text-center text-xs font-semibold tracking-[0.14em] text-[#77736A] uppercase md:grid">
           {managerStages.map((stage) => (
             <span key={stage} className="border-r border-[#D9D7D1] px-3 py-4 last:border-r-0">
               {stage}
@@ -717,9 +717,9 @@ function RolePanel({
   step: number;
 }) {
   return (
-    <article className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <article className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-xl border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
           {step}
         </span>
         <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
@@ -780,7 +780,7 @@ function SummaryTile({
   detail: string;
 }) {
   return (
-    <article className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <article className="overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
         {label}
       </p>
@@ -810,14 +810,14 @@ function MetricsSection() {
               structured operating layer.
             </p>
           </div>
-          <div className="hidden rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/72 p-5 shadow-[0_18px_60px_rgba(14,26,18,0.05)] lg:block">
+          <div className="hidden overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#FFFFFC]/72 p-5 shadow-[0_18px_60px_rgba(14,26,18,0.05)] lg:block">
             <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
               Connected records
             </p>
             <div className="mt-5 grid gap-3">
               {["Profile", "Application", "Offer", "Proof", "Audit log"].map((item, index) => (
                 <div key={item} className="flex items-center gap-3 text-sm">
-                  <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-xs font-semibold text-[#33423C]">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-xl border border-[#33423C]/20 bg-[#E7E4DE] text-xs font-semibold text-[#33423C]">
                     {index + 1}
                   </span>
                   <span className="text-[#4F4F4B]">{item}</span>
@@ -826,7 +826,7 @@ function MetricsSection() {
             </div>
           </div>
         </div>
-        <div className="relative overflow-hidden rounded-3xl border border-[#D9D7D1] bg-[#111612] p-4 text-white shadow-[0_30px_100px_rgba(14,26,18,0.18)] sm:p-6">
+        <div className="relative overflow-hidden rounded-[2rem] border border-[#D9D7D1] bg-[#111612] p-4 text-white shadow-[0_30px_100px_rgba(14,26,18,0.18)] sm:p-6">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.07)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-25" />
           <div className="relative grid gap-5">
             <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -838,7 +838,7 @@ function MetricsSection() {
                   Role lanes stay connected
                 </h3>
               </div>
-              <span className="w-fit rounded-lg border border-[#E6DDCB]/25 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[#E6DDCB]">
+              <span className="w-fit rounded-xl border border-[#E6DDCB]/25 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[#E6DDCB]">
                 Structured flow
               </span>
             </div>
@@ -849,7 +849,7 @@ function MetricsSection() {
               {operatingLanes.map((lane) => (
                 <div
                   key={lane.role}
-                  className="relative grid gap-3 rounded-2xl border border-white/10 bg-[#17231A]/86 p-4 md:grid-cols-[8rem_1fr] md:items-center"
+                  className="relative grid gap-3 rounded-[1.75rem] border border-white/10 bg-[#17231A]/86 p-4 md:grid-cols-[8rem_1fr] md:items-center"
                 >
                   <div>
                     <p className="text-xs font-semibold tracking-[0.16em] text-[#AFA794] uppercase">
@@ -861,9 +861,9 @@ function MetricsSection() {
                     {lane.steps.map((step, index) => (
                       <div
                         key={step}
-                        className="relative rounded-xl border border-[#E6DDCB]/18 bg-white/[0.045] p-3"
+                        className="relative rounded-2xl border border-[#E6DDCB]/18 bg-white/[0.045] p-3"
                       >
-                        <span className="mb-3 flex h-7 w-7 items-center justify-center rounded-lg border border-[#E6DDCB]/24 bg-[#E6DDCB]/10 text-xs font-semibold text-[#F6F0DF]">
+                        <span className="mb-3 flex h-7 w-7 items-center justify-center rounded-xl border border-[#E6DDCB]/24 bg-[#E6DDCB]/10 text-xs font-semibold text-[#F6F0DF]">
                           {index + 1}
                         </span>
                         <p className="text-sm font-semibold text-white">{step}</p>
@@ -878,7 +878,7 @@ function MetricsSection() {
               {metrics.map((metric) => (
                 <article
                   key={metric.value}
-                  className="rounded-xl border border-[#E6DDCB]/16 bg-[#0E1A12]/76 p-4"
+                  className="rounded-2xl border border-[#E6DDCB]/16 bg-[#0E1A12]/76 p-4"
                 >
                   <p className="text-4xl font-semibold tracking-[-0.05em] text-[#F6F0DF]">
                     {metric.value}
@@ -909,7 +909,7 @@ function FinalCta() {
         </p>
         <Link
           href="/signup"
-          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold !text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
+          className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold !text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
         >
           Create account
         </Link>
@@ -952,7 +952,7 @@ type DataCardProps = {
 function DataCard({ title, value, detail, status, dark = false }: DataCardProps) {
   return (
     <article
-      className={`rounded-2xl border p-5 ${
+      className={`overflow-hidden rounded-[2rem] border p-5 ${
         dark
           ? "border-white/15 bg-white/[0.04] text-white"
           : "border-[#D9D7D1] bg-[#FFFFFC]/70 text-[#161616] shadow-[0_18px_60px_rgba(14,26,18,0.06)]"
@@ -968,7 +968,7 @@ function DataCard({ title, value, detail, status, dark = false }: DataCardProps)
         </p>
         {status ? (
           <span
-            className={`shrink-0 rounded-lg border px-2 py-1 text-[0.68rem] font-medium ${
+            className={`shrink-0 rounded-xl border px-2 py-1 text-[0.68rem] font-medium ${
               dark
                 ? "border-[#E6DDCB]/20 text-[#E6DDCB]"
                 : "border-[#C7C4BC] text-[#55534F]"
