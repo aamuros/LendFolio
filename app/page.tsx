@@ -47,7 +47,7 @@ export default async function Home({ searchParams }: HomeProps) {
         <div className="mx-auto grid w-full max-w-[min(1440px,calc(100vw-3rem))] gap-7">
           {statusMessage ? (
             <p
-              className="mx-auto max-w-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
+              className="mx-auto max-w-2xl rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
               role="status"
             >
               {statusMessage}
@@ -87,13 +87,13 @@ export default async function Home({ searchParams }: HomeProps) {
               <div className="relative z-10 flex flex-col gap-3 sm:flex-row">
                 <Link
                   href="/signup"
-                  className="inline-flex min-h-12 items-center justify-center border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#161616] bg-[#161616] px-6 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
                 >
                   Create account
                 </Link>
                 <Link
                   href="/login"
-                  className="inline-flex min-h-12 items-center justify-center border border-[#C7C4BC] bg-[#FFFFFC]/80 px-6 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                  className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#C7C4BC] bg-[#FFFFFC]/80 px-6 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
                 >
                   Sign in
                 </Link>
@@ -184,7 +184,7 @@ function HeroCommandCenter() {
   return (
     <div className="hero-command-center relative mx-auto w-full max-w-3xl text-left">
       <div className="absolute inset-x-8 top-10 -z-10 h-40 rounded-full bg-[#33423C]/12 blur-3xl" />
-      <div className="hero-command-shell relative overflow-hidden border border-[#2C332F]/18 bg-[#FFFFFC]/88 p-3 shadow-[0_32px_90px_rgba(14,26,18,0.18),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md sm:p-4">
+      <div className="hero-command-shell relative overflow-hidden rounded-3xl border border-[#2C332F]/18 bg-[#FFFFFC]/88 p-3 shadow-[0_32px_90px_rgba(14,26,18,0.18),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md sm:p-4">
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
         <div className="flex items-center justify-between gap-4 border-b border-[#D9D7D1]/80 pb-3">
           <div>
@@ -195,7 +195,7 @@ function HeroCommandCenter() {
               Applications, offers, and proofs in one workflow
             </p>
           </div>
-          <span className="hidden border border-[#33423C]/18 bg-[#EFF3EA] px-2.5 py-1 text-[0.65rem] font-semibold text-[#33423C] sm:inline-flex">
+          <span className="hidden rounded-lg border border-[#33423C]/18 bg-[#EFF3EA] px-2.5 py-1 text-[0.65rem] font-semibold text-[#33423C] sm:inline-flex">
             Live queue
           </span>
         </div>
@@ -205,7 +205,7 @@ function HeroCommandCenter() {
             {commandRows.map((row) => (
               <div
                 key={row.name}
-                className="relative grid gap-3 border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
+                className="relative grid gap-3 rounded-xl border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3 sm:grid-cols-[1fr_auto] sm:items-center"
               >
                 <div>
                   <div className="flex items-center gap-2">
@@ -217,7 +217,7 @@ function HeroCommandCenter() {
                   <p className="mt-1 text-xs text-[#68645E]">{row.detail}</p>
                 </div>
                 <div className="grid gap-1 sm:min-w-28">
-                  <span className="w-fit border border-[#D0CBC0] bg-[#FFFFFC] px-2 py-1 text-[0.65rem] font-semibold text-[#55534F]">
+                  <span className="w-fit rounded-lg border border-[#D0CBC0] bg-[#FFFFFC] px-2 py-1 text-[0.65rem] font-semibold text-[#55534F]">
                     {row.status}
                   </span>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[#E5E1D8]">
@@ -229,7 +229,7 @@ function HeroCommandCenter() {
           </div>
 
           <div className="grid gap-3">
-            <div className="border border-[#CFCAC0] bg-[#101A13] p-3 text-white shadow-[0_18px_45px_rgba(14,26,18,0.16)]">
+            <div className="rounded-2xl border border-[#CFCAC0] bg-[#101A13] p-3 text-white shadow-[0_18px_45px_rgba(14,26,18,0.16)]">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-[0.62rem] tracking-[0.16em] text-[#BDB6A8] uppercase">
@@ -237,7 +237,7 @@ function HeroCommandCenter() {
                   </p>
                   <p className="mt-2 text-xl font-semibold">PHP 40,000</p>
                 </div>
-                <span className="border border-[#E6DDCB]/20 px-2 py-1 text-[0.65rem] text-[#E6DDCB]">
+                <span className="rounded-lg border border-[#E6DDCB]/20 px-2 py-1 text-[0.65rem] text-[#E6DDCB]">
                   Pending
                 </span>
               </div>
@@ -247,7 +247,7 @@ function HeroCommandCenter() {
               </div>
             </div>
 
-            <div className="grid gap-2 border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3">
+            <div className="grid gap-2 rounded-2xl border border-[#DDD9D0] bg-[#F8F7F3]/86 p-3">
               <div className="flex items-center justify-between gap-3">
                 <p className="text-xs font-semibold text-[#1D1D1B]">
                   Manager approval
@@ -288,12 +288,12 @@ function HeroFinanceCard({
 }) {
   return (
     <div
-      className={`hero-card-3d relative overflow-hidden border border-[#CFCAC0]/72 bg-[#FFFFFC]/82 p-3 text-left shadow-[0_16px_36px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md ${className}`}
+      className={`hero-card-3d relative overflow-hidden rounded-2xl border border-[#CFCAC0]/72 bg-[#FFFFFC]/82 p-3 text-left shadow-[0_16px_36px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md ${className}`}
     >
       <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent" />
       <div className="relative flex items-start justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="grid h-6 w-6 shrink-0 place-items-center border border-[#D9D7D1] bg-[#F6F5F2] text-[0.63rem] font-semibold text-[#33423C]">
+          <span className="grid h-6 w-6 shrink-0 place-items-center rounded-lg border border-[#D9D7D1] bg-[#F6F5F2] text-[0.63rem] font-semibold text-[#33423C]">
             {marker}
           </span>
           <p className="text-[0.62rem] font-semibold tracking-[0.13em] text-[#77736A] uppercase">
@@ -351,7 +351,7 @@ function DarkIntelligenceSection() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[1.1fr_0.9fr]">
-          <div className="border border-white/15 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-6">
+          <div className="rounded-3xl border border-white/15 bg-white/[0.04] p-4 shadow-[0_28px_90px_rgba(0,0,0,0.24)] sm:p-6">
             <div className="mb-6 flex items-center justify-between gap-4">
               <div>
                 <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
@@ -361,7 +361,7 @@ function DarkIntelligenceSection() {
                   Applications by stage
                 </h3>
               </div>
-              <span className="border border-[#C6BFAF]/30 px-3 py-1 text-xs text-[#E6DDCB]">
+              <span className="rounded-lg border border-[#C6BFAF]/30 px-3 py-1 text-xs text-[#E6DDCB]">
                 Live workflow
               </span>
             </div>
@@ -369,13 +369,13 @@ function DarkIntelligenceSection() {
               {decisionRows.map((row) => (
                 <div
                   key={row.name}
-                  className="grid gap-3 border border-white/10 bg-[#142218]/80 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center"
+                  className="grid gap-3 rounded-xl border border-white/10 bg-[#142218]/80 p-4 sm:grid-cols-[1fr_auto_auto] sm:items-center"
                 >
                   <div>
                     <p className="font-medium text-white">{row.name}</p>
                     <p className="mt-1 text-sm text-[#AFA794]">{row.detail}</p>
                   </div>
-                  <span className="w-fit border border-[#E6DDCB]/20 px-3 py-1 text-xs text-[#E6DDCB]">
+                  <span className="w-fit rounded-lg border border-[#E6DDCB]/20 px-3 py-1 text-xs text-[#E6DDCB]">
                     {row.status}
                   </span>
                   <p className="text-sm font-semibold text-[#F6F0DF]">
@@ -419,7 +419,7 @@ function BorrowerDossierSection() {
           title="A complete borrower file before review begins"
           description="Business context, documents, credit readiness, verification notes, and application status sit together like a prepared lending file."
         />
-        <div className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-4 shadow-[0_28px_90px_rgba(14,26,18,0.08)] sm:p-6">
+        <div className="rounded-3xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-4 shadow-[0_28px_90px_rgba(14,26,18,0.08)] sm:p-6">
           <div className="flex flex-col gap-4 border-b border-[#D9D7D1] pb-5 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
@@ -432,7 +432,7 @@ function BorrowerDossierSection() {
                 Quezon City · Retail · 4 years operating
               </p>
             </div>
-            <div className="border border-[#C7C4BC] bg-[#F6F5F2] px-4 py-3">
+            <div className="rounded-2xl border border-[#C7C4BC] bg-[#F6F5F2] px-4 py-3">
               <p className="text-xs text-[#77736A]">Profile completion</p>
               <p className="mt-1 text-3xl font-semibold tracking-[-0.04em] text-[#161616]">
                 92%
@@ -441,7 +441,7 @@ function BorrowerDossierSection() {
           </div>
           <div className="grid gap-3 py-5 sm:grid-cols-2">
             {dossierRows.map((row) => (
-              <div key={row.label} className="border border-[#E2DFD7] bg-[#F6F5F2]/70 p-4">
+              <div key={row.label} className="rounded-xl border border-[#E2DFD7] bg-[#F6F5F2]/70 p-4">
                 <p className="text-xs font-semibold tracking-[0.15em] text-[#77736A] uppercase">
                   {row.label}
                 </p>
@@ -454,7 +454,7 @@ function BorrowerDossierSection() {
             {documentChecklist.map((item) => (
               <div key={item} className="flex items-center justify-between gap-4 text-sm">
                 <span className="text-[#4F4F4B]">{item}</span>
-                <span className="border border-[#33423C]/20 bg-[#E7E4DE] px-2 py-1 text-xs font-medium text-[#33423C]">
+                <span className="rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] px-2 py-1 text-xs font-medium text-[#33423C]">
                   Attached
                 </span>
               </div>
@@ -480,7 +480,7 @@ function LenderCockpitSection() {
           dark
         />
         <div className="grid gap-4 lg:grid-cols-[1.35fr_0.65fr]">
-          <div className="border border-white/15 bg-white/[0.04] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
+          <div className="rounded-3xl border border-white/15 bg-white/[0.04] p-5 shadow-[0_28px_90px_rgba(0,0,0,0.24)]">
             <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-start sm:justify-between">
               <div>
                 <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
@@ -491,13 +491,13 @@ function LenderCockpitSection() {
                   Inventory expansion · Preferred term: 6 months
                 </p>
               </div>
-              <span className="w-fit border border-[#E6DDCB]/25 px-3 py-1 text-xs text-[#E6DDCB]">
+              <span className="w-fit rounded-lg border border-[#E6DDCB]/25 px-3 py-1 text-xs text-[#E6DDCB]">
                 Profile verified
               </span>
             </div>
             <div className="mt-5 grid gap-3">
               {reviewRows.map((row) => (
-                <div key={row.label} className="grid gap-2 border border-white/10 bg-[#16231A] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
+                <div key={row.label} className="grid gap-2 rounded-xl border border-white/10 bg-[#16231A] p-4 sm:grid-cols-[1fr_auto] sm:items-center">
                   <div>
                     <p className="text-sm font-semibold text-white">{row.label}</p>
                     <p className="mt-1 text-sm text-[#AFA794]">{row.detail}</p>
@@ -510,7 +510,7 @@ function LenderCockpitSection() {
               {["Review", "Offer", "Decline"].map((action, index) => (
                 <span
                   key={action}
-                  className={`border px-4 py-2 text-sm font-semibold ${
+                  className={`rounded-xl border px-4 py-2 text-sm font-semibold ${
                     index === 1
                       ? "border-[#E6DDCB] bg-[#E6DDCB] text-[#0E1A12]"
                       : "border-white/15 text-[#E6DDCB]"
@@ -522,7 +522,7 @@ function LenderCockpitSection() {
             </div>
           </div>
           <div className="grid gap-4">
-            <div className="border border-white/15 bg-[#17231A] p-5">
+            <div className="rounded-2xl border border-white/15 bg-[#17231A] p-5">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Offer terms
               </p>
@@ -533,7 +533,7 @@ function LenderCockpitSection() {
                 Monthly rate proposal with clear borrower response state.
               </p>
             </div>
-            <div className="border border-white/15 bg-white/[0.04] p-5">
+            <div className="rounded-2xl border border-white/15 bg-white/[0.04] p-5">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Decision notes
               </p>
@@ -569,18 +569,18 @@ function RepaymentTimelineSection() {
           </div>
         </div>
         <div className="grid gap-5 lg:grid-cols-[1fr_0.42fr]">
-          <div className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_24px_80px_rgba(14,26,18,0.07)]">
+          <div className="rounded-3xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_24px_80px_rgba(14,26,18,0.07)]">
             <div className="grid gap-4">
               {repaymentTimeline.map((item, index) => (
                 <div key={item.label} className="grid gap-3 border-b border-[#E2DFD7] pb-4 last:border-b-0 last:pb-0 sm:grid-cols-[auto_1fr_auto] sm:items-center">
-                  <span className="flex h-8 w-8 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
                     {index + 1}
                   </span>
                   <div>
                     <p className="font-semibold text-[#161616]">{item.label}</p>
                     <p className="mt-1 text-sm text-[#5F5F5F]">{item.detail}</p>
                   </div>
-                  <span className="w-fit border border-[#C7C4BC] px-3 py-1 text-xs font-medium text-[#55534F]">
+                  <span className="w-fit rounded-lg border border-[#C7C4BC] px-3 py-1 text-xs font-medium text-[#55534F]">
                     {item.status}
                   </span>
                 </div>
@@ -588,7 +588,7 @@ function RepaymentTimelineSection() {
             </div>
           </div>
           <div className="grid gap-4">
-            <div className="border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+            <div className="rounded-2xl border border-[#D9D7D1] bg-[#111612] p-5 text-white">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Proof review
               </p>
@@ -597,7 +597,7 @@ function RepaymentTimelineSection() {
                 Awaiting manager review before lender confirmation.
               </p>
             </div>
-            <div className="border border-[#D9D7D1] bg-[#FFFFFC]/80 p-5">
+            <div className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/80 p-5">
               <p className="text-xs tracking-[0.18em] text-[#77736A] uppercase">
                 Ledger state
               </p>
@@ -648,7 +648,7 @@ function LayerSection() {
               <RolePanel key={card.title} {...card} step={index + 1} />
             ))}
           </div>
-          <div className="relative border border-[#D9D7D1] bg-[#FFFFFC]/82 p-5 shadow-[0_28px_90px_rgba(14,26,18,0.08)]">
+          <div className="relative rounded-3xl border border-[#D9D7D1] bg-[#FFFFFC]/82 p-5 shadow-[0_28px_90px_rgba(14,26,18,0.08)]">
             <div className="absolute top-1/2 left-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
             <div className="absolute top-1/2 right-[-2rem] hidden h-px w-8 bg-[#C7C4BC] lg:block" />
             <div className="flex flex-col gap-4 border-b border-[#D9D7D1] pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -660,13 +660,13 @@ function LayerSection() {
                   Platform manager overview
                 </h3>
               </div>
-              <span className="w-fit border border-[#33423C]/20 bg-[#E7E4DE] px-3 py-1 text-xs font-semibold text-[#33423C]">
+              <span className="w-fit rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] px-3 py-1 text-xs font-semibold text-[#33423C]">
                 Review queue
               </span>
             </div>
             <div className="mt-5 grid gap-3 sm:grid-cols-2">
               {managerBoardItems.map((item) => (
-                <div key={item.label} className="border border-[#E2DFD7] bg-[#F6F5F2]/75 p-4">
+                <div key={item.label} className="rounded-xl border border-[#E2DFD7] bg-[#F6F5F2]/75 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <p className="text-sm font-semibold text-[#161616]">{item.label}</p>
                     <span className="text-lg font-semibold tracking-[-0.03em] text-[#33423C]">
@@ -682,7 +682,7 @@ function LayerSection() {
             {layerCards.slice(2).map((card, index) => (
               <RolePanel key={card.title} {...card} step={index + 3} />
             ))}
-            <div className="border border-[#D9D7D1] bg-[#111612] p-5 text-white">
+            <div className="rounded-2xl border border-[#D9D7D1] bg-[#111612] p-5 text-white">
               <p className="text-xs tracking-[0.18em] text-[#AFA794] uppercase">
                 Audit trail
               </p>
@@ -693,7 +693,7 @@ function LayerSection() {
             </div>
           </div>
         </div>
-        <div className="hidden grid-cols-6 border border-[#D9D7D1] bg-[#FFFFFC]/60 text-center text-xs font-semibold tracking-[0.14em] text-[#77736A] uppercase md:grid">
+        <div className="hidden grid-cols-6 overflow-hidden rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/60 text-center text-xs font-semibold tracking-[0.14em] text-[#77736A] uppercase md:grid">
           {managerStages.map((stage) => (
             <span key={stage} className="border-r border-[#D9D7D1] px-3 py-4 last:border-r-0">
               {stage}
@@ -717,9 +717,9 @@ function RolePanel({
   step: number;
 }) {
   return (
-    <article className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <article className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <div className="flex items-center gap-3">
-        <span className="flex h-8 w-8 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
+        <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-sm font-semibold text-[#33423C]">
           {step}
         </span>
         <p className="text-xs font-semibold tracking-[0.18em] text-[#77736A] uppercase">
@@ -780,7 +780,7 @@ function SummaryTile({
   detail: string;
 }) {
   return (
-    <article className="border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <article className="rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/78 p-5 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
         {label}
       </p>
@@ -810,14 +810,14 @@ function MetricsSection() {
               structured operating layer.
             </p>
           </div>
-          <div className="hidden border border-[#D9D7D1] bg-[#FFFFFC]/72 p-5 shadow-[0_18px_60px_rgba(14,26,18,0.05)] lg:block">
+          <div className="hidden rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/72 p-5 shadow-[0_18px_60px_rgba(14,26,18,0.05)] lg:block">
             <p className="text-xs font-semibold tracking-[0.16em] text-[#77736A] uppercase">
               Connected records
             </p>
             <div className="mt-5 grid gap-3">
               {["Profile", "Application", "Offer", "Proof", "Audit log"].map((item, index) => (
                 <div key={item} className="flex items-center gap-3 text-sm">
-                  <span className="flex h-7 w-7 items-center justify-center border border-[#33423C]/20 bg-[#E7E4DE] text-xs font-semibold text-[#33423C]">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-lg border border-[#33423C]/20 bg-[#E7E4DE] text-xs font-semibold text-[#33423C]">
                     {index + 1}
                   </span>
                   <span className="text-[#4F4F4B]">{item}</span>
@@ -826,7 +826,7 @@ function MetricsSection() {
             </div>
           </div>
         </div>
-        <div className="relative overflow-hidden border border-[#D9D7D1] bg-[#111612] p-4 text-white shadow-[0_30px_100px_rgba(14,26,18,0.18)] sm:p-6">
+        <div className="relative overflow-hidden rounded-3xl border border-[#D9D7D1] bg-[#111612] p-4 text-white shadow-[0_30px_100px_rgba(14,26,18,0.18)] sm:p-6">
           <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.07)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.07)_1px,transparent_1px)] bg-[size:4rem_4rem] opacity-25" />
           <div className="relative grid gap-5">
             <div className="flex flex-col gap-4 border-b border-white/10 pb-5 sm:flex-row sm:items-center sm:justify-between">
@@ -838,7 +838,7 @@ function MetricsSection() {
                   Role lanes stay connected
                 </h3>
               </div>
-              <span className="w-fit border border-[#E6DDCB]/25 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[#E6DDCB]">
+              <span className="w-fit rounded-lg border border-[#E6DDCB]/25 bg-white/[0.04] px-3 py-1 text-xs font-semibold text-[#E6DDCB]">
                 Structured flow
               </span>
             </div>
@@ -849,7 +849,7 @@ function MetricsSection() {
               {operatingLanes.map((lane) => (
                 <div
                   key={lane.role}
-                  className="relative grid gap-3 border border-white/10 bg-[#17231A]/86 p-4 md:grid-cols-[8rem_1fr] md:items-center"
+                  className="relative grid gap-3 rounded-2xl border border-white/10 bg-[#17231A]/86 p-4 md:grid-cols-[8rem_1fr] md:items-center"
                 >
                   <div>
                     <p className="text-xs font-semibold tracking-[0.16em] text-[#AFA794] uppercase">
@@ -861,9 +861,9 @@ function MetricsSection() {
                     {lane.steps.map((step, index) => (
                       <div
                         key={step}
-                        className="relative border border-[#E6DDCB]/18 bg-white/[0.045] p-3"
+                        className="relative rounded-xl border border-[#E6DDCB]/18 bg-white/[0.045] p-3"
                       >
-                        <span className="mb-3 flex h-7 w-7 items-center justify-center border border-[#E6DDCB]/24 bg-[#E6DDCB]/10 text-xs font-semibold text-[#F6F0DF]">
+                        <span className="mb-3 flex h-7 w-7 items-center justify-center rounded-lg border border-[#E6DDCB]/24 bg-[#E6DDCB]/10 text-xs font-semibold text-[#F6F0DF]">
                           {index + 1}
                         </span>
                         <p className="text-sm font-semibold text-white">{step}</p>
@@ -878,7 +878,7 @@ function MetricsSection() {
               {metrics.map((metric) => (
                 <article
                   key={metric.value}
-                  className="border border-[#E6DDCB]/16 bg-[#0E1A12]/76 p-4"
+                  className="rounded-xl border border-[#E6DDCB]/16 bg-[#0E1A12]/76 p-4"
                 >
                   <p className="text-4xl font-semibold tracking-[-0.05em] text-[#F6F0DF]">
                     {metric.value}
@@ -909,7 +909,7 @@ function FinalCta() {
         </p>
         <Link
           href="/signup"
-          className="inline-flex min-h-12 items-center justify-center border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold !text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
+          className="inline-flex min-h-12 items-center justify-center rounded-xl border border-[#E6DDCB] bg-[#E6DDCB] px-6 text-sm font-semibold !text-[#0E1A12] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#E6DDCB]"
         >
           Create account
         </Link>
@@ -952,7 +952,7 @@ type DataCardProps = {
 function DataCard({ title, value, detail, status, dark = false }: DataCardProps) {
   return (
     <article
-      className={`border p-5 ${
+      className={`rounded-2xl border p-5 ${
         dark
           ? "border-white/15 bg-white/[0.04] text-white"
           : "border-[#D9D7D1] bg-[#FFFFFC]/70 text-[#161616] shadow-[0_18px_60px_rgba(14,26,18,0.06)]"
@@ -968,7 +968,7 @@ function DataCard({ title, value, detail, status, dark = false }: DataCardProps)
         </p>
         {status ? (
           <span
-            className={`shrink-0 border px-2 py-1 text-[0.68rem] font-medium ${
+            className={`shrink-0 rounded-lg border px-2 py-1 text-[0.68rem] font-medium ${
               dark
                 ? "border-[#E6DDCB]/20 text-[#E6DDCB]"
                 : "border-[#C7C4BC] text-[#55534F]"
@@ -987,7 +987,7 @@ function DataCard({ title, value, detail, status, dark = false }: DataCardProps)
         {detail}
       </p>
       <div
-        className={`mt-5 h-2 overflow-hidden border ${
+        className={`mt-5 h-2 overflow-hidden rounded-full border ${
           dark ? "border-white/10 bg-white/5" : "border-[#D9D7D1] bg-[#E7E4DE]"
         }`}
       >

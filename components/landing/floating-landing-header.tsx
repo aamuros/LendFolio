@@ -82,7 +82,7 @@ export function FloatingLandingHeader() {
 
             <Link
               href="/signup"
-              className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold whitespace-nowrap !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+              className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#161616] bg-[#161616] px-4 text-sm font-semibold whitespace-nowrap !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
             >
               Create account
             </Link>
@@ -93,7 +93,7 @@ export function FloatingLandingHeader() {
             onClick={() => setMenuOpen((open) => !open)}
             aria-label={menuOpen ? "Close menu" : "Open menu"}
             aria-expanded={menuOpen}
-            className="relative z-20 -mr-2 grid h-10 w-10 place-items-center text-[#161616] transition-colors hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] lg:hidden"
+            className="relative z-20 -mr-2 grid h-10 w-10 place-items-center rounded-xl text-[#161616] transition-colors hover:bg-[#FFFFFC]/70 hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] lg:hidden"
           >
             {menuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -118,14 +118,14 @@ export function FloatingLandingHeader() {
               <Link
                 href="/login"
                 onClick={() => setMenuOpen(false)}
-                className="inline-flex min-h-10 items-center justify-center border border-[#C7C4BC] bg-[#FFFFFC] px-4 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#C7C4BC] bg-[#FFFFFC] px-4 text-sm font-semibold text-[#161616] transition-colors hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
                 onClick={() => setMenuOpen(false)}
-                className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                className="inline-flex min-h-10 items-center justify-center rounded-xl border border-[#161616] bg-[#161616] px-4 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
               >
                 Create account
               </Link>
