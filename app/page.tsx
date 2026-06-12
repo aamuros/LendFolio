@@ -121,18 +121,18 @@ export default async function Home({ searchParams }: HomeProps) {
 
 function Header() {
   return (
-    <header className="sticky top-0 z-50 border-b border-[#D9D7D1] bg-[#F6F5F2]/90 px-5 backdrop-blur sm:px-8 lg:px-10">
+    <header className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8">
       <nav
-        className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4"
+        className="mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-3 rounded-2xl border border-[#D9D7D1]/80 bg-[#FFFFFC]/85 px-4 shadow-[0_18px_50px_rgba(14,26,18,0.10)] backdrop-blur-xl sm:gap-4 sm:px-5"
         aria-label="Main navigation"
       >
         <Link
           href="/"
-          className="text-sm font-semibold tracking-[0.18em] uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+          className="shrink-0 text-sm font-semibold tracking-[0.18em] uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
         >
           LendFolio
         </Link>
-        <div className="hidden items-center gap-7 text-sm text-[#55534F] lg:flex">
+        <div className="hidden items-center gap-6 text-sm text-[#55534F] lg:flex">
           {navLinks.map((link) => (
             <a
               key={link}
@@ -146,13 +146,13 @@ function Header() {
         <div className="flex items-center gap-2 sm:gap-3">
           <Link
             href="/login"
-            className="hidden px-2 py-2 text-sm font-medium text-[#1F1F1F] transition-colors hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:inline-flex"
+            className="hidden px-2 py-2 text-sm font-medium whitespace-nowrap text-[#1F1F1F] transition-colors hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:inline-flex"
           >
             Sign in
           </Link>
           <Link
             href="/signup"
-            className="inline-flex min-h-10 items-center justify-center border border-[#161616] bg-[#161616] px-4 text-sm font-semibold !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            className="inline-flex min-h-10 shrink-0 items-center justify-center border border-[#161616] bg-[#161616] px-3 text-sm font-semibold whitespace-nowrap !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:px-4"
           >
             Create account
           </Link>
@@ -374,7 +374,7 @@ function DarkIntelligenceSection() {
   return (
     <section
       id="product"
-      className="scroll-mt-20 relative overflow-hidden bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-28 relative overflow-hidden bg-[#0E1A12] px-5 py-20 text-white sm:px-8 sm:scroll-mt-32 sm:py-24 lg:px-10"
     >
       <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(246,245,242,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(246,245,242,0.08)_1px,transparent_1px)] bg-[size:5rem_5rem] opacity-35" />
       <div className="absolute inset-x-0 top-0 h-80 bg-[radial-gradient(circle_at_50%_0%,rgba(226,218,198,0.2),transparent_58%)]" />
@@ -453,7 +453,7 @@ function BorrowerDossierSection() {
   return (
     <section
       id="borrowers"
-      className="scroll-mt-20 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-28 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:scroll-mt-32 sm:py-24 lg:px-10"
     >
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.82fr_1.18fr] lg:items-center">
         <SectionIntro
@@ -512,7 +512,7 @@ function LenderCockpitSection() {
   return (
     <section
       id="lenders"
-      className="scroll-mt-20 bg-[#111612] px-5 py-20 text-white sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-28 bg-[#111612] px-5 py-20 text-white sm:px-8 sm:scroll-mt-32 sm:py-24 lg:px-10"
     >
       <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-center">
         <SectionIntro
@@ -596,7 +596,7 @@ function RepaymentTimelineSection() {
   return (
     <section
       id="security"
-      className="scroll-mt-20 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-28 bg-[#F6F5F2] px-5 py-20 sm:px-8 sm:scroll-mt-32 sm:py-24 lg:px-10"
     >
       <div className="mx-auto grid max-w-7xl gap-10">
         <div className="grid gap-8 lg:grid-cols-[0.75fr_1.25fr] lg:items-end">
@@ -669,7 +669,7 @@ function LayerSection() {
   return (
     <section
       id="managers"
-      className="scroll-mt-20 border-y border-[#D9D7D1] bg-[#EFEDE7] px-5 py-20 sm:px-8 sm:py-24 lg:px-10"
+      className="scroll-mt-28 border-y border-[#D9D7D1] bg-[#EFEDE7] px-5 py-20 sm:px-8 sm:scroll-mt-32 sm:py-24 lg:px-10"
     >
       <div className="mx-auto grid max-w-7xl gap-12">
         <div className="mx-auto grid max-w-3xl gap-4 text-center">
