@@ -261,6 +261,19 @@ export function BorrowerLoanApplicationPanel({
     }
   }
 
+  async function refreshLoanApplications(options?: {
+    preserveFeedback?: boolean;
+  }) {
+    const refreshed = await loadBorrowerLoanApplications();
+
+    if (refreshed.ok) {
+      applyLoadResult(refreshed, options);
+      return true;
+    }
+
+    return false;
+  }
+
   useEffect(() => {
     let isActive = true;
 
@@ -486,7 +499,7 @@ export function BorrowerLoanApplicationPanel({
       if (currentAvailableCredit <= 0) {
         setLoadState("ready");
         setMessage(
-          "You have used your available credit. Repay an active loan or wait for an application decision before applying again.",
+          "You have used your available credit. Repay an active loan, withdraw a pending application, or wait for an application decision before applying again.",
         );
         return;
       }
@@ -550,13 +563,17 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? { ...application, ...result.application }
-            : application,
-        ),
-      );
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === applicationId
+              ? { ...application, ...result.application }
+              : application,
+          ),
+        );
+      }
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -598,21 +615,25 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? {
-              ...application,
-              ...result.application,
-              offers: application.offers.map((offer) =>
-                offer.status === "pending"
-                  ? { ...offer, status: "declined" }
-                  : offer,
-              ),
-            }
-            : application,
-        ),
-      );
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === applicationId
+              ? {
+                ...application,
+                ...result.application,
+                offers: application.offers.map((offer) =>
+                  offer.status === "pending"
+                    ? { ...offer, status: "declined" }
+                    : offer,
+                ),
+              }
+              : application,
+          ),
+        );
+      }
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -640,14 +661,18 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.filter((application) => application.id !== applicationId),
-      );
-      setExpandedApplicationIds((current) => {
-        const next = new Set(current);
-        next.delete(applicationId);
-        return next;
-      });
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.filter((application) => application.id !== applicationId),
+        );
+        setExpandedApplicationIds((current) => {
+          const next = new Set(current);
+          next.delete(applicationId);
+          return next;
+        });
+      }
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -668,11 +693,8 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      const refreshed = await loadBorrowerLoanApplications();
-      if (refreshed.ok) {
-        setApplications(refreshed.applications);
-        setCreditSummary(refreshed.creditSummary);
-      } else {
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+      if (!didRefresh) {
         setApplications((current) =>
           current.map((application) => {
             if (application.id !== applicationId) {
@@ -720,18 +742,22 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? {
-              ...application,
-              offers: application.offers.map((offer) =>
-                offer.id === offerId ? { ...offer, status: "declined" } : offer,
-              ),
-            }
-            : application,
-        ),
-      );
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === applicationId
+              ? {
+                ...application,
+                offers: application.offers.map((offer) =>
+                  offer.id === offerId ? { ...offer, status: "declined" } : offer,
+                ),
+              }
+              : application,
+          ),
+        );
+      }
       setLoadState("ready");
       setMessage("");
       setSuccessMessage(result.message);
@@ -814,6 +840,9 @@ export function BorrowerLoanApplicationPanel({
       .filter((offer) => offer.status !== "pending")
       .map((offer) => ({ application, offer })),
   );
+  const hasNoAvailableCredit =
+    readiness?.riskFlags.includes("no_available_credit") ||
+    (creditSummary ? creditSummary.availableCredit <= 0 : false);
 
   return (
     <>
@@ -873,6 +902,8 @@ export function BorrowerLoanApplicationPanel({
                   )
                 }
               />
+            ) : hasNoAvailableCredit ? (
+              <CreditLimitBlocker />
             ) : readiness &&
               (readiness.readinessStatus === "needs_review" ||
                 readiness.readinessStatus === "not_eligible" ||
@@ -1085,12 +1116,29 @@ function ProfileReadinessBlocker({
   );
 }
 
+function CreditLimitBlocker() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Credit limit reached
+        </p>
+        <p className="text-sm text-muted-foreground">
+          You have no available credit remaining. Repay an active loan, withdraw
+          a pending application, or wait for an application decision before
+          applying again.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
   if (readiness.missingFields.length > 0) {
     return `Complete ${readiness.missingFields[0]} before applying.`;
   }
   if (readiness.riskFlags.includes("no_available_credit")) {
-    return "You have no available credit remaining.";
+    return "You have no available credit remaining. Repay an active loan, withdraw a pending application, or wait for an application decision before applying again.";
   }
   if (readiness.riskFlags.includes("vague_loan_purpose")) {
     return "Add more detail to your loan purpose before applying.";
@@ -2267,8 +2315,9 @@ function ApplicationForm({
             No available credit remaining
           </p>
           <p className="text-sm leading-6 text-muted-foreground">
-            You have used your available credit. Repay an active loan or wait
-            for an application decision before applying again.
+            You have used your available credit. Repay an active loan, withdraw
+            a pending application, or wait for an application decision before
+            applying again.
           </p>
         </CardContent>
       </Card>
