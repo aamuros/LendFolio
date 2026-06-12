@@ -178,3 +178,291 @@
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);
 }
+
+.hero-depth-scene {
+  perspective: 1200px;
+}
+
+.hero-engine {
+  transform-style: preserve-3d;
+  transform: rotateX(63deg) rotateZ(-18deg);
+}
+
+.hero-orbit {
+  transform-style: preserve-3d;
+  animation: hero-slow-rotate 34s linear infinite;
+}
+
+.hero-orbit-reverse {
+  animation-direction: reverse;
+  animation-duration: 46s;
+}
+
+.hero-node {
+  animation: hero-pulse 5.6s ease-in-out infinite;
+}
+
+.hero-flow-line {
+  animation: hero-flow-pulse 6.5s ease-in-out infinite;
+}
+
+.hero-core {
+  animation: hero-core-pulse 4.8s ease-in-out infinite;
+}
+
+.hero-command-center {
+  perspective: 1200px;
+}
+
+.hero-command-shell {
+  transform: rotateX(3deg);
+  transform-style: preserve-3d;
+  animation: hero-command-float 10s ease-in-out infinite;
+}
+
+.hero-workflow-line {
+  overflow: hidden;
+}
+
+.hero-workflow-line::after {
+  position: absolute;
+  inset-block: 0;
+  left: -35%;
+  width: 35%;
+  content: "";
+  background: linear-gradient(90deg, transparent, rgba(51, 66, 60, 0.52));
+  animation: hero-line-scan 4.8s ease-in-out infinite;
+}
+
+.hero-workflow-dot {
+  animation: hero-dot-travel 4.8s ease-in-out infinite;
+}
+
+.hero-rail::before,
+.hero-rail::after {
+  position: absolute;
+  top: 50%;
+  width: 7.25rem;
+  height: 1px;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(51, 66, 60, 0.22),
+    transparent
+  );
+}
+
+.hero-rail::before {
+  transform: translateY(-6.7rem) rotate(-12deg);
+}
+
+.hero-rail::after {
+  transform: translateY(6.2rem) rotate(12deg);
+}
+
+.hero-rail-left::before,
+.hero-rail-left::after {
+  right: -7.75rem;
+}
+
+.hero-rail-right::before,
+.hero-rail-right::after {
+  left: -7.75rem;
+}
+
+.hero-rail-right::before {
+  transform: translateY(-6.7rem) rotate(12deg);
+}
+
+.hero-rail-right::after {
+  transform: translateY(6.2rem) rotate(-12deg);
+}
+
+.hero-card-3d {
+  transform-style: preserve-3d;
+  animation: hero-float 9s ease-in-out infinite;
+  opacity: 0.88;
+}
+
+.hero-card-3d::before {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  content: "";
+  background: linear-gradient(
+    120deg,
+    transparent 0%,
+    rgba(255, 255, 252, 0.56) 44%,
+    transparent 58%
+  );
+  opacity: 0;
+  transform: translateX(-72%);
+  animation: hero-shimmer 8s ease-in-out infinite;
+}
+
+.hero-card-1 {
+  rotate: -1.2deg;
+}
+
+.hero-card-2 {
+  rotate: 1deg;
+  animation-delay: -1.8s;
+}
+
+.hero-card-3 {
+  rotate: 1.2deg;
+  animation-delay: -3.4s;
+}
+
+.hero-card-4 {
+  rotate: -1deg;
+  animation-delay: -4.8s;
+}
+
+.hero-card-5 {
+  rotate: -0.8deg;
+  animation-delay: -5.8s;
+}
+
+.hero-card-6 {
+  rotate: 0.9deg;
+  animation-delay: -6.8s;
+}
+
+@keyframes hero-slow-rotate {
+  from {
+    transform: rotateZ(0deg);
+  }
+
+  to {
+    transform: rotateZ(360deg);
+  }
+}
+
+@keyframes hero-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -8px;
+  }
+}
+
+@keyframes hero-command-float {
+  0%,
+  100% {
+    translate: 0 0;
+  }
+
+  50% {
+    translate: 0 -6px;
+  }
+}
+
+@keyframes hero-pulse {
+  0%,
+  100% {
+    opacity: 0.42;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.86;
+    scale: 1.12;
+  }
+}
+
+@keyframes hero-line-scan {
+  0%,
+  28% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+
+  52% {
+    opacity: 0.7;
+  }
+
+  100% {
+    transform: translateX(390%);
+    opacity: 0;
+  }
+}
+
+@keyframes hero-dot-travel {
+  0%,
+  100% {
+    left: 0;
+    opacity: 0.45;
+  }
+
+  50% {
+    left: calc(100% - 0.375rem);
+    opacity: 1;
+  }
+}
+
+@keyframes hero-core-pulse {
+  0%,
+  100% {
+    opacity: 0.68;
+    scale: 1;
+  }
+
+  50% {
+    opacity: 0.95;
+    scale: 1.06;
+  }
+}
+
+@keyframes hero-flow-pulse {
+  0%,
+  100% {
+    opacity: 0.16;
+    transform: scaleX(0.86);
+  }
+
+  50% {
+    opacity: 0.48;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes hero-shimmer {
+  0%,
+  76% {
+    opacity: 0;
+    transform: translateX(-72%);
+  }
+
+  88% {
+    opacity: 0.48;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(72%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-orbit,
+  .hero-node,
+  .hero-core,
+  .hero-command-shell,
+  .hero-workflow-line::after,
+  .hero-workflow-dot,
+  .hero-flow-line,
+  .hero-card-3d,
+  .hero-card-3d::before {
+    animation: none;
+  }
+
+  .hero-command-shell {
+    transform: none;
+  }
+}
