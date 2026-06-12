@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect, RedirectType } from "next/navigation";
+import { FloatingLandingHeader } from "@/components/landing/floating-landing-header";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import { getRouteForRole } from "@/lib/app-roles";
 import { isApprovedLender } from "@/lib/role-rules";
@@ -35,9 +36,9 @@ export default async function Home({ searchParams }: HomeProps) {
 
   return (
     <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
-      <Header />
+      <FloatingLandingHeader />
 
-      <section className="hero-depth-scene relative isolate flex min-h-[calc(100svh-4rem)] items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-10 pb-14 sm:px-8 sm:pt-12 sm:pb-16 lg:px-10 lg:pt-14 lg:pb-20">
+      <section className="hero-depth-scene relative isolate flex min-h-svh items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-28 pb-14 sm:px-8 sm:pt-32 sm:pb-16 lg:px-10 lg:pt-36 lg:pb-20">
         <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
         <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
@@ -116,49 +117,6 @@ export default async function Home({ searchParams }: HomeProps) {
       <FinalCta />
       <Footer />
     </main>
-  );
-}
-
-function Header() {
-  return (
-    <header className="sticky top-4 z-50 px-4 sm:px-6 lg:px-8">
-      <nav
-        className="mx-auto flex min-h-16 w-full max-w-5xl items-center justify-between gap-3 rounded-2xl border border-[#D9D7D1]/80 bg-[#FFFFFC]/85 px-4 shadow-[0_18px_50px_rgba(14,26,18,0.10)] backdrop-blur-xl sm:gap-4 sm:px-5"
-        aria-label="Main navigation"
-      >
-        <Link
-          href="/"
-          className="shrink-0 text-sm font-semibold tracking-[0.18em] uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
-        >
-          LendFolio
-        </Link>
-        <div className="hidden items-center gap-6 text-sm text-[#55534F] lg:flex">
-          {navLinks.map((link) => (
-            <a
-              key={link}
-              href={`#${link.toLowerCase()}`}
-              className="transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
-            >
-              {link}
-            </a>
-          ))}
-        </div>
-        <div className="flex items-center gap-2 sm:gap-3">
-          <Link
-            href="/login"
-            className="hidden px-2 py-2 text-sm font-medium whitespace-nowrap text-[#1F1F1F] transition-colors hover:text-[#5F5F5F] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:inline-flex"
-          >
-            Sign in
-          </Link>
-          <Link
-            href="/signup"
-            className="inline-flex min-h-10 shrink-0 items-center justify-center border border-[#161616] bg-[#161616] px-3 text-sm font-semibold whitespace-nowrap !text-white transition-colors hover:bg-[#0E1A12] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616] sm:px-4"
-          >
-            Create account
-          </Link>
-        </div>
-      </nav>
-    </header>
   );
 }
 
