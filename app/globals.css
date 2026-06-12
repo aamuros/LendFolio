@@ -41,6 +41,7 @@
   html {
     min-height: 100%;
     background: var(--background);
+    scroll-behavior: smooth;
   }
 
   body {

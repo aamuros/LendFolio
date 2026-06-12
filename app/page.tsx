@@ -930,7 +930,7 @@ function Footer() {
             <a
               key={link}
               href={`#${link.toLowerCase()}`}
-              className="transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+              className="transition-colors duration-200 hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
             >
               {link}
             </a>

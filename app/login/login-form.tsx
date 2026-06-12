@@ -21,10 +21,12 @@ export function LoginForm() {
   const [password, setPassword] = useState("");
 
   return (
-    <Card className="rounded-2xl p-6">
+    <Card className="rounded-3xl border border-[#D9D7D1]/85 bg-[#FFFFFC]/88 p-6 shadow-[0_32px_90px_rgba(14,26,18,0.16),inset_0_1px_0_rgba(255,255,255,0.92)] backdrop-blur-md">
       <CardHeader className="p-0 text-center">
-        <CardTitle className="text-xl">Sign in</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
+          Sign in
+        </CardTitle>
+        <CardDescription className="text-[#55534F]">
           Enter your credentials to continue
         </CardDescription>
       </CardHeader>
@@ -32,7 +34,9 @@ export function LoginForm() {
         <form action={formAction}>
           <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email" className="text-[#33423C]">
+                Email
+              </FieldLabel>
               <Input
                 id="email"
                 name="email"
@@ -43,17 +47,19 @@ export function LoginForm() {
                 }}
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="h-12 rounded-xl bg-background"
+                className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
               />
             </Field>
 
             <Field>
               <div className="flex items-center justify-between">
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password" className="text-[#33423C]">
+                  Password
+                </FieldLabel>
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-muted-foreground hover:text-primary"
+                  className="text-xs font-medium text-[#55534F] transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
                 >
                   Forgot password?
                 </Link>
@@ -68,7 +74,7 @@ export function LoginForm() {
                 }}
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                className="h-12 rounded-xl bg-background"
+                className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
               />
             </Field>
@@ -81,12 +87,12 @@ export function LoginForm() {
           </FieldGroup>
         </form>
 
-        <div className="mt-3 text-center text-sm text-muted-foreground">
+        <div className="mt-3 text-center text-sm text-[#55534F]">
           <p>
             Don&apos;t have an account?{" "}
             <Link
               href="/signup"
-              className="underline underline-offset-4 hover:text-primary"
+              className="font-semibold text-[#33423C] underline underline-offset-4 transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
             >
               Sign up
             </Link>
@@ -116,7 +122,11 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
+    <Button
+      type="submit"
+      disabled={pending}
+      className="h-12 w-full rounded-xl border border-[#161616] bg-[#161616] font-semibold !text-white shadow-[0_18px_35px_rgba(14,26,18,0.16)] transition-all hover:bg-[#0E1A12] hover:shadow-[0_20px_40px_rgba(14,26,18,0.2)] focus-visible:outline-[#161616]"
+    >
       {pending ? "Signing in..." : "Sign in"}
     </Button>
   );

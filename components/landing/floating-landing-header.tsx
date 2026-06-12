@@ -61,7 +61,7 @@ export function FloatingLandingHeader() {
                 <a
                   key={link.href}
                   href={link.href}
-                  className="transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                  className="transition-colors duration-200 hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
                 >
                   {link.label}
                 </a>
@@ -107,7 +107,7 @@ export function FloatingLandingHeader() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMenuOpen(false)}
-                  className="font-medium transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+                  className="font-medium transition-colors duration-200 hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
                 >
                   {link.label}
                 </a>
