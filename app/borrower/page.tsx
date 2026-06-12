@@ -55,7 +55,7 @@ export default async function BorrowerPage({
     : null;
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-7xl">
         {access.ok ? (
           <BorrowerWorkspace

@@ -180,7 +180,7 @@ function HeaderCard({
         </Alert>
       ) : null}
       {isWaiting ? (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-[#E2DAC6] bg-[#F8F1DD] px-3.5 py-2.5 text-xs text-[#6A4B17]">
           <Clock className="size-3.5 shrink-0" />
           No action needed right now.
         </div>
@@ -584,8 +584,8 @@ function ApplicationReadinessBanner({
     <div
       className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm ${
         verificationApproved && !profileBlocksApply
-          ? "bg-emerald-50 text-emerald-800"
-          : "bg-muted/50 text-muted-foreground"
+          ? "border border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]"
+          : "border border-border/80 bg-muted/70 text-muted-foreground"
       }`}
     >
       {verificationApproved && !profileBlocksApply ? (

@@ -7,13 +7,13 @@ export type BadgeTone = "attention" | "danger" | "neutral" | "success";
 export function toneBadgeClassName(tone: BadgeTone) {
   switch (tone) {
     case "success":
-      return "bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+      return "border border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C] hover:bg-[#EFF3EA]";
     case "attention":
-      return "bg-amber-50 text-amber-800 hover:bg-amber-50";
+      return "border border-[#E2DAC6] bg-[#F8F1DD] text-[#6A4B17] hover:bg-[#F8F1DD]";
     case "danger":
-      return "bg-destructive/10 text-destructive hover:bg-destructive/10";
+      return "border border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E] hover:bg-[#FFF4F1]";
     case "neutral":
-      return "bg-secondary text-secondary-foreground hover:bg-secondary";
+      return "border border-border/80 bg-card text-muted-foreground hover:bg-card";
   }
 }
 

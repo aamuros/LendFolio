@@ -35,7 +35,7 @@ export default async function Home({ searchParams }: HomeProps) {
   const statusMessage = lenderPendingMessage || authMessage;
 
   return (
-    <main className="min-h-svh overflow-x-hidden bg-[#F6F5F2] text-[#161616]">
+    <main className="theme-lendfolio min-h-svh overflow-x-hidden bg-background text-foreground">
       <FloatingLandingHeader />
 
       <section className="hero-depth-scene relative isolate flex min-h-svh items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-28 pb-14 sm:px-8 sm:pt-32 sm:pb-16 lg:px-10 lg:pt-36 lg:pb-20">

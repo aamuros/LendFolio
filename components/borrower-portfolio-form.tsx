@@ -1513,7 +1513,7 @@ function WizardHeader({
                 step === activeStep
                   ? "border-primary bg-primary text-primary-foreground"
                   : completedSteps.includes(step)
-                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                  ? "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]"
                   : "border-border bg-muted/30 text-muted-foreground",
               )}
             >

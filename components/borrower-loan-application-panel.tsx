@@ -1447,9 +1447,9 @@ function UtilizationRing({ ratio }: { ratio: number }) {
     clampedRatio === 0
       ? "text-muted-foreground/40"
       : clampedRatio <= 0.5
-        ? "text-emerald-500"
+        ? "text-[#33423C]"
         : clampedRatio <= 0.75
-          ? "text-amber-500"
+          ? "text-[#9A6B1D]"
           : "text-destructive";
 
   return (
@@ -1617,11 +1617,11 @@ function FinancingSummaryCard({
                     className={cn(
                       "inline-block size-1.5 rounded-full",
                       readinessTone === "success"
-                        ? "bg-emerald-500"
+                        ? "bg-[#33423C]"
                         : readinessTone === "danger"
                           ? "bg-destructive"
                           : readinessTone === "warning"
-                            ? "bg-amber-500"
+                            ? "bg-[#9A6B1D]"
                             : "bg-muted-foreground",
                     )}
                     aria-hidden="true"
@@ -1918,8 +1918,8 @@ function RepaymentCalendarCard({
                                     : tone === "neutral"
                                       ? "bg-muted-foreground"
                                       : tone === "success"
-                                        ? "bg-emerald-500"
-                                        : "bg-amber-500",
+                                        ? "bg-[#33423C]"
+                                        : "bg-[#9A6B1D]",
                                 )}
                                 aria-hidden="true"
                               />
@@ -2951,7 +2951,7 @@ function InlineFeedback({
     return (
       <p
         role="status"
-        className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+        className="rounded-xl border border-[#C9D7C6] bg-[#EFF3EA] px-3 py-2 text-sm leading-6 font-medium text-[#33423C]"
       >
         {successMessage}
       </p>

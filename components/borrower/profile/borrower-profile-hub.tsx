@@ -425,7 +425,7 @@ export function BorrowerProfileHub({
 
           {postSaveVerification ? (
             <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#33423C]" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <p className="text-sm font-medium text-foreground">
                   Profile saved. Next, upload your verification documents.

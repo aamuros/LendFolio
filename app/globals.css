@@ -145,6 +145,35 @@
   --sidebar-ring: oklch(0.708 0 0);
 }
 
+.theme-lendfolio {
+  --background: #f6f5f2;
+  --foreground: #161616;
+  --card: #fffffc;
+  --card-foreground: #161616;
+  --popover: #fffffc;
+  --popover-foreground: #161616;
+  --primary: #161616;
+  --primary-foreground: #fffffc;
+  --secondary: #eff3ea;
+  --secondary-foreground: #33423c;
+  --muted: #f8f7f3;
+  --muted-foreground: #55534f;
+  --accent: #eff3ea;
+  --accent-foreground: #33423c;
+  --destructive: #9f2d2d;
+  --border: #d9d7d1;
+  --input: #d9d7d1;
+  --ring: #33423c;
+  --sidebar: #fffffc;
+  --sidebar-foreground: #161616;
+  --sidebar-primary: #161616;
+  --sidebar-primary-foreground: #fffffc;
+  --sidebar-accent: #eff3ea;
+  --sidebar-accent-foreground: #33423c;
+  --sidebar-border: #d9d7d1;
+  --sidebar-ring: #33423c;
+}
+
 .dark {
   --background: oklch(0.145 0 0);
   --foreground: oklch(0.985 0 0);

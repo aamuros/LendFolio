@@ -195,7 +195,11 @@ export function NotificationButton() {
         </ScrollArea>
         <Separator className="shrink-0" />
         <div className="shrink-0 bg-popover px-3 py-2">
-          <Button asChild variant="ghost" className="w-full justify-center">
+          <Button
+            asChild
+            variant="ghost"
+            className="w-full justify-center rounded-xl border border-border/80 bg-card text-accent-foreground shadow-[0_10px_30px_rgba(14,26,18,0.05)] hover:bg-accent hover:text-accent-foreground"
+          >
             <Link href="/notifications" onClick={() => setOpen(false)}>
               View all notifications
             </Link>

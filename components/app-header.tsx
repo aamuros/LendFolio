@@ -45,12 +45,12 @@ export function AppHeader({
   accountLabel?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:h-16 sm:px-6">
         <div className="flex items-center gap-6">
           <Link
             href="/"
-            className="text-base font-semibold tracking-tight text-foreground"
+            className="text-base font-semibold tracking-[0.12em] text-foreground uppercase"
           >
             LendFolio
           </Link>
@@ -101,8 +101,8 @@ export function AppHeader({
                   size="icon"
                   aria-label="Open profile menu"
                   className={cn(
-                    "rounded-full text-muted-foreground hover:text-foreground",
-                    isAccountActive && "bg-muted text-foreground",
+                    "rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isAccountActive && "bg-accent text-accent-foreground",
                   )}
                 >
                   <User className="size-5" />

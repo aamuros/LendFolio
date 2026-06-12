@@ -37,13 +37,13 @@ export function ActionCard({
       disabled={isLocked}
       aria-label={ariaLabel ?? title}
       className={cn(
-        "h-auto w-full justify-between gap-3 rounded-xl px-4 py-3.5 text-left font-normal",
+        "h-auto w-full justify-between gap-3 rounded-xl border-border/80 bg-card/80 px-4 py-3.5 text-left font-normal shadow-[0_10px_30px_rgba(14,26,18,0.05)] hover:bg-muted/80 hover:text-foreground focus-visible:ring-ring",
         isLocked && "opacity-70",
       )}
     >
       <span className="flex items-start gap-3">
         {icon ? (
-          <span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
+          <span className="mt-0.5 shrink-0 text-accent-foreground">{icon}</span>
         ) : null}
         <span className="grid gap-1">
           <span className="flex items-center gap-2">
@@ -67,7 +67,7 @@ export function ActionCard({
         </span>
       </span>
       {isLocked ? null : (
-        <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+        <ArrowRight className="size-4 shrink-0 text-accent-foreground" />
       )}
     </Button>
   );
@@ -93,7 +93,7 @@ export function OnboardingCallout({
   onAction,
 }: OnboardingCalloutProps) {
   return (
-    <Card className="rounded-2xl border-border/50 bg-muted/30 shadow-sm">
+    <Card className="rounded-2xl border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]">
       <CardContent className="grid gap-4 p-4 sm:p-5">
         <div className="grid gap-2">
           <div className="flex items-center gap-2">
@@ -112,7 +112,7 @@ export function OnboardingCallout({
               <span>{progressLabel ?? "Profile progress"}</span>
               <span className="font-semibold">{progressPercent}%</span>
             </div>
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-border">
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-border/80">
               <div
                 className="h-full rounded-full bg-primary transition-[width] duration-300"
                 style={{ width: `${Math.min(progressPercent, 100)}%` }}
@@ -122,7 +122,7 @@ export function OnboardingCallout({
         ) : null}
         <Button
           onClick={onAction}
-          className="w-full rounded-full font-semibold sm:w-fit"
+          className="w-full rounded-xl font-semibold hover:bg-[#0E1A12] sm:w-fit"
         >
           {cta}
         </Button>
