@@ -41,7 +41,7 @@ export default async function LenderApplicationDetailPage({
 
   if (!result.ok) {
     return (
-      <main className="min-h-svh bg-background">
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
           <LenderPageHeader activeTab="applications" />
           <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
@@ -73,7 +73,7 @@ export default async function LenderApplicationDetailPage({
     application.status === "accepted" || hasAcceptedOffer;
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-7xl">
         <LenderPageHeader activeTab="applications" />
         <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">

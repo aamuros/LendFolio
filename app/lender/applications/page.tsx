@@ -17,6 +17,8 @@ import {
   getLenderVerificationDocuments,
   calculateLenderVerificationDocumentPolicy,
 } from "@/lib/lender-verification";
+import { PageHeader, borrowerPageBottomPadding } from "@/components/borrower/ui";
+import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -25,10 +27,10 @@ export default async function LenderApplicationsPage() {
 
   if (!access.ok) {
     return (
-      <main className="min-h-svh bg-background">
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="applications" showNotifications={false} />
-          <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+          <LenderPageHeader activeTab="applications" />
+          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -74,10 +76,10 @@ export default async function LenderApplicationsPage() {
     }
 
     return (
-      <main className="min-h-svh bg-background">
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="applications" showNotifications={false} />
-          <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+          <LenderPageHeader activeTab="applications" />
+          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
             <LenderAccessPanel
               profile={access.profile}
               consentStatus={lenderConsentStatus}
@@ -96,20 +98,16 @@ export default async function LenderApplicationsPage() {
   const result = await loadOpenLenderApplications(access);
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-7xl">
         <LenderPageHeader activeTab="applications" />
 
-        <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
           <section className="grid gap-5">
-            <div className="grid gap-1">
-              <h1 className="text-xl font-semibold sm:text-2xl">
-                Open applications
-              </h1>
-              <p className="text-sm text-muted-foreground">
-                Review borrower context and send terms when there is a fit.
-              </p>
-            </div>
+            <PageHeader
+              title="Open applications"
+              description="Review borrower context and send terms when there is a fit."
+            />
 
             {!result.ok ? (
               <LenderApplicationsStatus message={result.message} tone="error" />

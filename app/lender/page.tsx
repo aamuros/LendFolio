@@ -36,6 +36,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { ToneBadge } from "@/components/borrower-status-badge";
+import {
+  BorrowerCard,
+  PageHeader,
+  borrowerPageBottomPadding,
+} from "@/components/borrower/ui";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
@@ -66,11 +71,11 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   if (!access.ok) {
     return (
-      <main className="min-h-svh bg-background">
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab={activeTab} showNotifications={false} />
-        <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
-          <LenderApplicationsStatus message={access.message} tone="error" />
+          <LenderPageHeader activeTab={activeTab} />
+          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+            <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />
@@ -115,10 +120,10 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     }
 
     return (
-      <main className="min-h-svh bg-background">
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab={activeTab} showNotifications={false} />
-          <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+          <LenderPageHeader activeTab={activeTab} />
+          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
             <LenderAccessPanel
               profile={access.profile}
               consentStatus={lenderConsentStatus}
@@ -209,11 +214,11 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   return (
-    <main className="min-h-svh bg-background">
+    <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-7xl">
         <LenderPageHeader activeTab={activeTab} />
 
-        <div className="px-5 pt-6 pb-36 sm:px-8 sm:pt-10">
+        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
           {activeTab === "home" ? (
             <HomeTab
               applications={applications}
@@ -315,12 +320,10 @@ function HomeTab({
 
   return (
     <section className="grid gap-5">
-      <div className="grid gap-1">
-        <h1 className="text-xl leading-tight font-semibold sm:text-2xl">Home</h1>
-        <p className="text-sm text-muted-foreground">
-          Review queue and portfolio overview.
-        </p>
-      </div>
+      <PageHeader
+        title="Lender home"
+        description="Review borrower requests, sent offers, and repayment activity."
+      />
 
       {applicationsError ? (
         <LenderApplicationsStatus message={applicationsError} tone="error" />
@@ -328,7 +331,7 @@ function HomeTab({
       {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
 
       <div className="grid gap-4 lg:grid-cols-12">
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
+        <BorrowerCard className="col-span-12 lg:col-span-8">
           <CardContent className="flex flex-1 flex-col gap-1 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Next action
@@ -367,9 +370,9 @@ function HomeTab({
               </div>
             )}
           </CardContent>
-        </Card>
+        </BorrowerCard>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
+        <BorrowerCard className="col-span-12 lg:col-span-4">
           <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Overview
@@ -400,9 +403,9 @@ function HomeTab({
               ) : null}
             </div>
           </CardContent>
-        </Card>
+        </BorrowerCard>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-8">
+        <BorrowerCard className="col-span-12 lg:col-span-8">
           <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
             <div className="flex items-center justify-between gap-2">
               <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -458,9 +461,9 @@ function HomeTab({
               </div>
             )}
           </CardContent>
-        </Card>
+        </BorrowerCard>
 
-        <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-4">
+        <BorrowerCard className="col-span-12 lg:col-span-4">
           <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               Offers &amp; loans
@@ -502,7 +505,7 @@ function HomeTab({
               </Link>
             </Button>
           </CardContent>
-        </Card>
+        </BorrowerCard>
       </div>
     </section>
   );

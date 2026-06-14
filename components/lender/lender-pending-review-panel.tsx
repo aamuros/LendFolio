@@ -1,14 +1,10 @@
-import { CheckCircle2, Clock } from "lucide-react";
+import { CheckCircle2, Clock, Upload } from "lucide-react";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
+import { BorrowerCard, PageHeader, StatusPill } from "@/components/borrower/ui";
 import { cn } from "@/lib/utils";
 import type { ConsentStatus } from "@/lib/consents";
 import type {
@@ -37,18 +33,31 @@ export function LenderPendingReviewPanel({
   const allDocumentsAccepted = documentPolicy.documentsAccepted;
   const hasSubmittedDocuments =
     documentPolicy.submittedDocumentTypes.length > 0;
+  const missingDocumentCount =
+    documentPolicy.missingRequiredDocumentTypes.length;
+  const needsDocumentUpload = !allDocumentsAccepted;
 
   return (
     <div className="grid gap-5">
-      <Card className="rounded-2xl border-border/50 bg-muted/30 shadow-sm">
+      <PageHeader
+        title="Lender profile"
+        description="Complete the remaining approval steps to activate lender access."
+      />
+
+      <BorrowerCard variant="dashboard">
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <Clock className="size-4 text-muted-foreground" />
-            <CardTitle className="text-sm font-semibold">
-              Your lender profile is under review
-            </CardTitle>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-muted-foreground" />
+              <CardTitle className="text-base font-semibold">
+                Profile under review
+              </CardTitle>
+            </div>
+            <StatusPill tone={needsDocumentUpload ? "attention" : "neutral"}>
+              {needsDocumentUpload ? "Documents needed" : "Under review"}
+            </StatusPill>
           </div>
-          <CardDescription className="text-xs leading-5">
+          <CardDescription className="text-sm leading-6">
             {allConsentsAccepted && allDocumentsAccepted
               ? "A manager will review your profile and lending details. You will be notified once a decision is made."
               : allConsentsAccepted
@@ -59,7 +68,7 @@ export function LenderPendingReviewPanel({
 
         <Separator />
 
-        <CardContent className="grid gap-3">
+        <CardContent className="grid gap-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Approval progress
           </p>
@@ -118,8 +127,29 @@ export function LenderPendingReviewPanel({
               </span>
             </div>
           </div>
+          {needsDocumentUpload ? (
+            <Button
+              asChild
+              className="h-11 w-full rounded-full font-semibold sm:w-fit"
+            >
+              <a href="#lender-verification-documents">
+                <Upload className="size-4" />
+                Upload documents
+              </a>
+            </Button>
+          ) : (
+            <p className="rounded-xl border border-[#C9D7C6] bg-[#EFF3EA] px-3 py-2 text-sm leading-6 text-[#33423C]">
+              No action needed right now.
+            </p>
+          )}
+          {needsDocumentUpload ? (
+            <p className="text-xs leading-5 text-muted-foreground">
+              {missingDocumentCount} required document
+              {missingDocumentCount === 1 ? "" : "s"} still need manager acceptance.
+            </p>
+          ) : null}
         </CardContent>
-      </Card>
+      </BorrowerCard>
 
       {!allConsentsAccepted ? (
         <ConsentAcceptancePanel

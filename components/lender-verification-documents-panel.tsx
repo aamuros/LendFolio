@@ -27,9 +27,7 @@ import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 import {
   UploadIcon,
-  CheckCircle2,
   Clock,
-  AlertCircle,
   FileText,
   Eye,
 } from "lucide-react";
@@ -72,7 +70,7 @@ export function LenderVerificationDocumentsPanel({
   }
 
   return (
-    <div className="grid gap-5">
+    <div id="lender-verification-documents" className="scroll-mt-24 grid gap-5">
       <HeaderCard
         facingState={facingState}
         rejectionReason={rejectionReason}
@@ -82,7 +80,6 @@ export function LenderVerificationDocumentsPanel({
 
       <RequiredDocumentsSection
         lenderProfileId={lenderProfileId}
-        verificationStatus={verificationStatus}
         documents={documents}
         documentPolicy={documentPolicy}
         canUpload={canUpload}
@@ -156,13 +153,11 @@ function HeaderCard({
 
 function RequiredDocumentsSection({
   lenderProfileId,
-  verificationStatus,
   documents,
   documentPolicy,
   canUpload,
 }: {
   lenderProfileId: string;
-  verificationStatus: string;
   documents: LenderVerificationDocumentSummary[];
   documentPolicy: LenderVerificationDocumentPolicy;
   canUpload: boolean;

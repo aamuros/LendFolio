@@ -4,8 +4,9 @@ import {
   isApplicationActionableForOffer,
   type LenderApplicationReview,
 } from "@/lib/lender-applications";
-import { Card, CardContent } from "@/components/ui/card";
+import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { BorrowerCard } from "@/components/borrower/ui";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
 
@@ -48,24 +49,21 @@ export function LenderApplicationsList({
 }: LenderApplicationsListProps) {
   if (applications.length === 0) {
     return (
-      <Card className="rounded-2xl border-dashed border-border/50">
+      <BorrowerCard variant="dashed">
         <CardContent className="grid gap-2 p-5 text-center">
           <p className="text-lg font-semibold">No open applications</p>
           <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
             New borrower applications will appear here.
           </p>
         </CardContent>
-      </Card>
+      </BorrowerCard>
     );
   }
 
   return (
     <div className="grid gap-3">
       {applications.map((application) => (
-        <Card
-          key={application.id}
-          className="rounded-2xl border-border/50 shadow-sm"
-        >
+        <BorrowerCard key={application.id}>
           <CardContent className="grid gap-3 p-4">
             <div className="grid gap-2">
               <div className="flex flex-wrap items-center gap-2">
@@ -116,7 +114,7 @@ export function LenderApplicationsList({
               </Button>
             </div>
           </CardContent>
-        </Card>
+        </BorrowerCard>
       ))}
     </div>
   );
@@ -145,8 +143,8 @@ export function LenderApplicationsStatus({
       className={cn(
         "rounded-xl border px-3 py-3 text-sm leading-6",
         tone === "error"
-          ? "border-destructive/30 bg-destructive/10 text-destructive"
-          : "border-border bg-muted/30 text-foreground",
+          ? "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]"
+          : "border-border/90 bg-card/80 text-foreground",
       )}
       role={tone === "error" ? "alert" : "status"}
     >
