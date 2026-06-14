@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Landmark } from "lucide-react";
 import type { AppRole } from "@/lib/supabase/types";
 import type { WorkspaceConfig } from "@/lib/app-roles";
+import { Logo } from "@/components/brand/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -53,9 +53,7 @@ export function AppSidebar({
               className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
             >
               <Link href={dashboardHref}>
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Landmark className="size-4" />
-                </div>
+                <Logo variant="icon" size="md" className="rounded-full" />
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold">LendFolio</span>
                   <span className="truncate text-xs text-muted-foreground">

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -41,7 +42,7 @@ export function FloatingLandingHeader() {
       >
         <div
           className={cn(
-            "relative flex min-h-16 items-center justify-between gap-4 border px-4 transition-all duration-300 ease-out sm:px-6",
+            "relative flex min-h-20 items-center justify-between gap-4 border px-4 transition-all duration-300 ease-out sm:px-6",
             isScrolled
               ? "rounded-2xl border-[#D9D7D1]/80 bg-[#FFFFFC]/85 shadow-[0_18px_50px_rgba(14,26,18,0.12)] backdrop-blur-xl"
               : "rounded-none border-transparent bg-transparent shadow-none backdrop-blur-0",
@@ -49,10 +50,11 @@ export function FloatingLandingHeader() {
         >
           <Link
             href="/"
-            className="shrink-0 text-sm font-semibold tracking-[0.18em] uppercase focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            className="inline-flex shrink-0 items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            aria-label="LendFolio home"
             onClick={() => setMenuOpen(false)}
           >
-            LendFolio
+            <Logo size="sm" priority className="sm:h-12 sm:w-[240px]" />
           </Link>
 
           <div className="absolute inset-0 m-auto hidden h-fit w-fit lg:block">
