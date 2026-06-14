@@ -3,6 +3,7 @@
 import {
   useActionState,
   useEffect,
+  useId,
   useRef,
   useState,
 } from "react";
@@ -227,6 +228,8 @@ function RequiredDocumentRow({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputId = useId();
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [state, formAction, isPending] = useActionState(
     submitLenderVerificationDocument,
     initialState,
@@ -238,6 +241,7 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
+    window.setTimeout(() => setSelectedFileName(null), 0);
     router.refresh();
   }, [router, state]);
 
@@ -247,9 +251,15 @@ function RequiredDocumentRow({
   ) ?? null;
   const showUpload =
     canUpload && docStatus.state !== "accepted";
+  const uploadButtonLabel =
+    docStatus.state === "rejected" || latestDoc ? "Replace file" : "Upload file";
 
   return (
-    <div>
+    <div
+      tabIndex={-1}
+      data-lender-document-state={docStatus.state}
+      className="focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       <div className="grid gap-4 px-5 py-4 sm:py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -303,29 +313,42 @@ function RequiredDocumentRow({
             <input type="hidden" name="documentType" value={documentType} />
             <input type="hidden" name="lenderProfileId" value={lenderProfileId} />
             <input
+              id={fileInputId}
               name="documentFile"
               type="file"
               accept="image/jpeg,image/png,image/webp,application/pdf"
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="sr-only"
+              onChange={(event) => {
+                setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+              }}
               required
             />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                className="h-8 rounded-full px-3.5 text-xs font-semibold"
+              >
+                <label htmlFor={fileInputId}>
+                  <UploadIcon className="size-3" />
+                  {uploadButtonLabel}
+                </label>
+              </Button>
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || !selectedFileName}
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
-                <UploadIcon className="size-3" />
                 {isPending
                   ? "Uploading..."
                   : docStatus.state === "rejected"
-                    ? "Replace"
+                    ? "Submit replacement"
                     : latestDoc
-                      ? "Replace"
-                      : "Upload"}
+                      ? "Submit replacement"
+                      : "Submit document"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, WebP, or PDF. Max 5 MB.
+                {selectedFileName ?? "JPG, PNG, WebP, or PDF. Max 5 MB."}
               </p>
             </div>
           </form>

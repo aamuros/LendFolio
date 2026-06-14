@@ -1,4 +1,7 @@
-import { CheckCircle2, Clock, Upload } from "lucide-react";
+"use client";
+
+import { useCallback } from "react";
+import { CheckCircle2, ClipboardList, Clock } from "lucide-react";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,6 +39,38 @@ export function LenderPendingReviewPanel({
   const missingDocumentCount =
     documentPolicy.missingRequiredDocumentTypes.length;
   const needsDocumentUpload = !allDocumentsAccepted;
+  const uploadNeededCount = documentPolicy.requiredDocumentTypes.filter(
+    (documentType) =>
+      !documentPolicy.submittedDocumentTypes.includes(documentType) ||
+      documentPolicy.rejectedDocumentTypes.includes(documentType),
+  ).length;
+  const waitingDocumentCount = documentPolicy.requiredDocumentTypes.filter(
+    (documentType) =>
+      documentPolicy.submittedDocumentTypes.includes(documentType) &&
+      !documentPolicy.acceptedDocumentTypes.includes(documentType) &&
+      !documentPolicy.rejectedDocumentTypes.includes(documentType),
+  ).length;
+
+  const handleViewDocuments = useCallback(() => {
+    const section = document.getElementById("lender-verification-documents");
+
+    section?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
+
+    window.setTimeout(() => {
+      const firstActionableRow =
+        section?.querySelector<HTMLElement>(
+          '[data-lender-document-state="missing"], [data-lender-document-state="rejected"]',
+        ) ??
+        section?.querySelector<HTMLElement>(
+          '[data-lender-document-state="submitted"]',
+        );
+
+      firstActionableRow?.focus({ preventScroll: true });
+    }, 350);
+  }, []);
 
   return (
     <div className="grid gap-5">
@@ -129,13 +164,12 @@ export function LenderPendingReviewPanel({
           </div>
           {needsDocumentUpload ? (
             <Button
-              asChild
+              type="button"
               className="h-11 w-full rounded-full font-semibold sm:w-fit"
+              onClick={handleViewDocuments}
             >
-              <a href="#lender-verification-documents">
-                <Upload className="size-4" />
-                Upload documents
-              </a>
+              <ClipboardList className="size-4" />
+              Complete document requirements
             </Button>
           ) : (
             <p className="rounded-xl border border-[#C9D7C6] bg-[#EFF3EA] px-3 py-2 text-sm leading-6 text-[#33423C]">
@@ -144,8 +178,11 @@ export function LenderPendingReviewPanel({
           )}
           {needsDocumentUpload ? (
             <p className="text-xs leading-5 text-muted-foreground">
-              {missingDocumentCount} required document
-              {missingDocumentCount === 1 ? "" : "s"} still need manager acceptance.
+              {getDocumentProgressMessage({
+                missingDocumentCount,
+                uploadNeededCount,
+                waitingDocumentCount,
+              })}
             </p>
           ) : null}
         </CardContent>
@@ -172,4 +209,30 @@ export function LenderPendingReviewPanel({
       ) : null}
     </div>
   );
+}
+
+function getDocumentProgressMessage({
+  missingDocumentCount,
+  uploadNeededCount,
+  waitingDocumentCount,
+}: {
+  missingDocumentCount: number;
+  uploadNeededCount: number;
+  waitingDocumentCount: number;
+}) {
+  if (uploadNeededCount > 0) {
+    return `${uploadNeededCount} required document${
+      uploadNeededCount === 1 ? "" : "s"
+    } still need your upload.`;
+  }
+
+  if (waitingDocumentCount > 0) {
+    return `${waitingDocumentCount} uploaded document${
+      waitingDocumentCount === 1 ? " is" : "s are"
+    } waiting for manager acceptance.`;
+  }
+
+  return `${missingDocumentCount} document${
+    missingDocumentCount === 1 ? "" : "s"
+  } still need to be uploaded or accepted by a manager.`;
 }
