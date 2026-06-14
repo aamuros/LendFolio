@@ -11,14 +11,14 @@ const tabs: AppBottomTab<LenderTab>[] = [
     id: "applications",
     label: "Applications",
     icon: "applications",
-    href: "/lender/applications",
+    href: "/lender?tab=applications",
   },
   { id: "offers", label: "Offers", icon: "offers", href: "/lender?tab=offers" },
 ];
 
 const desktopTabs: AppHeaderNavItem[] = [
   { id: "home", label: "Home", href: "/lender" },
-  { id: "applications", label: "Applications", href: "/lender/applications" },
+  { id: "applications", label: "Applications", href: "/lender?tab=applications" },
   { id: "offers", label: "Offers", href: "/lender?tab=offers" },
 ];
 

@@ -4,6 +4,7 @@ import { ArrowRight } from "lucide-react";
 import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
 import {
+  LenderApplicationsList,
   formatCurrency,
   formatDate,
   LenderApplicationsStatus,
@@ -67,11 +68,13 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   const activeTab =
-    tab === "offers"
-      ? "offers"
-      : tab === "account" || tab === "profile"
-        ? "profile"
-        : "home";
+    tab === "applications"
+      ? "applications"
+      : tab === "offers"
+        ? "offers"
+        : tab === "account" || tab === "profile"
+          ? "profile"
+          : "home";
   const access = await getCurrentUserProfile();
 
   if (!access.ok) {
@@ -132,6 +135,32 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <div className="mx-auto max-w-7xl">
           <LenderPageHeader activeTab={activeTab} />
           <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+            {activeTab === "home" ? (
+              <LenderAccessPanel
+                profile={access.profile}
+                consentStatus={lenderConsentStatus}
+                documents={pendingDocuments}
+                documentPolicy={pendingDocumentPolicy}
+              />
+            ) : null}
+
+            {activeTab === "applications" ? (
+              <ApplicationsTab
+                applications={[]}
+                error=""
+                emptyDescription="Borrower applications will appear here once your lender account is approved."
+              />
+            ) : null}
+
+            {activeTab === "offers" ? (
+              <OffersTab
+                offers={[]}
+                error=""
+                highlightOfferId={null}
+                highlightProofId={null}
+              />
+            ) : null}
+
             {activeTab === "profile" ? (
               <LenderAccountTabWrapper
                 email={user?.email ?? ""}
@@ -141,14 +170,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
                 consentStatus={lenderConsentStatus}
                 changeRequests={[]}
               />
-            ) : (
-              <LenderAccessPanel
-                profile={access.profile}
-                consentStatus={lenderConsentStatus}
-                documents={pendingDocuments}
-                documentPolicy={pendingDocumentPolicy}
-              />
-            )}
+            ) : null}
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />
@@ -192,6 +214,10 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     offers = offersResult.ok ? offersResult.offers : [];
     applicationsError = !applicationsResult.ok ? applicationsResult.message : "";
     offersError = !offersResult.ok ? offersResult.message : "";
+  } else if (activeTab === "applications") {
+    const applicationsResult = await loadOpenLenderApplications(access);
+    applications = applicationsResult.ok ? applicationsResult.applications : [];
+    applicationsError = !applicationsResult.ok ? applicationsResult.message : "";
   } else if (activeTab === "offers") {
     const offersResult = await loadLenderOffers(access);
     offers = offersResult.ok ? offersResult.offers : [];
@@ -256,6 +282,13 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             />
           ) : null}
 
+          {activeTab === "applications" ? (
+            <ApplicationsTab
+              applications={applications}
+              error={applicationsError}
+            />
+          ) : null}
+
           {activeTab === "profile" ? (
             <LenderAccountTabWrapper
               email={user?.email ?? ""}
@@ -276,6 +309,32 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         </div>
       </div>
     </main>
+  );
+}
+
+function ApplicationsTab({
+  applications,
+  error,
+  emptyDescription = "Borrower applications will appear here once your lender account is approved.",
+}: {
+  applications: LenderApplicationReview[];
+  error: string;
+  emptyDescription?: string;
+}) {
+  return (
+    <section className="grid gap-5">
+      <PageHeader
+        title="Open applications"
+        description="Review borrower context and send terms when there is a fit."
+      />
+
+      {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
+      <LenderApplicationsList
+        applications={applications}
+        emptyTitle="No applications yet"
+        emptyDescription={emptyDescription}
+      />
+    </section>
   );
 }
 
@@ -320,7 +379,7 @@ function HomeTab({
         ? {
             title: "Review applications",
             description: `${needsReviewCount} borrower ${needsReviewCount === 1 ? "request needs" : "requests need"} your review before sending terms.`,
-            href: "/lender/applications" as const,
+            href: "/lender?tab=applications" as const,
             count: needsReviewCount,
           }
         : pendingOffers > 0
@@ -385,7 +444,7 @@ function HomeTab({
                   New borrower requests will appear in your review queue.
                 </p>
                 <Button asChild variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl px-3 py-2.5 sm:w-fit">
-                  <Link href="/lender/applications">
+                  <Link href="/lender?tab=applications">
                     Open applications
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
                   </Link>
@@ -469,7 +528,7 @@ function HomeTab({
                 })}
                 {needsReviewCount > 3 ? (
                   <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
-                    <Link href="/lender/applications">
+                    <Link href="/lender?tab=applications">
                       View all {needsReviewCount} applications
                       <ArrowRight className="size-3.5" />
                     </Link>
@@ -583,9 +642,9 @@ function OffersTab({
       {offers.length === 0 && !error ? (
         <Card className="rounded-2xl border-dashed border-border/50">
           <CardContent className="grid gap-2 p-5 text-center">
-            <p className="text-lg font-semibold">No sent offers</p>
+            <p className="text-lg font-semibold">No offers yet</p>
             <p className="text-sm text-muted-foreground">
-              Sent offers will appear here.
+              Your submitted or available funding offers will appear here.
             </p>
           </CardContent>
         </Card>
