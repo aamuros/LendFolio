@@ -234,7 +234,7 @@ Every table has RLS enabled. Policies enforce:
 
 ### Consent Management
 
-- Five consent types: Terms of Service, Privacy Notice, Credit Review Authorization, Document Processing Consent, Lender Review Consent.
+- Five consent types: Terms of Service, Privacy Notice, Credit Review Authorization, Document Processing Consent, Authorization for Lender Verification.
 - Four consent scopes: signup baseline, borrower document upload, borrower loan application, lender review.
 - Versioned consent records with IP address and user agent metadata.
 - Current consent versions are enforced before any gated workflow action.

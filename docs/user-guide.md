@@ -105,7 +105,7 @@ The system validates your credit readiness, credit limit, and verification statu
    - **Minimum and maximum loan amounts**
    - **Typical repayment terms**
    - **Lender description**
-2. Accept the **Lender Review Consent**.
+2. Accept the **Authorization for Lender Verification**.
 3. Click **Submit Onboarding**.
 
 Your profile enters **pending** status. You will see a message indicating that your account is under review.
@@ -219,7 +219,7 @@ Manager accounts are manually provisioned (not self-serve). After receiving cred
    - Readiness summary (profile completeness, documents, disclosures)
    - Lending details (organization, operating area, loan range, terms)
    - Required documents (5 types) with individual review status
-   - Disclosure details (lender review consent)
+   - Disclosure details (authorization for lender verification)
    - Evidence history
    - Profile change requests (pending, approved, rejected)
 4. **Accept** or **reject** individual documents.

@@ -126,7 +126,7 @@ export const lenderOnboardingSchema = z.object({
     .optional()
     .or(z.literal("")),
   lenderReviewConsentAccepted: requiredConsentCheckbox(
-    "Accept the required lender-review disclosures before submitting.",
+    "Accept the Authorization for Lender Verification before submitting.",
   ),
 }).superRefine((value, context) => {
   if (value.maxLoanAmount < value.minLoanAmount) {

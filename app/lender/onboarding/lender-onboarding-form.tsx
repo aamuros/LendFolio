@@ -392,9 +392,12 @@ export function LenderOnboardingForm({
                 />
                 <Label
                   htmlFor="lenderReviewConsentAccepted"
-                  className="text-sm font-semibold leading-snug cursor-pointer"
+                  className="grid cursor-pointer gap-1 text-sm font-semibold leading-snug"
                 >
-                  I accept the required lender-review disclosures for manager review.
+                  <span>Authorization for Lender Verification</span>
+                  <span className="text-xs font-normal leading-5 text-muted-foreground">
+                    I authorize LendFolio to review my lender profile, verify my submitted documents, and assess my eligibility to access lender features.
+                  </span>
                 </Label>
               </div>
               <FieldErrorHelper
