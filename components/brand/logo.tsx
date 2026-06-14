@@ -3,15 +3,15 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const fullSizeClasses = {
-  sm: "h-[clamp(2rem,4.5vw,2.75rem)] w-[clamp(10rem,24vw,13.75rem)]",
-  md: "h-[clamp(2.25rem,4.75vw,3rem)] w-[clamp(11.25rem,26vw,15rem)]",
-  lg: "h-[clamp(2.5rem,5vw,3.25rem)] w-[clamp(12.5rem,28vw,16.25rem)]",
+  sm: "h-[clamp(1.45rem,2vw,2.1rem)] w-[clamp(7.25rem,10vw,10.5rem)]",
+  md: "h-[clamp(1.55rem,2.2vw,2.1rem)] w-[clamp(7.75rem,11vw,10.5rem)]",
+  lg: "h-[clamp(1.65rem,2.4vw,2.1rem)] w-[clamp(8.25rem,12vw,10.5rem)]",
 };
 
 const wordmarkSizeClasses = {
-  sm: "h-[clamp(2rem,4.5vw,2.75rem)] w-[clamp(10rem,24vw,13.75rem)]",
-  md: "h-[clamp(2.25rem,4.75vw,3rem)] w-[clamp(11.25rem,26vw,15rem)]",
-  lg: "h-[clamp(2.5rem,5vw,3.25rem)] w-[clamp(12.5rem,28vw,16.25rem)]",
+  sm: "h-[clamp(1.45rem,2vw,2.1rem)] w-[clamp(7.25rem,10vw,10.5rem)]",
+  md: "h-[clamp(1.55rem,2.2vw,2.1rem)] w-[clamp(7.75rem,11vw,10.5rem)]",
+  lg: "h-[clamp(1.65rem,2.4vw,2.1rem)] w-[clamp(8.25rem,12vw,10.5rem)]",
 };
 
 const iconSizeClasses = {

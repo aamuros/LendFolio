@@ -42,7 +42,7 @@ export function FloatingLandingHeader() {
       >
         <div
           className={cn(
-            "relative flex min-h-16 items-center justify-between gap-3 border px-4 transition-all duration-300 ease-out sm:min-h-[4.5rem] sm:gap-4 sm:px-6",
+            "relative flex h-16 items-center justify-between gap-3 border px-4 transition-all duration-300 ease-out sm:gap-4 sm:px-6",
             isScrolled
               ? "rounded-2xl border-[#D9D7D1]/80 bg-[#FFFFFC]/85 shadow-[0_18px_50px_rgba(14,26,18,0.12)] backdrop-blur-xl"
               : "rounded-none border-transparent bg-transparent shadow-none backdrop-blur-0",
