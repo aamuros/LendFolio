@@ -42,7 +42,7 @@ export function FloatingLandingHeader() {
       >
         <div
           className={cn(
-            "relative flex min-h-20 items-center justify-between gap-4 border px-4 transition-all duration-300 ease-out sm:px-6",
+            "relative flex min-h-16 items-center justify-between gap-3 border px-4 transition-all duration-300 ease-out sm:min-h-[4.5rem] sm:gap-4 sm:px-6",
             isScrolled
               ? "rounded-2xl border-[#D9D7D1]/80 bg-[#FFFFFC]/85 shadow-[0_18px_50px_rgba(14,26,18,0.12)] backdrop-blur-xl"
               : "rounded-none border-transparent bg-transparent shadow-none backdrop-blur-0",
@@ -50,15 +50,15 @@ export function FloatingLandingHeader() {
         >
           <Link
             href="/"
-            className="inline-flex shrink-0 items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
+            className="flex min-w-0 shrink-0 items-center whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#161616]"
             aria-label="LendFolio home"
             onClick={() => setMenuOpen(false)}
           >
-            <Logo size="sm" priority className="sm:h-12 sm:w-[240px]" />
+            <Logo size="sm" priority />
           </Link>
 
-          <div className="absolute inset-0 m-auto hidden h-fit w-fit lg:block">
-            <div className="flex items-center gap-7 text-sm text-[#55534F]">
+          <div className="absolute inset-0 m-auto hidden h-fit w-fit xl:block">
+            <div className="flex items-center gap-6 text-sm text-[#55534F]">
               {navLinks.map((link) => (
                 <a
                   key={link.href}

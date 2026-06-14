@@ -3,15 +3,15 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 
 const fullSizeClasses = {
-  sm: "h-10 w-[200px]",
-  md: "h-12 w-[240px]",
-  lg: "h-14 w-[280px]",
+  sm: "h-[clamp(2rem,4.5vw,2.75rem)] w-[clamp(10rem,24vw,13.75rem)]",
+  md: "h-[clamp(2.25rem,4.75vw,3rem)] w-[clamp(11.25rem,26vw,15rem)]",
+  lg: "h-[clamp(2.5rem,5vw,3.25rem)] w-[clamp(12.5rem,28vw,16.25rem)]",
 };
 
 const wordmarkSizeClasses = {
-  sm: "h-10 w-[200px]",
-  md: "h-12 w-[240px]",
-  lg: "h-14 w-[280px]",
+  sm: "h-[clamp(2rem,4.5vw,2.75rem)] w-[clamp(10rem,24vw,13.75rem)]",
+  md: "h-[clamp(2.25rem,4.75vw,3rem)] w-[clamp(11.25rem,26vw,15rem)]",
+  lg: "h-[clamp(2.5rem,5vw,3.25rem)] w-[clamp(12.5rem,28vw,16.25rem)]",
 };
 
 const iconSizeClasses = {
