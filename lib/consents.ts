@@ -40,7 +40,7 @@ export const consentTypeLabels = {
   privacy_notice: "Privacy Notice",
   credit_review_authorization: "Credit Review Authorization",
   document_processing_consent: "Document Processing Consent",
-  lender_review_consent: "Authorization for Lender Verification",
+  lender_review_consent: "Authorization for Verification",
 } as const satisfies Record<UserConsentType, string>;
 
 export const consentTypeDescriptions = {
@@ -48,8 +48,7 @@ export const consentTypeDescriptions = {
   privacy_notice: "",
   credit_review_authorization: "",
   document_processing_consent: "",
-  lender_review_consent:
-    "I authorize LendFolio to review my lender profile, verify my submitted documents, and assess my eligibility to access lender features.",
+  lender_review_consent: "",
 } as const satisfies Record<UserConsentType, string>;
 
 export const consentTypeDetailText = {

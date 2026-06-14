@@ -32,6 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 
 type ConsentAcceptancePanelProps = {
   status: ConsentStatus;
@@ -50,12 +52,12 @@ const scopeDescriptions: Record<ConsentScope, string> = {
   borrower_loan_application:
     "To submit a loan application, you must accept the Credit Review Authorization. This allows LendFolio to review your profile and financial details for credit assessment purposes.",
   lender_review:
-    "To continue lender verification, accept the Authorization for Lender Verification.",
+    "To continue lender verification, accept the Authorization for Verification.",
 };
 
 const scopeTitles: Partial<Record<ConsentScope, string>> = {
   borrower_loan_application: "Credit Review Authorization",
-  lender_review: "Authorization for Lender Verification",
+  lender_review: "Authorization for Verification",
 };
 
 const scopeAcceptanceLabels: Partial<Record<ConsentScope, string>> = {
@@ -277,17 +279,36 @@ function OnboardingConsentPanel({
                   className="mt-0.5"
                 />
               )}
-              <div className="grid gap-0.5 min-w-0">
-                <Label
-                  htmlFor={
-                    accepted
-                      ? undefined
-                      : `consent-${scope}-${consent.consentType}`
-                  }
-                  className="text-sm font-medium leading-snug cursor-pointer"
-                >
-                  {consentTypeLabels[consent.consentType]}
-                </Label>
+              <div className="grid min-w-0 gap-0.5">
+                {consent.consentType === "lender_review_consent" ? (
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold leading-snug text-foreground">
+                      {consentTypeLabels[consent.consentType]}
+                    </p>
+                    <LegalDialog
+                      trigger={
+                        <button
+                          type="button"
+                          className="w-fit text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
+                        >
+                          View details
+                        </button>
+                      }
+                      content={lenderVerificationAuthorizationContent}
+                    />
+                  </div>
+                ) : (
+                  <Label
+                    htmlFor={
+                      accepted
+                        ? undefined
+                        : `consent-${scope}-${consent.consentType}`
+                    }
+                    className="cursor-pointer text-sm font-medium leading-snug"
+                  >
+                    {consentTypeLabels[consent.consentType]}
+                  </Label>
+                )}
                 {consentTypeDescriptions[consent.consentType] ? (
                   <p className="text-xs leading-5 text-muted-foreground">
                     {consentTypeDescriptions[consent.consentType]}

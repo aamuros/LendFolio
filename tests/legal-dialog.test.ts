@@ -119,6 +119,14 @@ describe("terms and privacy content separation", () => {
     expect(termsSource).toContain('title: "Privacy Notice"');
   });
 
+  it("defines lender verification authorization content", () => {
+    expect(termsSource).toContain(
+      'title: "Authorization for Verification"',
+    );
+    expect(termsSource).toContain('lastUpdated: "June 14, 2026"');
+    expect(termsSource).toContain("does not require the lender to fund any loan");
+  });
+
   it("assigns different version identifiers", () => {
     expect(termsSource).toContain('version: "2026-05-terms-v1"');
     expect(termsSource).toContain('version: "2026-05-privacy-v1"');

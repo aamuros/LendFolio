@@ -41,7 +41,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertCircle, CheckCircle2 } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 
 const initialState: LenderOnboardingState = {
   message: "",
@@ -390,15 +391,24 @@ export function LenderOnboardingForm({
                   className="mt-0.5"
                   defaultChecked={restoredValues?.lenderReviewConsentAccepted}
                 />
-                <Label
-                  htmlFor="lenderReviewConsentAccepted"
-                  className="grid cursor-pointer gap-1 text-sm font-semibold leading-snug"
-                >
-                  <span>Authorization for Lender Verification</span>
-                  <span className="text-xs font-normal leading-5 text-muted-foreground">
-                    I authorize LendFolio to review my lender profile, verify my submitted documents, and assess my eligibility to access lender features.
-                  </span>
-                </Label>
+                <div className="grid gap-1 text-sm leading-snug">
+                  <div className="grid gap-1">
+                    <p className="font-semibold text-foreground">
+                      Authorization for Verification
+                    </p>
+                    <LegalDialog
+                      trigger={
+                        <button
+                          type="button"
+                          className="w-fit text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
+                        >
+                          View details
+                        </button>
+                      }
+                      content={lenderVerificationAuthorizationContent}
+                    />
+                  </div>
+                </div>
               </div>
               <FieldErrorHelper
                 messages={state.fieldErrors?.lenderReviewConsentAccepted}
