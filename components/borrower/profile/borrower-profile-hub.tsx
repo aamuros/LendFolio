@@ -46,6 +46,15 @@ type ProfileMode =
   | "account"
   | "support";
 type PortfolioLoadState = "loading" | "ready" | "empty" | "error";
+type ProfileStatusAction = "edit" | "borrowingPower" | null;
+type ProfileStatus = {
+  tone: "neutral" | "attention" | "ready";
+  label: string;
+  title: string;
+  description: string;
+  action: ProfileStatusAction;
+  actionLabel: string | null;
+};
 
 export function BorrowerProfileHub({
   accountEmail,
@@ -84,6 +93,7 @@ export function BorrowerProfileHub({
     loadState,
     portfolio,
     readiness,
+    creditSummary,
     verification?.status ?? null,
   );
   const verificationLabel =
@@ -410,7 +420,14 @@ export function BorrowerProfileHub({
           {profileStatus.tone !== "ready" ? (
             <ProfileStatusBanner
               status={profileStatus}
-              onAction={onCompleteProfile}
+              onAction={() => {
+                if (profileStatus.action === "borrowingPower") {
+                  onProfileViewChange("borrowingPower");
+                  return;
+                }
+
+                onCompleteProfile();
+              }}
             />
           ) : null}
 
@@ -507,12 +524,13 @@ function ProfileHubSkeleton() {
   );
 }
 
-function getProfileStatus(
+export function getProfileStatus(
   loadState: PortfolioLoadState,
   portfolio: BorrowerPortfolioInput | null,
   readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
   verificationStatus: BorrowerVerificationSummary["status"] | null,
-) {
+): ProfileStatus {
   if (loadState === "loading") {
     return {
       tone: "neutral" as const,
@@ -546,30 +564,6 @@ function getProfileStatus(
     };
   }
 
-  if (
-    readiness?.readinessStatus === "needs_review" ||
-    readiness?.readinessStatus === "not_eligible"
-  ) {
-    const hasVagueLoanPurpose =
-      readiness.riskFlags.includes("vague_loan_purpose");
-
-    return {
-      tone: "attention" as const,
-      label: hasVagueLoanPurpose ? "Update needed" : "Profile needs update",
-      title: hasVagueLoanPurpose
-        ? "Add more detail to your loan purpose"
-        : "Review your profile",
-      description: hasVagueLoanPurpose
-        ? "Add more detail to your loan purpose before applying."
-        : readiness.nextActions[0] ??
-          "Some profile details may affect loan application readiness.",
-      action: "edit" as const,
-      actionLabel: hasVagueLoanPurpose
-        ? "Edit loan purpose"
-        : "Update profile details",
-    };
-  }
-
   if (readiness?.readinessStatus === "incomplete") {
     return {
       tone: "attention" as const,
@@ -579,6 +573,30 @@ function getProfileStatus(
         readiness.nextActions[0] ?? "A few required details are still missing.",
       action: "edit" as const,
       actionLabel: "Update profile details",
+    };
+  }
+
+  const hasVagueLoanPurpose =
+    readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
+  const hasProfileReadinessIssue = hasActualProfileReadinessIssue(readiness);
+
+  if (hasVagueLoanPurpose || hasProfileReadinessIssue) {
+    const isLoanPurposeIssue = hasVagueLoanPurpose;
+
+    return {
+      tone: "attention" as const,
+      label: isLoanPurposeIssue ? "Update needed" : "Profile needs update",
+      title: isLoanPurposeIssue
+        ? "Add more detail to your loan purpose"
+        : "Review your profile",
+      description: isLoanPurposeIssue
+        ? "Add more detail to your loan purpose before applying."
+        : readiness?.nextActions[0] ??
+          "Some profile details may affect loan application readiness.",
+      action: "edit" as const,
+      actionLabel: isLoanPurposeIssue
+        ? "Edit loan purpose"
+        : "Update profile details",
     };
   }
 
@@ -593,6 +611,31 @@ function getProfileStatus(
     };
   }
 
+  if (hasOnlyNoAvailableCreditIssue(readiness, creditSummary)) {
+    return {
+      tone: "attention" as const,
+      label: "Credit limit reached",
+      title: "No available credit remaining",
+      description:
+        "You have used your available credit. Repay an active loan or wait for credit to become available before applying again.",
+      action: "borrowingPower" as const,
+      actionLabel: "View borrowing power",
+    };
+  }
+
+  if (readiness?.readinessStatus === "not_eligible") {
+    return {
+      tone: "attention" as const,
+      label: "Not eligible",
+      title: "Applications are not available",
+      description:
+        readiness.nextActions[0] ??
+        "A current account or credit requirement must be resolved before applying.",
+      action: null,
+      actionLabel: null,
+    };
+  }
+
   return {
     tone: "ready" as const,
     label: "Ready to apply",
@@ -601,6 +644,47 @@ function getProfileStatus(
     action: null,
     actionLabel: null,
   };
+}
+
+function hasOnlyNoAvailableCreditIssue(
+  readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
+) {
+  if (!readiness || readiness.readinessStatus !== "not_eligible") {
+    return false;
+  }
+
+  const hasNoAvailableCredit =
+    readiness.riskFlags.includes("no_available_credit") ||
+    (creditSummary !== null && creditSummary.availableCredit <= 0);
+
+  return (
+    hasNoAvailableCredit &&
+    readiness.missingFields.length === 0 &&
+    !readiness.profileIsStale &&
+    readiness.riskFlags.every((flag) => flag === "no_available_credit")
+  );
+}
+
+function hasActualProfileReadinessIssue(
+  readiness: BorrowerReadinessResult | null,
+) {
+  if (!readiness) {
+    return false;
+  }
+
+  if (readiness.missingFields.length > 0 || readiness.profileIsStale) {
+    return true;
+  }
+
+  if (
+    readiness.readinessStatus !== "needs_review" &&
+    readiness.readinessStatus !== "not_eligible"
+  ) {
+    return false;
+  }
+
+  return readiness.riskFlags.some((flag) => flag !== "no_available_credit");
 }
 
 function formatYearsInOperation(value: number) {

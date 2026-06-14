@@ -95,6 +95,15 @@ export function BorrowerWorkspace({
   const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
+  function refreshBorrowerLoanState() {
+    startTransition(() => {
+      void loadBorrowerLoanApplications().then((result) => {
+        setCreditSummary(result.creditSummary);
+        setReadiness(result.readiness);
+      });
+    });
+  }
+
   function navigateToVerification() {
     setPostSaveVerification(false);
     setActiveTab("profile");
@@ -247,6 +256,9 @@ export function BorrowerWorkspace({
   function handleProfileViewChange(view: ProfileMode) {
     setPostSaveVerification(false);
     setProfileMode(view);
+    if (view === "index") {
+      refreshBorrowerLoanState();
+    }
   }
 
   return (
