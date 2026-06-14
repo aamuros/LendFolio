@@ -3,7 +3,7 @@
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 import { AppHeader, type AppHeaderNavItem } from "@/components/app-header";
 
-export type LenderTab = "home" | "applications" | "offers" | "account";
+export type LenderTab = "home" | "applications" | "offers" | "profile" | "account";
 
 const tabs: AppBottomTab<LenderTab>[] = [
   { id: "home", label: "Home", icon: "home", href: "/lender" },
@@ -47,9 +47,9 @@ export function LenderHeader({
       activeNavId={activeTab}
       accountEmail={accountEmail}
       showNotifications={showNotifications}
-      isAccountActive={activeTab === "account"}
-      accountHref="/lender?tab=account"
-      accountLabel="Account"
+      isAccountActive={activeTab === "profile" || activeTab === "account"}
+      accountHref="/lender?tab=profile"
+      accountLabel="Profile"
     />
   );
 }

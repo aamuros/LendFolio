@@ -3,6 +3,7 @@ import {
   CircleDollarSign,
   Edit3Icon,
   FileCheck,
+  FileText,
   HelpCircle,
   Lock,
   ShieldCheck,
@@ -19,6 +20,7 @@ import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
 import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { ConsentStatus } from "@/lib/consents";
 
 import Link from "next/link";
 
@@ -27,6 +29,7 @@ export type LenderProfileView =
   | "organization"
   | "lending"
   | "verification"
+  | "disclosures"
   | "documents"
   | "change-requests"
   | "account"
@@ -97,12 +100,14 @@ type LenderProfileData = {
 export function LenderProfileHub({
   accountEmail,
   activeView,
+  consentStatus,
   lenderProfile,
   onNavigateHome,
   onViewChange,
 }: {
   accountEmail: string;
   activeView: LenderProfileView;
+  consentStatus?: ConsentStatus;
   lenderProfile: LenderProfileData;
   onNavigateHome: () => void;
   onViewChange: (view: LenderProfileView) => void;
@@ -111,6 +116,7 @@ export function LenderProfileHub({
   const displayName =
     lenderProfile?.organization_name?.trim() || "Lender profile";
   const verificationLabel = formatVerificationStatus(verificationStatus);
+  const disclosureSummary = formatDisclosureSummary(consentStatus);
 
   if (activeView === "organization") {
     return (
@@ -234,6 +240,38 @@ export function LenderProfileHub({
     );
   }
 
+  if (activeView === "disclosures") {
+    return (
+      <LenderProfileSubview
+        title="Required Disclosures"
+        onBack={() => onViewChange("index")}
+      >
+        <LenderProfileDetailCard
+          headerLabel="Required disclosures"
+          headerTitle={disclosureSummary}
+          headerSubtitle={
+            consentStatus?.isCurrent
+              ? "Current disclosures accepted"
+              : "Review and accept remaining disclosures from Home"
+          }
+        >
+          <SummaryRow
+            label="Accepted"
+            value={`${getAcceptedRequiredConsentCount(consentStatus)}`}
+          />
+          <SummaryRow
+            label="Remaining"
+            value={`${consentStatus?.missing.length ?? 0}`}
+          />
+          <SummaryRow
+            label="Required"
+            value={`${consentStatus?.required.length ?? 0}`}
+          />
+        </LenderProfileDetailCard>
+      </LenderProfileSubview>
+    );
+  }
+
   if (activeView === "change-requests") {
     return (
       <LenderProfileSubview
@@ -317,7 +355,7 @@ export function LenderProfileHub({
         />
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+      <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
         <ProfileMenuRow
           icon={Building2}
           label="Organization Profile"
@@ -339,8 +377,14 @@ export function LenderProfileHub({
           onClick={() => onViewChange("verification")}
         />
         <ProfileMenuRow
+          icon={FileText}
+          label="Required Disclosures"
+          subtitle={disclosureSummary}
+          onClick={() => onViewChange("disclosures")}
+        />
+        <ProfileMenuRow
           icon={FileCheck}
-          label="Verification Documents"
+          label="Documents"
           subtitle={
             lenderProfile?.documentPolicy?.documentsAccepted
               ? "All required documents accepted"
@@ -609,4 +653,32 @@ function formatDate(value: string | null) {
   }
 }
 
+function getAcceptedRequiredConsentCount(status?: ConsentStatus) {
+  if (!status) {
+    return 0;
+  }
+
+  return status.required.filter((required) =>
+    status.accepted.some(
+      (accepted) =>
+        accepted.consentType === required.consentType &&
+        accepted.version === required.version,
+    ),
+  ).length;
+}
+
+function formatDisclosureSummary(status?: ConsentStatus) {
+  if (!status) {
+    return "Disclosures unavailable";
+  }
+
+  const acceptedCount = getAcceptedRequiredConsentCount(status);
+  const requiredCount = status.required.length;
+
+  if (status.isCurrent) {
+    return `${acceptedCount}/${requiredCount} accepted`;
+  }
+
+  return `${status.missing.length} remaining`;
+}
 

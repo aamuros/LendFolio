@@ -12,6 +12,8 @@ import { cn } from "@/lib/utils";
 
 type LenderApplicationsListProps = {
   applications: LenderApplicationReview[];
+  emptyDescription?: string;
+  emptyTitle?: string;
 };
 
 function applicationStatusTone(status: string) {
@@ -46,14 +48,16 @@ function offerStateTone(
 
 export function LenderApplicationsList({
   applications,
+  emptyDescription = "New borrower applications will appear here.",
+  emptyTitle = "No open applications",
 }: LenderApplicationsListProps) {
   if (applications.length === 0) {
     return (
       <BorrowerCard variant="dashed">
         <CardContent className="grid gap-2 p-5 text-center">
-          <p className="text-lg font-semibold">No open applications</p>
+          <p className="text-lg font-semibold">{emptyTitle}</p>
           <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
-            New borrower applications will appear here.
+            {emptyDescription}
           </p>
         </CardContent>
       </BorrowerCard>

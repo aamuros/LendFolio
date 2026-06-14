@@ -16,6 +16,7 @@ import { loadUserConsents } from "@/lib/user-consents";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
+import { getCurrentUserProfile } from "@/lib/access-control";
 import {
   isApplicationActionableForOffer,
   loadLenderOffers,
@@ -46,7 +47,6 @@ import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 import { LenderOffersHighlighter } from "@/components/lender/lender-offers-highlighter";
-import { getLenderAccess } from "@/lib/lender-access";
 
 export const dynamic = "force-dynamic";
 
@@ -66,8 +66,13 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     redirect("/lender", RedirectType.replace);
   }
 
-  const activeTab = tab === "offers" || tab === "account" ? tab : "home";
-  const access = await getLenderAccess();
+  const activeTab =
+    tab === "offers"
+      ? "offers"
+      : tab === "account" || tab === "profile"
+        ? "profile"
+        : "home";
+  const access = await getCurrentUserProfile();
 
   if (!access.ok) {
     return (
@@ -97,12 +102,15 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     let lenderConsentStatus = buildConsentStatus("lender_review", []);
     let pendingDocuments: Awaited<ReturnType<typeof getLenderVerificationDocuments>> = [];
     let pendingDocumentPolicy = calculateLenderVerificationDocumentPolicy([]);
+    let user: { email?: string } | null = null;
 
     try {
       lenderConsentStatus = buildConsentStatus(
         "lender_review",
         await loadUserConsents(access.supabase, access.profile.id),
       );
+      const { data } = await access.supabase.auth.getUser();
+      user = data.user ?? null;
 
       const pendingLenderProfileId = access.profile.lenderProfile?.id;
       if (pendingLenderProfileId) {
@@ -124,12 +132,23 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <div className="mx-auto max-w-7xl">
           <LenderPageHeader activeTab={activeTab} />
           <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
-            <LenderAccessPanel
-              profile={access.profile}
-              consentStatus={lenderConsentStatus}
-              documents={pendingDocuments}
-              documentPolicy={pendingDocumentPolicy}
-            />
+            {activeTab === "profile" ? (
+              <LenderAccountTabWrapper
+                email={user?.email ?? ""}
+                lenderProfile={access.profile.lenderProfile}
+                documents={pendingDocuments}
+                documentPolicy={pendingDocumentPolicy}
+                consentStatus={lenderConsentStatus}
+                changeRequests={[]}
+              />
+            ) : (
+              <LenderAccessPanel
+                profile={access.profile}
+                consentStatus={lenderConsentStatus}
+                documents={pendingDocuments}
+                documentPolicy={pendingDocumentPolicy}
+              />
+            )}
           </div>
           <div className="sm:hidden">
             <LenderBottomTabs activeTab={activeTab} />
@@ -177,9 +196,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     const offersResult = await loadLenderOffers(access);
     offers = offersResult.ok ? offersResult.offers : [];
     offersError = !offersResult.ok ? offersResult.message : "";
-  } else if (activeTab === "account") {
-    const { data } = await access.supabase.auth.getSession();
-    user = data.session?.user ?? null;
+  } else if (activeTab === "profile") {
+    const { data } = await access.supabase.auth.getUser();
+    user = data.user ?? null;
 
     const lenderProfileId = access.profile.lenderProfile?.id;
     if (lenderProfileId) {
@@ -237,12 +256,16 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             />
           ) : null}
 
-          {activeTab === "account" ? (
+          {activeTab === "profile" ? (
             <LenderAccountTabWrapper
               email={user?.email ?? ""}
               lenderProfile={access.profile.lenderProfile}
               documents={lenderDocuments}
               documentPolicy={lenderDocumentPolicy}
+              consentStatus={buildConsentStatus(
+                "lender_review",
+                await loadUserConsents(access.supabase, access.profile.id),
+              )}
               changeRequests={lenderChangeRequests}
             />
           ) : null}
