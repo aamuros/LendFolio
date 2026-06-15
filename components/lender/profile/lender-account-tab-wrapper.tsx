@@ -82,7 +82,7 @@ export function LenderAccountTabWrapper({
         },
         changeRequests: changeRequests ?? [],
       } : null}
-      onEditProfile={() => router.push("/lender/edit-profile")}
+      onEditProfile={() => router.push("/lender/edit-profile/organization")}
       onNavigateHome={() => router.push("/lender")}
     />
   );

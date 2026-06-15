@@ -267,7 +267,7 @@ export function LenderPendingReviewPanel({
                 asChild
                 className="h-10 w-full shrink-0 rounded-full font-semibold sm:w-fit"
               >
-                <Link href="/lender/edit-profile">Complete details</Link>
+                <Link href="/lender/edit-profile/organization">Complete details</Link>
               </Button>
             </div>
           ) : needsDocumentUpload ? (
