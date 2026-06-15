@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { CheckCircle2, ClipboardList, Clock } from "lucide-react";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -32,8 +34,41 @@ export function LenderPendingReviewPanel({
   rejectionReason: string | null;
   managerReviewNotes: string | null;
 }) {
-  const allConsentsAccepted = consentStatus.isCurrent;
+  const [acceptedInSession, setAcceptedInSession] = useState(false);
+  const effectiveConsentStatus = useMemo(() => {
+    if (consentStatus.isCurrent || !acceptedInSession) {
+      return consentStatus;
+    }
+
+    const acceptedAt = new Date().toISOString();
+    const accepted = [...consentStatus.accepted];
+
+    for (const required of consentStatus.required) {
+      const alreadyAccepted = accepted.some(
+        (item) =>
+          item.consentType === required.consentType &&
+          item.version === required.version,
+      );
+
+      if (!alreadyAccepted) {
+        accepted.push({
+          consentType: required.consentType,
+          version: required.version,
+          acceptedAt,
+        });
+      }
+    }
+
+    return {
+      ...consentStatus,
+      isCurrent: true,
+      missing: [],
+      accepted,
+    };
+  }, [acceptedInSession, consentStatus]);
+  const allConsentsAccepted = effectiveConsentStatus.isCurrent;
   const allDocumentsAccepted = documentPolicy.documentsAccepted;
+  const documentsReadyForReview = documentPolicy.readyForManagerReview;
   const hasSubmittedDocuments =
     documentPolicy.submittedDocumentTypes.length > 0;
   const missingDocumentCount =
@@ -149,16 +184,29 @@ export function LenderPendingReviewPanel({
                 Verification documents{" "}
                 {allDocumentsAccepted
                   ? "accepted"
-                  : hasSubmittedDocuments
+                  : documentsReadyForReview
                     ? "uploaded, awaiting review"
-                    : "upload needed"}
+                    : hasSubmittedDocuments
+                      ? "partially uploaded"
+                      : "upload needed"}
               </span>
             </div>
             <Separator />
             <div className="flex items-center gap-3">
-              <div className="size-4 shrink-0 rounded-full border-2 border-border" />
-              <span className="text-sm text-muted-foreground">
-                Manager review
+              {documentsReadyForReview ? (
+                <Clock className="size-4 shrink-0 text-amber-600" />
+              ) : (
+                <div className="size-4 shrink-0 rounded-full border-2 border-border" />
+              )}
+              <span
+                className={cn(
+                  "text-sm",
+                  documentsReadyForReview
+                    ? "font-medium text-foreground"
+                    : "text-muted-foreground",
+                )}
+              >
+                Manager review{documentsReadyForReview ? " pending" : ""}
               </span>
             </div>
           </div>
@@ -188,14 +236,17 @@ export function LenderPendingReviewPanel({
         </CardContent>
       </BorrowerCard>
 
-      {!allConsentsAccepted ? (
+      {allConsentsAccepted ? (
+        <DisclosureAcceptedConfirmation />
+      ) : (
         <ConsentAcceptancePanel
           scope="lender_review"
-          status={consentStatus}
+          status={effectiveConsentStatus}
           title="Required disclosures"
           variant="onboarding"
+          onConsentAccepted={() => setAcceptedInSession(true)}
         />
-      ) : null}
+      )}
 
       {lenderProfileId ? (
         <LenderVerificationDocumentsPanel
@@ -208,6 +259,37 @@ export function LenderPendingReviewPanel({
         />
       ) : null}
     </div>
+  );
+}
+
+function DisclosureAcceptedConfirmation() {
+  return (
+    <BorrowerCard>
+      <CardContent className="grid gap-2 p-5">
+        <div className="flex items-start gap-3">
+          <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+          <div className="grid gap-1">
+            <p className="text-sm font-semibold">
+              Required disclosures accepted
+            </p>
+            <p className="text-sm leading-6 text-muted-foreground">
+              You have already approved the lender disclosures.
+            </p>
+            <LegalDialog
+              trigger={
+                <button
+                  type="button"
+                  className="w-fit text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
+                >
+                  View details
+                </button>
+              }
+              content={lenderVerificationAuthorizationContent}
+            />
+          </div>
+        </div>
+      </CardContent>
+    </BorrowerCard>
   );
 }
 

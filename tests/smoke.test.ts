@@ -1441,6 +1441,19 @@ describe("manager lender review page", () => {
     expect(lendersPage).toContain("consentStatus.isCurrent");
   });
 
+  it("keeps lender disclosure acceptance visible in approval progress", () => {
+    const pendingPanel = readFileSync(
+      "components/lender/lender-pending-review-panel.tsx",
+      "utf8",
+    );
+
+    expect(pendingPanel).toContain("acceptedInSession");
+    expect(pendingPanel).toContain("onConsentAccepted={() => setAcceptedInSession(true)}");
+    expect(pendingPanel).toContain("Required disclosures accepted");
+    expect(pendingPanel).toContain("You have already approved the lender disclosures.");
+    expect(pendingPanel).toContain("documentPolicy.readyForManagerReview");
+  });
+
   it("keeps review action wiring intact", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
