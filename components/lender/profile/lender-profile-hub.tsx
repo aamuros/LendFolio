@@ -15,12 +15,14 @@ import { LenderProfileStatusBanner } from "./lender-profile-status-banner";
 import { LenderAccountSection } from "./lender-account-section";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { LenderProfileChangeRequestForm } from "@/components/lender-profile-change-request-form";
+import { LenderDetailsCompletionForm } from "@/components/lender/lender-details-completion-form";
 import { ProfileIndexHeader } from "@/components/profile/profile-index-header";
 import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
 import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ConsentStatus } from "@/lib/consents";
+import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 
 import Link from "next/link";
 
@@ -117,6 +119,7 @@ export function LenderProfileHub({
     lenderProfile?.organization_name?.trim() || "Lender profile";
   const verificationLabel = formatVerificationStatus(verificationStatus);
   const disclosureSummary = formatDisclosureSummary(consentStatus);
+  const profileCompletion = getLenderProfileCompletion(lenderProfile);
 
   if (activeView === "organization") {
     return (
@@ -350,9 +353,18 @@ export function LenderProfileHub({
 
       {verificationStatus !== "approved" ? (
         <LenderProfileStatusBanner
-          status={getVerificationBannerStatus(verificationStatus)}
+          status={getVerificationBannerStatus(
+            verificationStatus,
+            profileCompletion.missingFields,
+          )}
           onAction={() => onViewChange("verification")}
         />
+      ) : null}
+
+      {verificationStatus !== "approved" &&
+      lenderProfile &&
+      !profileCompletion.complete ? (
+        <LenderDetailsCompletionForm lenderProfile={lenderProfile} />
       ) : null}
 
       <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
@@ -500,7 +512,21 @@ function LenderVerificationDetail({
   );
 }
 
-function getVerificationBannerStatus(verificationStatus: string) {
+function getVerificationBannerStatus(
+  verificationStatus: string,
+  missingProfileFields: string[] = [],
+) {
+  if (missingProfileFields.length > 0) {
+    return {
+      tone: "attention" as const,
+      label: "Action needed",
+      title: "Complete lender details",
+      description: `Complete lender details before manager review. Missing: ${missingProfileFields.join(", ")}.`,
+      action: "verification" as const,
+      actionLabel: "View details",
+    };
+  }
+
   switch (verificationStatus) {
     case "approved":
       return {
@@ -681,4 +707,3 @@ function formatDisclosureSummary(status?: ConsentStatus) {
 
   return `${status.missing.length} remaining`;
 }
-

@@ -1,12 +1,65 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireApprovedLender } from "@/lib/access-control";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   uploadLenderVerificationDocument,
   type LenderVerificationDocumentSubmitResult,
 } from "@/lib/lender-verification-upload";
+
+const lenderDetailsSchema = z
+  .object({
+    contactPerson: z
+      .string()
+      .trim()
+      .max(120, "Contact person must be 120 characters or fewer.")
+      .optional(),
+    phoneNumber: z
+      .string()
+      .trim()
+      .min(7, "Phone number is required.")
+      .max(30, "Phone number must be 30 characters or fewer."),
+    operatingArea: z
+      .string()
+      .trim()
+      .min(2, "Lending area is required.")
+      .max(160, "Lending area must be 160 characters or fewer."),
+    minLoanAmount: z.coerce
+      .number({ error: "Minimum loan amount is required." })
+      .positive("Minimum loan amount must be greater than zero.")
+      .max(999_999_999.99, "Minimum loan amount is too large."),
+    maxLoanAmount: z.coerce
+      .number({ error: "Maximum loan amount is required." })
+      .positive("Maximum loan amount must be greater than zero.")
+      .max(999_999_999.99, "Maximum loan amount is too large."),
+  })
+  .superRefine((value, context) => {
+    if (value.maxLoanAmount < value.minLoanAmount) {
+      context.addIssue({
+        code: "custom",
+        path: ["maxLoanAmount"],
+        message:
+          "Maximum loan amount must be greater than or equal to minimum loan amount.",
+      });
+    }
+  });
+
+export type LenderDetailsSaveState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  fieldErrors?: Partial<
+    Record<
+      | "contactPerson"
+      | "phoneNumber"
+      | "operatingArea"
+      | "minLoanAmount"
+      | "maxLoanAmount",
+      string[]
+    >
+  >;
+};
 
 export type RepaymentProofReviewResult =
   | {
@@ -97,6 +150,60 @@ export async function submitLenderVerificationDocument(
   formData: FormData,
 ): Promise<LenderVerificationDocumentSubmitResult> {
   return uploadLenderVerificationDocument(formData);
+}
+
+export async function saveLenderDetailsAction(
+  _previousState: LenderDetailsSaveState,
+  formData: FormData,
+): Promise<LenderDetailsSaveState> {
+  const parsed = lenderDetailsSchema.safeParse({
+    contactPerson: formData.get("contactPerson"),
+    phoneNumber: formData.get("phoneNumber"),
+    operatingArea: formData.get("operatingArea"),
+    minLoanAmount: formData.get("minLoanAmount"),
+    maxLoanAmount: formData.get("maxLoanAmount"),
+  });
+
+  if (!parsed.success) {
+    return {
+      status: "error",
+      message: "Check the highlighted fields.",
+      fieldErrors: parsed.error.flatten().fieldErrors,
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.rpc("complete_lender_profile_details", {
+      p_contact_person: parsed.data.contactPerson?.trim() || null,
+      p_phone_number: parsed.data.phoneNumber,
+      p_operating_area: parsed.data.operatingArea,
+      p_min_loan_amount: parsed.data.minLoanAmount,
+      p_max_loan_amount: parsed.data.maxLoanAmount,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        status: "error",
+        message: result?.message ?? "Could not save lender details.",
+      };
+    }
+
+    revalidatePath("/lender");
+    revalidatePath("/manager/lenders");
+
+    return {
+      status: "success",
+      message: result.message ?? "Lender details submitted.",
+    };
+  } catch {
+    return {
+      status: "error",
+      message: "Could not save lender details.",
+    };
+  }
 }
 
 export type LenderProfileChangeRequestSubmitResult =

@@ -36,6 +36,7 @@ export function LenderAccessPanel({
     return (
       <LenderPendingReviewPanel
         consentStatus={consentStatus}
+        lenderProfile={lenderProfile}
         lenderProfileId={lenderProfile?.id ?? null}
         verificationStatus={lenderProfile?.verification_status ?? "pending"}
         documents={documents}

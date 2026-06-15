@@ -75,7 +75,11 @@ export async function reviewLenderAction(formData: FormData) {
 
   if (error || !result?.ok) {
     const reviewCode =
-      result?.code === "consent_required" ? "consent-required" : "error";
+      result?.code === "consent_required"
+        ? "consent-required"
+        : result?.code === "profile_details_required"
+          ? "profile-details-required"
+          : "error";
     const qs = buildReturnQuery({ review: reviewCode, selected });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }

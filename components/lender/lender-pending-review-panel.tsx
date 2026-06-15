@@ -6,11 +6,13 @@ import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { LegalDialog } from "@/components/legal/legal-dialog";
 import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
+import { LenderDetailsCompletionForm } from "@/components/lender/lender-details-completion-form";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { BorrowerCard, PageHeader, StatusPill } from "@/components/borrower/ui";
 import { cn } from "@/lib/utils";
+import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 import type { ConsentStatus } from "@/lib/consents";
 import type {
   LenderVerificationDocumentSummary,
@@ -19,6 +21,7 @@ import type {
 
 export function LenderPendingReviewPanel({
   consentStatus,
+  lenderProfile,
   lenderProfileId,
   verificationStatus,
   documents,
@@ -27,6 +30,13 @@ export function LenderPendingReviewPanel({
   managerReviewNotes,
 }: {
   consentStatus: ConsentStatus;
+  lenderProfile: {
+    contact_person: string | null;
+    phone_number: string | null;
+    operating_area: string | null;
+    min_loan_amount: number | null;
+    max_loan_amount: number | null;
+  } | null;
   lenderProfileId: string | null;
   verificationStatus: string;
   documents: LenderVerificationDocumentSummary[];
@@ -67,6 +77,8 @@ export function LenderPendingReviewPanel({
     };
   }, [acceptedInSession, consentStatus]);
   const allConsentsAccepted = effectiveConsentStatus.isCurrent;
+  const profileCompletion = getLenderProfileCompletion(lenderProfile);
+  const profileDetailsComplete = profileCompletion.complete;
   const allDocumentsAccepted = documentPolicy.documentsAccepted;
   const documentsReadyForReview = documentPolicy.readyForManagerReview;
   const hasSubmittedDocuments =
@@ -74,6 +86,7 @@ export function LenderPendingReviewPanel({
   const missingDocumentCount =
     documentPolicy.missingRequiredDocumentTypes.length;
   const needsDocumentUpload = !allDocumentsAccepted;
+  const needsProfileDetails = !profileDetailsComplete;
   const uploadNeededCount = documentPolicy.requiredDocumentTypes.filter(
     (documentType) =>
       !documentPolicy.submittedDocumentTypes.includes(documentType) ||
@@ -123,12 +136,24 @@ export function LenderPendingReviewPanel({
                 Profile under review
               </CardTitle>
             </div>
-            <StatusPill tone={needsDocumentUpload ? "attention" : "neutral"}>
-              {needsDocumentUpload ? "Documents needed" : "Under review"}
+            <StatusPill
+              tone={
+                needsProfileDetails || needsDocumentUpload
+                  ? "attention"
+                  : "neutral"
+              }
+            >
+              {needsProfileDetails
+                ? "Action needed"
+                : needsDocumentUpload
+                  ? "Documents needed"
+                  : "Under review"}
             </StatusPill>
           </div>
           <CardDescription className="text-sm leading-6">
-            {allConsentsAccepted && allDocumentsAccepted
+            {needsProfileDetails
+              ? "Complete your lender details so a manager can continue review."
+              : allConsentsAccepted && allDocumentsAccepted
               ? "A manager will review your profile and lending details. You will be notified once a decision is made."
               : allConsentsAccepted
                 ? "Upload the required verification documents so a manager can complete approval."
@@ -146,6 +171,25 @@ export function LenderPendingReviewPanel({
             <div className="flex items-center gap-3">
               <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
               <span className="text-sm">Lender profile submitted</span>
+            </div>
+            <Separator />
+            <div className="flex items-center gap-3">
+              {profileDetailsComplete ? (
+                <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+              ) : (
+                <Clock className="size-4 shrink-0 text-amber-600" />
+              )}
+              <span
+                className={cn(
+                  "text-sm",
+                  profileDetailsComplete
+                    ? "text-foreground"
+                    : "font-medium text-foreground",
+                )}
+              >
+                Lender details{" "}
+                {profileDetailsComplete ? "completed" : "needed"}
+              </span>
             </div>
             <Separator />
             <div className="flex items-center gap-3">
@@ -193,7 +237,7 @@ export function LenderPendingReviewPanel({
             </div>
             <Separator />
             <div className="flex items-center gap-3">
-              {documentsReadyForReview ? (
+              {profileDetailsComplete && allConsentsAccepted && allDocumentsAccepted ? (
                 <Clock className="size-4 shrink-0 text-amber-600" />
               ) : (
                 <div className="size-4 shrink-0 rounded-full border-2 border-border" />
@@ -201,16 +245,24 @@ export function LenderPendingReviewPanel({
               <span
                 className={cn(
                   "text-sm",
-                  documentsReadyForReview
+                  profileDetailsComplete && allConsentsAccepted && allDocumentsAccepted
                     ? "font-medium text-foreground"
                     : "text-muted-foreground",
                 )}
               >
-                Manager review{documentsReadyForReview ? " pending" : ""}
+                Manager review
+                {profileDetailsComplete && allConsentsAccepted && allDocumentsAccepted
+                  ? " pending"
+                  : ""}
               </span>
             </div>
           </div>
-          {needsDocumentUpload ? (
+          {needsProfileDetails ? (
+            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
+              Action needed: Complete lender details before manager review.
+              Missing: {profileCompletion.missingFields.join(", ")}.
+            </p>
+          ) : needsDocumentUpload ? (
             <Button
               type="button"
               className="h-11 w-full rounded-full font-semibold sm:w-fit"
@@ -221,7 +273,7 @@ export function LenderPendingReviewPanel({
             </Button>
           ) : (
             <p className="rounded-xl border border-[#C9D7C6] bg-[#EFF3EA] px-3 py-2 text-sm leading-6 text-[#33423C]">
-              No action needed right now.
+              Profile details complete. Your account is waiting for manager review.
             </p>
           )}
           {needsDocumentUpload ? (
@@ -235,6 +287,10 @@ export function LenderPendingReviewPanel({
           ) : null}
         </CardContent>
       </BorrowerCard>
+
+      {needsProfileDetails && lenderProfile ? (
+        <LenderDetailsCompletionForm lenderProfile={lenderProfile} />
+      ) : null}
 
       {allConsentsAccepted ? (
         <DisclosureAcceptedConfirmation />

@@ -54,7 +54,7 @@ export function PlatformSnapshot({
   ];
 
   return (
-    <Card>
+    <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <CardHeader className="pb-2">
         <CardTitle>Platform snapshot</CardTitle>
       </CardHeader>
@@ -70,7 +70,7 @@ export function PlatformSnapshot({
               )}
               <Link
                 href={kpi.href}
-                className="group flex flex-col gap-0.5 rounded-md px-1 py-0.5 outline-none transition-colors hover:bg-muted/50 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                className="group flex flex-col gap-0.5 rounded-md px-1 py-0.5 outline-none transition-colors hover:bg-secondary/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
               >
                 <span className="text-xs text-muted-foreground">
                   {kpi.label}

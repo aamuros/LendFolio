@@ -5,6 +5,7 @@ import {
   useId,
   useRef,
   useState,
+  type ChangeEvent,
   type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
@@ -239,8 +240,19 @@ function RequiredDocumentRow({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
   const [state, setState] = useState<UploadState | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!state?.ok) {
@@ -248,9 +260,32 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
-    window.setTimeout(() => setSelectedFile(null), 0);
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    window.setTimeout(() => {
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setLocalPreviewOpen(false);
+    }, 0);
     router.refresh();
   }, [router, state]);
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+
+    setSelectedFile(file);
+    setState(null);
+
+    const url = file ? URL.createObjectURL(file) : null;
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+  }
 
   const docStatus = getDocumentDisplayStatus(documentPolicy, documentType);
   const latestDoc = documents.find(
@@ -375,11 +410,7 @@ function RequiredDocumentRow({
               type="file"
               accept={lenderDocumentAccept}
               className="sr-only"
-              onChange={(event) => {
-                const file = event.currentTarget.files?.[0] ?? null;
-                setSelectedFile(file);
-                setState(null);
-              }}
+              onChange={handleFileChange}
               required
             />
             <div className="flex flex-wrap items-center gap-3">
@@ -411,6 +442,18 @@ function RequiredDocumentRow({
                   ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})`
                   : "PDF, JPG, JPEG, or PNG. Max 5 MB."}
               </p>
+              {selectedFile && previewUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setLocalPreviewOpen(true)}
+                >
+                  <Eye className="size-3.5" />
+                  Preview
+                </Button>
+              ) : null}
             </div>
             {selectedFileError ? (
               <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs leading-5 text-destructive">
@@ -433,6 +476,18 @@ function RequiredDocumentRow({
           </p>
         ) : null}
       </div>
+
+      {selectedFile && previewUrl ? (
+        <DocumentPreviewDialog
+          title={`${lenderVerificationDocumentTypeLabels[documentType]} Preview`}
+          fileName={selectedFile.name}
+          fileSize={selectedFile.size}
+          fileType={selectedFile.type}
+          viewUrl={previewUrl}
+          open={localPreviewOpen}
+          onOpenChange={setLocalPreviewOpen}
+        />
+      ) : null}
     </div>
   );
 }

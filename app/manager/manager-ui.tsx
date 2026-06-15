@@ -36,15 +36,15 @@ export function ManagerShell({
 }) {
   return (
     <>
-      <div className="sticky top-0 z-30 flex h-12 shrink-0 items-center bg-background px-4">
+      <div className="sticky top-0 z-30 flex h-12 shrink-0 items-center border-b border-border/70 bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <SidebarTrigger />
       </div>
-      <div className="flex flex-1 flex-col gap-4 px-4 py-4 md:py-6 lg:px-6">
+      <div className="flex flex-1 flex-col gap-4 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.08),transparent_34rem)] px-4 py-4 md:py-6 lg:px-6">
         <div className="mx-auto w-full max-w-[1600px]">
           {showHeading ? (
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">
-                <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
+                <h1 className="text-xl font-semibold tracking-tight text-foreground">{title}</h1>
                 {description ? (
                   <p className="text-sm text-muted-foreground">{description}</p>
                 ) : null}
@@ -113,7 +113,7 @@ export function TextFilter({
 }
 
 export function ManagerRecordList({ children }: { children: React.ReactNode }) {
-  return <Card>{children}</Card>;
+  return <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">{children}</Card>;
 }
 
 export function ManagerRecordHeader({
@@ -126,7 +126,7 @@ export function ManagerRecordHeader({
   return (
     <div
       className={cn(
-        "hidden border-b border-border/60 bg-muted/40 px-3 py-2 text-xs font-semibold text-muted-foreground sm:grid",
+        "hidden border-b border-border/70 bg-secondary/70 px-3 py-2 text-xs font-semibold text-secondary-foreground/80 sm:grid",
         className,
       )}
     >
@@ -181,12 +181,12 @@ export function ManagerRecordRow({ children }: { children: React.ReactNode }) {
 }
 
 export function DataCard({ children }: { children: React.ReactNode }) {
-  return <Card>{children}</Card>;
+  return <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">{children}</Card>;
 }
 
 export function Field({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+    <div className="rounded-lg border border-border/70 bg-muted/60 px-3 py-2">
       <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
       <dd className="mt-1 text-sm font-medium break-words">{value}</dd>
     </div>
@@ -201,7 +201,7 @@ export function DetailSection({
   children: React.ReactNode;
 }) {
   return (
-    <Card size="sm">
+    <Card size="sm" className="border-border/70 bg-card/95">
       <CardHeader>
         <CardTitle className="text-sm">{title}</CardTitle>
       </CardHeader>
@@ -278,7 +278,7 @@ export function EmptyState({
   description: string;
 }) {
   return (
-    <Card className="border border-dashed border-border/60 bg-muted/30 ring-0">
+    <Card className="border border-dashed border-border/80 bg-muted/60 ring-0">
       <CardContent className="flex flex-col items-center gap-1 py-8 text-center">
         <h3 className="text-sm font-medium">{title}</h3>
         <p className="text-xs text-muted-foreground">{description}</p>
@@ -288,12 +288,12 @@ export function EmptyState({
 }
 
 export function ListTable({ children }: { children: React.ReactNode }) {
-  return <Card className="py-0">{children}</Card>;
+  return <Card className="border-border/70 bg-card/95 py-0 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">{children}</Card>;
 }
 
 export function MobileCard({ children }: { children: React.ReactNode }) {
   return (
-    <Card size="sm">
+    <Card size="sm" className="border-border/70 bg-card/95">
       <CardContent className="grid gap-2">{children}</CardContent>
     </Card>
   );

@@ -121,6 +121,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           access.supabase,
           pendingLenderProfileId,
           access.profile.id,
+          { includeSignedUrls: true },
         );
         pendingDocumentPolicy =
           calculateLenderVerificationDocumentPolicy(pendingDocuments);
@@ -229,7 +230,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     const lenderProfileId = access.profile.lenderProfile?.id;
     if (lenderProfileId) {
       const [docs, changeReqResult] = await Promise.all([
-        getLenderVerificationDocuments(access.supabase, lenderProfileId, access.profile.id),
+        getLenderVerificationDocuments(access.supabase, lenderProfileId, access.profile.id, {
+          includeSignedUrls: true,
+        }),
         access.supabase
           .from("lender_profile_change_requests")
           .select("id, proposed_organization_name, proposed_contact_person, proposed_business_address, proposed_operating_area, proposed_business_registration_number, proposed_min_loan_amount, proposed_max_loan_amount, proposed_typical_repayment_terms, proposed_lender_description, status, submitted_at, reviewed_at, manager_review_notes, rejection_reason")

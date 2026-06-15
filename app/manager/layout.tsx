@@ -28,16 +28,18 @@ export default async function ManagerLayout({
   }
 
   return (
-    <DashboardShell
-      role="manager"
-      brandLabel="Manager Console"
-      roleLabel="Manager"
-      dashboardHref="/manager"
-      userEmail={userEmail}
-      signOutAction={signOutAction}
-      alternateWorkspaces={alternateWorkspaces}
-    >
-      {children}
-    </DashboardShell>
+    <div className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <DashboardShell
+        role="manager"
+        brandLabel="Manager Console"
+        roleLabel="Manager"
+        dashboardHref="/manager"
+        userEmail={userEmail}
+        signOutAction={signOutAction}
+        alternateWorkspaces={alternateWorkspaces}
+      >
+        {children}
+      </DashboardShell>
+    </div>
   );
 }

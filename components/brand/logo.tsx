@@ -1,4 +1,5 @@
 import Image from "next/image";
+import type { SVGProps } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -38,13 +39,10 @@ export function Logo({
 }: LogoProps) {
   if (variant === "icon") {
     return (
-      <Image
-        src="/brand/favicon_io/favicon-32x32.png"
-        alt="LendFolio"
-        width={36}
-        height={36}
-        priority={priority}
-        className={cn("block rounded-full object-contain", iconSizeClasses[size], className)}
+      <LendFolioMark
+        aria-label="LendFolio"
+        role="img"
+        className={cn("block shrink-0", iconSizeClasses[size], className)}
       />
     );
   }
@@ -67,5 +65,27 @@ export function Logo({
         className,
       )}
     />
+  );
+}
+
+function LendFolioMark(props: SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 36 36"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+      {...props}
+    >
+      <rect width="36" height="36" rx="18" fill="#161616" />
+      <path
+        d="M10.5 9.25H15V24.1H25.5V27.75H10.5V9.25Z"
+        fill="#FFFFFC"
+      />
+      <path
+        d="M18.25 9.25H27V12.85H22.75V16.65H26.25V20.1H22.75V27.75H18.25V9.25Z"
+        fill="#EFF3EA"
+      />
+      <path d="M14.95 20.1H22.75V23.65H14.95V20.1Z" fill="#CFC8B9" />
+    </svg>
   );
 }

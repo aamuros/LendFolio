@@ -218,6 +218,34 @@ describe("manager operations helpers", () => {
     expect(proofDetailPage).toContain("notFound()");
   });
 
+  it("loads lender verification documents with signed preview URLs", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+
+    expect(lenderPage).toContain("includeSignedUrls: true");
+  });
+
+  it("keeps document previews useful for PDFs, images, and failed renders", () => {
+    const previewDialog = readFileSync(
+      "components/document-preview-dialog.tsx",
+      "utf8",
+    );
+    const lenderDocumentsPanel = readFileSync(
+      "components/lender-verification-documents-panel.tsx",
+      "utf8",
+    );
+
+    expect(previewDialog).toContain('fileType === "application/pdf"');
+    expect(previewDialog).toContain('fileType === "image/jpeg"');
+    expect(previewDialog).toContain('fileType === "image/png"');
+    expect(previewDialog).toContain("Loading preview...");
+    expect(previewDialog).toContain(
+      "Preview unavailable, download file instead.",
+    );
+    expect(previewDialog).toContain("Invalid or missing file URL.");
+    expect(previewDialog).toContain("Open file");
+    expect(lenderDocumentsPanel).toContain("URL.createObjectURL(file)");
+  });
+
   it("keeps manager lookup and proof lists link-based instead of expandable", () => {
     const lookupPage = readFileSync("app/manager/lookup/page.tsx", "utf8");
     const repaymentsPage = readFileSync(

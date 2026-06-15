@@ -31,6 +31,10 @@ export function LenderToast() {
       toast.error(
         "Lender must accept the required disclosures before approval.",
       );
+    } else if (review === "profile-details-required") {
+      toast.error(
+        "Waiting for lender to complete profile details: contact, area, loan range.",
+      );
     }
 
     if (documentReview === "accepted") {

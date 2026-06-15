@@ -1415,6 +1415,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      complete_lender_profile_details: {
+        Args: {
+          p_contact_person: string | null;
+          p_phone_number: string;
+          p_operating_area: string;
+          p_min_loan_amount: number;
+          p_max_loan_amount: number;
+        };
+        Returns: Json;
+      };
       create_loan_offer: {
         Args: {
           p_loan_application_id: string;
