@@ -92,7 +92,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         <LenderToast />
         <LenderPageHeader activeTab={activeTab} />
         <div className="mx-auto max-w-7xl">
-          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -145,7 +145,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab={activeTab} />
         <div className="mx-auto max-w-7xl">
-          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
             {activeTab === "home" ? (
               <LenderAccessPanel
                 profile={access.profile}
@@ -276,7 +276,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       <LenderToast />
       <LenderPageHeader activeTab={activeTab} />
       <div className="mx-auto max-w-7xl">
-        <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
+        <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
           {activeTab === "home" ? (
             <HomeTab
               applications={applications}
@@ -335,7 +335,7 @@ function ApplicationsTab({
   emptyDescription?: string;
 }) {
   return (
-    <section className="grid gap-5">
+    <section className="grid min-w-0 gap-4 sm:gap-5">
       <PageHeader
         title="Open applications"
         description="Review borrower context and send terms when there is a fit."
@@ -425,9 +425,9 @@ function HomeTab({
       ) : null}
       {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid min-w-0 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] xl:grid-cols-[minmax(0,1fr)_minmax(20rem,23rem)]">
         <div className="grid min-w-0 gap-4">
-          <BorrowerCard className="overflow-hidden">
+          <BorrowerCard className="min-w-0 overflow-hidden">
             <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
               <div className="grid min-w-0 gap-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
@@ -443,7 +443,7 @@ function HomeTab({
               <Button
                 asChild
                 variant="outline"
-                className="h-10 rounded-xl font-semibold sm:justify-self-end"
+                className="h-10 w-full rounded-xl font-semibold sm:w-auto sm:justify-self-end"
               >
                 <Link href="/lender?tab=applications">
                   Review queue
@@ -453,7 +453,7 @@ function HomeTab({
             </CardContent>
           </BorrowerCard>
 
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid min-w-0 gap-3 sm:grid-cols-3">
             <DashboardMetric
               label="Applications"
               value={needsReviewCount}
@@ -474,14 +474,14 @@ function HomeTab({
             />
           </div>
 
-          <BorrowerCard className="overflow-hidden">
-            <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-2">
-                <div className="grid gap-1">
+          <BorrowerCard className="min-w-0 overflow-hidden">
+            <CardContent className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
+              <div className="flex min-w-0 items-center justify-between gap-2">
+                <div className="grid min-w-0 gap-1">
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                     Applications needing review
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="min-w-0 text-sm text-muted-foreground">
                     A compact view of borrower requests you can act on now.
                   </p>
                 </div>
@@ -492,7 +492,7 @@ function HomeTab({
                 ) : null}
               </div>
               {topApplications.length > 0 ? (
-                <div className="grid overflow-hidden rounded-xl border border-border/80 bg-background/60">
+                <div className="grid min-w-0 overflow-hidden rounded-xl border border-border/80 bg-background/60">
                   {topApplications.map((application) => (
                     <ApplicationReviewRow
                       key={application.id}
@@ -521,9 +521,9 @@ function HomeTab({
         </div>
 
         <div className="grid min-w-0 content-start gap-4">
-          <BorrowerCard className="overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(51,66,60,0.08),rgba(255,255,252,0.9)_42%,rgba(246,245,242,0.95))]">
-            <CardContent className="grid gap-4 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-3">
+          <BorrowerCard className="min-w-0 overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(51,66,60,0.08),rgba(255,255,252,0.9)_42%,rgba(246,245,242,0.95))]">
+            <CardContent className="grid min-w-0 gap-4 p-4 sm:p-5">
+              <div className="flex min-w-0 items-center justify-between gap-3">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Next action
                 </p>
@@ -534,27 +534,25 @@ function HomeTab({
                 ) : null}
               </div>
               {primaryAction ? (
-                <Button
-                  asChild
-                  variant="outline"
-                  className="h-auto justify-between gap-3 rounded-xl bg-background/80 px-3 py-3 text-left shadow-sm"
+                <Link
+                  href={primaryAction.href}
+                  className="group flex w-full min-w-0 items-center justify-between gap-3 rounded-xl border border-border/80 bg-background/80 px-3 py-3 text-left shadow-sm transition-colors hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
-                  <Link href={primaryAction.href}>
-                    <span className="grid gap-0.5 text-left">
-                      <span className="flex items-center gap-2">
-                        <span className="text-sm font-semibold">
-                          {primaryAction.title}
-                        </span>
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {primaryAction.description}
-                      </span>
+                  <span className="grid min-w-0 flex-1 gap-0.5">
+                    <span className="truncate text-sm font-semibold">
+                      {primaryAction.title}
                     </span>
-                    <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                  </Link>
-                </Button>
+                    <span className="line-clamp-2 text-xs leading-5 text-muted-foreground">
+                      {primaryAction.description}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-2 text-xs font-semibold text-accent-foreground">
+                    <span className="hidden sm:inline">Review</span>
+                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" />
+                  </span>
+                </Link>
               ) : (
-                <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
+                <div className="grid min-w-0 gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
                   <p className="text-sm font-semibold">No open applications</p>
                   <p className="text-xs text-muted-foreground">
                     New borrower requests will appear in your review queue.
@@ -581,16 +579,16 @@ function HomeTab({
             </CardContent>
           </BorrowerCard>
 
-          <BorrowerCard className="overflow-hidden">
-            <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-2">
+          <BorrowerCard className="min-w-0 overflow-hidden">
+            <CardContent className="flex min-w-0 flex-1 flex-col gap-3 p-4 sm:p-5">
+              <div className="flex min-w-0 items-center justify-between gap-2">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                   Offers &amp; loans
                 </p>
                 <FileText className="size-4 text-muted-foreground" />
               </div>
               {offers.length > 0 ? (
-                <div className="grid gap-2">
+                <div className="grid min-w-0 gap-2">
                   <OfferSummaryRow label="Pending" value={pendingOffers} />
                   <OfferSummaryRow label="Accepted" value={acceptedOffers} />
                   <OfferSummaryRow label="Declined" value={declinedOffers} />

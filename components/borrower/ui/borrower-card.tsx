@@ -25,7 +25,7 @@ export function BorrowerCard({
 }: BorrowerCardProps) {
   return (
     <Card
-      className={cn("rounded-2xl", variantClassName[variant], className)}
+      className={cn("box-border w-full min-w-0 rounded-2xl", variantClassName[variant], className)}
       {...props}
     />
   );
