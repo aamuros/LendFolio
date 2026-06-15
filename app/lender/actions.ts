@@ -1,50 +1,18 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { requireApprovedLender } from "@/lib/access-control";
+import {
+  lenderProfileDetailsSchema,
+  resolveLenderOnboardingAddress,
+} from "@/lib/lender-onboarding";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   uploadLenderVerificationDocument,
   type LenderVerificationDocumentSubmitResult,
 } from "@/lib/lender-verification-upload";
 
-const lenderDetailsSchema = z
-  .object({
-    contactPerson: z
-      .string()
-      .trim()
-      .max(120, "Contact person must be 120 characters or fewer.")
-      .optional(),
-    phoneNumber: z
-      .string()
-      .trim()
-      .min(7, "Phone number is required.")
-      .max(30, "Phone number must be 30 characters or fewer."),
-    operatingArea: z
-      .string()
-      .trim()
-      .min(2, "Lending area is required.")
-      .max(160, "Lending area must be 160 characters or fewer."),
-    minLoanAmount: z.coerce
-      .number({ error: "Minimum loan amount is required." })
-      .positive("Minimum loan amount must be greater than zero.")
-      .max(999_999_999.99, "Minimum loan amount is too large."),
-    maxLoanAmount: z.coerce
-      .number({ error: "Maximum loan amount is required." })
-      .positive("Maximum loan amount must be greater than zero.")
-      .max(999_999_999.99, "Maximum loan amount is too large."),
-  })
-  .superRefine((value, context) => {
-    if (value.maxLoanAmount < value.minLoanAmount) {
-      context.addIssue({
-        code: "custom",
-        path: ["maxLoanAmount"],
-        message:
-          "Maximum loan amount must be greater than or equal to minimum loan amount.",
-      });
-    }
-  });
+const lenderDetailsSchema = lenderProfileDetailsSchema;
 
 export type LenderDetailsSaveState = {
   status: "idle" | "success" | "error";
@@ -53,12 +21,22 @@ export type LenderDetailsSaveState = {
     Record<
       | "contactPerson"
       | "phoneNumber"
+      | "streetAddress"
+      | "addressRegion"
+      | "addressCity"
+      | "addressBarangay"
+      | "addressZipCode"
+      | "businessRegistrationNumber"
       | "operatingArea"
       | "minLoanAmount"
-      | "maxLoanAmount",
+      | "maxLoanAmount"
+      | "organizationName"
+      | "typicalRepaymentTerms"
+      | "lenderDescription",
       string[]
     >
   >;
+  values?: Record<string, string>;
 };
 
 export type RepaymentProofReviewResult =
@@ -156,30 +134,77 @@ export async function saveLenderDetailsAction(
   _previousState: LenderDetailsSaveState,
   formData: FormData,
 ): Promise<LenderDetailsSaveState> {
+  const addressSelection = {
+    regionCode: String(formData.get("addressRegionCode") ?? ""),
+    regionName: String(formData.get("addressRegionName") ?? ""),
+    cityOrMunicipality: String(formData.get("addressCity") ?? ""),
+    barangay: String(formData.get("addressBarangay") ?? ""),
+    zipCode: String(formData.get("addressZipCode") ?? ""),
+  };
+  const streetAddress = String(formData.get("streetAddress") ?? "");
   const parsed = lenderDetailsSchema.safeParse({
+    organizationName: formData.get("organizationName"),
     contactPerson: formData.get("contactPerson"),
     phoneNumber: formData.get("phoneNumber"),
-    operatingArea: formData.get("operatingArea"),
+    streetAddress,
+    address: addressSelection,
+    businessRegistrationNumber: formData.get("businessRegistrationNumber"),
     minLoanAmount: formData.get("minLoanAmount"),
     maxLoanAmount: formData.get("maxLoanAmount"),
+    typicalRepaymentTerms: formData.get("typicalRepaymentTerms"),
+    lenderDescription: formData.get("lenderDescription"),
   });
 
   if (!parsed.success) {
+    const flattened = parsed.error.flatten().fieldErrors as Record<
+      string,
+      string[] | undefined
+    >;
     return {
       status: "error",
       message: "Check the highlighted fields.",
-      fieldErrors: parsed.error.flatten().fieldErrors,
+      fieldErrors: {
+        organizationName: flattened.organizationName,
+        contactPerson: flattened.contactPerson,
+        phoneNumber: flattened.phoneNumber,
+        streetAddress: flattened.streetAddress,
+        addressRegion:
+          flattened["address.regionCode"] ?? flattened.address,
+        addressCity: flattened["address.cityOrMunicipality"],
+        addressBarangay: flattened["address.barangay"],
+        addressZipCode: flattened["address.zipCode"],
+        businessRegistrationNumber: flattened.businessRegistrationNumber,
+        minLoanAmount: flattened.minLoanAmount,
+        maxLoanAmount: flattened.maxLoanAmount,
+        typicalRepaymentTerms: flattened.typicalRepaymentTerms,
+        lenderDescription: flattened.lenderDescription,
+      },
+      values: readLenderDetailsFormValues(formData),
     };
   }
 
   try {
     const supabase = await createSupabaseServerClient();
+    const resolvedAddress = resolveLenderOnboardingAddress(
+      parsed.data.address,
+      parsed.data.streetAddress || undefined,
+    );
     const { data, error } = await supabase.rpc("complete_lender_profile_details", {
+      p_organization_name: parsed.data.organizationName,
       p_contact_person: parsed.data.contactPerson?.trim() || null,
       p_phone_number: parsed.data.phoneNumber,
-      p_operating_area: parsed.data.operatingArea,
+      p_business_address: resolvedAddress.businessAddress,
+      p_operating_area: resolvedAddress.operatingArea,
+      p_business_registration_number:
+        parsed.data.businessRegistrationNumber || null,
       p_min_loan_amount: parsed.data.minLoanAmount,
       p_max_loan_amount: parsed.data.maxLoanAmount,
+      p_typical_repayment_terms: parsed.data.typicalRepaymentTerms,
+      p_lender_description: parsed.data.lenderDescription?.trim() || null,
+      p_address_region: resolvedAddress.addressRegion,
+      p_address_city: resolvedAddress.addressCity,
+      p_address_barangay: resolvedAddress.addressBarangay,
+      p_address_zip_code: resolvedAddress.addressZipCode,
     });
 
     const result = data as { ok?: boolean; message?: string } | null;
@@ -188,6 +213,7 @@ export async function saveLenderDetailsAction(
       return {
         status: "error",
         message: result?.message ?? "Could not save lender details.",
+        values: readLenderDetailsFormValues(formData),
       };
     }
 
@@ -202,8 +228,25 @@ export async function saveLenderDetailsAction(
     return {
       status: "error",
       message: "Could not save lender details.",
+      values: readLenderDetailsFormValues(formData),
     };
   }
+}
+
+function readLenderDetailsFormValues(formData: FormData) {
+  return {
+    organizationName: String(formData.get("organizationName") ?? ""),
+    contactPerson: String(formData.get("contactPerson") ?? ""),
+    phoneNumber: String(formData.get("phoneNumber") ?? ""),
+    streetAddress: String(formData.get("streetAddress") ?? ""),
+    businessRegistrationNumber: String(
+      formData.get("businessRegistrationNumber") ?? "",
+    ),
+    minLoanAmount: String(formData.get("minLoanAmount") ?? ""),
+    maxLoanAmount: String(formData.get("maxLoanAmount") ?? ""),
+    typicalRepaymentTerms: String(formData.get("typicalRepaymentTerms") ?? ""),
+    lenderDescription: String(formData.get("lenderDescription") ?? ""),
+  };
 }
 
 export type LenderProfileChangeRequestSubmitResult =

@@ -11,18 +11,15 @@ import {
 import { LenderProfileSubview } from "./lender-profile-subview";
 import { LenderProfileDetailCard } from "./lender-profile-detail-card";
 import { SummaryRow } from "@/components/borrower/ui/summary-row";
-import { LenderProfileStatusBanner } from "./lender-profile-status-banner";
 import { LenderAccountSection } from "./lender-account-section";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { LenderProfileChangeRequestForm } from "@/components/lender-profile-change-request-form";
-import { LenderDetailsCompletionForm } from "@/components/lender/lender-details-completion-form";
 import { ProfileIndexHeader } from "@/components/profile/profile-index-header";
 import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
 import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ConsentStatus } from "@/lib/consents";
-import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 
 import Link from "next/link";
 
@@ -104,6 +101,7 @@ export function LenderProfileHub({
   activeView,
   consentStatus,
   lenderProfile,
+  onEditProfile,
   onNavigateHome,
   onViewChange,
 }: {
@@ -111,6 +109,7 @@ export function LenderProfileHub({
   activeView: LenderProfileView;
   consentStatus?: ConsentStatus;
   lenderProfile: LenderProfileData;
+  onEditProfile: () => void;
   onNavigateHome: () => void;
   onViewChange: (view: LenderProfileView) => void;
 }) {
@@ -119,7 +118,6 @@ export function LenderProfileHub({
     lenderProfile?.organization_name?.trim() || "Lender profile";
   const verificationLabel = formatVerificationStatus(verificationStatus);
   const disclosureSummary = formatDisclosureSummary(consentStatus);
-  const profileCompletion = getLenderProfileCompletion(lenderProfile);
 
   if (activeView === "organization") {
     return (
@@ -349,23 +347,15 @@ export function LenderProfileHub({
         email={accountEmail}
         fallbackInitial="L"
         onBack={onNavigateHome}
+        onEditProfile={() => {
+          if (verificationStatus === "approved") {
+            onViewChange("change-requests");
+            return;
+          }
+
+          onEditProfile();
+        }}
       />
-
-      {verificationStatus !== "approved" ? (
-        <LenderProfileStatusBanner
-          status={getVerificationBannerStatus(
-            verificationStatus,
-            profileCompletion.missingFields,
-          )}
-          onAction={() => onViewChange("verification")}
-        />
-      ) : null}
-
-      {verificationStatus !== "approved" &&
-      lenderProfile &&
-      !profileCompletion.complete ? (
-        <LenderDetailsCompletionForm lenderProfile={lenderProfile} />
-      ) : null}
 
       <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
         <ProfileMenuRow
@@ -510,64 +500,6 @@ function LenderVerificationDetail({
       ) : null}
     </div>
   );
-}
-
-function getVerificationBannerStatus(
-  verificationStatus: string,
-  missingProfileFields: string[] = [],
-) {
-  if (missingProfileFields.length > 0) {
-    return {
-      tone: "attention" as const,
-      label: "Action needed",
-      title: "Complete lender details",
-      description: `Complete lender details before manager review. Missing: ${missingProfileFields.join(", ")}.`,
-      action: "verification" as const,
-      actionLabel: "View details",
-    };
-  }
-
-  switch (verificationStatus) {
-    case "approved":
-      return {
-        tone: "ready" as const,
-        label: "Approved",
-        title: "Your lender account is approved",
-        description:
-          "Your organization can review applications and send offers.",
-        action: null,
-        actionLabel: null,
-      };
-    case "pending":
-      return {
-        tone: "attention" as const,
-        label: "Pending review",
-        title: "Your lender account is pending review",
-        description: "A manager is reviewing your lender profile.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-    case "rejected":
-      return {
-        tone: "attention" as const,
-        label: "Rejected",
-        title: "Your lender access was not approved",
-        description:
-          "Update your lender profile and resubmit for review.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-    default:
-      return {
-        tone: "attention" as const,
-        label: "Incomplete",
-        title: "Complete your lender profile",
-        description:
-          "Complete your lender profile to request approval.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-  }
 }
 
 function formatVerificationStatus(status: string) {

@@ -61,7 +61,7 @@ const addressSelectionSchema = z
     }
   });
 
-export const lenderOnboardingSchema = z.object({
+const lenderProfileDetailsBaseSchema = z.object({
   organizationName: z
     .string()
     .trim()
@@ -125,10 +125,12 @@ export const lenderOnboardingSchema = z.object({
     .max(800, "Lender description must be 800 characters or fewer.")
     .optional()
     .or(z.literal("")),
-  lenderReviewConsentAccepted: requiredConsentCheckbox(
-    "Accept the Authorization for Verification before submitting.",
-  ),
-}).superRefine((value, context) => {
+});
+
+function validateLoanRange(
+  value: { minLoanAmount: number; maxLoanAmount: number },
+  context: z.RefinementCtx,
+) {
   if (value.maxLoanAmount < value.minLoanAmount) {
     context.addIssue({
       code: "custom",
@@ -136,7 +138,16 @@ export const lenderOnboardingSchema = z.object({
       message: "Maximum loan amount must be greater than or equal to minimum.",
     });
   }
-});
+}
+
+export const lenderProfileDetailsSchema =
+  lenderProfileDetailsBaseSchema.superRefine(validateLoanRange);
+
+export const lenderOnboardingSchema = lenderProfileDetailsBaseSchema.extend({
+  lenderReviewConsentAccepted: requiredConsentCheckbox(
+    "Accept the Authorization for Verification before submitting.",
+  ),
+}).superRefine(validateLoanRange);
 
 export type LenderOnboardingInput = z.infer<typeof lenderOnboardingSchema>;
 

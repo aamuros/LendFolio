@@ -11,12 +11,14 @@ export function LenderAccountTab({
   email,
   consentStatus,
   lenderProfile,
+  onEditProfile,
   onNavigateHome,
 }: {
   email: string;
   consentStatus?: ConsentStatus;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   lenderProfile: any;
+  onEditProfile?: () => void;
   onNavigateHome?: () => void;
 }) {
   const [activeView, setActiveView] = useState<LenderProfileView>("index");
@@ -27,6 +29,7 @@ export function LenderAccountTab({
       activeView={activeView}
       consentStatus={consentStatus}
       lenderProfile={lenderProfile}
+      onEditProfile={onEditProfile ?? (() => {})}
       onNavigateHome={onNavigateHome ?? (() => {})}
       onViewChange={setActiveView}
     />

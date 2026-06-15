@@ -6,7 +6,6 @@ import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { LegalDialog } from "@/components/legal/legal-dialog";
 import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
-import { LenderDetailsCompletionForm } from "@/components/lender/lender-details-completion-form";
 import { CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -18,6 +17,7 @@ import type {
   LenderVerificationDocumentSummary,
   LenderVerificationDocumentPolicy,
 } from "@/lib/lender-verification";
+import Link from "next/link";
 
 export function LenderPendingReviewPanel({
   consentStatus,
@@ -258,10 +258,18 @@ export function LenderPendingReviewPanel({
             </div>
           </div>
           {needsProfileDetails ? (
-            <p className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-800">
-              Action needed: Complete lender details before manager review.
-              Missing: {profileCompletion.missingFields.join(", ")}.
-            </p>
+            <div className="grid gap-3 rounded-xl border border-amber-200 bg-amber-50 px-3 py-3 text-sm leading-6 text-amber-800 sm:flex sm:items-center sm:justify-between">
+              <p>
+                Action needed: Complete lender details before manager review.
+                Missing: {profileCompletion.missingFields.join(", ")}.
+              </p>
+              <Button
+                asChild
+                className="h-10 w-full shrink-0 rounded-full font-semibold sm:w-fit"
+              >
+                <Link href="/lender/edit-profile">Complete details</Link>
+              </Button>
+            </div>
           ) : needsDocumentUpload ? (
             <Button
               type="button"
@@ -287,10 +295,6 @@ export function LenderPendingReviewPanel({
           ) : null}
         </CardContent>
       </BorrowerCard>
-
-      {needsProfileDetails && lenderProfile ? (
-        <LenderDetailsCompletionForm lenderProfile={lenderProfile} />
-      ) : null}
 
       {allConsentsAccepted ? (
         <DisclosureAcceptedConfirmation />

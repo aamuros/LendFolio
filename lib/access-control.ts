@@ -71,7 +71,7 @@ export async function getCurrentUserProfile(
         ? await client
             .from("lender_profiles")
             .select(
-              "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at",
+              "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, address_region, address_city_or_municipality, address_barangay, address_zip_code, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at",
             )
             .eq("user_id", profile.id)
             .maybeSingle()

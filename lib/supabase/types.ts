@@ -1417,11 +1417,20 @@ export type Database = {
       };
       complete_lender_profile_details: {
         Args: {
+          p_organization_name: string;
           p_contact_person: string | null;
           p_phone_number: string;
+          p_business_address: string;
           p_operating_area: string;
+          p_business_registration_number: string | null;
           p_min_loan_amount: number;
           p_max_loan_amount: number;
+          p_typical_repayment_terms: string;
+          p_lender_description: string | null;
+          p_address_region?: string | null;
+          p_address_city?: string | null;
+          p_address_barangay?: string | null;
+          p_address_zip_code?: string | null;
         };
         Returns: Json;
       };

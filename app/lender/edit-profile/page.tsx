@@ -1,0 +1,58 @@
+import { redirect, RedirectType } from "next/navigation";
+import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
+import { LenderPageHeader } from "@/components/lender-page-header";
+import { LenderDetailsCompletionForm } from "@/components/lender/lender-details-completion-form";
+import { LenderApplicationsStatus } from "@/components/lender-applications-list";
+import { borrowerPageBottomPadding } from "@/components/borrower/ui";
+import { getCurrentUserProfile } from "@/lib/access-control";
+import { cn } from "@/lib/utils";
+
+export const dynamic = "force-dynamic";
+
+export default async function LenderEditProfilePage() {
+  const access = await getCurrentUserProfile();
+
+  if (!access.ok) {
+    return (
+      <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <div className="mx-auto max-w-7xl">
+          <LenderPageHeader activeTab="profile" />
+          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+            <LenderApplicationsStatus message={access.message} tone="error" />
+          </div>
+          <div className="sm:hidden">
+            <LenderBottomTabs activeTab="profile" />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (access.profile.role !== "lender") {
+    redirect("/lender", RedirectType.replace);
+  }
+
+  if (!access.profile.lenderProfile) {
+    redirect("/lender/onboarding", RedirectType.replace);
+  }
+
+  if (access.profile.lenderProfile.verification_status === "approved") {
+    redirect("/lender?tab=profile", RedirectType.replace);
+  }
+
+  return (
+    <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <div className="mx-auto max-w-7xl">
+        <LenderPageHeader activeTab="profile" />
+        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <LenderDetailsCompletionForm
+            lenderProfile={access.profile.lenderProfile}
+          />
+        </div>
+        <div className="sm:hidden">
+          <LenderBottomTabs activeTab="profile" />
+        </div>
+      </div>
+    </main>
+  );
+}
