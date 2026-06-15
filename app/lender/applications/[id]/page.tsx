@@ -13,6 +13,7 @@ import {
 import type { LoanOfferSummary } from "@/lib/loan-offer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
@@ -135,190 +136,229 @@ export default async function LenderApplicationDetailPage({
           </Card>
         </section>
 
-        <section className="grid gap-3">
-          <h2 className="text-lg font-semibold">Business and financial context</h2>
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="p-4">
-              <p className="text-sm leading-6">
-                {application.portfolio.loanPurposeContext || "Not provided"}
-              </p>
-            </CardContent>
-          </Card>
-          <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-            <Metric
-              label="Gross revenue"
-              value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
-            />
-            <Metric
-              label="Expenses"
-              value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
-            />
-            <Metric
-              label="Existing loans"
-              value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
-            />
-            <Metric
-              label="Net revenue"
-              value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-            />
-            <Metric
-              label="Cash after loans"
-              value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
-            />
-            <Metric
-              label="Borrower note"
-              value={application.remarks || "No remarks"}
-            />
-          </dl>
-        </section>
+        <Tabs defaultValue="overview" className="gap-4">
+          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+            <TabsList className="h-10 min-w-max rounded-xl border border-border/80 bg-muted/70 p-1">
+              <TabsTrigger className="px-3" value="overview">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger className="px-3" value="financials">
+                Financials
+              </TabsTrigger>
+              <TabsTrigger className="px-3" value="credit-review">
+                Credit review
+              </TabsTrigger>
+              <TabsTrigger className="px-3" value="offer">
+                Offer
+              </TabsTrigger>
+              <TabsTrigger className="px-3" value="offer-history">
+                Offer history
+              </TabsTrigger>
+            </TabsList>
+          </div>
 
-        <section className="grid gap-3">
-          <h2 className="text-lg font-semibold">Credit at submission</h2>
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="p-4">
-              {hasCreditSnapshot(application) ? (
-                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+          <TabsContent value="overview" className="mt-0">
+            <section className="grid gap-3">
+              <h2 className="text-lg font-semibold">Overview</h2>
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardContent className="grid gap-4 p-4">
                   <ReviewItem
-                    label="Requested"
-                    value={`PHP ${formatCurrency(application.requestedAmount)}`}
+                    label="Loan purpose context"
+                    value={application.portfolio.loanPurposeContext || "Not provided"}
                   />
                   <ReviewItem
-                    label="Available"
-                    value={`PHP ${formatCurrency(application.availableCreditAtSubmission)}`}
+                    label="Borrower note"
+                    value={application.remarks || "No remarks"}
                   />
-                  <ReviewItem
-                    label="Credit limit"
-                    value={`PHP ${formatCurrency(application.creditLimitAtSubmission)}`}
-                  />
-                  <ReviewItem
-                    label="Used credit"
-                    value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
-                  />
-                  <ReviewItem
-                    label="Net cash flow"
-                    value={
-                      application.monthlyNetCashFlowAtSubmission == null
-                        ? "Not recorded"
-                        : `PHP ${formatCurrency(application.monthlyNetCashFlowAtSubmission)}`
-                    }
-                  />
-                </dl>
-              ) : (
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Not recorded for this application.
-                </p>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
 
-        <CreditProfileGradeSection application={application} />
-
-        <section className="grid gap-3">
-          <h2 className="text-lg font-semibold">
-            {getActionTitle({
-              hasAcceptedApplication,
-              isOpenForOffers,
-              hasPendingOffer: Boolean(pendingOffer),
-            })}
-          </h2>
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="p-4">
-              {hasAcceptedApplication ? (
-                <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                  <p className="font-semibold text-foreground">
-                    Offer accepted
-                  </p>
-                  <p>Offer creation is closed.</p>
-                </div>
-              ) : pendingOffer ? (
-                <div className="grid gap-4">
-                  <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                    <p className="font-semibold text-foreground">
-                      You already sent an offer.
-                    </p>
-                    <p>The borrower can review and respond to your pending offer.</p>
-                  </div>
-                  <OfferSummary offer={pendingOffer} />
-                </div>
-              ) : isOpenForOffers ? (
-                <LenderOfferForm
-                  applicationId={application.id}
-                  requestedAmount={application.requestedAmount}
-                  availableCreditAtSubmission={application.availableCreditAtSubmission}
-                  defaultDueDate={getDefaultDueDate()}
-                  preferredTerm={application.preferredTerm}
-                  preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
+          <TabsContent value="financials" className="mt-0">
+            <section className="grid gap-3">
+              <h2 className="text-lg font-semibold">Financials</h2>
+              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
+                <Metric
+                  label="Gross revenue"
+                  value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
                 />
-              ) : (
-                <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                  <p className="font-semibold text-foreground">
-                    Application closed
-                  </p>
-                  <p>Offer creation is closed.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </section>
+                <Metric
+                  label="Expenses"
+                  value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
+                />
+                <Metric
+                  label="Existing loans"
+                  value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
+                />
+                <Metric
+                  label="Net revenue"
+                  value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+                />
+                <Metric
+                  label="Cash after loans"
+                  value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
+                />
+              </dl>
+            </section>
+          </TabsContent>
 
-        <section className="grid gap-3">
-          <h2 className="text-lg font-semibold">Offer history</h2>
-          {application.offers.length > 0 ? (
-            <div className="grid gap-3">
-              {application.offers.map((offer) => (
-                <Card
-                  key={offer.id}
-                  className={cn(
-                    "rounded-2xl border-border/50 shadow-sm",
-                    offer.status !== "pending" && "opacity-75",
-                  )}
-                >
-                  <CardContent className="grid gap-4 p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="text-xs font-semibold text-muted-foreground">
-                          Approved
-                        </p>
-                        <p className="mt-1 text-2xl font-semibold">
-                          PHP {formatCurrency(offer.approvedAmount)}
-                        </p>
-                      </div>
-                      <OfferHistoryBadge status={offer.status} />
-                    </div>
-                    <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                      <ReviewItem
-                        label="Interest/service charge"
-                        value={`PHP ${formatCurrency(offer.interestAmount)}`}
-                      />
-                      <ReviewItem
-                        label="Other borrower-paid fees"
-                        value={`PHP ${formatCurrency(offer.fees)}`}
-                      />
-                      <ReviewItem
-                        label="Total repayment"
-                        value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
-                      />
-                      <ReviewItem label="Final repayment" value={formatDateOnly(offer.dueDate)} />
-                      <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
-                    </dl>
-                    {offer.remarks ? (
+          <TabsContent value="credit-review" className="mt-0">
+            <div className="grid gap-5">
+              <section className="grid gap-3">
+                <h2 className="text-lg font-semibold">Credit at submission</h2>
+                <Card className="rounded-2xl border-border/50 shadow-sm">
+                  <CardContent className="p-4">
+                    {hasCreditSnapshot(application) ? (
+                      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                        <ReviewItem
+                          label="Requested"
+                          value={`PHP ${formatCurrency(application.requestedAmount)}`}
+                        />
+                        <ReviewItem
+                          label="Available"
+                          value={`PHP ${formatCurrency(application.availableCreditAtSubmission)}`}
+                        />
+                        <ReviewItem
+                          label="Credit limit"
+                          value={`PHP ${formatCurrency(application.creditLimitAtSubmission)}`}
+                        />
+                        <ReviewItem
+                          label="Used credit"
+                          value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
+                        />
+                        <ReviewItem
+                          label="Net cash flow"
+                          value={
+                            application.monthlyNetCashFlowAtSubmission == null
+                              ? "Not recorded"
+                              : `PHP ${formatCurrency(application.monthlyNetCashFlowAtSubmission)}`
+                          }
+                        />
+                      </dl>
+                    ) : (
                       <p className="text-sm leading-6 text-muted-foreground">
-                        {offer.remarks}
+                        Not recorded for this application.
                       </p>
-                    ) : null}
+                    )}
                   </CardContent>
                 </Card>
-              ))}
+              </section>
+
+              <CreditProfileGradeSection application={application} />
             </div>
-          ) : (
-            <Card className="rounded-2xl border-dashed border-border/50">
-              <CardContent className="p-5 text-sm leading-6 text-muted-foreground">
-                No offers have been sent for this application yet.
-              </CardContent>
-            </Card>
-          )}
-        </section>
+          </TabsContent>
+
+          <TabsContent value="offer" className="mt-0">
+            <section className="grid gap-3">
+              <h2 className="text-lg font-semibold">
+                {getActionTitle({
+                  hasAcceptedApplication,
+                  isOpenForOffers,
+                  hasPendingOffer: Boolean(pendingOffer),
+                })}
+              </h2>
+              <Card className="rounded-2xl border-border/50 shadow-sm">
+                <CardContent className="p-4">
+                  {hasAcceptedApplication ? (
+                    <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                      <p className="font-semibold text-foreground">
+                        Offer accepted
+                      </p>
+                      <p>Offer creation is closed.</p>
+                    </div>
+                  ) : pendingOffer ? (
+                    <div className="grid gap-4">
+                      <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                        <p className="font-semibold text-foreground">
+                          You already sent an offer.
+                        </p>
+                        <p>The borrower can review and respond to your pending offer.</p>
+                      </div>
+                      <OfferSummary offer={pendingOffer} />
+                    </div>
+                  ) : isOpenForOffers ? (
+                    <LenderOfferForm
+                      applicationId={application.id}
+                      requestedAmount={application.requestedAmount}
+                      availableCreditAtSubmission={application.availableCreditAtSubmission}
+                      defaultDueDate={getDefaultDueDate()}
+                      preferredTerm={application.preferredTerm}
+                      preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
+                    />
+                  ) : (
+                    <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                      <p className="font-semibold text-foreground">
+                        Application closed
+                      </p>
+                      <p>Offer creation is closed.</p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </section>
+          </TabsContent>
+
+          <TabsContent value="offer-history" className="mt-0">
+            <section className="grid gap-3">
+              <h2 className="text-lg font-semibold">Offer history</h2>
+              {application.offers.length > 0 ? (
+                <div className="grid gap-3">
+                  {application.offers.map((offer) => (
+                    <Card
+                      key={offer.id}
+                      className={cn(
+                        "rounded-2xl border-border/50 shadow-sm",
+                        offer.status !== "pending" && "opacity-75",
+                      )}
+                    >
+                      <CardContent className="grid gap-4 p-4">
+                        <div className="flex flex-wrap items-start justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-semibold text-muted-foreground">
+                              Approved
+                            </p>
+                            <p className="mt-1 text-2xl font-semibold">
+                              PHP {formatCurrency(offer.approvedAmount)}
+                            </p>
+                          </div>
+                          <OfferHistoryBadge status={offer.status} />
+                        </div>
+                        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                          <ReviewItem
+                            label="Interest/service charge"
+                            value={`PHP ${formatCurrency(offer.interestAmount)}`}
+                          />
+                          <ReviewItem
+                            label="Other borrower-paid fees"
+                            value={`PHP ${formatCurrency(offer.fees)}`}
+                          />
+                          <ReviewItem
+                            label="Total repayment"
+                            value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
+                          />
+                          <ReviewItem label="Final repayment" value={formatDateOnly(offer.dueDate)} />
+                          <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
+                        </dl>
+                        {offer.remarks ? (
+                          <p className="text-sm leading-6 text-muted-foreground">
+                            {offer.remarks}
+                          </p>
+                        ) : null}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <Card className="rounded-2xl border-dashed border-border/50">
+                  <CardContent className="p-5 text-sm leading-6 text-muted-foreground">
+                    No offers have been sent for this application yet.
+                  </CardContent>
+                </Card>
+              )}
+            </section>
+          </TabsContent>
+        </Tabs>
           </div>
         </div>
 
