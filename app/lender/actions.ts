@@ -189,9 +189,9 @@ export async function saveLenderDetailsAction(
       parsed.data.address,
       parsed.data.streetAddress || undefined,
     );
-    const { data, error } = await supabase.rpc("complete_lender_profile_details", {
+    const lenderDetailsPayload = {
       p_organization_name: parsed.data.organizationName,
-      p_contact_person: parsed.data.contactPerson?.trim() || null,
+      p_contact_person: parsed.data.contactPerson.trim(),
       p_phone_number: parsed.data.phoneNumber,
       p_business_address: resolvedAddress.businessAddress,
       p_operating_area: resolvedAddress.operatingArea,
@@ -205,14 +205,43 @@ export async function saveLenderDetailsAction(
       p_address_city: resolvedAddress.addressCity,
       p_address_barangay: resolvedAddress.addressBarangay,
       p_address_zip_code: resolvedAddress.addressZipCode,
-    });
+    };
+    let { data, error } = await supabase.rpc(
+      "complete_lender_profile_details",
+      lenderDetailsPayload,
+    );
+
+    if (error && isStaleLenderDetailsRpcError(error.message)) {
+      console.error(
+        "complete_lender_profile_details RPC is missing the extended signature; falling back to submit_lender_onboarding.",
+        error.message,
+      );
+
+      const fallback = await supabase.rpc(
+        "submit_lender_onboarding",
+        lenderDetailsPayload,
+      );
+
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     const result = data as { ok?: boolean; message?: string } | null;
 
     if (error || !result?.ok) {
+      const message =
+        result?.message ??
+        formatLenderDetailsSaveError(error?.message) ??
+        "We could not save your lender details. Please try again.";
+
+      if (error) {
+        console.error("Could not save lender details.", error.message);
+      }
+
       return {
         status: "error",
-        message: result?.message ?? "Could not save lender details.",
+        message,
+        fieldErrors: mapLenderDetailsSaveMessageToFieldErrors(message),
         values: readLenderDetailsFormValues(formData),
       };
     }
@@ -224,10 +253,12 @@ export async function saveLenderDetailsAction(
       status: "success",
       message: result.message ?? "Lender details submitted.",
     };
-  } catch {
+  } catch (error) {
+    console.error("Unexpected lender details save failure.", error);
+
     return {
       status: "error",
-      message: "Could not save lender details.",
+      message: "We could not save your lender details. Please try again.",
       values: readLenderDetailsFormValues(formData),
     };
   }
@@ -247,6 +278,76 @@ function readLenderDetailsFormValues(formData: FormData) {
     typicalRepaymentTerms: String(formData.get("typicalRepaymentTerms") ?? ""),
     lenderDescription: String(formData.get("lenderDescription") ?? ""),
   };
+}
+
+function isStaleLenderDetailsRpcError(message?: string) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("Could not find the function") ||
+    message.includes("complete_lender_profile_details") ||
+    message.includes("PGRST202")
+  );
+}
+
+function formatLenderDetailsSaveError(message?: string) {
+  if (!message) {
+    return null;
+  }
+
+  if (isStaleLenderDetailsRpcError(message)) {
+    return "We could not save your lender details because the lender profile update is not available. Run the latest database migrations and try again.";
+  }
+
+  if (message.includes("JWT") || message.includes("Auth session missing")) {
+    return "Sign in again before saving lender details.";
+  }
+
+  return message;
+}
+
+function mapLenderDetailsSaveMessageToFieldErrors(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("organization")) {
+    return { organizationName: [message] };
+  }
+
+  if (normalized.includes("contact person")) {
+    return { contactPerson: [message] };
+  }
+
+  if (normalized.includes("phone")) {
+    return { phoneNumber: [message] };
+  }
+
+  if (normalized.includes("address")) {
+    return { addressRegion: [message] };
+  }
+
+  if (normalized.includes("area")) {
+    return { addressRegion: [message] };
+  }
+
+  if (normalized.includes("registration")) {
+    return { businessRegistrationNumber: [message] };
+  }
+
+  if (normalized.includes("loan amount") || normalized.includes("loan range")) {
+    return { maxLoanAmount: [message] };
+  }
+
+  if (normalized.includes("repayment")) {
+    return { typicalRepaymentTerms: [message] };
+  }
+
+  if (normalized.includes("description")) {
+    return { lenderDescription: [message] };
+  }
+
+  return undefined;
 }
 
 export type LenderProfileChangeRequestSubmitResult =
