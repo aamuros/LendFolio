@@ -37,9 +37,9 @@ export default async function LenderEditProfileStepPage({
   if (!access.ok) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderPageHeader activeTab="profile" />
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="profile" />
-          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -64,9 +64,9 @@ export default async function LenderEditProfileStepPage({
 
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <LenderPageHeader activeTab="profile" />
       <div className="mx-auto max-w-7xl">
-        <LenderPageHeader activeTab="profile" />
-        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+        <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
           <LenderDetailsCompletionForm
             lenderProfile={access.profile.lenderProfile}
             step={step}

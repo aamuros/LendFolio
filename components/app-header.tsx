@@ -46,9 +46,9 @@ export function AppHeader({
   accountLabel?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 shadow-[0_12px_40px_rgba(14,26,18,0.04)] backdrop-blur supports-[backdrop-filter]:bg-background/75">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[4.5rem] sm:gap-5 sm:px-6">
-        <div className="flex min-w-0 items-center gap-4 sm:gap-6">
+    <header className="sticky top-0 z-30 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:min-h-16 sm:flex-nowrap sm:gap-5 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <Link
             href="/"
             className="inline-flex shrink-0 items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -56,14 +56,14 @@ export function AppHeader({
           >
             <Logo size="sm" priority />
           </Link>
-          <nav className="hidden items-center gap-1 rounded-full border border-border/70 bg-muted/45 p-1 sm:flex">
+          <nav className="hidden min-w-0 items-center gap-1 sm:flex">
             {navItems.map((item) => {
               const isActive = activeNavId === item.id;
               const activeClassName = cn(
-                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
+                "relative rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isActive
-                  ? "bg-background text-foreground shadow-sm"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
               );
 
               if (item.href) {
@@ -93,7 +93,7 @@ export function AppHeader({
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-1.5 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
           {showNotifications ? <NotificationButton /> : null}
           {showAccountMenu ? (
             <DropdownMenu>
@@ -103,8 +103,8 @@ export function AppHeader({
                   size="icon"
                   aria-label="Open profile menu"
                   className={cn(
-                    "size-10 rounded-xl border border-transparent text-muted-foreground hover:border-border/80 hover:bg-muted hover:text-foreground",
-                    isAccountActive && "border-border/80 bg-accent text-accent-foreground",
+                    "size-10 rounded-xl border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isAccountActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                   )}
                 >
                   <User className="size-5" />

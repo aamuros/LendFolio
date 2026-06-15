@@ -18,9 +18,9 @@ export default async function LenderApplicationsPage() {
   if (!access.ok) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderPageHeader activeTab="applications" />
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="applications" />
-          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -34,9 +34,9 @@ export default async function LenderApplicationsPage() {
   if (!isApprovedLender(access.profile)) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderPageHeader activeTab="applications" />
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="applications" />
-          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <section className="grid gap-5">
               <PageHeader
                 title="Open applications"
@@ -61,10 +61,9 @@ export default async function LenderApplicationsPage() {
 
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
-        <LenderPageHeader activeTab="applications" />
-
-        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+        <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
           <section className="grid gap-5">
             <PageHeader
               title="Open applications"

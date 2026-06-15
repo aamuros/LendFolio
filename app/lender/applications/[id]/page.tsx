@@ -42,9 +42,9 @@ export default async function LenderApplicationDetailPage({
   if (!result.ok) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderPageHeader activeTab="applications" />
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab="applications" />
-          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+          <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6">
             <div className="mx-auto grid max-w-4xl gap-5">
               <DetailHeader />
               <section className="grid gap-4">
@@ -74,9 +74,9 @@ export default async function LenderApplicationDetailPage({
 
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
-        <LenderPageHeader activeTab="applications" />
-        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+        <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6">
           <div className="mx-auto grid max-w-4xl gap-5">
             <DetailHeader />
 

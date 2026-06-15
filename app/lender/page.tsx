@@ -89,10 +89,10 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   if (!access.ok) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderToast />
+        <LenderPageHeader activeTab={activeTab} />
         <div className="mx-auto max-w-7xl">
-          <LenderToast />
-          <LenderPageHeader activeTab={activeTab} />
-          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -143,9 +143,9 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+        <LenderPageHeader activeTab={activeTab} />
         <div className="mx-auto max-w-7xl">
-          <LenderPageHeader activeTab={activeTab} />
-          <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             {activeTab === "home" ? (
               <LenderAccessPanel
                 profile={access.profile}
@@ -273,11 +273,10 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
 
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
+      <LenderToast />
+      <LenderPageHeader activeTab={activeTab} />
       <div className="mx-auto max-w-7xl">
-        <LenderToast />
-        <LenderPageHeader activeTab={activeTab} />
-
-        <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
+        <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
           {activeTab === "home" ? (
             <HomeTab
               applications={applications}
