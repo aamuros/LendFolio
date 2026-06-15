@@ -5,7 +5,7 @@ import {
 } from "../lib/lender-profile-completion";
 
 describe("lender profile completion", () => {
-  it("requires contact, lending area, and a valid loan range", () => {
+  it("requires organization, contact, address, area, loan range, and repayment terms", () => {
     const completion = getLenderProfileCompletion({
       contact_person: "",
       phone_number: "",
@@ -15,18 +15,30 @@ describe("lender profile completion", () => {
     });
 
     expect(completion.complete).toBe(false);
-    expect(completion.missingFields).toEqual(["contact", "area", "loan range"]);
+    expect(completion.missingFields).toEqual([
+      "organization",
+      "contact person",
+      "phone number",
+      "address",
+      "area",
+      "loan range",
+      "repayment terms",
+    ]);
     expect(getLenderProfileCompletionMessage(completion)).toContain(
       "Action needed",
     );
   });
 
-  it("accepts phone contact with a valid area and loan range", () => {
+  it("accepts complete required lender details", () => {
     const completion = getLenderProfileCompletion({
+      organizationName: "Juan Lending Co.",
+      contactPerson: "Juan Dela Cruz",
       phoneNumber: "+63 917 000 0000",
+      businessAddress: "123 Mabini Street, Manila",
       operatingArea: "NCR",
       minLoanAmount: 5000,
       maxLoanAmount: 50000,
+      typicalRepaymentTerms: "1 to 3 months",
     });
 
     expect(completion.complete).toBe(true);
@@ -38,10 +50,14 @@ describe("lender profile completion", () => {
 
   it("rejects a maximum loan amount below the minimum", () => {
     const completion = getLenderProfileCompletion({
+      organizationName: "Juan Lending Co.",
       contactPerson: "Juan Dela Cruz",
+      phoneNumber: "+63 917 000 0000",
+      businessAddress: "123 Mabini Street, Manila",
       operatingArea: "Cebu",
       minLoanAmount: 50000,
       maxLoanAmount: 5000,
+      typicalRepaymentTerms: "1 to 3 months",
     });
 
     expect(completion.complete).toBe(false);

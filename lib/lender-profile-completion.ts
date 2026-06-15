@@ -45,8 +45,12 @@ export function getLenderProfileCompletion(
     missingFields.push("organization");
   }
 
-  if (!contactPerson.trim() && !phoneNumber.trim()) {
-    missingFields.push("contact");
+  if (!contactPerson.trim()) {
+    missingFields.push("contact person");
+  }
+
+  if (!phoneNumber.trim()) {
+    missingFields.push("phone number");
   }
 
   if (!businessAddress.trim()) {

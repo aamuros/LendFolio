@@ -156,29 +156,11 @@ export async function saveLenderDetailsAction(
   });
 
   if (!parsed.success) {
-    const flattened = parsed.error.flatten().fieldErrors as Record<
-      string,
-      string[] | undefined
-    >;
+    const fieldErrors = getLenderDetailsValidationFieldErrors(parsed.error.issues);
     return {
       status: "error",
       message: "Check the highlighted fields.",
-      fieldErrors: {
-        organizationName: flattened.organizationName,
-        contactPerson: flattened.contactPerson,
-        phoneNumber: flattened.phoneNumber,
-        streetAddress: flattened.streetAddress,
-        addressRegion:
-          flattened["address.regionCode"] ?? flattened.address,
-        addressCity: flattened["address.cityOrMunicipality"],
-        addressBarangay: flattened["address.barangay"],
-        addressZipCode: flattened["address.zipCode"],
-        businessRegistrationNumber: flattened.businessRegistrationNumber,
-        minLoanAmount: flattened.minLoanAmount,
-        maxLoanAmount: flattened.maxLoanAmount,
-        typicalRepaymentTerms: flattened.typicalRepaymentTerms,
-        lenderDescription: flattened.lenderDescription,
-      },
+      fieldErrors,
       values: readLenderDetailsFormValues(formData),
     };
   }
@@ -278,6 +260,41 @@ function readLenderDetailsFormValues(formData: FormData) {
     typicalRepaymentTerms: String(formData.get("typicalRepaymentTerms") ?? ""),
     lenderDescription: String(formData.get("lenderDescription") ?? ""),
   };
+}
+
+function getLenderDetailsValidationFieldErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>,
+): LenderDetailsSaveState["fieldErrors"] {
+  const fieldErrors: LenderDetailsSaveState["fieldErrors"] = {};
+  const fieldMap: Record<string, keyof NonNullable<LenderDetailsSaveState["fieldErrors"]>> = {
+    organizationName: "organizationName",
+    contactPerson: "contactPerson",
+    phoneNumber: "phoneNumber",
+    streetAddress: "streetAddress",
+    "address.regionCode": "addressRegion",
+    "address.regionName": "addressRegion",
+    "address.cityOrMunicipality": "addressCity",
+    "address.barangay": "addressBarangay",
+    "address.zipCode": "addressZipCode",
+    address: "addressRegion",
+    businessRegistrationNumber: "businessRegistrationNumber",
+    minLoanAmount: "minLoanAmount",
+    maxLoanAmount: "maxLoanAmount",
+    typicalRepaymentTerms: "typicalRepaymentTerms",
+    lenderDescription: "lenderDescription",
+  };
+
+  for (const issue of issues) {
+    const field = fieldMap[issue.path.join(".")];
+
+    if (!field) {
+      continue;
+    }
+
+    fieldErrors[field] = [...(fieldErrors[field] ?? []), issue.message];
+  }
+
+  return fieldErrors;
 }
 
 function isStaleLenderDetailsRpcError(message?: string) {
