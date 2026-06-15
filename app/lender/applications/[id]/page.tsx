@@ -40,6 +40,12 @@ export default async function LenderApplicationDetailPage({
   const result = await loadLenderApplicationDetail(id);
 
   if (!result.ok) {
+    if (process.env.NODE_ENV === "development") {
+      console.warn(
+        `[lender-applications] Application could not load for id: ${id}`,
+      );
+    }
+
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab="applications" />
@@ -49,9 +55,16 @@ export default async function LenderApplicationDetailPage({
               <DetailHeader />
               <section className="grid gap-4">
                 <h1 className="text-2xl leading-tight font-semibold">
-                  Application unavailable
+                  Application could not load
                 </h1>
                 <LenderApplicationsStatus message={result.message} tone="error" />
+                <div>
+                  <Button asChild className="rounded-xl">
+                    <Link href="/lender/applications">
+                      Back to applications
+                    </Link>
+                  </Button>
+                </div>
               </section>
             </div>
           </div>

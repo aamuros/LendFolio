@@ -12,6 +12,7 @@ import {
 import { mapLoanOfferRow, type LoanOfferSummary } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import { isUuid } from "@/lib/validation/uuid";
 import { openApplicationStatuses } from "@/lib/workflow-rules";
 
 type ApprovedLenderAccess = Extract<
@@ -228,6 +229,15 @@ export async function loadLenderApplicationDetail(
   verifiedAccess?: ApprovedLenderAccess,
 ): Promise<LenderApplicationDetailResult> {
   try {
+    if (!isUuid(applicationId)) {
+      return {
+        ok: false,
+        mode: "not-found",
+        application: null,
+        message: "This application is not available for lender review.",
+      };
+    }
+
     const supabase =
       verifiedAccess?.supabase ?? (await createSupabaseServerClient());
     const access = verifiedAccess ?? (await requireApprovedLender(supabase));
@@ -245,6 +255,7 @@ export async function loadLenderApplicationDetail(
       .from("loan_applications")
       .select(lenderReviewApplicationSelect)
       .eq("id", applicationId)
+      .in("status", [...openApplicationStatuses])
       .maybeSingle();
 
     if (applicationError) {
@@ -283,6 +294,7 @@ export async function loadLenderApplicationDetail(
     const { data: offers, error: offersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
+      .eq("lender_id", access.profile.id)
       .eq("loan_application_id", application.id)
       .order("sent_at", { ascending: false });
 
