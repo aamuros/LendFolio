@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import {
@@ -57,10 +57,10 @@ const filterKeys = {
   search: "applicationSearch",
   term: "applicationTerm",
   amount: "applicationAmount",
-  purpose: "applicationPurpose",
   offerStatus: "applicationOfferStatus",
   sort: "applicationSort",
 } as const;
+const removedFilterKeys = ["applicationPurpose"] as const;
 
 const amountFilterLabels: Record<AmountFilter, string> = {
   any: "Any amount",
@@ -86,13 +86,6 @@ const sortLabels: Record<SortOption, string> = {
   net_revenue_desc: "Highest net revenue first",
 };
 
-const termOrder: Record<LenderApplicationReview["preferredTerm"], number> = {
-  "1_month": 1,
-  "3_months": 3,
-  "6_months": 6,
-  "12_months": 12,
-};
-
 const preferredTermLabels: Record<
   LenderApplicationReview["preferredTerm"],
   string
@@ -103,6 +96,7 @@ const preferredTermLabels: Record<
   "12_months": "12 months",
 };
 
+const fallbackTermMonths = [1, 2, 3, 4, 6, 9, 12];
 const actionableApplicationStatuses = ["submitted", "open"] as const;
 
 function applicationStatusTone(status: string) {
@@ -143,52 +137,53 @@ export function LenderApplicationsList({
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const search = searchParams.get(filterKeys.search)?.trim() ?? "";
+  const search = searchParams.get(filterKeys.search) ?? "";
   const rawTerm = searchParams.get(filterKeys.term) ?? "all";
   const amount = normalizeAmountFilter(searchParams.get(filterKeys.amount));
-  const purpose = searchParams.get(filterKeys.purpose) ?? "all";
   const offerStatus = normalizeOfferStatusFilter(
     searchParams.get(filterKeys.offerStatus),
   );
   const sort = normalizeSortOption(searchParams.get(filterKeys.sort));
 
+  useEffect(() => {
+    if (!removedFilterKeys.some((key) => searchParams.has(key))) {
+      return;
+    }
+
+    const params = new URLSearchParams(searchParams.toString());
+    removedFilterKeys.forEach((key) => params.delete(key));
+    const nextQuery = serializeSearchParams(params);
+
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }, [pathname, router, searchParams]);
+
   const terms = useMemo(
     () =>
-      [...new Set(applications.map((application) => application.preferredTerm))]
-        .filter(Boolean)
-        .sort((a, b) => termOrder[a] - termOrder[b]),
+      [
+        ...new Set([
+          ...fallbackTermMonths,
+          ...applications.map((application) => getTermMonths(application)),
+        ]),
+      ].sort((a, b) => a - b),
     [applications],
   );
-  const term = terms.some((termOption) => termOption === rawTerm)
+  const term = terms.some((termOption) => String(termOption) === rawTerm)
     ? rawTerm
     : "all";
-  const purposes = useMemo(
-    () =>
-      [...new Set(applications.map((application) => application.purpose?.trim()).filter(Boolean))]
-        .sort((a, b) => a.localeCompare(b)),
-    [applications],
-  );
   const filteredApplications = useMemo(() => {
-    const normalizedSearch = search.toLowerCase();
+    const normalizedSearch = normalizeSearchText(search);
 
     return applications
       .filter((application) => {
-        const borrowerName = getBorrowerName(application);
-        const searchableText = [
-          application.portfolio.businessTypeLabel,
-          borrowerName,
-          application.purpose,
-          application.portfolio.location,
-        ]
-          .filter(Boolean)
-          .join(" ")
-          .toLowerCase();
+        const searchableText = buildSearchText(application);
 
         if (normalizedSearch && !searchableText.includes(normalizedSearch)) {
           return false;
         }
 
-        if (term !== "all" && application.preferredTerm !== term) {
+        if (term !== "all" && getTermMonths(application) !== Number(term)) {
           return false;
         }
 
@@ -196,20 +191,15 @@ export function LenderApplicationsList({
           return false;
         }
 
-        if (purpose !== "all" && application.purpose !== purpose) {
-          return false;
-        }
-
         return matchesOfferStatusFilter(application, offerStatus);
       })
       .sort((a, b) => compareApplications(a, b, sort));
-  }, [amount, applications, offerStatus, purpose, search, sort, term]);
+  }, [amount, applications, offerStatus, search, sort, term]);
 
   const hasActiveFilters =
     search.length > 0 ||
     term !== "all" ||
     amount !== "any" ||
-    purpose !== "all" ||
     offerStatus !== "all" ||
     sort !== "newest";
 
@@ -219,6 +209,8 @@ export function LenderApplicationsList({
     const defaultValue =
       key === "sort" ? "newest" : key === "search" ? "" : "all";
 
+    removedFilterKeys.forEach((removedKey) => params.delete(removedKey));
+
     if (key === "amount" && value === "any") {
       params.delete(paramKey);
     } else if (value === defaultValue) {
@@ -227,7 +219,7 @@ export function LenderApplicationsList({
       params.set(paramKey, value);
     }
 
-    const nextQuery = params.toString();
+    const nextQuery = serializeSearchParams(params);
 
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
       scroll: false,
@@ -237,7 +229,8 @@ export function LenderApplicationsList({
   function clearFilters() {
     const params = new URLSearchParams(searchParams.toString());
     Object.values(filterKeys).forEach((key) => params.delete(key));
-    const nextQuery = params.toString();
+    removedFilterKeys.forEach((key) => params.delete(key));
+    const nextQuery = serializeSearchParams(params);
 
     router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
       scroll: false,
@@ -263,7 +256,7 @@ export function LenderApplicationsList({
   return (
     <div className="grid gap-3">
       <div className="grid gap-3 rounded-2xl border border-border/80 bg-card/80 p-3 shadow-sm sm:p-4">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(150px,1fr))_auto]">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_repeat(4,minmax(155px,1fr))]">
           <label className="relative block">
             <span className="sr-only">Search applications</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
@@ -282,8 +275,8 @@ export function LenderApplicationsList({
             options={[
               { label: "Any term", value: "all" },
               ...terms.map((termOption) => ({
-                label: formatPreferredTerm(termOption),
-                value: termOption,
+                label: formatTermMonths(termOption),
+                value: String(termOption),
               })),
             ]}
           />
@@ -295,18 +288,6 @@ export function LenderApplicationsList({
               label,
               value,
             }))}
-          />
-          <FilterSelect
-            label="Purpose"
-            value={purpose}
-            onValueChange={(value) => setFilter("purpose", value)}
-            options={[
-              { label: "Any purpose", value: "all" },
-              ...purposes.map((purposeOption) => ({
-                label: purposeOption,
-                value: purposeOption,
-              })),
-            ]}
           />
           <FilterSelect
             label="Offer status"
@@ -326,40 +307,36 @@ export function LenderApplicationsList({
               value,
             }))}
           />
+        </div>
 
-          {hasActiveFilters ? (
+        {hasActiveFilters ? (
+          <div className="flex flex-col gap-3 border-t border-border/70 pt-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+                <SlidersHorizontal className="size-3.5" />
+                Active
+              </span>
+              {search ? <FilterChip label={`Search: ${search}`} /> : null}
+              {term !== "all" ? (
+                <FilterChip label={`Term: ${formatTermMonths(Number(term))}`} />
+              ) : null}
+              {amount !== "any" ? (
+                <FilterChip label={amountFilterLabels[amount]} />
+              ) : null}
+              {offerStatus !== "all" ? (
+                <FilterChip label={offerStatusFilterLabels[offerStatus]} />
+              ) : null}
+              {sort !== "newest" ? <FilterChip label={sortLabels[sort]} /> : null}
+            </div>
             <Button
               type="button"
               variant="ghost"
-              className="h-10 rounded-xl px-3 text-muted-foreground lg:justify-self-end"
+              className="h-9 rounded-xl px-3 text-muted-foreground sm:shrink-0"
               onClick={clearFilters}
             >
               <X className="size-4" />
               Clear filters
             </Button>
-          ) : null}
-        </div>
-
-        {hasActiveFilters ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
-              <SlidersHorizontal className="size-3.5" />
-              Active
-            </span>
-            {search ? <FilterChip label={`Search: ${search}`} /> : null}
-            {term !== "all" ? (
-              <FilterChip
-                label={`Term: ${formatPreferredTerm(term as LenderApplicationReview["preferredTerm"])}`}
-              />
-            ) : null}
-            {amount !== "any" ? (
-              <FilterChip label={amountFilterLabels[amount]} />
-            ) : null}
-            {purpose !== "all" ? <FilterChip label={`Purpose: ${purpose}`} /> : null}
-            {offerStatus !== "all" ? (
-              <FilterChip label={offerStatusFilterLabels[offerStatus]} />
-            ) : null}
-            {sort !== "newest" ? <FilterChip label={sortLabels[sort]} /> : null}
           </div>
         ) : null}
       </div>
@@ -554,7 +531,7 @@ function compareApplications(
     case "amount_desc":
       return b.requestedAmount - a.requestedAmount;
     case "term_asc":
-      return termOrder[a.preferredTerm] - termOrder[b.preferredTerm];
+      return getTermMonths(a) - getTermMonths(b);
     case "net_revenue_desc":
       return (
         b.financialIndicators.estimatedNetMonthlyRevenue -
@@ -567,6 +544,10 @@ function compareApplications(
 
 function formatPreferredTerm(term: LenderApplicationReview["preferredTerm"]) {
   return preferredTermLabels[term];
+}
+
+function formatTermMonths(months: number) {
+  return months === 1 ? "1 month" : `${months} months`;
 }
 
 function isApplicationActionableForOffer(
@@ -608,6 +589,80 @@ function getBorrowerName(application: LenderApplicationReview) {
   ];
 
   return possibleNames.find((value) => typeof value === "string") ?? "";
+}
+
+function getTermMonths(application: LenderApplicationReview) {
+  const match = application.preferredTerm.match(/^(\d+)_month/);
+
+  return match ? Number(match[1]) : 0;
+}
+
+function normalizeSearchText(value: string) {
+  return value.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+function buildSearchText(application: LenderApplicationReview) {
+  const profile = getProfileSnapshot(application);
+  const locationFields = [
+    profile?.business_address,
+    profile?.barangay,
+    profile?.city_or_municipality,
+    profile?.province,
+    profile?.region,
+    profile?.zip_code,
+  ];
+  const amountText = [
+    String(application.requestedAmount),
+    formatCurrency(application.requestedAmount),
+    `PHP ${formatCurrency(application.requestedAmount)}`,
+  ];
+
+  return [
+    getBusinessName(application),
+    application.portfolio.businessTypeLabel,
+    getBorrowerName(application),
+    application.purpose,
+    application.portfolio.loanPurposeContext,
+    application.portfolio.location,
+    ...locationFields,
+    ...amountText,
+    formatPreferredTerm(application.preferredTerm),
+  ]
+    .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+}
+
+function getBusinessName(application: LenderApplicationReview) {
+  const profile = getProfileSnapshot(application);
+  const possibleNames = [
+    profile?.business_name,
+    profile?.businessName,
+    profile?.trade_name,
+    profile?.tradeName,
+  ];
+
+  return possibleNames.find((value) => typeof value === "string") ?? "";
+}
+
+function getProfileSnapshot(application: LenderApplicationReview) {
+  const snapshot = application.borrowerProfileSnapshot;
+
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return null;
+  }
+
+  return snapshot as Record<string, unknown>;
+}
+
+function serializeSearchParams(params: URLSearchParams) {
+  return [...params.entries()]
+    .map(
+      ([key, value]) =>
+        `${encodeURIComponent(key)}=${encodeURIComponent(value)}`,
+    )
+    .join("&");
 }
 
 const offerStateLabels: Record<
