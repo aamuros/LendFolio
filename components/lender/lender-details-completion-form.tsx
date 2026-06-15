@@ -3,7 +3,7 @@
 import { useActionState, useEffect, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, ChevronLeft } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import {
   saveLenderDetailsAction,
   type LenderDetailsSaveState,
@@ -119,7 +119,7 @@ export function LenderDetailsCompletionForm({
   useEffect(() => {
     if (state.status === "success") {
       clearDraft();
-      router.push("/lender?tab=profile");
+      router.push("/lender?tab=profile&message=lender-details-saved");
       router.refresh();
     }
   }, [router, state.status]);
@@ -459,9 +459,8 @@ function ReviewStep({
         description="Let the lender review all filled details before submitting."
       >
         <div className="grid gap-4">
-          {state.message ? (
-            <Alert variant={state.status === "success" ? "default" : "destructive"}>
-              {state.status === "success" ? <CheckCircle2 /> : null}
+          {state.status === "error" && state.message ? (
+            <Alert variant="destructive">
               <AlertDescription>{state.message}</AlertDescription>
             </Alert>
           ) : null}

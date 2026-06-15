@@ -18,6 +18,7 @@ import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
 import { getCurrentUserProfile } from "@/lib/access-control";
+import { LenderToast } from "@/app/lender/lender-toast";
 import {
   isApplicationActionableForOffer,
   loadLenderOffers,
@@ -81,6 +82,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <div className="mx-auto max-w-7xl">
+          <LenderToast />
           <LenderPageHeader activeTab={activeTab} />
           <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
@@ -264,6 +266,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <div className="mx-auto max-w-7xl">
+        <LenderToast />
         <LenderPageHeader activeTab={activeTab} />
 
         <div className={cn("px-4 pt-6 sm:px-6 sm:pt-8", borrowerPageBottomPadding)}>
