@@ -441,7 +441,11 @@ function HomeTab({
                   Start with applications ready for review, then track sent offers and accepted loans from the same workspace.
                 </p>
               </div>
-              <Button asChild variant="outline" className="h-10 rounded-xl font-semibold sm:justify-self-end">
+              <Button
+                asChild
+                variant="outline"
+                className="h-10 rounded-xl font-semibold sm:justify-self-end"
+              >
                 <Link href="/lender?tab=applications">
                   Review queue
                   <ArrowRight className="size-4" />
@@ -530,37 +534,49 @@ function HomeTab({
                   </Badge>
                 ) : null}
               </div>
-            {primaryAction ? (
-              <Button asChild variant="outline" className="h-auto justify-between gap-3 rounded-xl bg-background/80 px-3 py-3 text-left shadow-sm">
-                <Link href={primaryAction.href}>
-                  <span className="grid gap-0.5 text-left">
-                    <span className="flex items-center gap-2">
-                      <span className="text-sm font-semibold">{primaryAction.title}</span>
+              {primaryAction ? (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="h-auto justify-between gap-3 rounded-xl bg-background/80 px-3 py-3 text-left shadow-sm"
+                >
+                  <Link href={primaryAction.href}>
+                    <span className="grid gap-0.5 text-left">
+                      <span className="flex items-center gap-2">
+                        <span className="text-sm font-semibold">
+                          {primaryAction.title}
+                        </span>
+                      </span>
+                      <span className="text-xs text-muted-foreground">
+                        {primaryAction.description}
+                      </span>
                     </span>
-                    <span className="text-xs text-muted-foreground">
-                      {primaryAction.description}
-                    </span>
-                  </span>
-                  <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                </Link>
-              </Button>
-            ) : (
-              <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
-                <p className="text-sm font-semibold">No open applications</p>
-                <p className="text-xs text-muted-foreground">
-                  New borrower requests will appear in your review queue.
-                </p>
-                <Button asChild variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl px-3 py-2.5">
-                  <Link href="/lender?tab=applications">
-                    Open applications
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
                   </Link>
                 </Button>
-              </div>
-            )}
+              ) : (
+                <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
+                  <p className="text-sm font-semibold">No open applications</p>
+                  <p className="text-xs text-muted-foreground">
+                    New borrower requests will appear in your review queue.
+                  </p>
+                  <Button
+                    asChild
+                    variant="ghost"
+                    className="h-auto w-full justify-between gap-3 rounded-xl px-3 py-2.5"
+                  >
+                    <Link href="/lender?tab=applications">
+                      Open applications
+                      <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
+                    </Link>
+                  </Button>
+                </div>
+              )}
               {repaymentProofsNeedingReview > 0 ? (
                 <p className="rounded-xl border border-border/80 bg-background/55 px-3 py-2 text-xs text-muted-foreground">
-                  {repaymentProofsNeedingReview} repayment proof{repaymentProofsNeedingReview === 1 ? "" : "s"} also need review.
+                  {repaymentProofsNeedingReview} repayment proof
+                  {repaymentProofsNeedingReview === 1 ? "" : "s"} also need
+                  review.
                 </p>
               ) : null}
             </CardContent>
@@ -574,27 +590,32 @@ function HomeTab({
                 </p>
                 <FileText className="size-4 text-muted-foreground" />
               </div>
-            {offers.length > 0 ? (
-              <div className="grid gap-2">
-                <OfferSummaryRow label="Pending" value={pendingOffers} />
-                <OfferSummaryRow label="Accepted" value={acceptedOffers} />
-                <OfferSummaryRow label="Declined" value={declinedOffers} />
-                <OfferSummaryRow label="Expired" value={expiredOffers} />
-              </div>
-            ) : (
-              <div className="grid gap-2 rounded-xl border border-dashed border-border/90 bg-muted/35 p-3">
-                <p className="text-sm font-semibold">No offers sent yet</p>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Sent offers and active loan tracking will appear here.
-                </p>
-              </div>
-            )}
-            <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
-              <Link href="/lender?tab=offers">
-                View all offers
-                <ArrowRight className="size-3.5" />
-              </Link>
-            </Button>
+              {offers.length > 0 ? (
+                <div className="grid gap-2">
+                  <OfferSummaryRow label="Pending" value={pendingOffers} />
+                  <OfferSummaryRow label="Accepted" value={acceptedOffers} />
+                  <OfferSummaryRow label="Declined" value={declinedOffers} />
+                  <OfferSummaryRow label="Expired" value={expiredOffers} />
+                </div>
+              ) : (
+                <div className="grid gap-2 rounded-xl border border-dashed border-border/90 bg-muted/35 p-3">
+                  <p className="text-sm font-semibold">No offers sent yet</p>
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Sent offers and active loan tracking will appear here.
+                  </p>
+                </div>
+              )}
+              <Button
+                asChild
+                variant="ghost"
+                size="sm"
+                className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold"
+              >
+                <Link href="/lender?tab=offers">
+                  View all offers
+                  <ArrowRight className="size-3.5" />
+                </Link>
+              </Button>
             </CardContent>
           </BorrowerCard>
         </div>
