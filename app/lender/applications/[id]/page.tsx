@@ -2,13 +2,9 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
-import {
-  formatCurrency,
-  formatDate,
-  formatYears,
-  LenderApplicationsStatus,
-} from "@/components/lender-applications-list";
+import { LenderApplicationsStatus } from "@/components/lender-applications-list";
 import { LenderOfferForm } from "@/components/lender-offer-form";
+import { formatCurrency, formatDate, formatYears } from "@/lib/lender-format";
 import {
   formatPreferredTerm,
   isApplicationActionableForOffer,
