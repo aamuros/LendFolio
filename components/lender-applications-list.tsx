@@ -1,19 +1,33 @@
+"use client";
+
 import Link from "next/link";
+import { useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import {
   ArrowRight,
   CalendarDays,
   Clock,
+  Search,
+  SlidersHorizontal,
+  X,
   MapPin,
   WalletCards,
 } from "lucide-react";
 import {
-  formatPreferredTerm,
-  isApplicationActionableForOffer,
   type LenderApplicationReview,
 } from "@/lib/lender-applications";
 import { CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { BorrowerCard } from "@/components/borrower/ui";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
@@ -23,6 +37,73 @@ type LenderApplicationsListProps = {
   emptyDescription?: string;
   emptyTitle?: string;
 };
+
+type AmountFilter =
+  | "any"
+  | "below_5000"
+  | "5000_10000"
+  | "10000_25000"
+  | "above_25000";
+type OfferStatusFilter = "all" | "no_offer" | "offer_sent" | "reviewed";
+type SortOption =
+  | "newest"
+  | "oldest"
+  | "amount_asc"
+  | "amount_desc"
+  | "term_asc"
+  | "net_revenue_desc";
+
+const filterKeys = {
+  search: "applicationSearch",
+  term: "applicationTerm",
+  amount: "applicationAmount",
+  purpose: "applicationPurpose",
+  offerStatus: "applicationOfferStatus",
+  sort: "applicationSort",
+} as const;
+
+const amountFilterLabels: Record<AmountFilter, string> = {
+  any: "Any amount",
+  below_5000: "Below PHP 5,000",
+  "5000_10000": "PHP 5,000 - PHP 10,000",
+  "10000_25000": "PHP 10,000 - PHP 25,000",
+  above_25000: "Above PHP 25,000",
+};
+
+const offerStatusFilterLabels: Record<OfferStatusFilter, string> = {
+  all: "All",
+  no_offer: "No offer yet",
+  offer_sent: "Offer sent",
+  reviewed: "Reviewed",
+};
+
+const sortLabels: Record<SortOption, string> = {
+  newest: "Newest first",
+  oldest: "Oldest first",
+  amount_asc: "Requested amount: low to high",
+  amount_desc: "Requested amount: high to low",
+  term_asc: "Shortest term first",
+  net_revenue_desc: "Highest net revenue first",
+};
+
+const termOrder: Record<LenderApplicationReview["preferredTerm"], number> = {
+  "1_month": 1,
+  "3_months": 3,
+  "6_months": 6,
+  "12_months": 12,
+};
+
+const preferredTermLabels: Record<
+  LenderApplicationReview["preferredTerm"],
+  string
+> = {
+  "1_month": "1 month",
+  "3_months": "3 months",
+  "6_months": "6 months",
+  "12_months": "12 months",
+};
+
+const actionableApplicationStatuses = ["submitted", "open"] as const;
 
 function applicationStatusTone(status: string) {
   switch (status) {
@@ -59,6 +140,110 @@ export function LenderApplicationsList({
   emptyDescription = "New borrower applications will appear here.",
   emptyTitle = "No open applications",
 }: LenderApplicationsListProps) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const search = searchParams.get(filterKeys.search)?.trim() ?? "";
+  const rawTerm = searchParams.get(filterKeys.term) ?? "all";
+  const amount = normalizeAmountFilter(searchParams.get(filterKeys.amount));
+  const purpose = searchParams.get(filterKeys.purpose) ?? "all";
+  const offerStatus = normalizeOfferStatusFilter(
+    searchParams.get(filterKeys.offerStatus),
+  );
+  const sort = normalizeSortOption(searchParams.get(filterKeys.sort));
+
+  const terms = useMemo(
+    () =>
+      [...new Set(applications.map((application) => application.preferredTerm))]
+        .filter(Boolean)
+        .sort((a, b) => termOrder[a] - termOrder[b]),
+    [applications],
+  );
+  const term = terms.some((termOption) => termOption === rawTerm)
+    ? rawTerm
+    : "all";
+  const purposes = useMemo(
+    () =>
+      [...new Set(applications.map((application) => application.purpose?.trim()).filter(Boolean))]
+        .sort((a, b) => a.localeCompare(b)),
+    [applications],
+  );
+  const filteredApplications = useMemo(() => {
+    const normalizedSearch = search.toLowerCase();
+
+    return applications
+      .filter((application) => {
+        const borrowerName = getBorrowerName(application);
+        const searchableText = [
+          application.portfolio.businessTypeLabel,
+          borrowerName,
+          application.purpose,
+          application.portfolio.location,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+
+        if (normalizedSearch && !searchableText.includes(normalizedSearch)) {
+          return false;
+        }
+
+        if (term !== "all" && application.preferredTerm !== term) {
+          return false;
+        }
+
+        if (!matchesAmountFilter(application.requestedAmount, amount)) {
+          return false;
+        }
+
+        if (purpose !== "all" && application.purpose !== purpose) {
+          return false;
+        }
+
+        return matchesOfferStatusFilter(application, offerStatus);
+      })
+      .sort((a, b) => compareApplications(a, b, sort));
+  }, [amount, applications, offerStatus, purpose, search, sort, term]);
+
+  const hasActiveFilters =
+    search.length > 0 ||
+    term !== "all" ||
+    amount !== "any" ||
+    purpose !== "all" ||
+    offerStatus !== "all" ||
+    sort !== "newest";
+
+  function setFilter(key: keyof typeof filterKeys, value: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    const paramKey = filterKeys[key];
+    const defaultValue =
+      key === "sort" ? "newest" : key === "search" ? "" : "all";
+
+    if (key === "amount" && value === "any") {
+      params.delete(paramKey);
+    } else if (value === defaultValue) {
+      params.delete(paramKey);
+    } else {
+      params.set(paramKey, value);
+    }
+
+    const nextQuery = params.toString();
+
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }
+
+  function clearFilters() {
+    const params = new URLSearchParams(searchParams.toString());
+    Object.values(filterKeys).forEach((key) => params.delete(key));
+    const nextQuery = params.toString();
+
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname, {
+      scroll: false,
+    });
+  }
+
   if (applications.length === 0) {
     return (
       <BorrowerCard variant="dashed">
@@ -77,7 +262,133 @@ export function LenderApplicationsList({
 
   return (
     <div className="grid gap-3">
-      {applications.map((application) => (
+      <div className="grid gap-3 rounded-2xl border border-border/80 bg-card/80 p-3 shadow-sm sm:p-4">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.4fr)_repeat(5,minmax(150px,1fr))_auto]">
+          <label className="relative block">
+            <span className="sr-only">Search applications</span>
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(event) => setFilter("search", event.target.value)}
+              placeholder="Search applications"
+              className="h-10 rounded-xl bg-background pl-9"
+            />
+          </label>
+
+          <FilterSelect
+            label="Term"
+            value={term}
+            onValueChange={(value) => setFilter("term", value)}
+            options={[
+              { label: "Any term", value: "all" },
+              ...terms.map((termOption) => ({
+                label: formatPreferredTerm(termOption),
+                value: termOption,
+              })),
+            ]}
+          />
+          <FilterSelect
+            label="Amount"
+            value={amount}
+            onValueChange={(value) => setFilter("amount", value)}
+            options={Object.entries(amountFilterLabels).map(([value, label]) => ({
+              label,
+              value,
+            }))}
+          />
+          <FilterSelect
+            label="Purpose"
+            value={purpose}
+            onValueChange={(value) => setFilter("purpose", value)}
+            options={[
+              { label: "Any purpose", value: "all" },
+              ...purposes.map((purposeOption) => ({
+                label: purposeOption,
+                value: purposeOption,
+              })),
+            ]}
+          />
+          <FilterSelect
+            label="Offer status"
+            value={offerStatus}
+            onValueChange={(value) => setFilter("offerStatus", value)}
+            options={Object.entries(offerStatusFilterLabels).map(([value, label]) => ({
+              label,
+              value,
+            }))}
+          />
+          <FilterSelect
+            label="Sort"
+            value={sort}
+            onValueChange={(value) => setFilter("sort", value)}
+            options={Object.entries(sortLabels).map(([value, label]) => ({
+              label,
+              value,
+            }))}
+          />
+
+          {hasActiveFilters ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="h-10 rounded-xl px-3 text-muted-foreground lg:justify-self-end"
+              onClick={clearFilters}
+            >
+              <X className="size-4" />
+              Clear filters
+            </Button>
+          ) : null}
+        </div>
+
+        {hasActiveFilters ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-muted-foreground">
+              <SlidersHorizontal className="size-3.5" />
+              Active
+            </span>
+            {search ? <FilterChip label={`Search: ${search}`} /> : null}
+            {term !== "all" ? (
+              <FilterChip
+                label={`Term: ${formatPreferredTerm(term as LenderApplicationReview["preferredTerm"])}`}
+              />
+            ) : null}
+            {amount !== "any" ? (
+              <FilterChip label={amountFilterLabels[amount]} />
+            ) : null}
+            {purpose !== "all" ? <FilterChip label={`Purpose: ${purpose}`} /> : null}
+            {offerStatus !== "all" ? (
+              <FilterChip label={offerStatusFilterLabels[offerStatus]} />
+            ) : null}
+            {sort !== "newest" ? <FilterChip label={sortLabels[sort]} /> : null}
+          </div>
+        ) : null}
+      </div>
+
+      {filteredApplications.length === 0 ? (
+        <BorrowerCard variant="dashed">
+          <CardContent className="grid gap-3 p-5 text-center">
+            <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border/80 bg-muted/60 text-muted-foreground">
+              <WalletCards className="size-4" />
+            </span>
+            <p className="text-lg font-semibold">
+              No applications match your filters.
+            </p>
+            <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
+              Adjust the filters or clear them to see open applications again.
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="mx-auto rounded-xl"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </Button>
+          </CardContent>
+        </BorrowerCard>
+      ) : null}
+
+      {filteredApplications.map((application) => (
         <BorrowerCard key={application.id} className="overflow-hidden">
           <CardContent className="grid gap-4 p-4 sm:p-5">
             <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
@@ -143,6 +454,160 @@ export function LenderApplicationsList({
       ))}
     </div>
   );
+}
+
+function FilterSelect({
+  label,
+  onValueChange,
+  options,
+  value,
+}: {
+  label: string;
+  onValueChange: (value: string) => void;
+  options: Array<{ label: string; value: string }>;
+  value: string;
+}) {
+  return (
+    <label className="grid gap-1">
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <Select value={value} onValueChange={onValueChange}>
+        <SelectTrigger className="h-10 w-full rounded-xl bg-background">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {options.map((option) => (
+            <SelectItem key={option.value} value={option.value}>
+              {option.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </label>
+  );
+}
+
+function FilterChip({ label }: { label: string }) {
+  return (
+    <Badge variant="outline" className="border-border/80 bg-background">
+      {label}
+    </Badge>
+  );
+}
+
+function normalizeAmountFilter(value: string | null): AmountFilter {
+  return value && value in amountFilterLabels ? (value as AmountFilter) : "any";
+}
+
+function normalizeOfferStatusFilter(value: string | null): OfferStatusFilter {
+  return value && value in offerStatusFilterLabels
+    ? (value as OfferStatusFilter)
+    : "all";
+}
+
+function normalizeSortOption(value: string | null): SortOption {
+  return value && value in sortLabels ? (value as SortOption) : "newest";
+}
+
+function matchesAmountFilter(amount: number | null | undefined, filter: AmountFilter) {
+  const value = amount ?? 0;
+
+  switch (filter) {
+    case "below_5000":
+      return value < 5_000;
+    case "5000_10000":
+      return value >= 5_000 && value <= 10_000;
+    case "10000_25000":
+      return value > 10_000 && value <= 25_000;
+    case "above_25000":
+      return value > 25_000;
+    default:
+      return true;
+  }
+}
+
+function matchesOfferStatusFilter(
+  application: LenderApplicationReview,
+  filter: OfferStatusFilter,
+) {
+  switch (filter) {
+    case "no_offer":
+      return application.currentLenderOfferState === "not_offered";
+    case "offer_sent":
+      return application.currentLenderOfferState === "offer_pending";
+    case "reviewed":
+      return application.currentLenderOfferState !== "not_offered";
+    default:
+      return true;
+  }
+}
+
+function compareApplications(
+  a: LenderApplicationReview,
+  b: LenderApplicationReview,
+  sort: SortOption,
+) {
+  switch (sort) {
+    case "oldest":
+      return dateValue(a.submittedAt) - dateValue(b.submittedAt);
+    case "amount_asc":
+      return a.requestedAmount - b.requestedAmount;
+    case "amount_desc":
+      return b.requestedAmount - a.requestedAmount;
+    case "term_asc":
+      return termOrder[a.preferredTerm] - termOrder[b.preferredTerm];
+    case "net_revenue_desc":
+      return (
+        b.financialIndicators.estimatedNetMonthlyRevenue -
+        a.financialIndicators.estimatedNetMonthlyRevenue
+      );
+    default:
+      return dateValue(b.submittedAt) - dateValue(a.submittedAt);
+  }
+}
+
+function formatPreferredTerm(term: LenderApplicationReview["preferredTerm"]) {
+  return preferredTermLabels[term];
+}
+
+function isApplicationActionableForOffer(
+  application: Pick<
+    LenderApplicationReview,
+    "status" | "currentLenderOfferState" | "hasAcceptedOffer"
+  >,
+) {
+  return (
+    actionableApplicationStatuses.includes(
+      application.status as (typeof actionableApplicationStatuses)[number],
+    ) &&
+    !application.hasAcceptedOffer &&
+    application.currentLenderOfferState !== "offer_pending" &&
+    application.currentLenderOfferState !== "offer_accepted"
+  );
+}
+
+function dateValue(value: string | null | undefined) {
+  const timestamp = value ? new Date(value).getTime() : 0;
+
+  return Number.isNaN(timestamp) ? 0 : timestamp;
+}
+
+function getBorrowerName(application: LenderApplicationReview) {
+  const snapshot = application.borrowerProfileSnapshot;
+
+  if (!snapshot || typeof snapshot !== "object" || Array.isArray(snapshot)) {
+    return "";
+  }
+
+  const profile = snapshot as Record<string, unknown>;
+  const possibleNames = [
+    profile.full_name,
+    profile.fullName,
+    profile.name,
+    profile.borrower_name,
+    profile.borrowerName,
+  ];
+
+  return possibleNames.find((value) => typeof value === "string") ?? "";
 }
 
 const offerStateLabels: Record<
