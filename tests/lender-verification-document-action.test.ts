@@ -138,7 +138,7 @@ describe("submitLenderVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Upload a JPG, PNG, WebP, or PDF file.",
+      message: "Upload a PDF, JPG, JPEG, or PNG file.",
     });
     expect(mockSupabase.storage.from).not.toHaveBeenCalled();
   });
@@ -157,7 +157,7 @@ describe("submitLenderVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Upload a file up to 5 MB.",
+      message: "This file is too large. Please upload a file under 5 MB.",
     });
     expect(mockSupabase.storage.from).not.toHaveBeenCalled();
   });

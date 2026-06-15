@@ -1,18 +1,16 @@
 "use client";
 
 import {
-  useActionState,
   useEffect,
   useId,
   useRef,
   useState,
+  type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  submitLenderVerificationDocument,
-  type LenderVerificationDocumentSubmitResult,
-} from "@/app/lender/actions";
-import {
+  lenderVerificationDocumentAllowedTypes,
+  lenderVerificationDocumentMaxFileSize,
   lenderVerificationDocumentTypeDescriptions,
   lenderVerificationDocumentTypeLabels,
   requiredLenderVerificationDocumentTypes,
@@ -42,7 +40,17 @@ type LenderVerificationDocumentsPanelProps = {
   managerReviewNotes: string | null;
 };
 
-const initialState: LenderVerificationDocumentSubmitResult | null = null;
+type UploadState =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+const lenderDocumentAccept = "application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png";
 
 export function LenderVerificationDocumentsPanel({
   lenderProfileId,
@@ -228,12 +236,11 @@ function RequiredDocumentRow({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const fileInputId = useId();
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
-  const [state, formAction, isPending] = useActionState(
-    submitLenderVerificationDocument,
-    initialState,
-  );
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [state, setState] = useState<UploadState | null>(null);
+  const [isPending, setIsPending] = useState(false);
 
   useEffect(() => {
     if (!state?.ok) {
@@ -241,7 +248,7 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
-    window.setTimeout(() => setSelectedFileName(null), 0);
+    window.setTimeout(() => setSelectedFile(null), 0);
     router.refresh();
   }, [router, state]);
 
@@ -253,6 +260,55 @@ function RequiredDocumentRow({
     canUpload && docStatus.state !== "accepted";
   const uploadButtonLabel =
     docStatus.state === "rejected" || latestDoc ? "Replace file" : "Upload file";
+  const selectedFileError = selectedFile ? validateDocumentFile(selectedFile) : null;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const file = selectedFile ?? fileInputRef.current?.files?.[0] ?? null;
+
+    if (!file) {
+      setState({
+        ok: false,
+        message: "Choose a verification document to upload.",
+      });
+      return;
+    }
+
+    const validationError = validateDocumentFile(file);
+    if (validationError) {
+      setState({ ok: false, message: validationError });
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    setIsPending(true);
+    setState(null);
+
+    try {
+      const response = await fetch("/api/lender/verification-documents", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as UploadState;
+
+      setState({
+        ok: result.ok,
+        message:
+          result.message ??
+          (response.ok
+            ? "Verification document uploaded."
+            : "Could not upload verification document."),
+      });
+    } catch {
+      setState({
+        ok: false,
+        message: "Could not upload verification document.",
+      });
+    } finally {
+      setIsPending(false);
+    }
+  }
 
   return (
     <div
@@ -309,17 +365,20 @@ function RequiredDocumentRow({
         ) : null}
 
         {showUpload ? (
-          <form ref={formRef} action={formAction} className="grid gap-3">
+          <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
             <input type="hidden" name="documentType" value={documentType} />
             <input type="hidden" name="lenderProfileId" value={lenderProfileId} />
             <input
+              ref={fileInputRef}
               id={fileInputId}
               name="documentFile"
               type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
+              accept={lenderDocumentAccept}
               className="sr-only"
               onChange={(event) => {
-                setSelectedFileName(event.currentTarget.files?.[0]?.name ?? null);
+                const file = event.currentTarget.files?.[0] ?? null;
+                setSelectedFile(file);
+                setState(null);
               }}
               required
             />
@@ -336,7 +395,7 @@ function RequiredDocumentRow({
               </Button>
               <Button
                 type="submit"
-                disabled={isPending || !selectedFileName}
+                disabled={isPending || !selectedFile || Boolean(selectedFileError)}
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
                 {isPending
@@ -348,9 +407,16 @@ function RequiredDocumentRow({
                       : "Submit document"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                {selectedFileName ?? "JPG, PNG, WebP, or PDF. Max 5 MB."}
+                {selectedFile
+                  ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})`
+                  : "PDF, JPG, JPEG, or PNG. Max 5 MB."}
               </p>
             </div>
+            {selectedFileError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs leading-5 text-destructive">
+                {selectedFileError}
+              </p>
+            ) : null}
           </form>
         ) : null}
 
@@ -404,4 +470,16 @@ function formatFileSize(size: number) {
   }
 
   return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function validateDocumentFile(file: File) {
+  if (!lenderVerificationDocumentAllowedTypes.has(file.type)) {
+    return "Upload a PDF, JPG, JPEG, or PNG file.";
+  }
+
+  if (file.size > lenderVerificationDocumentMaxFileSize) {
+    return "This file is too large. Please upload a file under 5 MB.";
+  }
+
+  return null;
 }
