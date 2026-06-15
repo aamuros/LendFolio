@@ -10,10 +10,10 @@ import {
   isApplicationActionableForOffer,
   loadLenderApplicationDetail,
 } from "@/lib/lender-applications";
+import type { LenderApplicationReview } from "@/lib/lender-applications";
 import type { LoanOfferSummary } from "@/lib/loan-offer";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
@@ -47,8 +47,8 @@ export default async function LenderApplicationDetailPage({
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab="applications" />
         <div className="mx-auto max-w-7xl">
-          <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6">
-            <div className="mx-auto grid max-w-4xl gap-5">
+          <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
+            <div className="mx-auto grid max-w-7xl gap-5">
               <DetailHeader />
               <section className="grid gap-4">
                 <h1 className="text-2xl leading-tight font-semibold">
@@ -86,279 +86,34 @@ export default async function LenderApplicationDetailPage({
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
-        <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6">
-          <div className="mx-auto grid max-w-4xl gap-5">
-            <DetailHeader />
+        <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
+          <div className="grid gap-5">
+            <div className="grid gap-5 lg:grid-cols-[360px_minmax(0,1fr)] lg:items-start">
+              <ApplicationReviewAside application={application} />
 
-        <section className="grid gap-4">
-          <Card className="rounded-2xl border-border/50 shadow-sm">
-            <CardContent className="grid gap-5 p-5">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="grid gap-1">
-                  <ApplicationStatusBadge status={application.status} />
-                  <h1 className="text-2xl leading-tight font-semibold">
-                    {application.portfolio.businessTypeLabel}
-                  </h1>
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {application.portfolio.location} ·{" "}
-                    {formatYears(application.portfolio.yearsInOperation)}
-                  </p>
+              <div className="grid gap-5">
+                <OfferHistorySection offers={application.offers} />
+
+                <div className="grid gap-4 xl:grid-cols-3 xl:items-start">
+                  <ReviewOverviewSection application={application} />
+                  <ReviewFinancialsSection application={application} />
+                  <ReviewCreditSection application={application} />
                 </div>
-                <div className="text-right">
-                  <p className="text-xs font-semibold text-muted-foreground">
-                    Requested
-                  </p>
-                  <p className="mt-1 text-3xl font-semibold">
-                    PHP {formatCurrency(application.requestedAmount)}
-                  </p>
-                </div>
+
+                <OfferActionSection
+                  hasAcceptedApplication={hasAcceptedApplication}
+                  isOpenForOffers={isOpenForOffers}
+                  pendingOffer={pendingOffer}
+                />
               </div>
-
-              <dl className="grid grid-cols-2 gap-3 border-t border-border pt-4 text-sm sm:grid-cols-3">
-                <ReviewItem
-                  label="Term"
-                  value={formatPreferredTerm(application.preferredTerm)}
-                />
-                <ReviewItem label="Purpose" value={application.purpose} />
-                <ReviewItem
-                  label="Submitted"
-                  value={formatDate(application.submittedAt)}
-                />
-                <ReviewItem
-                  label="Readiness"
-                  value={
-                    application.creditReadinessStatus?.replaceAll("_", " ") ??
-                    "Not recorded"
-                  }
-                />
-              </dl>
-            </CardContent>
-          </Card>
-        </section>
-
-        <Tabs defaultValue="overview" className="gap-4">
-          <div className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-            <TabsList className="h-10 min-w-max rounded-xl border border-border/80 bg-muted/70 p-1">
-              <TabsTrigger className="px-3" value="overview">
-                Overview
-              </TabsTrigger>
-              <TabsTrigger className="px-3" value="financials">
-                Financials
-              </TabsTrigger>
-              <TabsTrigger className="px-3" value="credit-review">
-                Credit review
-              </TabsTrigger>
-              <TabsTrigger className="px-3" value="offer">
-                Offer
-              </TabsTrigger>
-              <TabsTrigger className="px-3" value="offer-history">
-                Offer history
-              </TabsTrigger>
-            </TabsList>
-          </div>
-
-          <TabsContent value="overview" className="mt-0">
-            <section className="grid gap-3">
-              <h2 className="text-lg font-semibold">Overview</h2>
-              <Card className="rounded-2xl border-border/50 shadow-sm">
-                <CardContent className="grid gap-4 p-4">
-                  <ReviewItem
-                    label="Loan purpose context"
-                    value={application.portfolio.loanPurposeContext || "Not provided"}
-                  />
-                  <ReviewItem
-                    label="Borrower note"
-                    value={application.remarks || "No remarks"}
-                  />
-                </CardContent>
-              </Card>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="financials" className="mt-0">
-            <section className="grid gap-3">
-              <h2 className="text-lg font-semibold">Financials</h2>
-              <dl className="grid grid-cols-2 gap-3 lg:grid-cols-3">
-                <Metric
-                  label="Gross revenue"
-                  value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
-                />
-                <Metric
-                  label="Expenses"
-                  value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
-                />
-                <Metric
-                  label="Existing loans"
-                  value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
-                />
-                <Metric
-                  label="Net revenue"
-                  value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-                />
-                <Metric
-                  label="Cash after loans"
-                  value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
-                />
-              </dl>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="credit-review" className="mt-0">
-            <div className="grid gap-5">
-              <section className="grid gap-3">
-                <h2 className="text-lg font-semibold">Credit at submission</h2>
-                <Card className="rounded-2xl border-border/50 shadow-sm">
-                  <CardContent className="p-4">
-                    {hasCreditSnapshot(application) ? (
-                      <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                        <ReviewItem
-                          label="Requested"
-                          value={`PHP ${formatCurrency(application.requestedAmount)}`}
-                        />
-                        <ReviewItem
-                          label="Available"
-                          value={`PHP ${formatCurrency(application.availableCreditAtSubmission)}`}
-                        />
-                        <ReviewItem
-                          label="Credit limit"
-                          value={`PHP ${formatCurrency(application.creditLimitAtSubmission)}`}
-                        />
-                        <ReviewItem
-                          label="Used credit"
-                          value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
-                        />
-                        <ReviewItem
-                          label="Net cash flow"
-                          value={
-                            application.monthlyNetCashFlowAtSubmission == null
-                              ? "Not recorded"
-                              : `PHP ${formatCurrency(application.monthlyNetCashFlowAtSubmission)}`
-                          }
-                        />
-                      </dl>
-                    ) : (
-                      <p className="text-sm leading-6 text-muted-foreground">
-                        Not recorded for this application.
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
-              </section>
-
-              <CreditProfileGradeSection application={application} />
             </div>
-          </TabsContent>
 
-          <TabsContent value="offer" className="mt-0">
-            <section className="grid gap-3">
-              <h2 className="text-lg font-semibold">
-                {getActionTitle({
-                  hasAcceptedApplication,
-                  isOpenForOffers,
-                  hasPendingOffer: Boolean(pendingOffer),
-                })}
-              </h2>
-              <Card className="rounded-2xl border-border/50 shadow-sm">
-                <CardContent className="p-4">
-                  {hasAcceptedApplication ? (
-                    <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                      <p className="font-semibold text-foreground">
-                        Offer accepted
-                      </p>
-                      <p>Offer creation is closed.</p>
-                    </div>
-                  ) : pendingOffer ? (
-                    <div className="grid gap-4">
-                      <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                        <p className="font-semibold text-foreground">
-                          You already sent an offer.
-                        </p>
-                        <p>The borrower can review and respond to your pending offer.</p>
-                      </div>
-                      <OfferSummary offer={pendingOffer} />
-                    </div>
-                  ) : isOpenForOffers ? (
-                    <LenderOfferForm
-                      applicationId={application.id}
-                      requestedAmount={application.requestedAmount}
-                      availableCreditAtSubmission={application.availableCreditAtSubmission}
-                      defaultDueDate={getDefaultDueDate()}
-                      preferredTerm={application.preferredTerm}
-                      preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
-                    />
-                  ) : (
-                    <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-                      <p className="font-semibold text-foreground">
-                        Application closed
-                      </p>
-                      <p>Offer creation is closed.</p>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </section>
-          </TabsContent>
-
-          <TabsContent value="offer-history" className="mt-0">
-            <section className="grid gap-3">
-              <h2 className="text-lg font-semibold">Offer history</h2>
-              {application.offers.length > 0 ? (
-                <div className="grid gap-3">
-                  {application.offers.map((offer) => (
-                    <Card
-                      key={offer.id}
-                      className={cn(
-                        "rounded-2xl border-border/50 shadow-sm",
-                        offer.status !== "pending" && "opacity-75",
-                      )}
-                    >
-                      <CardContent className="grid gap-4 p-4">
-                        <div className="flex flex-wrap items-start justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-semibold text-muted-foreground">
-                              Approved
-                            </p>
-                            <p className="mt-1 text-2xl font-semibold">
-                              PHP {formatCurrency(offer.approvedAmount)}
-                            </p>
-                          </div>
-                          <OfferHistoryBadge status={offer.status} />
-                        </div>
-                        <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                          <ReviewItem
-                            label="Interest/service charge"
-                            value={`PHP ${formatCurrency(offer.interestAmount)}`}
-                          />
-                          <ReviewItem
-                            label="Other borrower-paid fees"
-                            value={`PHP ${formatCurrency(offer.fees)}`}
-                          />
-                          <ReviewItem
-                            label="Total repayment"
-                            value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
-                          />
-                          <ReviewItem label="Final repayment" value={formatDateOnly(offer.dueDate)} />
-                          <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
-                        </dl>
-                        {offer.remarks ? (
-                          <p className="text-sm leading-6 text-muted-foreground">
-                            {offer.remarks}
-                          </p>
-                        ) : null}
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              ) : (
-                <Card className="rounded-2xl border-dashed border-border/50">
-                  <CardContent className="p-5 text-sm leading-6 text-muted-foreground">
-                    No offers have been sent for this application yet.
-                  </CardContent>
-                </Card>
-              )}
-            </section>
-          </TabsContent>
-        </Tabs>
+            <OfferDetailsSection
+              application={application}
+              hasAcceptedApplication={hasAcceptedApplication}
+              isOpenForOffers={isOpenForOffers}
+              pendingOffer={pendingOffer}
+            />
           </div>
         </div>
 
@@ -385,9 +140,353 @@ function DetailHeader() {
         </Link>
       </Button>
       <p className="text-sm font-semibold text-foreground">
-        Application
+        Application review
       </p>
     </header>
+  );
+}
+
+function ApplicationReviewAside({
+  application,
+}: {
+  application: Pick<
+    LenderApplicationReview,
+    | "status"
+    | "requestedAmount"
+    | "preferredTerm"
+    | "purpose"
+    | "submittedAt"
+    | "creditReadinessStatus"
+    | "portfolio"
+  >;
+}) {
+  return (
+    <aside className="lg:sticky lg:top-24">
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-4 p-4">
+          <DetailHeader />
+
+          <div className="grid gap-2 border-t border-border pt-4">
+            <div>
+              <ApplicationStatusBadge status={application.status} />
+            </div>
+            <h1 className="text-lg leading-tight font-semibold">
+              {application.portfolio.businessTypeLabel}
+            </h1>
+            <p className="text-sm leading-6 text-muted-foreground">
+              {application.portfolio.location} ·{" "}
+              {formatYears(application.portfolio.yearsInOperation)}
+            </p>
+          </div>
+
+          <div className="grid gap-1 rounded-xl bg-muted/40 p-3">
+            <p className="text-xs font-semibold text-muted-foreground">
+              Requested amount
+            </p>
+            <p className="text-xl leading-tight font-semibold">
+              PHP {formatCurrency(application.requestedAmount)}
+            </p>
+          </div>
+
+          <dl className="grid gap-3 text-sm">
+            <ReviewItem
+              label="Term"
+              value={formatPreferredTerm(application.preferredTerm)}
+            />
+            <ReviewItem label="Purpose" value={application.purpose} />
+            <ReviewItem
+              label="Submitted"
+              value={formatDate(application.submittedAt)}
+            />
+            <ReviewItem
+              label="Readiness"
+              value={
+                application.creditReadinessStatus?.replaceAll("_", " ") ??
+                "Not recorded"
+              }
+            />
+          </dl>
+        </CardContent>
+      </Card>
+    </aside>
+  );
+}
+
+function OfferHistorySection({ offers }: { offers: LoanOfferSummary[] }) {
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-lg font-semibold">Offer history</h2>
+      {offers.length > 0 ? (
+        <div className="grid gap-3">
+          {offers.map((offer) => (
+            <Card
+              key={offer.id}
+              className={cn(
+                "rounded-2xl border-border/50 shadow-sm",
+                offer.status !== "pending" && "opacity-75",
+              )}
+            >
+              <CardContent className="grid gap-4 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Approved
+                    </p>
+                    <p className="mt-1 text-2xl font-semibold">
+                      PHP {formatCurrency(offer.approvedAmount)}
+                    </p>
+                  </div>
+                  <OfferHistoryBadge status={offer.status} />
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+                  <ReviewItem
+                    label="Interest/service charge"
+                    value={`PHP ${formatCurrency(offer.interestAmount)}`}
+                  />
+                  <ReviewItem
+                    label="Other borrower-paid fees"
+                    value={`PHP ${formatCurrency(offer.fees)}`}
+                  />
+                  <ReviewItem
+                    label="Total repayment"
+                    value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
+                  />
+                  <ReviewItem
+                    label="Final repayment"
+                    value={formatDateOnly(offer.dueDate)}
+                  />
+                  <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
+                </dl>
+                {offer.remarks ? (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {offer.remarks}
+                  </p>
+                ) : null}
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="p-5 text-sm leading-6 text-muted-foreground">
+            No offers have been sent for this application yet.
+          </CardContent>
+        </Card>
+      )}
+    </section>
+  );
+}
+
+function ReviewOverviewSection({
+  application,
+}: {
+  application: Pick<LenderApplicationReview, "portfolio" | "remarks">;
+}) {
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-lg font-semibold">Overview</h2>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-4 p-4 text-sm">
+          <ReviewItem
+            label="Loan purpose context"
+            value={application.portfolio.loanPurposeContext || "Not provided"}
+          />
+          <ReviewItem
+            label="Borrower note"
+            value={application.remarks || "No remarks"}
+          />
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function ReviewFinancialsSection({
+  application,
+}: {
+  application: Pick<
+    LenderApplicationReview,
+    "financialIndicators" | "portfolio"
+  >;
+}) {
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-lg font-semibold">Financials</h2>
+      <dl className="grid grid-cols-2 gap-3 xl:grid-cols-1">
+        <Metric
+          label="Gross revenue"
+          value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
+        />
+        <Metric
+          label="Expenses"
+          value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
+        />
+        <Metric
+          label="Existing loans"
+          value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
+        />
+        <Metric
+          label="Net revenue"
+          value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+        />
+        <Metric
+          label="Cash after loans"
+          value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
+        />
+      </dl>
+    </section>
+  );
+}
+
+function ReviewCreditSection({
+  application,
+}: {
+  application: LenderApplicationReview;
+}) {
+  return (
+    <section className="grid gap-3">
+      <h2 className="text-lg font-semibold">Credit review</h2>
+      <Card className="rounded-2xl border-border/50 shadow-sm">
+        <CardContent className="grid gap-4 p-4">
+          {hasCreditSnapshot(application) ? (
+            <dl className="grid grid-cols-2 gap-3 text-sm xl:grid-cols-1">
+              <ReviewItem
+                label="Requested"
+                value={`PHP ${formatCurrency(application.requestedAmount)}`}
+              />
+              <ReviewItem
+                label="Available credit"
+                value={`PHP ${formatCurrency(application.availableCreditAtSubmission)}`}
+              />
+              <ReviewItem
+                label="Credit limit"
+                value={`PHP ${formatCurrency(application.creditLimitAtSubmission)}`}
+              />
+              <ReviewItem
+                label="Used credit"
+                value={`PHP ${formatCurrency(application.usedCreditAtSubmission)}`}
+              />
+              <ReviewItem
+                label="Net cash flow"
+                value={
+                  application.monthlyNetCashFlowAtSubmission == null
+                    ? "Not recorded"
+                    : `PHP ${formatCurrency(application.monthlyNetCashFlowAtSubmission)}`
+                }
+              />
+            </dl>
+          ) : (
+            <p className="text-sm leading-6 text-muted-foreground">
+              Credit values were not recorded for this application.
+            </p>
+          )}
+
+          <CreditProfileGradeSection application={application} compact />
+        </CardContent>
+      </Card>
+    </section>
+  );
+}
+
+function OfferActionSection({
+  hasAcceptedApplication,
+  isOpenForOffers,
+  pendingOffer,
+}: {
+  hasAcceptedApplication: boolean;
+  isOpenForOffers: boolean;
+  pendingOffer: LoanOfferSummary | undefined;
+}) {
+  const title = getActionTitle({
+    hasAcceptedApplication,
+    isOpenForOffers,
+    hasPendingOffer: Boolean(pendingOffer),
+  });
+
+  return (
+    <section className="flex flex-col items-start gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
+      <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+        <p className="font-semibold text-foreground">{title}</p>
+        <p>
+          {hasAcceptedApplication
+            ? "Offer creation is closed."
+            : pendingOffer
+              ? "A pending offer is waiting for borrower review."
+              : isOpenForOffers
+                ? "Ready to prepare offer details for this application."
+                : "Offer creation is closed."}
+        </p>
+      </div>
+      {isOpenForOffers && !pendingOffer && !hasAcceptedApplication ? (
+        <Button asChild className="w-full rounded-xl sm:w-auto">
+          <Link href="#offer-details">Give offer</Link>
+        </Button>
+      ) : null}
+    </section>
+  );
+}
+
+function OfferDetailsSection({
+  application,
+  hasAcceptedApplication,
+  isOpenForOffers,
+  pendingOffer,
+}: {
+  application: LenderApplicationReview;
+  hasAcceptedApplication: boolean;
+  isOpenForOffers: boolean;
+  pendingOffer: LoanOfferSummary | undefined;
+}) {
+  return (
+    <section id="offer-details" className="scroll-mt-24">
+      <div className="grid gap-3">
+        <h2 className="text-lg font-semibold">
+          Offer details and specifications
+        </h2>
+        <Card className="rounded-2xl border-border/50 shadow-sm">
+          <CardContent className="p-4 lg:p-5">
+            {hasAcceptedApplication ? (
+              <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                <p className="font-semibold text-foreground">Offer accepted</p>
+                <p>Offer creation is closed.</p>
+              </div>
+            ) : pendingOffer ? (
+              <div className="grid gap-4">
+                <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                  <p className="font-semibold text-foreground">
+                    You already sent an offer.
+                  </p>
+                  <p>
+                    The borrower can review and respond to your pending offer.
+                  </p>
+                </div>
+                <OfferSummary offer={pendingOffer} />
+              </div>
+            ) : isOpenForOffers ? (
+              <LenderOfferForm
+                applicationId={application.id}
+                requestedAmount={application.requestedAmount}
+                availableCreditAtSubmission={
+                  application.availableCreditAtSubmission
+                }
+                defaultDueDate={getDefaultDueDate()}
+                preferredTerm={application.preferredTerm}
+                preferredTermLabel={formatPreferredTerm(
+                  application.preferredTerm,
+                )}
+              />
+            ) : (
+              <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+                <p className="font-semibold text-foreground">
+                  Application closed
+                </p>
+                <p>Offer creation is closed.</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+    </section>
   );
 }
 
@@ -432,7 +531,10 @@ function OfferSummary({
         label="Interest/service charge"
         value={`PHP ${formatCurrency(offer.interestAmount)}`}
       />
-      <ReviewItem label="Other borrower-paid fees" value={`PHP ${formatCurrency(offer.fees)}`} />
+      <ReviewItem
+        label="Other borrower-paid fees"
+        value={`PHP ${formatCurrency(offer.fees)}`}
+      />
       <ReviewItem
         label="Total repayment"
         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
@@ -461,7 +563,7 @@ function getActionTitle({
   }
 
   if (isOpenForOffers) {
-    return "Send offer";
+    return "Give offer";
   }
 
   return "Application closed";
@@ -470,9 +572,7 @@ function getActionTitle({
 function ReviewItem({ label, value }: { label: string; value: string }) {
   return (
     <div>
-      <dt className="text-xs font-semibold text-muted-foreground">
-        {label}
-      </dt>
+      <dt className="text-xs font-semibold text-muted-foreground">{label}</dt>
       <dd className="mt-1 break-words font-semibold">{value}</dd>
     </div>
   );
@@ -516,6 +616,7 @@ function getDefaultDueDate() {
 
 function CreditProfileGradeSection({
   application,
+  compact = false,
 }: {
   application: {
     creditProfileGrade: string | null;
@@ -530,12 +631,22 @@ function CreditProfileGradeSection({
     availableCreditAtSubmission: number | null;
     monthlyNetCashFlowAtSubmission: number | null;
   };
+  compact?: boolean;
 }) {
   const grade = application.creditProfileGrade;
   const assessment = application.creditProfileAssessment;
 
   if (!grade) {
-    return (
+    return compact ? (
+      <div className="grid gap-2 border-t border-border pt-4">
+        <p className="text-xs font-semibold text-foreground">
+          Credit profile grade
+        </p>
+        <p className="text-sm leading-6 text-muted-foreground">
+          Not recorded for this application.
+        </p>
+      </div>
+    ) : (
       <section className="grid gap-3">
         <h2 className="text-lg font-semibold">Credit profile grade</h2>
         <Card className="rounded-2xl border-border/50 shadow-sm">
@@ -549,74 +660,76 @@ function CreditProfileGradeSection({
     );
   }
 
-  const tone = getGradeTone(
-    grade as Parameters<typeof getGradeTone>[0],
+  const tone = getGradeTone(grade as Parameters<typeof getGradeTone>[0]);
+  const content = (
+    <div className={cn("grid gap-4", compact && "border-t border-border pt-4")}>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold text-muted-foreground">
+            Credit Profile Grade
+          </p>
+          <div className="flex items-center gap-2">
+            <ToneBadge tone={tone}>
+              {formatCreditProfileGrade(
+                grade as Parameters<typeof formatCreditProfileGrade>[0],
+              )}
+            </ToneBadge>
+            {assessment?.label ? (
+              <span className="text-sm text-muted-foreground">
+                {assessment.label}
+              </span>
+            ) : null}
+          </div>
+        </div>
+      </div>
+
+      {assessment?.summary ? (
+        <p className="text-sm leading-6 text-muted-foreground">
+          {assessment.summary}
+        </p>
+      ) : null}
+
+      <p className="text-xs leading-relaxed text-muted-foreground">
+        This grade summarizes profile completeness, cash flow strength, debt
+        burden, verification status, and risk flags. It is not a formal credit
+        score and does not approve or reject the loan.
+      </p>
+
+      {assessment?.positiveFactors && assessment.positiveFactors.length > 0 ? (
+        <div>
+          <p className="text-xs font-semibold text-foreground">
+            Positive factors
+          </p>
+          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
+            {assessment.positiveFactors.map((factor, index) => (
+              <li key={index}>{factor}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
+      {assessment?.riskFactors && assessment.riskFactors.length > 0 ? (
+        <div>
+          <p className="text-xs font-semibold text-foreground">Risk notes</p>
+          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
+            {assessment.riskFactors.map((factor, index) => (
+              <li key={index}>{factor}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </div>
   );
+
+  if (compact) {
+    return content;
+  }
 
   return (
     <section className="grid gap-3">
       <h2 className="text-lg font-semibold">Credit profile grade</h2>
       <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-4 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="grid gap-1">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Credit Profile Grade
-              </p>
-              <div className="flex items-center gap-2">
-                <ToneBadge tone={tone}>
-                  {formatCreditProfileGrade(
-                    grade as Parameters<typeof formatCreditProfileGrade>[0],
-                  )}
-                </ToneBadge>
-                {assessment?.label ? (
-                  <span className="text-sm text-muted-foreground">
-                    {assessment.label}
-                  </span>
-                ) : null}
-              </div>
-            </div>
-          </div>
-
-          {assessment?.summary ? (
-            <p className="text-sm leading-6 text-muted-foreground">
-              {assessment.summary}
-            </p>
-          ) : null}
-
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            This grade summarizes profile completeness, cash flow strength, debt
-            burden, verification status, and risk flags. It is not a formal credit
-            score and does not approve or reject the loan.
-          </p>
-
-          {assessment?.positiveFactors &&
-          assessment.positiveFactors.length > 0 ? (
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                Positive factors
-              </p>
-              <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
-                {assessment.positiveFactors.map((factor, index) => (
-                  <li key={index}>{factor}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-
-          {assessment?.riskFactors && assessment.riskFactors.length > 0 ? (
-            <div>
-              <p className="text-xs font-semibold text-foreground">
-                Risk notes
-              </p>
-              <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
-                {assessment.riskFactors.map((factor, index) => (
-                  <li key={index}>{factor}</li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
-        </CardContent>
+        <CardContent className="p-4">{content}</CardContent>
       </Card>
     </section>
   );
