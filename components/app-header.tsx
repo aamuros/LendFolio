@@ -46,7 +46,7 @@ export function AppHeader({
   accountLabel?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+    <header className="sticky top-0 z-30 border-b border-border/80 bg-background/95 shadow-[0_12px_40px_rgba(14,26,18,0.04)] backdrop-blur supports-[backdrop-filter]:bg-background/75">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-3 px-4 sm:h-[4.5rem] sm:gap-5 sm:px-6">
         <div className="flex min-w-0 items-center gap-4 sm:gap-6">
           <Link
@@ -56,13 +56,13 @@ export function AppHeader({
           >
             <Logo size="sm" priority />
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex">
+          <nav className="hidden items-center gap-1 rounded-full border border-border/70 bg-muted/45 p-1 sm:flex">
             {navItems.map((item) => {
               const isActive = activeNavId === item.id;
               const activeClassName = cn(
-                "relative px-1.5 py-0.5 text-sm font-medium transition-colors",
+                "rounded-full px-3 py-1.5 text-sm font-medium transition-colors",
                 isActive
-                  ? "text-foreground after:absolute after:inset-x-0 after:bottom-[-5px] after:h-0.5 after:bg-foreground"
+                  ? "bg-background text-foreground shadow-sm"
                   : "text-muted-foreground hover:text-foreground",
               );
 
@@ -93,7 +93,7 @@ export function AppHeader({
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 sm:gap-2">
           {showNotifications ? <NotificationButton /> : null}
           {showAccountMenu ? (
             <DropdownMenu>
@@ -103,8 +103,8 @@ export function AppHeader({
                   size="icon"
                   aria-label="Open profile menu"
                   className={cn(
-                    "rounded-xl text-muted-foreground hover:bg-muted hover:text-foreground",
-                    isAccountActive && "bg-accent text-accent-foreground",
+                    "size-10 rounded-xl border border-transparent text-muted-foreground hover:border-border/80 hover:bg-muted hover:text-foreground",
+                    isAccountActive && "border-border/80 bg-accent text-accent-foreground",
                   )}
                 >
                   <User className="size-5" />

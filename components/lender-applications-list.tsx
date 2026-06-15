@@ -1,4 +1,12 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
+import {
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  MapPin,
+  WalletCards,
+} from "lucide-react";
 import {
   formatPreferredTerm,
   isApplicationActionableForOffer,
@@ -54,7 +62,10 @@ export function LenderApplicationsList({
   if (applications.length === 0) {
     return (
       <BorrowerCard variant="dashed">
-        <CardContent className="grid gap-2 p-5 text-center">
+        <CardContent className="grid gap-3 p-5 text-center">
+          <span className="mx-auto grid size-10 place-items-center rounded-xl border border-border/80 bg-muted/60 text-muted-foreground">
+            <WalletCards className="size-4" />
+          </span>
           <p className="text-lg font-semibold">{emptyTitle}</p>
           <p className="mx-auto max-w-xl text-sm leading-6 text-muted-foreground">
             {emptyDescription}
@@ -67,11 +78,12 @@ export function LenderApplicationsList({
   return (
     <div className="grid gap-3">
       {applications.map((application) => (
-        <BorrowerCard key={application.id}>
-          <CardContent className="grid gap-3 p-4">
-            <div className="grid gap-2">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-lg font-semibold">
+        <BorrowerCard key={application.id} className="overflow-hidden">
+          <CardContent className="grid gap-4 p-4 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <div className="grid min-w-0 gap-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <h2 className="min-w-0 truncate text-base font-semibold sm:text-lg">
                   {application.portfolio.businessTypeLabel}
                 </h2>
                 <ToneBadge tone={applicationStatusTone(application.status)}>
@@ -81,42 +93,51 @@ export function LenderApplicationsList({
                   {offerStateLabels[application.currentLenderOfferState]}
                 </ToneBadge>
               </div>
-              <p className="text-sm leading-6 text-muted-foreground">
-                {application.portfolio.location}
-              </p>
-            </div>
-
-            <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <SummaryItem
-                label="Requested"
-                value={`PHP ${formatCurrency(application.requestedAmount)}`}
-              />
-              <SummaryItem
-                label="Term"
-                value={formatPreferredTerm(application.preferredTerm)}
-              />
-              <SummaryItem
-                label="Net revenue"
-                value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-              />
-              <SummaryItem
-                label="Submitted"
-                value={formatDate(application.submittedAt)}
-              />
-            </dl>
-
-            <div className="flex justify-end">
+                <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
+                  {application.purpose ?? "No purpose stated"}
+                </p>
+                <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                  <MapPin className="size-3.5 shrink-0" />
+                  <span className="min-w-0 truncate">
+                    {application.portfolio.location}
+                  </span>
+                </p>
+              </div>
               <Button
                 asChild
-                className="h-11 rounded-full font-semibold"
+                className="h-10 rounded-xl font-semibold sm:justify-self-end"
               >
                 <Link href={`/lender/applications/${application.id}`}>
                   {isApplicationActionableForOffer(application)
                     ? "Review"
                     : "View"}
+                  <ArrowRight className="size-4" />
                 </Link>
               </Button>
             </div>
+
+            <dl className="grid gap-2 text-sm sm:grid-cols-4">
+              <SummaryItem
+                label="Requested"
+                value={`PHP ${formatCurrency(application.requestedAmount)}`}
+                icon={<WalletCards className="size-3.5" />}
+              />
+              <SummaryItem
+                label="Term"
+                value={formatPreferredTerm(application.preferredTerm)}
+                icon={<Clock className="size-3.5" />}
+              />
+              <SummaryItem
+                label="Net revenue"
+                value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+                icon={<WalletCards className="size-3.5" />}
+              />
+              <SummaryItem
+                label="Submitted"
+                value={formatDate(application.submittedAt)}
+                icon={<CalendarDays className="size-3.5" />}
+              />
+            </dl>
           </CardContent>
         </BorrowerCard>
       ))}
@@ -157,11 +178,22 @@ export function LenderApplicationsStatus({
   );
 }
 
-function SummaryItem({ label, value }: { label: string; value: string }) {
+function SummaryItem({
+  icon,
+  label,
+  value,
+}: {
+  icon?: ReactNode;
+  label: string;
+  value: string;
+}) {
   return (
-    <div>
-      <dt className="font-semibold text-muted-foreground">{label}</dt>
-      <dd className="mt-1 break-words font-semibold text-foreground">
+    <div className="rounded-xl border border-border/70 bg-muted/30 px-3 py-2">
+      <dt className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+        {icon ? <span className="text-muted-foreground">{icon}</span> : null}
+        {label}
+      </dt>
+      <dd className="mt-1 min-w-0 truncate font-semibold text-foreground">
         {value}
       </dd>
     </div>

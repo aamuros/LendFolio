@@ -1,6 +1,14 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { redirect, RedirectType } from "next/navigation";
-import { ArrowRight } from "lucide-react";
+import {
+  ArrowRight,
+  Banknote,
+  ClipboardList,
+  FileText,
+  HandCoins,
+  MapPin,
+} from "lucide-react";
 import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
 import {
@@ -418,23 +426,116 @@ function HomeTab({
       ) : null}
       {offersError ? <LenderApplicationsStatus message={offersError} tone="error" /> : null}
 
-      <div className="grid gap-4 lg:grid-cols-12">
-        <BorrowerCard className="col-span-12 lg:col-span-8">
-          <CardContent className="flex flex-1 flex-col gap-1 p-4 sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Next action
-            </p>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] xl:grid-cols-[minmax(0,1fr)_24rem]">
+        <div className="grid min-w-0 gap-4">
+          <BorrowerCard className="overflow-hidden">
+            <CardContent className="grid gap-4 p-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center sm:p-5">
+              <div className="grid min-w-0 gap-1">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Lender home
+                </p>
+                <h2 className="text-xl font-semibold leading-tight sm:text-2xl">
+                  Keep borrower reviews and loan activity moving.
+                </h2>
+                <p className="max-w-2xl text-sm leading-6 text-muted-foreground">
+                  Start with applications ready for review, then track sent offers and accepted loans from the same workspace.
+                </p>
+              </div>
+              <Button asChild variant="outline" className="h-10 rounded-xl font-semibold sm:justify-self-end">
+                <Link href="/lender?tab=applications">
+                  Review queue
+                  <ArrowRight className="size-4" />
+                </Link>
+              </Button>
+            </CardContent>
+          </BorrowerCard>
+
+          <div className="grid gap-3 sm:grid-cols-3">
+            <DashboardMetric
+              label="Applications"
+              value={needsReviewCount}
+              description="Ready to review"
+              icon={<ClipboardList className="size-4" />}
+            />
+            <DashboardMetric
+              label="Offers sent"
+              value={offers.length}
+              description={`${pendingOffers} pending response${pendingOffers === 1 ? "" : "s"}`}
+              icon={<HandCoins className="size-4" />}
+            />
+            <DashboardMetric
+              label="Active loans"
+              value={activeLoans}
+              description="Accepted offers"
+              icon={<Banknote className="size-4" />}
+            />
+          </div>
+
+          <BorrowerCard className="overflow-hidden">
+            <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2">
+                <div className="grid gap-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Applications needing review
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    A compact view of borrower requests you can act on now.
+                  </p>
+                </div>
+                {needsReviewCount > 0 ? (
+                  <Badge variant="secondary" className="shrink-0 text-[10px] font-semibold">
+                    {needsReviewCount}
+                  </Badge>
+                ) : null}
+              </div>
+              {topApplications.length > 0 ? (
+                <div className="grid overflow-hidden rounded-xl border border-border/80 bg-background/60">
+                  {topApplications.map((application) => (
+                    <ApplicationReviewRow
+                      key={application.id}
+                      application={application}
+                    />
+                  ))}
+                </div>
+              ) : (
+                <div className="grid gap-2 rounded-xl border border-dashed border-border/90 bg-muted/35 p-4">
+                  <p className="text-sm font-semibold">No applications awaiting review</p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    New borrower requests will appear here when they are ready for lenders.
+                  </p>
+                </div>
+              )}
+              {needsReviewCount > 3 ? (
+                <Button asChild variant="ghost" size="sm" className="h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
+                  <Link href="/lender?tab=applications">
+                    View all {needsReviewCount} applications
+                    <ArrowRight className="size-3.5" />
+                  </Link>
+                </Button>
+              ) : null}
+            </CardContent>
+          </BorrowerCard>
+        </div>
+
+        <div className="grid min-w-0 content-start gap-4">
+          <BorrowerCard className="overflow-hidden border-primary/20 bg-[linear-gradient(135deg,rgba(51,66,60,0.08),rgba(255,255,252,0.9)_42%,rgba(246,245,242,0.95))]">
+            <CardContent className="grid gap-4 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Next action
+                </p>
+                {primaryAction?.count ? (
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    {primaryAction.count}
+                  </Badge>
+                ) : null}
+              </div>
             {primaryAction ? (
-              <Button asChild variant="ghost" className="h-auto justify-between gap-3 rounded-xl px-3 py-3">
+              <Button asChild variant="outline" className="h-auto justify-between gap-3 rounded-xl bg-background/80 px-3 py-3 text-left shadow-sm">
                 <Link href={primaryAction.href}>
                   <span className="grid gap-0.5 text-left">
                     <span className="flex items-center gap-2">
                       <span className="text-sm font-semibold">{primaryAction.title}</span>
-                      {primaryAction.count > 0 ? (
-                        <Badge variant="secondary" className="text-[10px] font-semibold">
-                          {primaryAction.count}
-                        </Badge>
-                      ) : null}
                     </span>
                     <span className="text-xs text-muted-foreground">
                       {primaryAction.description}
@@ -444,12 +545,12 @@ function HomeTab({
                 </Link>
               </Button>
             ) : (
-              <div className="grid gap-2 py-2">
+              <div className="grid gap-3 rounded-xl border border-border/80 bg-background/70 p-3">
                 <p className="text-sm font-semibold">No open applications</p>
                 <p className="text-xs text-muted-foreground">
                   New borrower requests will appear in your review queue.
                 </p>
-                <Button asChild variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl px-3 py-2.5 sm:w-fit">
+                <Button asChild variant="ghost" className="h-auto w-full justify-between gap-3 rounded-xl px-3 py-2.5">
                   <Link href="/lender?tab=applications">
                     Open applications
                     <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
@@ -457,134 +558,36 @@ function HomeTab({
                 </Button>
               </div>
             )}
-          </CardContent>
-        </BorrowerCard>
-
-        <BorrowerCard className="col-span-12 lg:col-span-4">
-          <CardContent className="flex flex-1 flex-col gap-2 p-4 sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Overview
-            </p>
-            <div className="flex flex-col gap-1.5">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Applications</span>
-                <span className="font-semibold">{needsReviewCount}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Offers sent</span>
-                <span className="font-semibold">{offers.length}</span>
-              </div>
-              <Separator />
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted-foreground">Active loans</span>
-                <span className="font-semibold">{activeLoans}</span>
-              </div>
               {repaymentProofsNeedingReview > 0 ? (
-                <>
-                  <Separator />
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Proofs to review</span>
-                    <span className="font-semibold">{repaymentProofsNeedingReview}</span>
-                  </div>
-                </>
+                <p className="rounded-xl border border-border/80 bg-background/55 px-3 py-2 text-xs text-muted-foreground">
+                  {repaymentProofsNeedingReview} repayment proof{repaymentProofsNeedingReview === 1 ? "" : "s"} also need review.
+                </p>
               ) : null}
-            </div>
-          </CardContent>
-        </BorrowerCard>
+            </CardContent>
+          </BorrowerCard>
 
-        <BorrowerCard className="col-span-12 lg:col-span-8">
-          <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                Applications needing review
-              </p>
-              {needsReviewCount > 0 ? (
-                <Badge variant="secondary" className="text-[10px] font-semibold">
-                  {needsReviewCount}
-                </Badge>
-              ) : null}
-            </div>
-            {topApplications.length > 0 ? (
-              <div className="flex flex-1 flex-col gap-0">
-                {topApplications.map((app, index) => {
-                  const context = app.portfolio
-                    ? `${app.portfolio.businessTypeLabel} in ${app.portfolio.location}`
-                    : "Application";
-                  return (
-                    <div key={app.id}>
-                      {index > 0 ? <Separator /> : null}
-                      <Button
-                        asChild
-                        variant="ghost"
-                        className="h-auto w-full justify-between gap-3 rounded-none px-1 py-3"
-                      >
-                        <Link href={`/lender/applications/${app.id}`}>
-                          <span className="grid min-w-0 gap-0.5 text-left">
-                            <span className="text-sm font-semibold">{context}</span>
-                            <span className="text-xs text-muted-foreground line-clamp-1">
-                              {app.purpose ?? "No purpose stated"}
-                            </span>
-                          </span>
-                          <ArrowRight className="size-4 shrink-0 text-muted-foreground" />
-                        </Link>
-                      </Button>
-                    </div>
-                  );
-                })}
-                {needsReviewCount > 3 ? (
-                  <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
-                    <Link href="/lender?tab=applications">
-                      View all {needsReviewCount} applications
-                      <ArrowRight className="size-3.5" />
-                    </Link>
-                  </Button>
-                ) : null}
+          <BorrowerCard className="overflow-hidden">
+            <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                  Offers &amp; loans
+                </p>
+                <FileText className="size-4 text-muted-foreground" />
+              </div>
+            {offers.length > 0 ? (
+              <div className="grid gap-2">
+                <OfferSummaryRow label="Pending" value={pendingOffers} />
+                <OfferSummaryRow label="Accepted" value={acceptedOffers} />
+                <OfferSummaryRow label="Declined" value={declinedOffers} />
+                <OfferSummaryRow label="Expired" value={expiredOffers} />
               </div>
             ) : (
-              <div className="flex flex-1 items-center">
-                <p className="text-xs text-muted-foreground">
-                  No applications currently awaiting your review.
+              <div className="grid gap-2 rounded-xl border border-dashed border-border/90 bg-muted/35 p-3">
+                <p className="text-sm font-semibold">No offers sent yet</p>
+                <p className="text-xs leading-5 text-muted-foreground">
+                  Sent offers and active loan tracking will appear here.
                 </p>
               </div>
-            )}
-          </CardContent>
-        </BorrowerCard>
-
-        <BorrowerCard className="col-span-12 lg:col-span-4">
-          <CardContent className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              Offers &amp; loans
-            </p>
-            {offers.length > 0 ? (
-              <div className="flex flex-col gap-1.5">
-                {pendingOffers > 0 ? (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Pending</span>
-                    <span className="font-semibold">{pendingOffers}</span>
-                  </div>
-                ) : null}
-                {acceptedOffers > 0 ? (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Accepted</span>
-                    <span className="font-semibold">{acceptedOffers}</span>
-                  </div>
-                ) : null}
-                {declinedOffers > 0 ? (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Declined</span>
-                    <span className="font-semibold">{declinedOffers}</span>
-                  </div>
-                ) : null}
-                {expiredOffers > 0 ? (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">Expired</span>
-                    <span className="font-semibold">{expiredOffers}</span>
-                  </div>
-                ) : null}
-              </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">No offers sent yet.</p>
             )}
             <Button asChild variant="ghost" size="sm" className="mt-auto h-auto justify-between rounded-lg px-3 py-2 text-xs font-semibold">
               <Link href="/lender?tab=offers">
@@ -592,10 +595,89 @@ function HomeTab({
                 <ArrowRight className="size-3.5" />
               </Link>
             </Button>
-          </CardContent>
-        </BorrowerCard>
+            </CardContent>
+          </BorrowerCard>
+        </div>
       </div>
     </section>
+  );
+}
+
+function DashboardMetric({
+  description,
+  icon,
+  label,
+  value,
+}: {
+  description: string;
+  icon: ReactNode;
+  label: string;
+  value: number;
+}) {
+  return (
+    <BorrowerCard className="overflow-hidden">
+      <CardContent className="flex items-center gap-3 p-4">
+        <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border/80 bg-muted/60 text-accent-foreground">
+          {icon}
+        </span>
+        <div className="min-w-0">
+          <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {label}
+          </p>
+          <div className="mt-1 flex min-w-0 items-baseline gap-2">
+            <p className="text-2xl font-semibold leading-none">{value}</p>
+            <p className="truncate text-xs text-muted-foreground">{description}</p>
+          </div>
+        </div>
+      </CardContent>
+    </BorrowerCard>
+  );
+}
+
+function ApplicationReviewRow({
+  application,
+}: {
+  application: LenderApplicationReview;
+}) {
+  const context = application.portfolio
+    ? application.portfolio.businessTypeLabel
+    : "Borrower application";
+  const location = application.portfolio?.location;
+
+  return (
+    <Link
+      href={`/lender/applications/${application.id}`}
+      className="group grid min-w-0 gap-3 border-b border-border/70 px-3 py-3 transition last:border-b-0 hover:bg-muted/50 focus-visible:bg-muted/50 focus-visible:outline-none sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
+    >
+      <span className="grid min-w-0 gap-1">
+        <span className="flex min-w-0 flex-wrap items-center gap-2">
+          <span className="min-w-0 truncate text-sm font-semibold">{context}</span>
+          <ToneBadge tone="attention">Review</ToneBadge>
+        </span>
+        <span className="line-clamp-2 text-sm leading-5 text-muted-foreground">
+          {application.purpose ?? "No purpose stated"}
+        </span>
+        {location ? (
+          <span className="flex min-w-0 items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="size-3.5 shrink-0" />
+            <span className="min-w-0 truncate">{location}</span>
+          </span>
+        ) : null}
+      </span>
+      <span className="flex items-center justify-between gap-3 text-xs font-semibold text-accent-foreground sm:justify-end">
+        <span>Review</span>
+        <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+      </span>
+    </Link>
+  );
+}
+
+function OfferSummaryRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-sm">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-semibold">{value}</span>
+    </div>
   );
 }
 

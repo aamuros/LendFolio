@@ -107,7 +107,7 @@ export function NotificationButton() {
           variant="ghost"
           size="icon"
           aria-label="Open notifications"
-          className="relative rounded-full text-muted-foreground hover:text-foreground"
+          className="relative size-10 rounded-xl border border-transparent text-muted-foreground hover:border-border/80 hover:bg-muted hover:text-foreground"
         >
           <Bell className="size-5" />
           {unreadCount > 0 ? (
