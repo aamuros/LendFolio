@@ -1,14 +1,20 @@
 export type LenderProfileCompletionSource = {
+  organization_name?: string | null;
+  organizationName?: string | null;
   contact_person?: string | null;
   contactPerson?: string | null;
   phone_number?: string | null;
   phoneNumber?: string | null;
+  business_address?: string | null;
+  businessAddress?: string | null;
   operating_area?: string | null;
   operatingArea?: string | null;
   min_loan_amount?: number | null;
   minLoanAmount?: number | null;
   max_loan_amount?: number | null;
   maxLoanAmount?: number | null;
+  typical_repayment_terms?: string | null;
+  typicalRepaymentTerms?: string | null;
 };
 
 export type LenderProfileCompletion = {
@@ -21,16 +27,30 @@ export function getLenderProfileCompletion(
 ): LenderProfileCompletion {
   const missingFields: string[] = [];
 
+  const organizationName =
+    profile?.organization_name ?? profile?.organizationName ?? "";
   const contactPerson = profile?.contact_person ?? profile?.contactPerson ?? "";
   const phoneNumber = profile?.phone_number ?? profile?.phoneNumber ?? "";
+  const businessAddress =
+    profile?.business_address ?? profile?.businessAddress ?? "";
   const operatingArea = profile?.operating_area ?? profile?.operatingArea ?? "";
   const minLoanAmount =
     profile?.min_loan_amount ?? profile?.minLoanAmount ?? null;
   const maxLoanAmount =
     profile?.max_loan_amount ?? profile?.maxLoanAmount ?? null;
+  const typicalRepaymentTerms =
+    profile?.typical_repayment_terms ?? profile?.typicalRepaymentTerms ?? "";
+
+  if (!organizationName.trim()) {
+    missingFields.push("organization");
+  }
 
   if (!contactPerson.trim() && !phoneNumber.trim()) {
     missingFields.push("contact");
+  }
+
+  if (!businessAddress.trim()) {
+    missingFields.push("address");
   }
 
   if (!operatingArea.trim()) {
@@ -44,6 +64,10 @@ export function getLenderProfileCompletion(
     maxLoanAmount < minLoanAmount
   ) {
     missingFields.push("loan range");
+  }
+
+  if (!typicalRepaymentTerms.trim()) {
+    missingFields.push("repayment terms");
   }
 
   return {

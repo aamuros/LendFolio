@@ -13,7 +13,13 @@ import {
 } from "@/components/address/address-select";
 import type { AddressSelectValue } from "@/components/address/address-select";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Field,
   FieldDescription,
@@ -86,7 +92,7 @@ export function LenderDetailsCompletionForm({
   };
 
   return (
-    <div className="mx-auto grid w-full max-w-3xl gap-5">
+    <div className="mx-auto grid w-full max-w-4xl gap-6">
       <div className="flex items-center justify-between gap-3">
         <Button
           asChild
@@ -112,8 +118,14 @@ export function LenderDetailsCompletionForm({
 
       <form action={formAction} className="grid gap-5">
         <Card className="rounded-2xl">
-          <CardHeader>
+          <CardHeader className="gap-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Part 1
+            </p>
             <CardTitle className="text-base">Organization Details</CardTitle>
+            <CardDescription>
+              Add the identity and contact details managers use for review.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup className="gap-5">
@@ -250,8 +262,14 @@ export function LenderDetailsCompletionForm({
         </Card>
 
         <Card className="rounded-2xl">
-          <CardHeader>
+          <CardHeader className="gap-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Part 2
+            </p>
             <CardTitle className="text-base">Lending Details</CardTitle>
+            <CardDescription>
+              Set the loan range, repayment terms, and lending focus shown during review.
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <FieldGroup className="gap-5">
@@ -349,7 +367,7 @@ export function LenderDetailsCompletionForm({
                     ""
                   }
                   rows={4}
-                  className="rounded-xl bg-background"
+                  className="min-h-32 rounded-xl bg-background"
                 />
                 <FieldDescription>
                   Describe your lending focus and operating approach.
@@ -363,8 +381,14 @@ export function LenderDetailsCompletionForm({
         </Card>
 
         <Card className="rounded-2xl">
-          <CardHeader>
+          <CardHeader className="gap-1.5">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Part 3
+            </p>
             <CardTitle className="text-base">Review / Save</CardTitle>
+            <CardDescription>
+              Save these details to continue lender approval.
+            </CardDescription>
           </CardHeader>
           <CardContent className="grid gap-4">
             {state.message ? (

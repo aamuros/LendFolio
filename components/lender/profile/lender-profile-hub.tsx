@@ -6,6 +6,7 @@ import {
   FileText,
   HelpCircle,
   Lock,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { LenderProfileSubview } from "./lender-profile-subview";
@@ -20,6 +21,7 @@ import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { ConsentStatus } from "@/lib/consents";
+import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 
 import Link from "next/link";
 
@@ -118,6 +120,8 @@ export function LenderProfileHub({
     lenderProfile?.organization_name?.trim() || "Lender profile";
   const verificationLabel = formatVerificationStatus(verificationStatus);
   const disclosureSummary = formatDisclosureSummary(consentStatus);
+  const profileCompletion = getLenderProfileCompletion(lenderProfile);
+  const needsProfileDetails = !profileCompletion.complete;
 
   if (activeView === "organization") {
     return (
@@ -357,12 +361,52 @@ export function LenderProfileHub({
         }}
       />
 
+      {needsProfileDetails ? (
+        <>
+          <Card className="rounded-2xl border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]">
+            <div className="grid gap-4 p-5 sm:grid-cols-[auto_1fr] sm:items-start sm:p-6">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-muted-foreground">
+                <ShieldAlert className="size-5" />
+              </span>
+              <div className="grid gap-3">
+                <div className="grid gap-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    PROFILE NEEDS REVIEW
+                  </p>
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    Complete your lender profile
+                  </h2>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Add the lender details managers need before approval.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="h-11 w-full rounded-full font-semibold sm:w-fit"
+                  onClick={onEditProfile}
+                >
+                  Update lender details
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Lender approval unlocks after profile review and verification approval.
+            </p>
+          </div>
+        </>
+      ) : null}
+
       <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
         <ProfileMenuRow
           icon={Building2}
           label="Organization Profile"
           subtitle={
-            lenderProfile?.organization_name || "Organization details"
+            lenderProfile?.organization_name ||
+            "Organization, contact, and operating area"
           }
           onClick={() => onViewChange("organization")}
         />
@@ -386,7 +430,7 @@ export function LenderProfileHub({
         />
         <ProfileMenuRow
           icon={FileCheck}
-          label="Documents"
+          label="Verification Documents"
           subtitle={
             lenderProfile?.documentPolicy?.documentsAccepted
               ? "All required documents accepted"
