@@ -257,15 +257,20 @@ export function LenderApplicationsList({
     <div className="grid gap-5 pt-1">
       <div className="grid gap-3 rounded-2xl border border-border/75 bg-card/75 p-4 shadow-[0_8px_20px_rgba(15,23,18,0.04)] sm:p-5">
         <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(260px,1.5fr)_repeat(4,minmax(155px,1fr))]">
-          <label className="relative block">
-            <span className="sr-only">Search applications</span>
-            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-            <Input
-              value={search}
-              onChange={(event) => setFilter("search", event.target.value)}
-              placeholder="Search applications"
-              className="box-border h-10 rounded-xl bg-background pl-9 focus-visible:border-[#33423c]/55 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_rgba(51,66,60,0.14)]"
-            />
+          <label className="grid gap-1">
+            <span className="invisible h-4 text-xs font-semibold leading-4">
+              Search
+            </span>
+            <span className="relative block">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                aria-label="Search applications"
+                value={search}
+                onChange={(event) => setFilter("search", event.target.value)}
+                placeholder="Search applications"
+                className="box-border h-10 rounded-xl bg-background pl-9 focus-visible:border-[#33423c]/55 focus-visible:ring-0 focus-visible:shadow-[0_0_0_2px_rgba(51,66,60,0.14)]"
+              />
+            </span>
           </label>
 
           <FilterSelect
