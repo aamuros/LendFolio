@@ -19,7 +19,7 @@ export default async function LenderApplicationsPage() {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab="applications" />
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto w-full max-w-[1700px]">
           <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
@@ -35,7 +35,7 @@ export default async function LenderApplicationsPage() {
     return (
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab="applications" />
-        <div className="mx-auto max-w-7xl">
+        <div className="mx-auto w-full max-w-[1700px]">
           <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <section className="grid gap-5">
               <PageHeader
@@ -62,7 +62,7 @@ export default async function LenderApplicationsPage() {
   return (
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <LenderPageHeader activeTab="applications" />
-      <div className="mx-auto max-w-7xl">
+      <div className="mx-auto w-full max-w-[1700px]">
         <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
           <section className="grid gap-5">
             <PageHeader
