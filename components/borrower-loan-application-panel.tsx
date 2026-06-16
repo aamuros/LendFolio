@@ -2844,6 +2844,12 @@ function OfferCard({
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
             <SummaryItem label="Application" value={application.purpose} />
             <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
+            {offer.interestServiceChargeRate !== null ? (
+              <SummaryItem
+                label="Interest/service charge rate"
+                value={formatPercent(offer.interestServiceChargeRate)}
+              />
+            ) : null}
             <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
             <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
             <SummaryItem label="Total you repay" value={formatMoney(offer.totalRepaymentAmount)} />
@@ -3718,6 +3724,13 @@ function MoneyText({
 
 function formatMoney(value: number) {
   return `PHP ${formatCurrency(value)}`;
+}
+
+function formatPercent(value: number) {
+  return `${new Intl.NumberFormat("en-PH", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value)}%`;
 }
 
 function getNextRepayment(

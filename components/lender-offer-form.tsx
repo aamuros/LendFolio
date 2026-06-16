@@ -20,7 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 
 type LenderOfferFormProps = {
   applicationId: string;
@@ -48,20 +47,24 @@ export function LenderOfferForm({
   const [isPending, startTransition] = useTransition();
   const [toastMessage, setToastMessage] = useState("");
   const [approvedAmount, setApprovedAmount] = useState(String(requestedAmount));
-  const [interestServiceCharge, setInterestServiceCharge] = useState("0");
+  const [interestServiceChargeRate, setInterestServiceChargeRate] =
+    useState("10");
   const [fees, setFees] = useState("0");
   const [repaymentChannel, setRepaymentChannel] = useState("");
-  const totalRepaymentAmount =
-    parseCurrencyValue(approvedAmount) +
-    parseCurrencyValue(interestServiceCharge) +
-    parseCurrencyValue(fees);
-
-  const maxTotalRepayment =
-    availableCreditAtSubmission ?? requestedAmount;
-  const remainingCredit = maxTotalRepayment - totalRepaymentAmount;
-  const exceedsAvailableCredit = totalRepaymentAmount > maxTotalRepayment;
   const parsedApprovedAmount = parseCurrencyValue(approvedAmount);
+  const parsedInterestRate = parseNumberValue(interestServiceChargeRate);
+  const interestServiceCharge =
+    parsedApprovedAmount * (parsedInterestRate / 100);
+  const totalRepaymentAmount =
+    parsedApprovedAmount + interestServiceCharge + parseCurrencyValue(fees);
+
+  const maxPrincipal = availableCreditAtSubmission ?? requestedAmount;
+  const exceedsAvailableCredit = parsedApprovedAmount > maxPrincipal;
   const exceedsRequestedAmount = parsedApprovedAmount > requestedAmount;
+  const hasNegativeInputs =
+    parsedApprovedAmount < 0 ||
+    parsedInterestRate < 0 ||
+    parseCurrencyValue(fees) < 0;
 
   const dismissToast = useCallback(() => {
     setToastMessage("");
@@ -75,7 +78,7 @@ export function LenderOfferForm({
       if (result.ok) {
         formRef.current?.reset();
         setApprovedAmount(String(requestedAmount));
-        setInterestServiceCharge("0");
+        setInterestServiceChargeRate("10");
         setFees("0");
         setRepaymentChannel("");
         setToastMessage(result.message);
@@ -93,10 +96,11 @@ export function LenderOfferForm({
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           This borrower&apos;s available credit at submission is{" "}
           <span className="font-semibold text-foreground">
-            PHP {formatCurrency(maxTotalRepayment)}
+            PHP {formatCurrency(maxPrincipal)}
           </span>
-          . The total repayment (principal + interest + fees) cannot exceed this
-          amount.
+          . The approved principal cannot exceed this amount.
+          Interest/service charges and optional fees are added to the
+          borrower&apos;s repayment but do not reduce credit capacity.
         </p>
       </div>
 
@@ -114,18 +118,26 @@ export function LenderOfferForm({
         </Field>
 
         <Field
-          label="Interest / service charge"
-          error={state.fieldErrors?.interestServiceCharge?.[0]}
+          label="Interest / service charge rate (%)"
+          error={state.fieldErrors?.interestServiceChargeRate?.[0]}
         >
-          <CurrencyInput
-            name="interestServiceCharge"
-            defaultValue={0}
+          <Input
+            type="number"
+            name="interestServiceChargeRate"
+            defaultValue={10}
             disabled={isPending}
-            emptyValue={0}
+            min={0}
+            max={100}
+            step="0.01"
+            inputMode="decimal"
+            className="h-9"
             onChange={(event) =>
-              setInterestServiceCharge(event.currentTarget.value)
+              setInterestServiceChargeRate(event.currentTarget.value)
             }
           />
+          <span className="text-xs text-muted-foreground">
+            Calculated charge: PHP {formatCurrency(interestServiceCharge)}
+          </span>
         </Field>
       </div>
 
@@ -247,45 +259,35 @@ export function LenderOfferForm({
       <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="text-sm font-semibold">Total repayment</p>
-          <p
-            className={cn(
-              "text-lg font-semibold",
-              exceedsAvailableCredit && "text-destructive",
-            )}
-          >
+          <p className="text-lg font-semibold">
             PHP {formatCurrency(totalRepaymentAmount)}
           </p>
         </div>
         <p className="mt-1 text-sm leading-6 text-muted-foreground">
           Total repayment is calculated from the approved amount, interest/service charge,
           and other fees. Borrower installments will add up to this total.
-          This must not exceed the borrower&apos;s available credit.
         </p>
         <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
           <div>
-            <dt className="text-muted-foreground">Available credit</dt>
+            <dt className="text-muted-foreground">Approved principal</dt>
             <dd className="font-semibold">
-              PHP {formatCurrency(maxTotalRepayment)}
+              PHP {formatCurrency(parsedApprovedAmount)}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Remaining after repayment</dt>
-            <dd
-              className={cn(
-                "font-semibold",
-                remainingCredit < 0 && "text-destructive",
-              )}
-            >
-              PHP {formatCurrency(remainingCredit)}
+            <dt className="text-muted-foreground">Interest rate</dt>
+            <dd className="font-semibold">{formatPercent(parsedInterestRate)}</dd>
+          </div>
+          <div>
+            <dt className="text-muted-foreground">Interest/service charge</dt>
+            <dd className="font-semibold">
+              PHP {formatCurrency(interestServiceCharge)}
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">Room for charges</dt>
+            <dt className="text-muted-foreground">Other borrower-paid fees</dt>
             <dd className="font-semibold">
-              PHP{" "}
-              {formatCurrency(
-                Math.max(0, maxTotalRepayment - parseCurrencyValue(approvedAmount)),
-              )}
+              PHP {formatCurrency(parseCurrencyValue(fees))}
             </dd>
           </div>
         </dl>
@@ -306,10 +308,8 @@ export function LenderOfferForm({
           className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
           role="alert"
         >
-          Total repayment (PHP {formatCurrency(totalRepaymentAmount)}) exceeds
-          the borrower&apos;s available credit of PHP{" "}
-          {formatCurrency(maxTotalRepayment)}. Reduce the approved amount,
-          interest/service charge, or fees.
+          Approved principal cannot exceed the borrower&apos;s available credit
+          of PHP {formatCurrency(maxPrincipal)}.
         </p>
       ) : null}
 
@@ -325,7 +325,12 @@ export function LenderOfferForm({
       <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-end">
         <Button
           type="submit"
-          disabled={isPending || exceedsAvailableCredit || exceedsRequestedAmount}
+          disabled={
+            isPending ||
+            exceedsAvailableCredit ||
+            exceedsRequestedAmount ||
+            hasNegativeInputs
+          }
           className="h-11 rounded-full font-semibold"
         >
           {isPending ? "Sending..." : "Send offer"}
@@ -341,11 +346,24 @@ function parseCurrencyValue(value: string) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+function parseNumberValue(value: string) {
+  const parsed = Number(value.trim());
+
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-PH", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   }).format(value);
+}
+
+function formatPercent(value: number) {
+  return new Intl.NumberFormat("en-PH", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value) + "%";
 }
 
 function Field({

@@ -38,7 +38,7 @@ function createValidOfferFormData() {
 
   formData.set("requestedAmount", "25000");
   formData.set("approvedAmount", "20000");
-  formData.set("interestServiceCharge", "1500");
+  formData.set("interestServiceChargeRate", "7.5");
   formData.set("fees", "500");
   formData.set("dueDate", "2099-01-01");
   formData.set("remarks", "Offer based on submitted cash flow.");
@@ -211,6 +211,7 @@ describe("createLoanOffer", () => {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
       p_repayment_amount: 22000,
+      p_interest_service_charge_rate: 7.5,
       p_fees: 500,
       p_due_date: "2099-01-01",
       p_remarks: "Offer based on submitted cash flow.",
@@ -302,6 +303,7 @@ describe("createLoanOffer", () => {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
       p_repayment_amount: 22000,
+      p_interest_service_charge_rate: 7.5,
       p_fees: 500,
       p_due_date: "2099-01-01",
       p_remarks: "Offer based on submitted cash flow.",
@@ -312,20 +314,20 @@ describe("createLoanOffer", () => {
     });
   });
 
-  it("surfaces RPC error when total repayment exceeds available credit", async () => {
+  it("allows offer when total repayment exceeds available credit but principal fits", async () => {
     const mockSupabase = {
       rpc: vi.fn().mockResolvedValue({
         data: {
-          ok: false,
-          message:
-            "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+          ok: true,
+          message: "Offer sent.",
+          loan_application_id: "application-1",
         },
         error: null,
       }),
       from: vi.fn().mockReturnValue(
         createMockFromChain({
-          requested_amount: 100000,
-          available_credit_at_submission: 60000,
+          requested_amount: 7000,
+          available_credit_at_submission: 7000,
         }),
       ),
     };
@@ -372,9 +374,9 @@ describe("createLoanOffer", () => {
     });
 
     const formData = createValidOfferFormData();
-    formData.set("approvedAmount", "50000");
-    formData.set("interestServiceCharge", "5000");
-    formData.set("fees", "2000");
+    formData.set("approvedAmount", "7000");
+    formData.set("interestServiceChargeRate", "14.285714");
+    formData.set("fees", "0");
 
     const result = await createLoanOffer(
       "application-1",
@@ -383,15 +385,15 @@ describe("createLoanOffer", () => {
     );
 
     expect(result).toEqual({
-      ok: false,
-      message:
-        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+      ok: true,
+      message: "Offer sent.",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
-      p_approved_amount: 50000,
-      p_repayment_amount: 57000,
-      p_fees: 2000,
+      p_approved_amount: 7000,
+      p_repayment_amount: 8000,
+      p_interest_service_charge_rate: 14.285714,
+      p_fees: 0,
       p_due_date: "2099-01-01",
       p_remarks: "Offer based on submitted cash flow.",
       p_repayment_channel: "GCash",
@@ -401,7 +403,7 @@ describe("createLoanOffer", () => {
     });
   });
 
-  it("blocks offer at TypeScript level when total repayment exceeds available credit", async () => {
+  it("blocks offer at TypeScript level when approved principal exceeds available credit", async () => {
     const mockSupabase = {
       rpc: vi.fn(),
       from: vi.fn().mockReturnValue(
@@ -454,9 +456,9 @@ describe("createLoanOffer", () => {
     });
 
     const formData = createValidOfferFormData();
-    formData.set("approvedAmount", "35000");
-    formData.set("interestServiceCharge", "5000");
-    formData.set("fees", "5000");
+    formData.set("approvedAmount", "40001");
+    formData.set("interestServiceChargeRate", "10");
+    formData.set("fees", "0");
 
     const result = await createLoanOffer(
       "application-1",
@@ -466,11 +468,10 @@ describe("createLoanOffer", () => {
 
     expect(result).toEqual({
       ok: false,
-      message:
-        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+      message: "Approved principal cannot exceed the borrower's available credit.",
       fieldErrors: {
-        interestServiceCharge: [
-          "Total repayment cannot exceed the borrower's available credit. Reduce the approved amount, interest, or fees.",
+        approvedAmount: [
+          "Approved principal cannot exceed the borrower's available credit.",
         ],
       },
     });
@@ -538,7 +539,7 @@ describe("createLoanOffer", () => {
 
     const formData = createValidOfferFormData();
     formData.set("approvedAmount", "43000");
-    formData.set("interestServiceCharge", "5000");
+    formData.set("interestServiceChargeRate", "11.627907");
     formData.set("fees", "2000");
 
     const result = await createLoanOffer(
@@ -555,6 +556,7 @@ describe("createLoanOffer", () => {
       p_loan_application_id: "application-1",
       p_approved_amount: 43000,
       p_repayment_amount: 50000,
+      p_interest_service_charge_rate: 11.627907,
       p_fees: 2000,
       p_due_date: "2099-01-01",
       p_remarks: "Offer based on submitted cash flow.",
@@ -619,7 +621,7 @@ describe("createLoanOffer", () => {
 
     const formData = createValidOfferFormData();
     formData.set("approvedAmount", "30000");
-    formData.set("interestServiceCharge", "1500");
+    formData.set("interestServiceChargeRate", "7.5");
     formData.set("fees", "500");
 
     const result = await createLoanOffer(
@@ -701,7 +703,7 @@ describe("createLoanOffer", () => {
 
     const formData = createValidOfferFormData();
     formData.set("approvedAmount", "25000");
-    formData.set("interestServiceCharge", "1500");
+    formData.set("interestServiceChargeRate", "7.5");
     formData.set("fees", "500");
 
     const result = await createLoanOffer(
@@ -778,7 +780,7 @@ describe("createLoanOffer", () => {
 
     const formData = createValidOfferFormData();
     formData.set("approvedAmount", "20000");
-    formData.set("interestServiceCharge", "1500");
+    formData.set("interestServiceChargeRate", "7.5");
     formData.set("fees", "0");
 
     const result = await createLoanOffer(
@@ -795,6 +797,7 @@ describe("createLoanOffer", () => {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
       p_repayment_amount: 21500,
+      p_interest_service_charge_rate: 7.5,
       p_fees: 0,
       p_due_date: "2099-01-01",
       p_remarks: "Offer based on submitted cash flow.",

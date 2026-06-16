@@ -23,18 +23,23 @@ function requiredNumber(schema: z.ZodNumber) {
   }, schema);
 }
 
+function roundMoney(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 export const loanOfferSchema = z
   .object({
     approvedAmount: requiredNumber(
       z
         .number({ error: "Enter the approved amount." })
-        .min(1_000, "Approved amount must be at least PHP 1,000.")
+        .positive("Approved principal must be greater than PHP 0.")
         .max(1_000_000, "Approved amount must be PHP 1,000,000 or less."),
     ),
-    interestServiceCharge: requiredNumber(
+    interestServiceChargeRate: requiredNumber(
       z
-        .number({ error: "Enter the interest or service charge, or 0 if none." })
-        .min(0, "Interest or service charge cannot be negative."),
+        .number({ error: "Enter the interest or service charge rate." })
+        .min(0, "Interest or service charge rate cannot be negative.")
+        .max(100, "Interest or service charge rate must be 100% or less."),
     ),
     fees: requiredNumber(
       z
@@ -82,11 +87,16 @@ export const loanOfferSchema = z
   })
   .transform((values) => ({
     ...values,
+    interestServiceCharge: roundMoney(
+      values.approvedAmount * (values.interestServiceChargeRate / 100),
+    ),
     repaymentAmount:
-      values.approvedAmount + values.interestServiceCharge + values.fees,
+      values.approvedAmount +
+      roundMoney(values.approvedAmount * (values.interestServiceChargeRate / 100)) +
+      values.fees,
   }))
   .refine((values) => values.repaymentAmount <= 1_500_000, {
-    path: ["interestServiceCharge"],
+    path: ["interestServiceChargeRate"],
     message: "Total repayment must be PHP 1,500,000 or less.",
   });
 
@@ -104,6 +114,7 @@ export type LoanOfferSummary = {
   totalRepaymentAmount: number;
   fees: number;
   interestAmount: number;
+  interestServiceChargeRate: number | null;
   dueDate: string;
   remarks: string | null;
   status: LoanOfferStatus;
@@ -142,6 +153,7 @@ export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
     totalRepaymentAmount: row.repayment_amount,
     fees: row.fees,
     interestAmount,
+    interestServiceChargeRate: row.interest_service_charge_rate,
     dueDate: row.due_date,
     remarks: row.remarks,
     status: row.status,

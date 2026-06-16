@@ -872,6 +872,7 @@ export type Database = {
           lender_id: string;
           lender_name: string;
           approved_amount: number;
+          interest_service_charge_rate: number | null;
           repayment_amount: number;
           fees: number;
           due_date: string;
@@ -892,6 +893,7 @@ export type Database = {
           lender_id: string;
           lender_name?: string;
           approved_amount: number;
+          interest_service_charge_rate?: number | null;
           repayment_amount: number;
           fees?: number;
           due_date: string;
@@ -912,6 +914,7 @@ export type Database = {
           lender_id?: string;
           lender_name?: string;
           approved_amount?: number;
+          interest_service_charge_rate?: number | null;
           repayment_amount?: number;
           fees?: number;
           due_date?: string;
@@ -1439,6 +1442,7 @@ export type Database = {
           p_loan_application_id: string;
           p_approved_amount: number;
           p_repayment_amount: number;
+          p_interest_service_charge_rate?: number | null;
           p_fees: number;
           p_due_date: string;
           p_remarks?: string | null;

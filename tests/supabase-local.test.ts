@@ -235,6 +235,7 @@ async function createOffer(
     p_loan_application_id: applicationId,
     p_approved_amount: approvedAmount,
     p_repayment_amount: approvedAmount + 1800,
+    p_interest_service_charge_rate: 10,
     p_fees: 500,
     p_due_date: "2026-08-24",
     p_remarks: "Offer based on submitted business profile.",
@@ -683,6 +684,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 22000,
       p_repayment_amount: 23800,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -697,6 +699,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 23000,
       p_repayment_amount: 24800,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: "2020-01-01",
       p_remarks: "",
@@ -712,6 +715,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 23000,
       p_repayment_amount: 24800,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: today,
       p_remarks: "",
@@ -728,6 +732,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         p_loan_application_id: applicationId,
         p_approved_amount: 23000,
         p_repayment_amount: 23200,
+      p_interest_service_charge_rate: 10,
         p_fees: 500,
         p_due_date: "2026-08-24",
         p_remarks: "",
@@ -742,13 +747,14 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     });
   });
 
-  it("enforces total repayment against available credit at submission", async () => {
+  it("enforces principal against available credit at submission", async () => {
     const { applicationId } = await createPortfolioAndApplication(borrower);
 
     const exceedCredit = await approvedLender.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
-      p_approved_amount: 20000,
-      p_repayment_amount: 64000,
+      p_approved_amount: 25001,
+      p_repayment_amount: 28501.1,
+      p_interest_service_charge_rate: 10,
       p_fees: 1000,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -756,14 +762,14 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(exceedCredit.error).toBeNull();
     expect(exceedCredit.data as Json as OfferRpcResult).toMatchObject({
       ok: false,
-      message:
-        "Total repayment cannot exceed the borrower's available credit at submission.",
+      message: expect.stringContaining("Approved principal cannot exceed"),
     });
 
     const exactCredit = await approvedLender.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
       p_approved_amount: 25000,
       p_repayment_amount: 63750,
+      p_interest_service_charge_rate: 10,
       p_fees: 2000,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -775,13 +781,14 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     });
   });
 
-  it("allows lower principal to fit interest and fees within available credit", async () => {
+  it("allows repayment to exceed available credit when principal fits", async () => {
     const { applicationId } = await createPortfolioAndApplication(borrower);
 
     const lowerPrincipal = await approvedLender.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
-      p_approved_amount: 20000,
-      p_repayment_amount: 27000,
+      p_approved_amount: 25000,
+      p_repayment_amount: 29500,
+      p_interest_service_charge_rate: 10,
       p_fees: 2000,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -800,6 +807,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 20000,
       p_repayment_amount: 27000,
+      p_interest_service_charge_rate: 10,
       p_fees: 2000,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -859,6 +867,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 8000,
       p_repayment_amount: 9000,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -873,6 +882,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 22000,
       p_repayment_amount: 23800,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: "2026-08-24",
       p_remarks: "",
@@ -887,6 +897,7 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       p_loan_application_id: applicationId,
       p_approved_amount: 18000,
       p_repayment_amount: 19800,
+      p_interest_service_charge_rate: 10,
       p_fees: 500,
       p_due_date: "2026-08-24",
       p_remarks: "",

@@ -40,7 +40,7 @@ export async function createLoanOffer(
 
   const parsed = loanOfferSchema.safeParse({
     approvedAmount: formData.get("approvedAmount"),
-    interestServiceCharge: formData.get("interestServiceCharge"),
+    interestServiceChargeRate: formData.get("interestServiceChargeRate"),
     fees: formData.get("fees"),
     dueDate: formData.get("dueDate"),
     remarks: formData.get("remarks"),
@@ -85,17 +85,16 @@ export async function createLoanOffer(
     };
   }
 
-  const maxRepayment =
+  const maxPrincipal =
     application.available_credit_at_submission ?? application.requested_amount;
 
-  if (parsed.data.repaymentAmount > maxRepayment) {
+  if (parsed.data.approvedAmount > maxPrincipal) {
     return {
       ok: false,
-      message:
-        "Total repayment (principal + interest + fees) cannot exceed the borrower's available credit.",
+      message: "Approved principal cannot exceed the borrower's available credit.",
       fieldErrors: {
-        interestServiceCharge: [
-          "Total repayment cannot exceed the borrower's available credit. Reduce the approved amount, interest, or fees.",
+        approvedAmount: [
+          "Approved principal cannot exceed the borrower's available credit.",
         ],
       },
     };
@@ -106,6 +105,7 @@ export async function createLoanOffer(
       p_loan_application_id: applicationId,
       p_approved_amount: parsed.data.approvedAmount,
       p_repayment_amount: parsed.data.repaymentAmount,
+      p_interest_service_charge_rate: parsed.data.interestServiceChargeRate,
       p_fees: parsed.data.fees,
       p_due_date: parsed.data.dueDate,
       p_remarks: parsed.data.remarks || null,

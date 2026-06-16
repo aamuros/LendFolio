@@ -554,7 +554,7 @@ describe("loan offer schema", () => {
   it("accepts pending offer fields", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      interestServiceCharge: 1_500,
+      interestServiceChargeRate: 7.5,
       fees: 500,
       dueDate: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
@@ -571,13 +571,17 @@ describe("loan offer schema", () => {
     expect(result.data.repaymentAmount).toBe(22_000);
   });
 
-  it("rejects negative interest or service charge", () => {
+  it("rejects negative interest or service charge rate", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      interestServiceCharge: -1_000,
+      interestServiceChargeRate: -1,
       fees: 0,
       dueDate: "2026-07-24",
       remarks: "",
+      repaymentChannel: "GCash",
+      repaymentAccountName: "Partner Capital",
+      repaymentAccountNumber: "09171234567",
+      repaymentInstructions: "",
     });
 
     expect(result.success).toBe(false);
@@ -726,6 +730,7 @@ describe("borrower offer acceptance", () => {
       lender_id: "lender-1",
       lender_name: "Partner Capital",
       approved_amount: 20_000,
+      interest_service_charge_rate: 7.5,
       repayment_amount: 22_000,
       fees: 500,
       due_date: "2026-07-24",
