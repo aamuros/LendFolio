@@ -57,8 +57,8 @@ export function FloatingLandingHeader() {
             <Logo size="sm" priority />
           </Link>
 
-          <div className="absolute inset-0 m-auto hidden h-fit w-fit xl:block">
-            <div className="flex items-center gap-6 text-sm text-[#55534F]">
+          <div className="absolute inset-0 m-auto hidden h-fit w-fit lg:block">
+            <div className="flex items-center gap-4 text-sm text-[#55534F] xl:gap-6">
               {navLinks.map((link) => (
                 <a
                   key={link.href}

@@ -88,7 +88,7 @@ export default async function LenderApplicationDetailPage({
       <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
         <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-6 xl:grid-cols-2 xl:items-stretch">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-stretch">
             <BorrowerResumePage application={application} />
 
             <LenderReviewPage>

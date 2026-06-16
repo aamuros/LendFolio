@@ -38,13 +38,13 @@ export default async function Home({ searchParams }: HomeProps) {
     <main className="theme-lendfolio min-h-svh overflow-x-hidden bg-background text-foreground">
       <FloatingLandingHeader />
 
-      <section className="hero-depth-scene relative isolate flex min-h-svh items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-28 pb-14 sm:px-8 sm:pt-32 sm:pb-16 lg:px-10 lg:pt-36 lg:pb-20">
+      <section className="hero-depth-scene relative isolate flex min-h-svh items-start overflow-hidden border-b border-[#D9D7D1] px-5 pt-[clamp(7.5rem,12vh,9rem)] pb-14 sm:px-8 sm:pb-16 lg:px-10 lg:pt-[clamp(8rem,13vh,10rem)] lg:pb-20">
         <div className="absolute inset-0 -z-20 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
         <div className="absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
         <div className="absolute inset-0 -z-10 bg-[radial-gradient(circle_at_50%_44%,rgba(255,255,252,0.76),transparent_32%),radial-gradient(circle_at_18%_70%,rgba(51,66,60,0.08),transparent_28%),radial-gradient(circle_at_82%_70%,rgba(226,218,198,0.36),transparent_30%)]" />
         <div className="absolute inset-0 -z-10 bg-[linear-gradient(to_bottom,rgba(246,245,242,0)_0%,rgba(246,245,242,0.72)_82%,rgba(246,245,242,0.98)_100%)]" />
 
-        <div className="mx-auto grid w-full max-w-[min(1440px,calc(100vw-3rem))] gap-7">
+        <div className="mx-auto grid w-full max-w-[1440px] gap-7">
           {statusMessage ? (
             <p
               className="mx-auto max-w-2xl rounded-2xl border border-[#D9D7D1] bg-[#FFFFFC]/85 px-4 py-3 text-center text-sm leading-6 text-[#4F4F4B] shadow-[0_18px_50px_rgba(14,26,18,0.08)]"
@@ -65,7 +65,7 @@ export default async function Home({ searchParams }: HomeProps) {
             </p>
           ) : null}
 
-          <div className="mx-auto grid w-full max-w-[min(1440px,calc(100vw-3rem))] gap-6 xl:grid-cols-[minmax(230px,0.32fr)_minmax(0,1fr)_minmax(230px,0.32fr)] xl:items-center xl:gap-8">
+          <div className="mx-auto grid w-full max-w-[1440px] gap-6 lg:grid-cols-[minmax(190px,0.28fr)_minmax(0,1fr)_minmax(190px,0.28fr)] lg:items-center lg:gap-6 xl:grid-cols-[minmax(230px,0.32fr)_minmax(0,1fr)_minmax(230px,0.32fr)] xl:gap-8">
             <HeroFinanceRails side="left" />
 
             <div className="relative mx-auto grid w-full max-w-4xl place-items-center gap-5 text-center sm:gap-6">
@@ -74,7 +74,7 @@ export default async function Home({ searchParams }: HomeProps) {
                 <p className="text-xs font-semibold tracking-[0.2em] text-[#6A6863] uppercase">
                   Structured microfinance operations
                 </p>
-                <h1 className="text-balance text-[clamp(3rem,5.5vw,5.25rem)] leading-[1.01] font-semibold tracking-[-0.02em] text-[#161616]">
+                <h1 className="text-balance text-[clamp(2.75rem,5vw,5.25rem)] leading-[1.04] font-semibold tracking-[-0.02em] text-[#161616] lg:leading-[1.01]">
                   Data-driven lending workflows for modern microfinance
                 </h1>
                 <p className="mx-auto max-w-3xl text-balance text-base leading-7 text-[#55534F] sm:text-lg sm:leading-8">
@@ -153,12 +153,20 @@ function HeroFinanceRails({ side }: { side: "left" | "right" }) {
   const cards = heroCards.filter((card) => card.side === side);
   const offsets =
     side === "left"
-      ? ["xl:translate-x-4", "xl:-translate-x-3", "xl:translate-x-7"]
-      : ["xl:-translate-x-4", "xl:translate-x-3", "xl:-translate-x-7"];
+      ? [
+          "lg:translate-x-2 xl:translate-x-4",
+          "lg:-translate-x-2 xl:-translate-x-3",
+          "lg:translate-x-4 xl:translate-x-7",
+        ]
+      : [
+          "lg:-translate-x-2 xl:-translate-x-4",
+          "lg:translate-x-2 xl:translate-x-3",
+          "lg:-translate-x-4 xl:-translate-x-7",
+        ];
 
   return (
     <div
-      className={`hero-rail pointer-events-none relative hidden gap-4 xl:grid xl:self-center ${
+      className={`hero-rail pointer-events-none relative hidden gap-3 lg:grid lg:self-center xl:gap-4 ${
         side === "left"
           ? "hero-rail-left justify-items-end justify-self-end"
           : "hero-rail-right justify-items-start justify-self-start"
@@ -168,7 +176,7 @@ function HeroFinanceRails({ side }: { side: "left" | "right" }) {
       {cards.map((card, index) => (
         <HeroFinanceCard
           key={card.label}
-          className={`w-[220px] 2xl:w-[240px] ${card.depth} ${offsets[index]}`}
+          className={`w-[180px] xl:w-[220px] 2xl:w-[240px] ${card.depth} ${offsets[index]}`}
           label={card.label}
           value={card.value}
           status={card.status}
