@@ -88,241 +88,228 @@ export function LenderOfferForm({
   }
 
   return (
-    <form ref={formRef} action={onSubmit} className="grid gap-3">
+    <form ref={formRef} action={onSubmit} className="flex min-h-0 flex-col">
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
 
-      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
-        <p className="text-sm font-semibold">Borrower credit capacity</p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          This borrower&apos;s available credit at submission is{" "}
-          <span className="font-semibold text-foreground">
-            PHP {formatCurrency(maxPrincipal)}
-          </span>
-          . The approved principal cannot exceed this amount.
-          Interest/service charges and optional fees are added to the
-          borrower&apos;s repayment but do not reduce credit capacity.
-        </p>
-      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start">
+          <div className="grid gap-4">
+            <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
+              <p className="text-sm font-semibold">Borrower credit capacity</p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                Available credit at submission is{" "}
+                <span className="font-semibold text-foreground">
+                  PHP {formatCurrency(maxPrincipal)}
+                </span>
+                . Approved principal cannot exceed this amount. Charges and
+                optional fees are added to repayment only.
+              </p>
+            </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Approved amount (principal)"
-          error={state.fieldErrors?.approvedAmount?.[0]}
-        >
-          <CurrencyInput
-            name="approvedAmount"
-            defaultValue={requestedAmount}
-            disabled={isPending}
-            onChange={(event) => setApprovedAmount(event.currentTarget.value)}
+            <Section title="Loan terms">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Approved amount (principal)"
+                  error={state.fieldErrors?.approvedAmount?.[0]}
+                >
+                  <CurrencyInput
+                    name="approvedAmount"
+                    defaultValue={requestedAmount}
+                    disabled={isPending}
+                    onChange={(event) => setApprovedAmount(event.currentTarget.value)}
+                  />
+                </Field>
+
+                <Field
+                  label="Interest / service charge rate (%)"
+                  error={state.fieldErrors?.interestServiceChargeRate?.[0]}
+                >
+                  <Input
+                    type="number"
+                    name="interestServiceChargeRate"
+                    defaultValue={10}
+                    disabled={isPending}
+                    min={0}
+                    max={100}
+                    step="0.01"
+                    inputMode="decimal"
+                    className="h-9"
+                    onChange={(event) =>
+                      setInterestServiceChargeRate(event.currentTarget.value)
+                    }
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Charge: PHP {formatCurrency(interestServiceCharge)}
+                  </span>
+                </Field>
+
+                <Field
+                  label="Other borrower-paid fees (optional)"
+                  error={state.fieldErrors?.fees?.[0]}
+                >
+                  <CurrencyInput
+                    name="fees"
+                    defaultValue={0}
+                    disabled={isPending}
+                    emptyValue={0}
+                    onChange={(event) => setFees(event.currentTarget.value)}
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Use 0 if there are no additional fees.
+                  </span>
+                </Field>
+
+                <Field label="Final repayment date" error={state.fieldErrors?.dueDate?.[0]}>
+                  <Input
+                    type="date"
+                    name="dueDate"
+                    defaultValue={defaultDueDate}
+                    disabled={isPending}
+                    className="h-9"
+                  />
+                  <span className="text-xs text-muted-foreground">
+                    Borrower prefers {preferredTermLabel}. Earlier installments
+                    are spaced monthly.
+                  </span>
+                </Field>
+              </div>
+            </Section>
+
+            <Section title="Remarks">
+              <Field label="Remarks" error={state.fieldErrors?.remarks?.[0]}>
+                <Textarea
+                  name="remarks"
+                  rows={3}
+                  disabled={isPending}
+                  placeholder="Optional offer notes for the borrower."
+                  className="min-h-[84px] resize-none"
+                />
+              </Field>
+            </Section>
+
+            <Section
+              title="Repayment destination"
+              description="These details will be shown to the borrower and saved with the active loan."
+            >
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field
+                  label="Repayment channel"
+                  error={state.fieldErrors?.repaymentChannel?.[0]}
+                >
+                  <input type="hidden" name="repaymentChannel" value={repaymentChannel} />
+                  <Select
+                    value={repaymentChannel}
+                    onValueChange={setRepaymentChannel}
+                    disabled={isPending}
+                  >
+                    <SelectTrigger className="h-9 w-full">
+                      <SelectValue placeholder="Select channel" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GCash">GCash</SelectItem>
+                      <SelectItem value="Maya">Maya</SelectItem>
+                      <SelectItem value="BPI">BPI</SelectItem>
+                      <SelectItem value="BDO">BDO</SelectItem>
+                      <SelectItem value="Metrobank">Metrobank</SelectItem>
+                      <SelectItem value="UnionBank">UnionBank</SelectItem>
+                      <SelectItem value="Landbank">Landbank</SelectItem>
+                      <SelectItem value="BDO Online">BDO Online</SelectItem>
+                      <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      <SelectItem value="Cash">Cash</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </Field>
+
+                <Field
+                  label="Account name"
+                  error={state.fieldErrors?.repaymentAccountName?.[0]}
+                >
+                  <Input
+                    name="repaymentAccountName"
+                    disabled={isPending}
+                    placeholder="Account holder name"
+                    className="h-9"
+                  />
+                </Field>
+
+                <Field
+                  label="Account / wallet number"
+                  error={state.fieldErrors?.repaymentAccountNumber?.[0]}
+                >
+                  <Input
+                    name="repaymentAccountNumber"
+                    disabled={isPending}
+                    placeholder="Account or wallet number"
+                    className="h-9"
+                  />
+                </Field>
+
+                <Field
+                  label="Additional instructions (optional)"
+                  error={state.fieldErrors?.repaymentInstructions?.[0]}
+                >
+                  <Input
+                    name="repaymentInstructions"
+                    disabled={isPending}
+                    placeholder="e.g. Include loan ID in the note"
+                    className="h-9"
+                  />
+                </Field>
+              </div>
+            </Section>
+          </div>
+
+          <RepaymentSummary
+            approvedAmount={parsedApprovedAmount}
+            interestRate={parsedInterestRate}
+            interestServiceCharge={interestServiceCharge}
+            fees={parseCurrencyValue(fees)}
+            totalRepaymentAmount={totalRepaymentAmount}
           />
-        </Field>
-
-        <Field
-          label="Interest / service charge rate (%)"
-          error={state.fieldErrors?.interestServiceChargeRate?.[0]}
-        >
-          <Input
-            type="number"
-            name="interestServiceChargeRate"
-            defaultValue={10}
-            disabled={isPending}
-            min={0}
-            max={100}
-            step="0.01"
-            inputMode="decimal"
-            className="h-9"
-            onChange={(event) =>
-              setInterestServiceChargeRate(event.currentTarget.value)
-            }
-          />
-          <span className="text-xs text-muted-foreground">
-            Calculated charge: PHP {formatCurrency(interestServiceCharge)}
-          </span>
-        </Field>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field label="Other borrower-paid fees (optional)" error={state.fieldErrors?.fees?.[0]}>
-          <CurrencyInput
-            name="fees"
-            defaultValue={0}
-            disabled={isPending}
-            emptyValue={0}
-            onChange={(event) => setFees(event.currentTarget.value)}
-          />
-          <span className="text-xs text-muted-foreground">
-            Use 0 if there are no additional fees.
-          </span>
-        </Field>
-
-        <Field label="Final repayment date" error={state.fieldErrors?.dueDate?.[0]}>
-          <Input
-            type="date"
-            name="dueDate"
-            defaultValue={defaultDueDate}
-            disabled={isPending}
-            className="h-9"
-          />
-          <span className="text-xs text-muted-foreground">
-            The borrower prefers {preferredTermLabel}. This date sets the final
-            installment due date. Earlier installments are spaced monthly.
-          </span>
-        </Field>
-      </div>
-
-      <Field label="Remarks" error={state.fieldErrors?.remarks?.[0]}>
-        <Textarea
-          name="remarks"
-          rows={4}
-          disabled={isPending}
-          placeholder="Optional offer notes for the borrower."
-        />
-      </Field>
-
-      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
-        <p className="text-sm font-semibold">Repayment destination</p>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Tell the borrower where to send the repayment. These details will be
-          shown to the borrower and saved with the active loan.
-        </p>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Repayment channel"
-          error={state.fieldErrors?.repaymentChannel?.[0]}
-        >
-          <input type="hidden" name="repaymentChannel" value={repaymentChannel} />
-          <Select
-            value={repaymentChannel}
-            onValueChange={setRepaymentChannel}
-            disabled={isPending}
-          >
-            <SelectTrigger className="h-9 w-full">
-              <SelectValue placeholder="Select channel" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="GCash">GCash</SelectItem>
-              <SelectItem value="Maya">Maya</SelectItem>
-              <SelectItem value="BPI">BPI</SelectItem>
-              <SelectItem value="BDO">BDO</SelectItem>
-              <SelectItem value="Metrobank">Metrobank</SelectItem>
-              <SelectItem value="UnionBank">UnionBank</SelectItem>
-              <SelectItem value="Landbank">Landbank</SelectItem>
-              <SelectItem value="BDO Online">BDO Online</SelectItem>
-              <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
-              <SelectItem value="Cash">Cash</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field
-          label="Account name"
-          error={state.fieldErrors?.repaymentAccountName?.[0]}
-        >
-          <Input
-            name="repaymentAccountName"
-            disabled={isPending}
-            placeholder="Account holder name"
-            className="h-9"
-          />
-        </Field>
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Field
-          label="Account / wallet number"
-          error={state.fieldErrors?.repaymentAccountNumber?.[0]}
-        >
-          <Input
-            name="repaymentAccountNumber"
-            disabled={isPending}
-            placeholder="Account or wallet number"
-            className="h-9"
-          />
-        </Field>
-
-        <Field
-          label="Additional instructions (optional)"
-          error={state.fieldErrors?.repaymentInstructions?.[0]}
-        >
-          <Input
-            name="repaymentInstructions"
-            disabled={isPending}
-            placeholder="e.g. Include loan ID in the note"
-            className="h-9"
-          />
-        </Field>
-      </div>
-
-      <div className="rounded-xl border border-border bg-muted/30 px-3 py-3">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-sm font-semibold">Total repayment</p>
-          <p className="text-lg font-semibold">
-            PHP {formatCurrency(totalRepaymentAmount)}
-          </p>
         </div>
-        <p className="mt-1 text-sm leading-6 text-muted-foreground">
-          Total repayment is calculated from the approved amount, interest/service charge,
-          and other fees. Borrower installments will add up to this total.
-        </p>
-        <dl className="mt-2 grid grid-cols-2 gap-2 text-sm sm:grid-cols-3">
-          <div>
-            <dt className="text-muted-foreground">Approved principal</dt>
-            <dd className="font-semibold">
-              PHP {formatCurrency(parsedApprovedAmount)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Interest rate</dt>
-            <dd className="font-semibold">{formatPercent(parsedInterestRate)}</dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Interest/service charge</dt>
-            <dd className="font-semibold">
-              PHP {formatCurrency(interestServiceCharge)}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-muted-foreground">Other borrower-paid fees</dt>
-            <dd className="font-semibold">
-              PHP {formatCurrency(parseCurrencyValue(fees))}
-            </dd>
-          </div>
-        </dl>
+
+        <div className="mt-4 grid gap-2">
+          {exceedsRequestedAmount ? (
+            <p
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+              role="alert"
+            >
+              Approved amount cannot exceed the borrower&apos;s requested amount of
+              PHP {formatCurrency(requestedAmount)}.
+            </p>
+          ) : null}
+
+          {exceedsAvailableCredit ? (
+            <p
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+              role="alert"
+            >
+              Approved principal cannot exceed the borrower&apos;s available credit
+              of PHP {formatCurrency(maxPrincipal)}.
+            </p>
+          ) : null}
+
+          {state.message && !state.ok ? (
+            <p
+              className="rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
+              role="alert"
+            >
+              {state.message}
+            </p>
+          ) : null}
+        </div>
       </div>
 
-      {exceedsRequestedAmount ? (
-        <p
-          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
-          role="alert"
-        >
-          Approved amount cannot exceed the borrower&apos;s requested amount of
-          PHP {formatCurrency(requestedAmount)}.
-        </p>
-      ) : null}
-
-      {exceedsAvailableCredit ? (
-        <p
-          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
-          role="alert"
-        >
-          Approved principal cannot exceed the borrower&apos;s available credit
-          of PHP {formatCurrency(maxPrincipal)}.
-        </p>
-      ) : null}
-
-      {state.message && !state.ok ? (
-        <p
-          className="rounded-xl border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm leading-6 text-destructive"
-          role="alert"
-        >
-          {state.message}
-        </p>
-      ) : null}
-
-      <div className="grid gap-3 pt-1 sm:flex sm:items-center sm:justify-end">
+      <div className="sticky bottom-0 z-10 grid gap-2 border-t border-border bg-popover px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] sm:flex sm:items-center sm:justify-between sm:px-5">
+        <div className="flex items-baseline justify-between gap-3 sm:grid sm:justify-start sm:gap-0.5">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Total repayment
+          </span>
+          <span className="text-lg font-semibold">
+            PHP {formatCurrency(totalRepaymentAmount)}
+          </span>
+        </div>
         <Button
           type="submit"
           disabled={
@@ -364,6 +351,76 @@ function formatPercent(value: number) {
     minimumFractionDigits: 0,
     maximumFractionDigits: 2,
   }).format(value) + "%";
+}
+
+function Section({
+  title,
+  description,
+  children,
+}: {
+  title: string;
+  description?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section className="grid gap-2 rounded-lg border border-border bg-background px-3 py-3">
+      <div className="grid gap-0.5">
+        <h3 className="text-sm font-semibold">{title}</h3>
+        {description ? (
+          <p className="text-xs leading-5 text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function RepaymentSummary({
+  approvedAmount,
+  interestRate,
+  interestServiceCharge,
+  fees,
+  totalRepaymentAmount,
+}: {
+  approvedAmount: number;
+  interestRate: number;
+  interestServiceCharge: number;
+  fees: number;
+  totalRepaymentAmount: number;
+}) {
+  return (
+    <aside className="rounded-lg border border-border bg-muted/30 px-3 py-3 lg:sticky lg:top-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold">Total repayment summary</p>
+        <p className="text-lg font-semibold">
+          PHP {formatCurrency(totalRepaymentAmount)}
+        </p>
+      </div>
+      <p className="mt-1 text-xs leading-5 text-muted-foreground">
+        Calculated from principal, interest/service charge, and other fees.
+      </p>
+      <dl className="mt-3 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
+        <div>
+          <dt className="text-xs text-muted-foreground">Approved principal</dt>
+          <dd className="font-semibold">PHP {formatCurrency(approvedAmount)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Interest rate</dt>
+          <dd className="font-semibold">{formatPercent(interestRate)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Interest/service charge</dt>
+          <dd className="font-semibold">
+            PHP {formatCurrency(interestServiceCharge)}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Other borrower-paid fees</dt>
+          <dd className="font-semibold">PHP {formatCurrency(fees)}</dd>
+        </div>
+      </dl>
+    </aside>
+  );
 }
 
 function Field({

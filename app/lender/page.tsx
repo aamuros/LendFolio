@@ -13,8 +13,6 @@ import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
 import {
   LenderApplicationsList,
-  formatCurrency,
-  formatDate,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
 import { LenderAccessPanel } from "@/components/lender/lender-access-panel";
@@ -55,6 +53,7 @@ import {
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
+import { formatCurrency, formatDate } from "@/lib/lender-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 import { LenderOffersHighlighter } from "@/components/lender/lender-offers-highlighter";
 
