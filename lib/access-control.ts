@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "./supabase/server";
 import type { AppRole, Database } from "./supabase/types";
-import { canAccessRole, hasRole, isApprovedLender } from "./role-rules";
+import { canAccessRole, hasPrimaryRole, hasRole, isApprovedLender } from "./role-rules";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -124,7 +124,7 @@ export async function requireRole(role: AppRole, supabase?: SupabaseServerClient
 }
 
 export function requireBorrower(supabase?: SupabaseServerClient) {
-  return requireRole("borrower", supabase);
+  return requirePrimaryRole("borrower", supabase);
 }
 
 export async function requireApprovedLender(
@@ -138,7 +138,7 @@ export async function requireApprovedLender(
 
   if (!isApprovedLender(result.profile)) {
     const verificationStatus = result.profile.lenderProfile?.verification_status;
-    const userIsLender = hasRole(result.profile, "lender");
+    const userIsLender = hasPrimaryRole(result.profile, "lender");
     const message =
       userIsLender && verificationStatus === "incomplete"
         ? "Complete your lender profile to continue."
@@ -161,4 +161,26 @@ export async function requireApprovedLender(
 
 export function requireManager(supabase?: SupabaseServerClient) {
   return requireRole("manager", supabase);
+}
+
+export async function requirePrimaryRole(
+  role: AppRole,
+  supabase?: SupabaseServerClient,
+) {
+  const result = await getCurrentUserProfile(supabase);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  if (!hasPrimaryRole(result.profile, role)) {
+    return {
+      ok: false as const,
+      supabase: result.supabase,
+      reason: "forbidden" as const,
+      message: "Your account does not have access to this workspace.",
+    };
+  }
+
+  return result;
 }

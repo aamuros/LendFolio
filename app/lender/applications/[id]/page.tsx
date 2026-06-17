@@ -88,7 +88,7 @@ export default async function LenderApplicationDetailPage({
       <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
         <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-stretch">
+          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-start">
             <BorrowerResumePage application={application} />
 
             <LenderReviewPage>
@@ -146,7 +146,7 @@ function DocumentPage({
   return (
     <section
       className={cn(
-        "min-h-[760px] rounded-xl border border-border/70 bg-card p-5 shadow-sm sm:p-6 lg:p-8",
+        "min-h-0 rounded-xl border border-border/70 bg-card p-5 shadow-sm sm:p-6 lg:min-h-[520px] lg:p-8",
         className,
       )}
     >

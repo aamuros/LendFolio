@@ -125,19 +125,23 @@ export async function signupAction(
       };
     }
 
-    // Verify the provisioned profile role matches the signup role.
-    // If provisioning created a different role, redirect to the correct
-    // workspace rather than silently sending the user to the wrong one.
     if (profile && profile.role !== input.role) {
-      redirectTo =
-        profile.role === "borrower"
-          ? "/borrower?message=account-created"
-          : profile.role === "lender"
-            ? "/lender/onboarding"
-            : destination;
-    } else {
-      redirectTo = destination;
+      await supabase.auth.signOut();
+
+      return {
+        status: "error",
+        message: getRoleMismatchMessage(profile.role, input.role),
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          role: input.role,
+          termsAccepted: true,
+          privacyAccepted: true,
+        },
+      };
     }
+
+    redirectTo = destination;
   } catch {
     return {
       status: "error",
@@ -153,4 +157,19 @@ export async function signupAction(
   }
 
   redirect(redirectTo, RedirectType.replace);
+}
+
+export async function signOutForSignupAction() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+  } catch {
+    // Missing auth configuration still lands the user back on signup.
+  }
+
+  redirect("/signup", RedirectType.replace);
+}
+
+function getRoleMismatchMessage(profileRole: string, selectedRole: string) {
+  return `This account is registered as a ${profileRole}. Sign out and use another email to create a ${selectedRole} account.`;
 }

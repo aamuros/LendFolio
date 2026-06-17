@@ -23,7 +23,7 @@ import { loadUserConsents } from "@/lib/user-consents";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
-import { getCurrentUserProfile } from "@/lib/access-control";
+import { requirePrimaryRole } from "@/lib/access-control";
 import { LenderToast } from "@/app/lender/lender-toast";
 import {
   isApplicationActionableForOffer,
@@ -83,7 +83,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
         : tab === "account" || tab === "profile"
           ? "profile"
           : "home";
-  const access = await getCurrentUserProfile();
+  const access = await requirePrimaryRole("lender");
 
   if (!access.ok) {
     return (
@@ -828,11 +828,11 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
         isQuiet && "opacity-75",
       )}
     >
-      <CardContent className="grid gap-3 p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3">
-          <div className="grid gap-1">
+      <CardContent className="grid gap-3 p-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="min-w-0 flex-1">
             <h3 className="font-semibold">{context}</h3>
-            <p className="text-sm leading-6 text-muted-foreground">
+            <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
               {offer.application?.purpose ?? "Offer sent"}
             </p>
           </div>
@@ -840,35 +840,43 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
             {offer.status}
           </ToneBadge>
         </div>
-        <dl className="grid grid-cols-2 gap-3 text-sm">
-          {offer.application ? (
+        <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,4fr)] sm:items-start">
+          <div>
+            <p className="text-xs font-semibold text-muted-foreground">
+              Total repayment
+            </p>
+            <p className="mt-1 text-lg font-semibold tabular-nums text-foreground">
+              PHP {formatCurrency(offer.totalRepaymentAmount)}
+            </p>
+            {offer.application ? (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Requested PHP {formatCurrency(offer.application.requestedAmount)}
+              </p>
+            ) : null}
+          </div>
+          <dl className="grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-6">
             <MiniMetric
-              label="Requested"
-              value={`PHP ${formatCurrency(offer.application.requestedAmount)}`}
+              label="Approved"
+              value={`PHP ${formatCurrency(offer.approvedAmount)}`}
+              compact
             />
-          ) : null}
-          <MiniMetric
-            label="Approved"
-            value={`PHP ${formatCurrency(offer.approvedAmount)}`}
-          />
-          <MiniMetric
-            label="Interest/service charge"
-            value={`PHP ${formatCurrency(offer.interestAmount)}`}
-          />
-          <MiniMetric
-            label="Borrower-paid fees"
-            value={`PHP ${formatCurrency(offer.fees)}`}
-          />
-          <MiniMetric
-            label="Total repayment"
-            value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
-          />
-          {offer.application ? (
-            <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} />
-          ) : null}
-          <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} />
-          <MiniMetric label="Sent" value={formatDate(offer.sentAt)} />
-        </dl>
+            <MiniMetric
+              label="Interest/service charge"
+              value={`PHP ${formatCurrency(offer.interestAmount)}`}
+              compact
+            />
+            <MiniMetric
+              label="Fees"
+              value={`PHP ${formatCurrency(offer.fees)}`}
+              compact
+            />
+            <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} compact />
+            <MiniMetric label="Sent" value={formatDate(offer.sentAt)} compact />
+            {offer.application ? (
+              <MiniMetric label="Submitted" value={formatDate(offer.application.submittedAt)} compact />
+            ) : null}
+          </dl>
+        </div>
         {activeLoan ? (
           <div className="grid gap-3">
             <Separator />
@@ -1050,13 +1058,28 @@ function ProofStatusBadge({ status }: { status: string }) {
   return <ToneBadge tone={tone}>{formatProofStatus(status)}</ToneBadge>;
 }
 
-function MiniMetric({ label, value }: { label: string; value: string }) {
+function MiniMetric({
+  label,
+  value,
+  compact = false,
+}: {
+  label: string;
+  value: string;
+  compact?: boolean;
+}) {
   return (
     <div>
       <dt className="text-xs font-semibold text-muted-foreground">
         {label}
       </dt>
-      <dd className="mt-1 break-words font-semibold">{value}</dd>
+      <dd
+        className={cn(
+          "break-words font-semibold tabular-nums",
+          compact ? "mt-0.5 text-sm" : "mt-1",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

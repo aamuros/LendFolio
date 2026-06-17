@@ -24,10 +24,32 @@ const initialState: SignupState = {
 
 export function SignupForm() {
   const [state, formAction, isPending] = useActionState(signupAction, initialState);
-  const [role, setRole] = useState<SignupRole>("borrower");
+  const formKey = state.values ? JSON.stringify(state.values) : "initial";
+
+  return (
+    <SignupFormContent
+      key={formKey}
+      state={state}
+      formAction={formAction}
+      isPending={isPending}
+    />
+  );
+}
+
+function SignupFormContent({
+  state,
+  formAction,
+  isPending,
+}: {
+  state: SignupState;
+  formAction: (payload: FormData) => void;
+  isPending: boolean;
+}) {
+  const [role, setRole] = useState<SignupRole>(
+    isSignupRole(state.values?.role) ? state.values.role : "borrower",
+  );
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const isSuccess = state.status === "success";
-  const formKey = state.values ? JSON.stringify(state.values) : "initial";
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
@@ -45,13 +67,23 @@ export function SignupForm() {
       </CardHeader>
       <CardContent className="p-0">
         <form
-          key={formKey}
           action={formAction}
           onSubmit={(e) => {
             const form = e.currentTarget;
             const formData = new FormData(form);
+            const submittedRole = formData.get("role");
             const password = formData.get("password") as string;
             const confirmPassword = formData.get("confirmPassword") as string;
+
+            if (submittedRole !== role) {
+              e.preventDefault();
+              const roleInput = form.elements.namedItem("role");
+              if (roleInput instanceof HTMLInputElement) {
+                roleInput.value = role;
+              }
+              form.requestSubmit();
+              return;
+            }
 
             if (password !== confirmPassword) {
               e.preventDefault();
@@ -215,6 +247,10 @@ export function SignupForm() {
       </CardContent>
     </Card>
   );
+}
+
+function isSignupRole(value: unknown): value is SignupRole {
+  return value === "borrower" || value === "lender";
 }
 
 function RoleCard({

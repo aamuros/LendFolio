@@ -31,7 +31,7 @@ import {
 } from "../lib/manager-operations";
 import { formatDateOnly, formatDateTime } from "../lib/manager-date-format";
 import { parseMoneyInput } from "../lib/money-input";
-import { canAccessRole, isApprovedLender } from "../lib/role-rules";
+import { canAccessRole, hasPrimaryRole, isApprovedLender } from "../lib/role-rules";
 import { isUuid } from "../lib/validation/uuid";
 import {
   applyAcceptedOfferInvariant,
@@ -222,6 +222,48 @@ describe("manager operations helpers", () => {
     const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
 
     expect(lenderPage).toContain("includeSignedUrls: true");
+  });
+
+  it("keeps signup from silently redirecting active sessions into a workspace", () => {
+    const signupPage = readFileSync("app/signup/page.tsx", "utf8");
+
+    expect(signupPage).toContain("Account already signed in");
+    expect(signupPage).toContain("Continue to workspace");
+    expect(signupPage).toContain("Sign out and create account");
+    expect(signupPage).not.toContain(
+      "redirect(getRouteForRole(access.profile.role)",
+    );
+  });
+
+  it("keeps signup role mismatch from redirecting to the provisioned profile workspace", () => {
+    const signupActions = readFileSync("app/signup/actions.ts", "utf8");
+
+    expect(signupActions).toContain("profile.role !== input.role");
+    expect(signupActions).toContain("await supabase.auth.signOut()");
+    expect(signupActions).toContain("getRoleMismatchMessage(profile.role, input.role)");
+    expect(signupActions).not.toContain("profile.role === \"lender\"");
+    expect(signupActions).not.toContain("? \"/lender/onboarding\"");
+  });
+
+  it("restores signup form role state after validation errors", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+
+    expect(signupForm).toContain("isSignupRole(state.values?.role)");
+    expect(signupForm).toContain("key={formKey}");
+    expect(signupForm).toContain('<input type="hidden" name="role" value={role} />');
+    expect(signupForm).toContain("submittedRole !== role");
+  });
+
+  it("keeps lender workspace pages behind primary lender access", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/lender/applications/page.tsx",
+      "utf8",
+    );
+
+    expect(lenderPage).toContain('requirePrimaryRole("lender")');
+    expect(applicationsPage).toContain('requirePrimaryRole("lender")');
+    expect(lenderPage).not.toContain("getCurrentUserProfile()");
   });
 
   it("keeps document previews useful for PDFs, images, and failed renders", () => {
@@ -834,6 +876,27 @@ describe("role helper logic", () => {
     ).toBe(false);
   });
 
+  it("keeps borrower access primary-role-only", () => {
+    expect(
+      hasPrimaryRole(
+        {
+          role: "borrower",
+          status: "active",
+        },
+        "borrower",
+      ),
+    ).toBe(true);
+    expect(
+      hasPrimaryRole(
+        {
+          role: "lender",
+          status: "active",
+        },
+        "borrower",
+      ),
+    ).toBe(false);
+  });
+
   it("requires approved lender status before offer creation", () => {
     expect(
       isApprovedLender({
@@ -862,6 +925,16 @@ describe("role helper logic", () => {
         status: "active",
         lenderProfile: {
           verification_status: "incomplete",
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isApprovedLender({
+        role: "borrower",
+        additional_roles: ["lender"],
+        status: "active",
+        lenderProfile: {
+          verification_status: "approved",
         },
       }),
     ).toBe(false);

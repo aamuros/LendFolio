@@ -4,7 +4,7 @@ import {
   LenderApplicationsList,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { getCurrentUserProfile } from "@/lib/access-control";
+import { requirePrimaryRole } from "@/lib/access-control";
 import { loadOpenLenderApplications } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
 import { PageHeader, borrowerPageBottomPadding } from "@/components/borrower/ui";
@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function LenderApplicationsPage() {
-  const access = await getCurrentUserProfile();
+  const access = await requirePrimaryRole("lender");
 
   if (!access.ok) {
     return (
