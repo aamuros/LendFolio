@@ -19,7 +19,7 @@ export function ManagerDashboard({
           revenue={dashboard.revenue}
         />
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <RevenueChart data={dashboard.monthlyRevenue} />
         <ActivityChart data={dashboard.monthlyActivity} />
       </div>

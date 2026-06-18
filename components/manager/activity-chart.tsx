@@ -58,7 +58,7 @@ export function ActivityChart({
 
   return (
     <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
-      <CardHeader className="flex flex-col gap-0 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className="flex flex-col gap-3 space-y-0 pb-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
           <CardTitle>Platform activity</CardTitle>
           <CardDescription>
@@ -67,7 +67,7 @@ export function ActivityChart({
               : "Trends will become more useful after 3+ active months."}
           </CardDescription>
         </div>
-        <div className="flex gap-1 rounded-lg border border-border/70 bg-muted/60 p-1 pt-1 sm:pt-1">
+        <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-border/70 bg-muted/60 p-1">
           {metrics.map((metric) => (
             <button
               key={metric}
@@ -80,10 +80,10 @@ export function ActivityChart({
           ))}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[200px] w-full"
+          className="aspect-auto h-[190px] w-full"
         >
           <BarChart
             accessibilityLayer

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bar, BarChart, CartesianGrid, XAxis, YAxis } from "recharts";
+import { CartesianGrid, Line, LineChart, XAxis, YAxis } from "recharts";
 
 import {
   Card,
@@ -24,8 +24,9 @@ const pesoFormatter = new Intl.NumberFormat("en-PH", {
 });
 
 const compactPesoFormatter = new Intl.NumberFormat("en-PH", {
+  style: "currency",
+  currency: "PHP",
   notation: "compact",
-  compactDisplay: "short",
   maximumFractionDigits: 1,
 });
 
@@ -49,13 +50,13 @@ export function RevenueChart({
 
   return (
     <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
-      <CardHeader>
+      <CardHeader className="pb-2">
         <CardTitle>System revenue</CardTitle>
         <CardDescription>
           Monthly processing fee revenue from funded loans.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <div className="relative">
           {!hasRevenue && (
             <div className="pointer-events-none absolute inset-x-4 top-8 z-10 rounded-md border border-dashed border-border/80 bg-background/85 px-3 py-2 text-sm text-muted-foreground shadow-sm">
@@ -65,14 +66,16 @@ export function RevenueChart({
           )}
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[200px] w-full"
+            className="aspect-auto h-[190px] w-full"
           >
-            <BarChart
+            <LineChart
               accessibilityLayer
               data={data}
               margin={{
-                left: 4,
+                left: 8,
                 right: 12,
+                top: 8,
+                bottom: 0,
               }}
             >
               <CartesianGrid
@@ -92,8 +95,10 @@ export function RevenueChart({
                 tickLine={false}
                 axisLine={false}
                 tickMargin={8}
-                width={44}
-                tickFormatter={(value) => `PHP ${compactPesoFormatter.format(Number(value))}`}
+                width={60}
+                tickFormatter={(value) =>
+                  compactPesoFormatter.format(Number(value))
+                }
               />
               <ChartTooltip
                 content={
@@ -131,12 +136,15 @@ export function RevenueChart({
                   />
                 }
               />
-              <Bar
+              <Line
                 dataKey="revenue"
-                fill="var(--color-revenue)"
-                radius={[4, 4, 0, 0]}
+                type="monotone"
+                stroke="var(--color-revenue)"
+                strokeWidth={2.5}
+                dot={false}
+                activeDot={{ r: 4 }}
               />
-            </BarChart>
+            </LineChart>
           </ChartContainer>
         </div>
       </CardContent>
