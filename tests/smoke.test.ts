@@ -26,6 +26,8 @@ import {
   buildDueItemsByDate,
   getRepaymentActionSummary,
   getRepaymentCalendarDateTone,
+  isBlockingApplicationReadinessStatus,
+  shouldShowNeedsReviewApplicationWarning,
 } from "../components/borrower-loan-application-panel";
 import {
   createMetadataPreview,
@@ -183,6 +185,43 @@ describe("loan application schema", () => {
         "Enter the requested loan amount.",
       );
     }
+  });
+});
+
+describe("borrower apply readiness gating", () => {
+  it("does not block needs_review borrowers from the apply form", () => {
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
+    expect(
+      shouldShowNeedsReviewApplicationWarning({
+        readinessStatus: "needs_review",
+        missingFields: [],
+        riskFlags: ["vague_loan_purpose"],
+        monthlyNetCashFlow: 10_000,
+        debtBurdenRatio: null,
+        profileIsStale: false,
+        nextActions: ["Add more detail to your loan use context."],
+      }),
+    ).toBe(true);
+  });
+
+  it("keeps incomplete and not_eligible borrowers blocked", () => {
+    expect(isBlockingApplicationReadinessStatus("incomplete")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("not_eligible")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("eligible_to_apply")).toBe(false);
+  });
+
+  it("uses principal-only available credit copy", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      "This is the maximum principal you can request. Interest and",
+    );
+    expect(source).not.toContain(
+      "The total repayment (principal + interest + fees) must fit",
+    );
   });
 });
 

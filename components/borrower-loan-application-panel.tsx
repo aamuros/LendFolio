@@ -465,9 +465,7 @@ export function BorrowerLoanApplicationPanel({
 
     if (
       readiness &&
-      (readiness.readinessStatus === "needs_review" ||
-        readiness.readinessStatus === "not_eligible" ||
-        readiness.readinessStatus === "incomplete")
+      isBlockingApplicationReadinessStatus(readiness.readinessStatus)
     ) {
       setLoadState("ready");
       setMessage(
@@ -926,25 +924,29 @@ export function BorrowerLoanApplicationPanel({
             ) : hasNoAvailableCredit ? (
               <CreditLimitBlocker />
             ) : readiness &&
-              (readiness.readinessStatus === "needs_review" ||
-                readiness.readinessStatus === "not_eligible" ||
-                readiness.readinessStatus === "incomplete") ? (
+              isBlockingApplicationReadinessStatus(readiness.readinessStatus) ? (
               <ProfileReadinessBlocker
                 readiness={readiness}
                 onEditProfile={() => onNavigate?.("profile")}
               />
             ) : (
-              <ApplicationForm
-                control={control}
-                creditSummary={creditSummary}
-                errors={errors}
-                feedbackMessage={message}
-                feedbackTone={loadState === "error" ? "error" : "success"}
-                isPending={isPending}
-                requestedAmount={requestedAmount}
-                register={register}
-                onSubmit={handleSubmit(onSubmit)}
-              />
+              <>
+                {readiness &&
+                shouldShowNeedsReviewApplicationWarning(readiness) ? (
+                  <NeedsReviewApplicationWarning />
+                ) : null}
+                <ApplicationForm
+                  control={control}
+                  creditSummary={creditSummary}
+                  errors={errors}
+                  feedbackMessage={message}
+                  feedbackTone={loadState === "error" ? "error" : "success"}
+                  isPending={isPending}
+                  requestedAmount={requestedAmount}
+                  register={register}
+                  onSubmit={handleSubmit(onSubmit)}
+                />
+              </>
             )}
 
             <ApplicationList
@@ -1059,6 +1061,29 @@ export function BorrowerLoanApplicationPanel({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+export function isBlockingApplicationReadinessStatus(
+  status: BorrowerReadinessResult["readinessStatus"],
+) {
+  return status === "incomplete" || status === "not_eligible";
+}
+
+export function shouldShowNeedsReviewApplicationWarning(
+  readiness: BorrowerReadinessResult,
+) {
+  return readiness.readinessStatus === "needs_review";
+}
+
+function NeedsReviewApplicationWarning() {
+  return (
+    <Alert className="rounded-2xl border-[#D6C28A] bg-[#FFF9E8] text-[#5D4612]">
+      <AlertDescription>
+        Some profile details may need review. You can still submit; lenders will
+        see these flags.
+      </AlertDescription>
+    </Alert>
   );
 }
 
@@ -2450,9 +2475,8 @@ function ApplicationForm({
                   {formatCreditAmount(creditSummary.availableCredit)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Lenders will add interest and fees on top of your principal.
-                  The total repayment (principal + interest + fees) must fit
-                  within this amount.
+                  This is the maximum principal you can request. Interest and
+                  fees are added later in lender offers.
                 </p>
               </div>
               {isOverAvailableCredit ? (

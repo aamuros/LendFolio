@@ -121,4 +121,72 @@ describe("submitLoanApplication consent mapping", () => {
       p_remarks: null,
     });
   });
+
+  it("accepts successful needs_review application snapshots", async () => {
+    const application = {
+      id: "application-1",
+      borrower_id: "borrower-1",
+      borrower_portfolio_id: "portfolio-1",
+      requested_amount: 7000,
+      purpose: "Working capital",
+      preferred_term: "3_months",
+      remarks: null,
+      status: "submitted",
+      submitted_at: "2026-06-18T00:00:00.000Z",
+      created_at: "2026-06-18T00:00:00.000Z",
+      updated_at: "2026-06-18T00:00:00.000Z",
+      credit_limit_at_submission: 10000,
+      used_credit_at_submission: 0,
+      available_credit_at_submission: 10000,
+      monthly_net_cash_flow_at_submission: 5000,
+      credit_readiness_status: "needs_review",
+      borrower_profile_snapshot: {},
+      borrower_readiness_snapshot: {
+        application_ready: true,
+        readiness_status: "needs_review",
+        profile_readiness: {
+          risk_flags: ["self_declared_income_only"],
+        },
+      },
+    };
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: true,
+          message: "Application submitted.",
+          application,
+        },
+        error: null,
+      }),
+    };
+
+    mockedCreateSupabaseServerClient.mockResolvedValue(mockSupabase as never);
+    mockedRequireBorrower.mockResolvedValue({
+      ok: true,
+      supabase: mockSupabase as never,
+      profile: {
+        id: "borrower-1",
+        role: "borrower",
+        additional_roles: [],
+        display_name: "Borrower One",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: null,
+      },
+    });
+
+    const result = await submitLoanApplication({
+      requestedAmount: 7000,
+      purpose: "Working capital",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.application.creditReadinessStatus).toBe("needs_review");
+      expect(result.application.requestedAmount).toBe(7000);
+    }
+  });
 });
