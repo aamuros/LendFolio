@@ -50,6 +50,10 @@ import {
   borrowerPortfolioStepIds,
   type BorrowerPortfolioStep,
 } from "@/lib/borrower-portfolio";
+import {
+  isCompletedLoan,
+  isOngoingLoanStatus,
+} from "@/lib/active-loan-status";
 import type { ConsentStatus } from "@/lib/consents";
 import {
   getLoanPurposeLabel,
@@ -125,6 +129,15 @@ const loanPurposeSelectPlaceholderValue = "__select_purpose__";
 const collapsedApplicationsStorageKey =
   "lendfolio.borrower.collapsedApplications";
 const collapsedRepaymentsStorageKey = "lendfolio.borrower.collapsedRepayments";
+const repaymentProofMaxFileSize = 5 * 1024 * 1024;
+const repaymentProofAllowedTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
 
@@ -917,7 +930,7 @@ export function BorrowerLoanApplicationPanel({
           <>
             <PageHeader
               title="Loans"
-              description="Choose an active loan first, then view repayment details."
+              description="Track ongoing loans and review completed loan history."
             />
             <BorrowerLoansPanel
               applications={applications}
@@ -2139,7 +2152,13 @@ function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
 function isLoanActiveForBorrowerList(
   loan: BorrowerLoanApplicationSummary["activeLoan"],
 ): loan is ActiveLoan {
-  return loan?.status === "active" || loan?.status === "overdue";
+  return isLoanOngoingForList(loan);
+}
+
+function isLoanOngoingForList(
+  loan: BorrowerLoanApplicationSummary["activeLoan"],
+): loan is ActiveLoan {
+  return Boolean(loan && isOngoingLoanStatus(loan.status));
 }
 
 export function getRepaymentActionSummary(
@@ -3196,18 +3215,34 @@ function BorrowerLoansPanel({
   highlightLoanId?: string | null;
   selectedLoanId: string | null;
 }) {
-  const activeLoans = applications
+  const loanItems = applications
     .flatMap((application) =>
       application.activeLoan
         ? [{ application, loan: application.activeLoan }]
         : [],
-    )
-    .filter(({ loan }) => isLoanActiveForBorrowerList(loan));
+    );
+  const ongoingLoans = loanItems.filter(({ loan }) =>
+    isLoanOngoingForList(loan),
+  );
+  const completedLoans = loanItems.filter(({ loan }) =>
+    isCompletedLoan(loan),
+  );
+  const defaultGroup = ongoingLoans.length > 0 ? "ongoing" : "completed";
+  const [selectedGroup, setSelectedGroup] = useState<"ongoing" | "completed">(
+    defaultGroup,
+  );
+  const visibleGroup =
+    selectedGroup === "completed" && completedLoans.length === 0
+      ? "ongoing"
+      : selectedGroup === "ongoing" && ongoingLoans.length === 0 && completedLoans.length > 0
+        ? "completed"
+        : selectedGroup;
+  const visibleLoans = visibleGroup === "ongoing" ? ongoingLoans : completedLoans;
 
-  if (activeLoans.length === 0) {
+  if (loanItems.length === 0) {
     return (
       <EmptyState
-        message="When you accept an offer, the active loan and repayment schedule will appear here."
+        message="When you accept an offer, your loan will appear here."
         action="Review offers"
         onAction={() => onNavigate?.("offers")}
       />
@@ -3215,12 +3250,14 @@ function BorrowerLoansPanel({
   }
 
   const selectedLoan =
-    activeLoans.find(({ loan }) => loan.id === selectedLoanId)?.loan ?? null;
+    loanItems.find(({ loan }) => loan.id === selectedLoanId)?.loan ?? null;
   const selectedApplication =
-    activeLoans.find(({ loan }) => loan.id === selectedLoanId)?.application ??
+    loanItems.find(({ loan }) => loan.id === selectedLoanId)?.application ??
     null;
 
   if (selectedLoan) {
+    const selectedIsCompleted = isCompletedLoan(selectedLoan);
+
     return (
       <div className="grid gap-3">
         <Button
@@ -3230,11 +3267,12 @@ function BorrowerLoansPanel({
           className="h-10 w-fit rounded-full px-4 font-semibold"
         >
           <ArrowLeft className="size-4" />
-          Back to active loans
+          Back to loans
         </Button>
         <ActiveLoanCard
           application={selectedApplication}
           expandedRepaymentIds={expandedRepaymentIds}
+          isReadOnly={selectedIsCompleted}
           loan={selectedLoan}
           onProofSubmitted={onProofSubmitted}
           onToggleRepayment={onToggleRepayment}
@@ -3246,16 +3284,57 @@ function BorrowerLoansPanel({
   }
 
   return (
-    <div className="grid gap-2">
-      {activeLoans.map(({ application, loan }) => (
-        <ActiveLoanListRow
-          key={loan.id}
-          application={application}
-          loan={loan}
-          onSelect={() => onSelectLoan(loan.id)}
-          isHighlighted={loan.id === highlightLoanId}
-        />
-      ))}
+    <div className="grid gap-3">
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+        <Button
+          type="button"
+          variant={visibleGroup === "ongoing" ? "secondary" : "ghost"}
+          onClick={() => setSelectedGroup("ongoing")}
+          className="h-9 rounded-lg text-sm font-semibold"
+        >
+          Ongoing ({ongoingLoans.length})
+        </Button>
+        <Button
+          type="button"
+          variant={visibleGroup === "completed" ? "secondary" : "ghost"}
+          onClick={() => setSelectedGroup("completed")}
+          className="h-9 rounded-lg text-sm font-semibold"
+        >
+          Completed ({completedLoans.length})
+        </Button>
+      </div>
+
+      {visibleLoans.length > 0 ? (
+        <div className="grid gap-2">
+          {visibleLoans.map(({ application, loan }) =>
+            visibleGroup === "ongoing" ? (
+              <ActiveLoanListRow
+                key={loan.id}
+                application={application}
+                loan={loan}
+                onSelect={() => onSelectLoan(loan.id)}
+                isHighlighted={loan.id === highlightLoanId}
+              />
+            ) : (
+              <CompletedLoanListRow
+                key={loan.id}
+                application={application}
+                loan={loan}
+                onSelect={() => onSelectLoan(loan.id)}
+                isHighlighted={loan.id === highlightLoanId}
+              />
+            ),
+          )}
+        </div>
+      ) : (
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="p-5 text-center text-sm text-muted-foreground">
+            {visibleGroup === "completed"
+              ? "Completed loans will appear here after repayment is finished."
+              : "Ongoing loans will appear here when an accepted offer becomes active."}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
@@ -3309,9 +3388,62 @@ function ActiveLoanListRow({
   );
 }
 
+function CompletedLoanListRow({
+  application,
+  isHighlighted,
+  loan,
+  onSelect,
+}: {
+  application: BorrowerLoanApplicationSummary;
+  isHighlighted?: boolean;
+  loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+  onSelect: () => void;
+}) {
+  const totalRepaid = Math.max(loan.repaymentAmount - loan.outstandingBalance, 0);
+
+  return (
+    <Card
+      id={`loan-${loan.id}`}
+      className={cn(
+        "rounded-xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(10rem,1.3fr)_auto_auto_auto_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {getLoanPurposeLabel(application.purpose)}
+          </p>
+        </div>
+        <CompactRowText label="Principal">
+          {formatMoney(loan.principalAmount)}
+        </CompactRowText>
+        <CompactRowText label="Total repaid">
+          {formatMoney(totalRepaid)}
+        </CompactRowText>
+        <CompactRowText label="Completed">
+          {formatDateOnly(loan.dueDate)}
+        </CompactRowText>
+        <div className="flex flex-wrap items-center gap-2">
+          <LoanStatusPill status={loan.status} />
+          <Button
+            type="button"
+            onClick={onSelect}
+            size="sm"
+            className="h-9 w-full rounded-full font-semibold sm:w-fit"
+          >
+            View summary
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ActiveLoanCard({
   application,
   expandedRepaymentIds,
+  isReadOnly = false,
   loan,
   onProofSubmitted,
   onToggleRepayment,
@@ -3320,6 +3452,7 @@ function ActiveLoanCard({
 }: {
   application: BorrowerLoanApplicationSummary | null;
   expandedRepaymentIds: Set<string>;
+  isReadOnly?: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onProofSubmitted: () => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
@@ -3332,9 +3465,9 @@ function ActiveLoanCard({
       ? Math.min(Math.round((paidAmount / loan.repaymentAmount) * 100), 100)
       : 0;
   const nextRepayment = getNextRepayment(loan.schedule);
-  const isCompletedLoan = loan.status === "paid" || loan.status === "closed";
-  const primaryAmount = isCompletedLoan ? paidAmount : loan.outstandingBalance;
-  const remainingAmount = isCompletedLoan ? 0 : loan.outstandingBalance;
+  const loanIsCompleted = isCompletedLoan(loan);
+  const primaryAmount = loanIsCompleted ? paidAmount : loan.outstandingBalance;
+  const remainingAmount = loanIsCompleted ? 0 : loan.outstandingBalance;
   const scheduleTotal = loan.schedule.reduce(
     (total, repayment) => total + repayment.amountDue,
     0,
@@ -3347,7 +3480,7 @@ function ActiveLoanCard({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="text-sm font-semibold text-muted-foreground">
-                {isCompletedLoan ? "Completed loan" : "Current loan"}
+                {loanIsCompleted ? "Completed loan" : "Current loan"}
               </p>
               {application ? (
                 <p className="text-base font-semibold">
@@ -3356,7 +3489,7 @@ function ActiveLoanCard({
               ) : null}
               <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
               <p className="text-sm text-muted-foreground">
-                {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
+                {loanIsCompleted ? "Total repaid" : "Outstanding balance"}
               </p>
             </div>
             <LoanStatusPill status={loan.status} />
@@ -3417,9 +3550,11 @@ function ActiveLoanCard({
             <Card className="rounded-xl border-primary/20 bg-primary/5">
               <CardContent className="grid gap-3 p-4">
                 <p className="text-sm font-semibold">Repayment destination</p>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Send your repayment to the account below, then upload proof of payment.
-                </p>
+                {!isReadOnly ? (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Send your repayment to the account below, then upload proof of payment.
+                  </p>
+                ) : null}
                 <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-2">
                   <SummaryItem label="Channel" value={loan.repaymentChannel} />
                   <SummaryItem label="Account name" value={loan.repaymentAccountName ?? ""} />
@@ -3445,17 +3580,19 @@ function ActiveLoanCard({
                     ))}
                   </div>
                 ) : null}
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
-                </p>
+                {!isReadOnly ? (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
 
-          {isCompletedLoan ? (
+          {loanIsCompleted ? (
             <Alert>
               <AlertDescription className="font-semibold">
-                All repayments verified.
+                This loan is completed. Repayment details are shown for history only.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -3483,6 +3620,7 @@ function ActiveLoanCard({
                     repaymentAccountNumber={loan.repaymentAccountNumber}
                     repaymentInstructions={loan.repaymentInstructions}
                     additionalRepaymentChannels={loan.additionalRepaymentChannels}
+                    isReadOnly={isReadOnly}
                     onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     isHighlighted={repayment.id === highlightRepaymentId}
@@ -3503,6 +3641,7 @@ function ActiveLoanCard({
 
 function RepaymentScheduleRow({
   isExpanded,
+  isReadOnly = false,
   onToggle,
   repayment,
   repaymentChannel,
@@ -3514,6 +3653,7 @@ function RepaymentScheduleRow({
   isHighlighted,
 }: {
   isExpanded: boolean;
+  isReadOnly?: boolean;
   onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
   repaymentChannel: string | null;
@@ -3526,10 +3666,11 @@ function RepaymentScheduleRow({
 }) {
   const latestProof = repayment.latestProof;
   const canUploadProof =
-    repayment.status === "due" ||
-    repayment.status === "late" ||
-    repayment.status === "rejected" ||
-    latestProof?.status === "rejected";
+    !isReadOnly &&
+    (repayment.status === "due" ||
+      repayment.status === "late" ||
+      repayment.status === "rejected" ||
+      latestProof?.status === "rejected");
   const isRejected =
     repayment.status === "rejected" || latestProof?.status === "rejected";
   const isVerified =
@@ -3604,7 +3745,7 @@ function RepaymentScheduleRow({
               message="Your lender is checking the latest proof. You cannot upload another proof while this one is under review."
             />
           ) : null}
-          {repayment.status === "late" && !isSubmitted && !isVerified ? (
+          {!isReadOnly && repayment.status === "late" && !isSubmitted && !isVerified ? (
             <ActionBanner
               tone="error"
               title="Payment overdue"
@@ -3716,6 +3857,7 @@ function RepaymentProofForm({
     submitRepaymentProof,
     null,
   );
+  const [clientError, setClientError] = useState("");
 
   useEffect(() => {
     if (state?.ok) {
@@ -3723,8 +3865,44 @@ function RepaymentProofForm({
     }
   }, [state, onSuccess]);
 
+  const onSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+    const proofInput = event.currentTarget.elements.namedItem("proofFile");
+
+    if (!(proofInput instanceof HTMLInputElement)) {
+      event.preventDefault();
+      setClientError("Choose a proof file to upload.");
+      return;
+    }
+
+    const proofFile = proofInput.files?.item(0);
+
+    if (!proofFile || proofFile.size === 0) {
+      event.preventDefault();
+      setClientError("Choose a proof file to upload.");
+      return;
+    }
+
+    if (!repaymentProofAllowedTypes.has(proofFile.type)) {
+      event.preventDefault();
+      setClientError("Upload a JPG, PNG, WebP, HEIC, or PDF file.");
+      return;
+    }
+
+    if (proofFile.size > repaymentProofMaxFileSize) {
+      event.preventDefault();
+      setClientError("Upload a file up to 5 MB.");
+      return;
+    }
+
+    setClientError("");
+  };
+
   return (
-    <form action={formAction} className="grid gap-3 border-t border-border pt-3">
+    <form
+      action={formAction}
+      className="grid gap-3 border-t border-border pt-3"
+      onSubmit={onSubmit}
+    >
       <input type="hidden" name="repaymentScheduleId" value={repaymentId} />
       <div className="grid gap-1.5">
         <Label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
@@ -3736,11 +3914,23 @@ function RepaymentProofForm({
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
           disabled={isPending}
+          aria-describedby={`proof-help-${repaymentId} proof-error-${repaymentId}`}
+          aria-invalid={clientError ? "true" : undefined}
+          onChange={() => setClientError("")}
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
         />
-        <p className="text-xs leading-5 text-muted-foreground">
+        <p id={`proof-help-${repaymentId}`} className="text-xs leading-5 text-muted-foreground">
           JPG, PNG, WebP, HEIC, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
         </p>
+        {clientError ? (
+          <p
+            id={`proof-error-${repaymentId}`}
+            className="text-xs font-medium text-destructive"
+            role="alert"
+          >
+            {clientError}
+          </p>
+        ) : null}
       </div>
       <Button
         type="submit"
@@ -3753,7 +3943,7 @@ function RepaymentProofForm({
             ? "Submit corrected proof"
             : "Upload proof"}
       </Button>
-      {state ? (
+      {state && !clientError ? (
         <InlineStatus
           message={state.message}
           tone={state.ok ? "success" : "error"}

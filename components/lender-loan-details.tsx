@@ -6,9 +6,11 @@ import { RepaymentChannelsManager } from "@/components/lender-repayment-channels
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import type { LenderOfferReview } from "@/lib/lender-applications";
+import { isCompletedLoan } from "@/lib/active-loan-status";
 import { formatCurrency, formatDate } from "@/lib/lender-format";
 import { formatDateOnly } from "@/lib/manager-date-format";
 import { cn } from "@/lib/utils";
@@ -23,6 +25,8 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
     return null;
   }
 
+  const isReadOnly = isCompletedLoan(activeLoan);
+
   return (
     <section className="grid gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -34,7 +38,9 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
           </Button>
           <h1 className="text-xl font-semibold sm:text-2xl">{context}</h1>
           <p className="text-sm text-muted-foreground">
-            {offer.application?.purpose ?? "Active loan"}
+            {isReadOnly
+              ? "Completed loan summary"
+              : (offer.application?.purpose ?? "Active loan")}
           </p>
         </div>
         <LoanStatusBadge status={activeLoan.status} />
@@ -85,7 +91,17 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
 
           <Separator />
 
-          {activeLoan.repaymentChannel || activeLoan.additionalRepaymentChannels.length > 0 ? (
+          {isReadOnly ? (
+            <Alert>
+              <AlertDescription className="font-semibold">
+                This loan is completed. Repayment and proof details are shown for history only.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly &&
+          (activeLoan.repaymentChannel ||
+            activeLoan.additionalRepaymentChannels.length > 0) ? (
             <RepaymentChannelsManager
               activeLoanId={activeLoan.id}
               originalChannel={activeLoan.repaymentChannel}
@@ -104,7 +120,11 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
             >
               <div className="divide-y divide-border/60">
                 {activeLoan.schedule.map((repayment) => (
-                  <RepaymentScheduleItem key={repayment.id} repayment={repayment} />
+                  <RepaymentScheduleItem
+                    key={repayment.id}
+                    isReadOnly={isReadOnly}
+                    repayment={repayment}
+                  />
                 ))}
               </div>
             </CollapsibleSection>
@@ -116,8 +136,10 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
 }
 
 function RepaymentScheduleItem({
+  isReadOnly = false,
   repayment,
 }: {
+  isReadOnly?: boolean;
   repayment: ActiveLoan["schedule"][number];
 }) {
   const latestProof = repayment.latestProof;
@@ -146,24 +168,12 @@ function RepaymentScheduleItem({
         )}
       </p>
 
-      {needsReview && latestProof ? (
-        <div className="mt-3">
-          <LenderRepaymentProofActions
-            proofId={latestProof.id}
-            proofStatus={latestProof.status}
-            proofUrl={latestProof.viewUrl}
-            proofFileName={latestProof.fileName}
-            proofFileSize={latestProof.fileSize}
-            proofFileType={latestProof.fileType}
-          />
-        </div>
-      ) : null}
-
       {repayment.proofs.length > 0 ? (
         <div className="mt-3">
           <CollapsibleSection triggerLabel="Proof history">
             <LenderProofHistory
               currentSubmittedProofId={needsReview && latestProof ? latestProof.id : null}
+              isReadOnly={isReadOnly}
               proofs={repayment.proofs}
             />
           </CollapsibleSection>
@@ -180,9 +190,11 @@ export function LoanStatusBadge({ status }: { status: string }) {
 
 function LenderProofHistory({
   currentSubmittedProofId,
+  isReadOnly = false,
   proofs,
 }: {
   currentSubmittedProofId: string | null;
+  isReadOnly?: boolean;
   proofs: ActiveLoan["schedule"][number]["proofs"];
 }) {
   return (
@@ -207,7 +219,7 @@ function LenderProofHistory({
               Note: {proof.reviewNotes}
             </p>
           ) : null}
-          {proof.id === currentSubmittedProofId ? (
+          {proof.id === currentSubmittedProofId && !isReadOnly ? (
             <LenderRepaymentProofActions
               proofId={proof.id}
               proofStatus={proof.status}

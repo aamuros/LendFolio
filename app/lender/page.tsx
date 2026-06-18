@@ -56,6 +56,10 @@ import {
   LoanStatusBadge,
   MiniMetric,
 } from "@/components/lender-loan-details";
+import {
+  isCompletedLoan,
+  isOngoingLoanStatus,
+} from "@/lib/active-loan-status";
 
 export const dynamic = "force-dynamic";
 
@@ -66,13 +70,15 @@ type LenderPageProps = {
     offerStatus?: string;
     offerId?: string;
     proofId?: string;
+    loanGroup?: string;
   }>;
 };
 
 type OfferStatusFilter = "pending" | "accepted" | "declined" | "expired" | "other";
 
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab, offerStatus, offerId, proofId } = await searchParams;
+  const { message, tab, offerStatus, offerId, proofId, loanGroup } =
+    await searchParams;
 
   if (message === "signed-in") {
     redirect("/lender", RedirectType.replace);
@@ -189,7 +195,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             ) : null}
 
             {activeTab === "loans" ? (
-              <LoansTab offers={[]} error="" />
+              <LoansTab offers={[]} error="" selectedGroupParam={loanGroup} />
             ) : null}
 
             {activeTab === "profile" ? (
@@ -322,7 +328,11 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           ) : null}
 
           {activeTab === "loans" ? (
-            <LoansTab offers={offers} error={offersError} />
+            <LoansTab
+              offers={offers}
+              error={offersError}
+              selectedGroupParam={loanGroup}
+            />
           ) : null}
 
           {activeTab === "applications" ? (
@@ -400,7 +410,9 @@ function HomeTab({
   const acceptedOffers = offers.filter((offer) => offer.status === "accepted").length;
   const declinedOffers = offers.filter((offer) => offer.status === "declined").length;
   const expiredOffers = offers.filter((offer) => offer.status === "expired").length;
-  const activeLoans = offers.filter((offer) => offer.activeLoan).length;
+  const activeLoans = offers.filter((offer) =>
+    offer.activeLoan ? isOngoingLoanStatus(offer.activeLoan.status) : false,
+  ).length;
   const repaymentProofsNeedingReview = offers.reduce(
     (count, offer) =>
       count +
@@ -942,33 +954,93 @@ function offerStatusTone(status: string) {
 function LoansTab({
   offers,
   error,
+  selectedGroupParam,
 }: {
   offers: LenderOfferReview[];
   error: string;
+  selectedGroupParam?: string;
 }) {
-  const activeLoanOffers = offers.filter((offer) => offer.activeLoan);
+  const loanOffers = offers.filter((offer) => offer.activeLoan);
+  const ongoingLoanOffers = loanOffers.filter((offer) =>
+    offer.activeLoan ? isOngoingLoanStatus(offer.activeLoan.status) : false,
+  );
+  const completedLoanOffers = loanOffers.filter((offer) =>
+    offer.activeLoan ? isCompletedLoan(offer.activeLoan) : false,
+  );
+  const defaultGroup = ongoingLoanOffers.length > 0 ? "ongoing" : "completed";
+  const selectedGroup =
+    selectedGroupParam === "completed" || selectedGroupParam === "ongoing"
+      ? selectedGroupParam
+      : defaultGroup;
+  const visibleGroup =
+    selectedGroup === "completed" && completedLoanOffers.length === 0
+      ? "ongoing"
+      : selectedGroup === "ongoing" &&
+          ongoingLoanOffers.length === 0 &&
+          completedLoanOffers.length > 0
+        ? "completed"
+        : selectedGroup;
+  const visibleOffers =
+    visibleGroup === "ongoing" ? ongoingLoanOffers : completedLoanOffers;
 
   return (
     <section className="grid gap-5">
       <PageHeader
         title="Loans"
-        description="Track active loans and review repayment activity."
+        description="Monitor ongoing loans and review completed loan history."
       />
 
       {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
 
-      {activeLoanOffers.length > 0 ? (
+      {loanOffers.length > 0 ? (
         <div className="grid gap-3">
-          {activeLoanOffers.map((offer) => (
-            <LoanListCard key={offer.id} offer={offer} />
-          ))}
+          <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+            <Button
+              asChild
+              variant={visibleGroup === "ongoing" ? "secondary" : "ghost"}
+              className="h-9 rounded-lg text-sm font-semibold"
+            >
+              <Link href="/lender?tab=loans&loanGroup=ongoing">
+                Ongoing ({ongoingLoanOffers.length})
+              </Link>
+            </Button>
+            <Button
+              asChild
+              variant={visibleGroup === "completed" ? "secondary" : "ghost"}
+              className="h-9 rounded-lg text-sm font-semibold"
+            >
+              <Link href="/lender?tab=loans&loanGroup=completed">
+                Completed ({completedLoanOffers.length})
+              </Link>
+            </Button>
+          </div>
+
+          {visibleOffers.length > 0 ? (
+            <div className="grid gap-2">
+              {visibleOffers.map((offer) => (
+                <LoanListCard
+                  key={offer.id}
+                  offer={offer}
+                  variant={visibleGroup}
+                />
+              ))}
+            </div>
+          ) : (
+            <Card className="rounded-2xl border-dashed border-border/50">
+              <CardContent className="p-5 text-center text-sm text-muted-foreground">
+                {visibleGroup === "completed"
+                  ? "Completed loans will appear here after repayment is finished."
+                  : "Ongoing loans will appear here when accepted offers become active."}
+              </CardContent>
+            </Card>
+          )}
         </div>
       ) : !error ? (
         <Card className="rounded-2xl border-dashed border-border/50">
           <CardContent className="grid gap-2 p-5 text-center">
-            <p className="text-lg font-semibold">No active loans yet</p>
+            <p className="text-lg font-semibold">No loans yet</p>
             <p className="text-sm text-muted-foreground">
-              Accepted offers will appear here once they become active loans.
+              Accepted offers will appear here as loans.
             </p>
           </CardContent>
         </Card>
@@ -977,7 +1049,13 @@ function LoansTab({
   );
 }
 
-function LoanListCard({ offer }: { offer: LenderOfferReview }) {
+function LoanListCard({
+  offer,
+  variant,
+}: {
+  offer: LenderOfferReview;
+  variant: "ongoing" | "completed";
+}) {
   const activeLoan = offer.activeLoan;
 
   if (!activeLoan) {
@@ -985,64 +1063,91 @@ function LoanListCard({ offer }: { offer: LenderOfferReview }) {
   }
 
   const context = getOfferContext(offer);
+  const nextRepayment = getNextLenderRepayment(activeLoan.schedule);
+  const totalRepaid = Math.max(
+    activeLoan.totalRepaymentAmount - activeLoan.outstandingBalance,
+    0,
+  );
   const proofReviewCount = activeLoan.schedule.filter(
     (repayment) => repayment.latestProof?.status === "submitted",
   ).length;
 
   return (
-    <Card className="rounded-2xl border-border/60 shadow-sm transition hover:border-primary/30 hover:bg-muted/20 hover:shadow-md">
-      <CardContent className="grid gap-3 p-4 sm:p-5">
-        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
-          <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-2">
-              <h3 className="min-w-0 font-semibold">{context}</h3>
-              <LoanStatusBadge status={activeLoan.status} />
-              {proofReviewCount > 0 ? (
-                <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
-                  {proofReviewCount} proof{proofReviewCount === 1 ? "" : "s"} to review
-                </Badge>
-              ) : null}
-            </div>
-            <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-              {offer.application?.purpose ?? "Active loan"}
-            </p>
+    <Card className="rounded-xl border-border/60 transition hover:border-primary/30 hover:bg-muted/20">
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(12rem,1.4fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="truncate text-sm font-semibold">{context}</p>
+            {proofReviewCount > 0 && variant === "ongoing" ? (
+              <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
+                {proofReviewCount} to review
+              </Badge>
+            ) : null}
           </div>
-          <Button asChild className="h-10 rounded-xl font-semibold">
-            <Link href={`/lender/loans/${activeLoan.id}`}>
-              View
-              <ArrowRight className="size-4" />
-            </Link>
-          </Button>
+          <p className="mt-0.5 truncate text-xs text-muted-foreground">
+            {offer.application?.purpose ?? "Loan"}
+          </p>
         </div>
-        <dl className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
-          <MiniMetric
-            label="Principal"
-            value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
-            compact
-          />
-          <MiniMetric
-            label="Outstanding"
-            value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
-            compact
-          />
-          <MiniMetric
-            label="Due"
-            value={formatDateOnly(activeLoan.dueDate)}
-            compact
-          />
-          <MiniMetric
-            label="Total repayment"
-            value={`PHP ${formatCurrency(activeLoan.totalRepaymentAmount)}`}
-            compact
-          />
-          <MiniMetric
-            label="Proofs needing review"
-            value={String(proofReviewCount)}
-            compact
-          />
-        </dl>
+        {variant === "ongoing" ? (
+          <>
+            <MiniMetric
+              label="Principal"
+              value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
+              compact
+            />
+            <MiniMetric
+              label="Outstanding"
+              value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
+              compact
+            />
+            <MiniMetric
+              label="Next due"
+              value={
+                nextRepayment
+                  ? `${formatDateOnly(nextRepayment.dueDate)} · PHP ${formatCurrency(nextRepayment.amountDue)}`
+                  : "No unpaid repayments"
+              }
+              compact
+            />
+          </>
+        ) : (
+          <>
+            <MiniMetric
+              label="Principal"
+              value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
+              compact
+            />
+            <MiniMetric
+              label="Total repaid"
+              value={`PHP ${formatCurrency(totalRepaid)}`}
+              compact
+            />
+            <MiniMetric
+              label="Completed"
+              value={formatDateOnly(activeLoan.dueDate)}
+              compact
+            />
+          </>
+        )}
+        <LoanStatusBadge status={activeLoan.status} />
+        <Button asChild size="sm" className="h-9 rounded-xl font-semibold">
+          <Link href={`/lender/loans/${activeLoan.id}`}>
+            {variant === "completed" ? "View summary" : "View details"}
+            <ArrowRight className="size-4" />
+          </Link>
+        </Button>
       </CardContent>
     </Card>
+  );
+}
+
+function getNextLenderRepayment(
+  schedule: NonNullable<LenderOfferReview["activeLoan"]>["schedule"],
+) {
+  return (
+    schedule.find((repayment) =>
+      ["due", "late", "rejected", "submitted"].includes(repayment.status),
+    ) ?? null
   );
 }
 

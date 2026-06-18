@@ -4,6 +4,11 @@ import {
   requireManager,
 } from "@/lib/access-control";
 import { deriveInterestAmount } from "@/lib/loan-offer";
+export {
+  isCompletedLoan,
+  isCompletedLoanStatus,
+  isOngoingLoanStatus,
+} from "@/lib/active-loan-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 

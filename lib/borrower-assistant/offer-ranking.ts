@@ -30,17 +30,7 @@ export function getComparableOffers(input: {
 }
 
 export function rankOffers(matches: BorrowerAssistantOfferMatch[]) {
-  return [...matches].sort((left, right) => {
-    const leftRate = left.offer.interestServiceChargeRate ?? Number.MAX_VALUE;
-    const rightRate = right.offer.interestServiceChargeRate ?? Number.MAX_VALUE;
-
-    return (
-      left.offer.totalRepaymentAmount - right.offer.totalRepaymentAmount ||
-      leftRate - rightRate ||
-      left.offer.fees - right.offer.fees ||
-      Date.parse(right.offer.dueDate) - Date.parse(left.offer.dueDate)
-    );
-  });
+  return [...matches].sort(compareOffersByCost);
 }
 
 export function answerOfferComparison(input: {
@@ -90,6 +80,9 @@ export function answerOfferComparison(input: {
   }
 
   const recommended = rankedOffers[0];
+  const tiedTopOffers = rankedOffers.filter(
+    (match) => compareOffersByCost(recommended, match) === 0,
+  );
   const hasMultipleApplications =
     new Set(rankedOffers.map((match) => match.application.id)).size > 1;
   const hasDifferentPrincipalAmounts =
@@ -125,12 +118,38 @@ export function answerOfferComparison(input: {
       )}); choose that only if you need the larger approved amount.`
     : "";
 
+  if (tiedTopOffers.length > 1) {
+    const tiedLenders = tiedTopOffers
+      .map((match) => match.offer.lenderName)
+      .join(" and ");
+
+    return {
+      content: `${tiedLenders} are tied as the strongest pending offers by cost because they have the same total repayment, service charge rate, fees, and due date.${crossApplicationNote}${differentPrincipalNote} Choose based on the lender you trust more or the repayment channel that is easier for you.\n\n${comparisonLines}${principalNote}`,
+      actions: [{ type: "tab", label: "View offers", tab: "offers" }],
+    };
+  }
+
   return {
     content: `${
       recommended.offer.lenderName
     } is the strongest pending offer by cost because it has the lowest total repayment after comparing service charge rate, fees, and due date convenience.${crossApplicationNote}${differentPrincipalNote}\n\n${comparisonLines}${principalNote}`,
     actions: [{ type: "tab", label: "View offers", tab: "offers" }],
   };
+}
+
+function compareOffersByCost(
+  left: BorrowerAssistantOfferMatch,
+  right: BorrowerAssistantOfferMatch,
+) {
+  const leftRate = left.offer.interestServiceChargeRate ?? Number.MAX_VALUE;
+  const rightRate = right.offer.interestServiceChargeRate ?? Number.MAX_VALUE;
+
+  return (
+    left.offer.totalRepaymentAmount - right.offer.totalRepaymentAmount ||
+    leftRate - rightRate ||
+    left.offer.fees - right.offer.fees ||
+    Date.parse(right.offer.dueDate) - Date.parse(left.offer.dueDate)
+  );
 }
 
 function getSourceApplications(input: {
