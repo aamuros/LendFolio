@@ -402,16 +402,18 @@ function LendingStep({
         </Field>
 
         <Field>
-          <FieldLabel htmlFor="lenderDescription">Lender description</FieldLabel>
+          <FieldLabel htmlFor="lenderDescription">
+            Lender description <span className="text-muted-foreground">(optional)</span>
+          </FieldLabel>
           <Textarea
             id="lenderDescription"
             value={draft.lenderDescription}
             onChange={(event) => onChange("lenderDescription", event.target.value)}
-            rows={4}
-            className="min-h-32 rounded-xl bg-background"
+            rows={2}
+            className="min-h-20 rounded-xl bg-background"
           />
           <FieldDescription>
-            Describe your lending focus and operating approach.
+            Add your lending focus and operating approach if helpful.
           </FieldDescription>
           <FieldErrorHelper message={errors.lenderDescription} />
         </Field>

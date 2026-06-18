@@ -354,15 +354,15 @@ export function LenderOnboardingForm({
 
               <Field>
                 <FieldLabel htmlFor="lenderDescription">
-                  Lender description
+                  Lender description <span className="text-muted-foreground">(optional)</span>
                 </FieldLabel>
                 <Textarea
                   id="lenderDescription"
                   name="lenderDescription"
                   defaultValue={restoredValues?.lenderDescription ?? defaultValues.lenderDescription}
                   placeholder="Optional. Describe your lending organization, focus areas, and approach to micro-business lending."
-                  rows={4}
-                  className="rounded-xl bg-background"
+                  rows={2}
+                  className="min-h-20 rounded-xl bg-background"
                 />
                 <FieldDescription>
                   Optional. Helps managers understand your lending focus.

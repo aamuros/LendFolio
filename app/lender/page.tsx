@@ -473,18 +473,21 @@ function HomeTab({
               value={needsReviewCount}
               description="Ready to review"
               icon={<ClipboardList className="size-4" />}
+              href="/lender?tab=applications"
             />
             <DashboardMetric
               label="Offers sent"
               value={offers.length}
               description={`${pendingOffers} pending response${pendingOffers === 1 ? "" : "s"}`}
               icon={<HandCoins className="size-4" />}
+              href="/lender?tab=offers"
             />
             <DashboardMetric
               label="Active loans"
               value={activeLoans}
               description="Accepted offers"
               icon={<Banknote className="size-4" />}
+              href="/lender?tab=offers"
             />
           </div>
 
@@ -637,31 +640,39 @@ function HomeTab({
 
 function DashboardMetric({
   description,
+  href,
   icon,
   label,
   value,
 }: {
   description: string;
+  href: string;
   icon: ReactNode;
   label: string;
   value: number;
 }) {
   return (
-    <BorrowerCard className="overflow-hidden">
-      <CardContent className="flex items-center gap-3 p-4">
-        <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border/80 bg-muted/60 text-accent-foreground">
-          {icon}
-        </span>
-        <div className="min-w-0">
-          <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-            {label}
-          </p>
-          <div className="mt-1 flex min-w-0 items-baseline gap-2">
-            <p className="text-2xl font-semibold leading-none">{value}</p>
-            <p className="truncate text-xs text-muted-foreground">{description}</p>
+    <BorrowerCard className="overflow-hidden transition hover:border-primary/30 hover:bg-muted/30 hover:shadow-sm">
+      <Link
+        href={href}
+        aria-label={`Open ${label.toLowerCase()}`}
+        className="block cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <CardContent className="flex items-center gap-3 p-4">
+          <span className="grid size-10 shrink-0 place-items-center rounded-xl border border-border/80 bg-muted/60 text-accent-foreground">
+            {icon}
+          </span>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              {label}
+            </p>
+            <div className="mt-1 flex min-w-0 items-baseline gap-2">
+              <p className="text-2xl font-semibold leading-none">{value}</p>
+              <p className="truncate text-xs text-muted-foreground">{description}</p>
+            </div>
           </div>
-        </div>
-      </CardContent>
+        </CardContent>
+      </Link>
     </BorrowerCard>
   );
 }
