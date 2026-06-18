@@ -291,6 +291,14 @@ export function ListTable({ children }: { children: React.ReactNode }) {
   return <Card className="border-border/70 bg-card/95 py-0 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">{children}</Card>;
 }
 
+export function ManagerTableCard({ children }: { children: React.ReactNode }) {
+  return (
+    <Card className="w-full min-w-0 overflow-hidden border-border/70 bg-card/95 py-0 shadow-[0_18px_50px_rgba(14,26,18,0.05)] [&_[data-slot=table-container]]:w-full [&_[data-slot=table-container]]:min-w-0">
+      {children}
+    </Card>
+  );
+}
+
 export function MobileCard({ children }: { children: React.ReactNode }) {
   return (
     <Card size="sm" className="border-border/70 bg-card/95">
