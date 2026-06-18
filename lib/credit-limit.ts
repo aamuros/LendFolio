@@ -198,21 +198,15 @@ function getBorrowerCreditLimitDetails(
 
 function getRepaymentHistoryCap({
   cleanCompletedLoanCount,
-  lateRepaymentCount,
   defaultedLoanCount,
 }: Required<CreditLimitRepaymentHistoryInput>) {
   if (defaultedLoanCount > 0) return 0;
 
-  const effectiveCleanLoanCount =
-    lateRepaymentCount > 0
-      ? Math.max(0, cleanCompletedLoanCount - 1)
-      : cleanCompletedLoanCount;
-
-  if (effectiveCleanLoanCount <= 0) return 10_000;
-  if (effectiveCleanLoanCount === 1) return 15_000;
-  if (effectiveCleanLoanCount === 2) return 25_000;
-  if (effectiveCleanLoanCount === 3) return 40_000;
-  if (effectiveCleanLoanCount <= 5) return 60_000;
+  if (cleanCompletedLoanCount <= 0) return 10_000;
+  if (cleanCompletedLoanCount === 1) return 15_000;
+  if (cleanCompletedLoanCount === 2) return 25_000;
+  if (cleanCompletedLoanCount === 3) return 40_000;
+  if (cleanCompletedLoanCount <= 5) return 60_000;
   return 100_000;
 }
 

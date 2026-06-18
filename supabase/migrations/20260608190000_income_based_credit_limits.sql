@@ -12,16 +12,11 @@ set search_path = public, pg_temp
 as $$
   select case
     when greatest(coalesce(p_defaulted_loan_count, 0), 0) > 0 then 0
-    when greatest(coalesce(p_clean_completed_loan_count, 0), 0)
-      - case when greatest(coalesce(p_late_repayment_count, 0), 0) > 0 then 1 else 0 end <= 0 then 10000
-    when greatest(coalesce(p_clean_completed_loan_count, 0), 0)
-      - case when greatest(coalesce(p_late_repayment_count, 0), 0) > 0 then 1 else 0 end = 1 then 15000
-    when greatest(coalesce(p_clean_completed_loan_count, 0), 0)
-      - case when greatest(coalesce(p_late_repayment_count, 0), 0) > 0 then 1 else 0 end = 2 then 25000
-    when greatest(coalesce(p_clean_completed_loan_count, 0), 0)
-      - case when greatest(coalesce(p_late_repayment_count, 0), 0) > 0 then 1 else 0 end = 3 then 40000
-    when greatest(coalesce(p_clean_completed_loan_count, 0), 0)
-      - case when greatest(coalesce(p_late_repayment_count, 0), 0) > 0 then 1 else 0 end <= 5 then 60000
+    when greatest(coalesce(p_clean_completed_loan_count, 0), 0) <= 0 then 10000
+    when greatest(coalesce(p_clean_completed_loan_count, 0), 0) = 1 then 15000
+    when greatest(coalesce(p_clean_completed_loan_count, 0), 0) = 2 then 25000
+    when greatest(coalesce(p_clean_completed_loan_count, 0), 0) = 3 then 40000
+    when greatest(coalesce(p_clean_completed_loan_count, 0), 0) <= 5 then 60000
     else 100000
   end;
 $$;

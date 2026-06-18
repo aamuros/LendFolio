@@ -2352,7 +2352,9 @@ function canShowBorrowingPower(
   return readiness.readinessStatus !== "incomplete";
 }
 
-function hasProfileReadinessIssue(readiness: BorrowerReadinessResult | null) {
+export function hasProfileReadinessIssue(
+  readiness: BorrowerReadinessResult | null,
+) {
   if (!readiness) {
     return false;
   }
@@ -2361,15 +2363,21 @@ function hasProfileReadinessIssue(readiness: BorrowerReadinessResult | null) {
     return true;
   }
 
-  if (
-    readiness.readinessStatus !== "incomplete" &&
-    readiness.readinessStatus !== "needs_review" &&
-    readiness.readinessStatus !== "not_eligible"
-  ) {
+  if (readiness.readinessStatus === "incomplete") {
+    return true;
+  }
+
+  if (readiness.readinessStatus !== "not_eligible") {
     return false;
   }
 
-  return readiness.riskFlags.some((flag) => flag !== "no_available_credit");
+  return readiness.riskFlags.some((flag) =>
+    [
+      "zero_revenue",
+      "non_positive_cash_flow",
+      "expenses_exceed_revenue",
+    ].includes(flag),
+  );
 }
 
 

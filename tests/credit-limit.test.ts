@@ -77,7 +77,7 @@ describe("borrower credit limit", () => {
     ).toBe(100_000);
   });
 
-  it("freezes or reduces the cap when late repayments exist", () => {
+  it("keeps the cap based on clean completed loans when late repayments exist", () => {
     const clean = explainBorrowerCreditLimit(basePortfolio, {
       cleanCompletedLoanCount: 3,
     });
@@ -87,8 +87,33 @@ describe("borrower credit limit", () => {
     });
 
     expect(clean.repaymentHistoryCap).toBe(40_000);
-    expect(late.repaymentHistoryCap).toBe(25_000);
+    expect(late.repaymentHistoryCap).toBe(40_000);
     expect(late.riskFlags).toContain("late_repayment_history");
+  });
+
+  it("sets the three clean completed loan cap to PHP 40,000", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [
+        { principalAmount: 10_000, outstandingBalance: 0, status: "paid" },
+        { principalAmount: 15_000, outstandingBalance: 0, status: "closed" },
+        { principalAmount: 25_000, outstandingBalance: 0, status: "paid" },
+      ],
+      pendingApplicationAmounts: [],
+      repaymentHistory: {
+        cleanCompletedLoanCount: 3,
+      },
+    });
+
+    expect(summary.repaymentHistoryCap).toBe(40_000);
+    expect(summary.calculatedCreditLimit).toBe(40_000);
+    expect(summary.usedCredit).toBe(0);
+    expect(summary.availableCredit).toBe(40_000);
   });
 
   it("marks defaulted repayment history as not eligible for available credit", () => {
@@ -276,8 +301,30 @@ describe("borrower credit limit", () => {
 
     expect(summary.usedCredit).toBe(0);
     expect(summary.availableCredit).toBe(10_000);
+    expect(applicationConsumesCredit("accepted")).toBe(false);
     expect(applicationConsumesCredit("declined")).toBe(false);
     expect(applicationConsumesCredit("withdrawn")).toBe(false);
+  });
+
+  it("does not consume used credit for zero-balance active loans", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [
+        { principalAmount: 25_000, outstandingBalance: 0, status: "active" },
+      ],
+      pendingApplicationAmounts: [],
+      repaymentHistory: {
+        cleanCompletedLoanCount: 3,
+      },
+    });
+
+    expect(summary.usedCredit).toBe(0);
+    expect(summary.availableCredit).toBe(40_000);
   });
 
   it("does not consume used credit for fully paid loan cycles", () => {
