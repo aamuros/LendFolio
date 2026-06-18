@@ -59,6 +59,7 @@ describe("getVisibleApplyApplications", () => {
       releaseProofFileName: null,
       releaseProofFileType: null,
       releaseProofFileSize: null,
+      releaseProofViewUrl: null,
       releaseDisputedAt: null,
       releaseDisputeReason: null,
       releaseDisputedBy: null,

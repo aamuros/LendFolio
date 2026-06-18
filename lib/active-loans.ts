@@ -91,6 +91,7 @@ export type ActiveLoanSummary = {
   releaseProofFileName: string | null;
   releaseProofFileType: string | null;
   releaseProofFileSize: number | null;
+  releaseProofViewUrl: string | null;
   releaseDisputedAt: string | null;
   releaseDisputeReason: string | null;
   releaseDisputedBy: string | null;
@@ -229,6 +230,7 @@ export function mapActiveLoanRow(
   row: ActiveLoanRow,
   schedule: RepaymentScheduleSummary[] = [],
   additionalChannels: RepaymentChannelSummary[] = [],
+  releaseProofViewUrl: string | null = null,
 ): ActiveLoanSummary {
   const interestAmount = deriveInterestAmount({
     principalAmount: row.principal_amount,
@@ -261,6 +263,7 @@ export function mapActiveLoanRow(
     releaseProofFileName: row.release_proof_file_name,
     releaseProofFileType: row.release_proof_file_type,
     releaseProofFileSize: row.release_proof_file_size,
+    releaseProofViewUrl,
     releaseDisputedAt: row.release_disputed_at,
     releaseDisputeReason: row.release_dispute_reason,
     releaseDisputedBy: row.release_disputed_by,
@@ -409,6 +412,17 @@ async function loadSchedulesForLoans(
     ]);
   });
 
+  const releaseProofUrls = await Promise.all(
+    loans.map((loan) =>
+      loan.release_proof_url
+        ? getRepaymentProofSignedUrl(supabase, "repayment-proofs", loan.release_proof_url)
+        : Promise.resolve(null),
+    ),
+  );
+  const releaseProofUrlByLoanId = new Map(
+    loans.map((loan, index) => [loan.id, releaseProofUrls[index]]),
+  );
+
   return {
     ok: true,
     mode: "supabase",
@@ -417,6 +431,7 @@ async function loadSchedulesForLoans(
         loan,
         schedulesByLoanId.get(loan.id) ?? [],
         channelsByLoanId.get(loan.id) ?? [],
+        releaseProofUrlByLoanId.get(loan.id) ?? null,
       ),
     ),
     message: "Active loans loaded.",

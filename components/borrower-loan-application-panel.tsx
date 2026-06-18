@@ -33,6 +33,7 @@ import {
 } from "@/app/borrower/actions";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { CurrencyInput } from "@/components/currency-input";
+import { ProofPreviewButton } from "@/components/proof-preview-button";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import {
   canSubmitLoanApplicationForVerification,
@@ -3602,10 +3603,8 @@ function ActiveLoanCard({
                   {loan.disbursementNotes ? (
                     <SummaryItem label="Notes" value={loan.disbursementNotes} />
                   ) : null}
-                  {loan.releaseProofFileName ? (
-                    <SummaryItem label="Proof" value={loan.releaseProofFileName} />
-                  ) : null}
                 </dl>
+                <ReleaseProofSummary loan={loan} />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <ConfirmMoneyReceivedButton
                     activeLoanId={loan.id}
@@ -3644,10 +3643,8 @@ function ActiveLoanCard({
                   {loan.disbursementReference ? (
                     <SummaryItem label="Reference" value={loan.disbursementReference} />
                   ) : null}
-                  {loan.releaseProofFileName ? (
-                    <SummaryItem label="Proof" value={loan.releaseProofFileName} />
-                  ) : null}
                 </dl>
+                <ReleaseProofSummary loan={loan} />
               </CardContent>
             </Card>
           ) : null}
@@ -4150,6 +4147,73 @@ function ReportFundsNotReceivedButton({
       </AlertDialogContent>
     </AlertDialog>
   );
+}
+
+function ReleaseProofSummary({
+  loan,
+}: {
+  loan: Pick<
+    NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>,
+    | "releaseProofFileName"
+    | "releaseProofFileSize"
+    | "releaseProofFileType"
+    | "releaseProofViewUrl"
+  >;
+}) {
+  if (!loan.releaseProofFileName) {
+    return (
+      <div className="grid gap-1 rounded-lg border border-border/70 bg-background/70 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Proof
+          </p>
+          <p className="text-sm text-muted-foreground">No proof uploaded</p>
+        </div>
+      </div>
+    );
+  }
+
+  const canPreview =
+    Boolean(loan.releaseProofViewUrl) &&
+    Boolean(loan.releaseProofFileType) &&
+    typeof loan.releaseProofFileSize === "number";
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="grid min-w-0 gap-1">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">
+          Proof
+        </p>
+        <p className="break-words font-medium">{loan.releaseProofFileName}</p>
+        {typeof loan.releaseProofFileSize === "number" ? (
+          <p className="text-xs text-muted-foreground">
+            {formatFileSize(loan.releaseProofFileSize)}
+          </p>
+        ) : null}
+        {!canPreview ? (
+          <p className="text-xs text-muted-foreground">Preview unavailable</p>
+        ) : null}
+      </div>
+      {canPreview ? (
+        <ProofPreviewButton
+          fileName={loan.releaseProofFileName}
+          fileSize={loan.releaseProofFileSize ?? 0}
+          fileType={loan.releaseProofFileType ?? ""}
+          title="Release Proof Preview"
+          viewUrl={loan.releaseProofViewUrl ?? ""}
+          className="h-8 w-full rounded-full px-3 font-semibold sm:w-fit"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
 }
 
 function RepaymentProofForm({

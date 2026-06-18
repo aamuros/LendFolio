@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
-import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
+import { ProofPreviewButton } from "@/components/proof-preview-button";
 import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
 import { LenderFundsReleaseForm } from "@/components/lender-funds-release-form";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
@@ -311,7 +311,9 @@ function LenderProofHistory({
               fileName={proof.fileName}
               fileSize={proof.fileSize}
               fileType={proof.fileType}
+              title="Repayment Proof Preview"
               viewUrl={proof.viewUrl}
+              className="h-10 w-full rounded-full font-semibold sm:w-fit"
             />
           ) : null}
         </div>

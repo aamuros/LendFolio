@@ -5,6 +5,23 @@ alter table public.active_loans
   add column if not exists release_dispute_reason text,
   add column if not exists release_disputed_by uuid references public.profiles(id);
 
+drop policy if exists "storage_repayment_proofs_borrower_release_select"
+  on storage.objects;
+
+create policy "storage_repayment_proofs_borrower_release_select"
+  on storage.objects for select
+  to authenticated
+  using (
+    bucket_id = 'repayment-proofs'
+    and app_private.is_borrower((select auth.uid()))
+    and exists (
+      select 1
+      from public.active_loans
+      where active_loans.release_proof_url = storage.objects.name
+        and active_loans.borrower_id = (select auth.uid())
+    )
+  );
+
 create or replace function app_private.report_loan_release_not_received(
   p_active_loan_id uuid,
   p_reason text
