@@ -130,6 +130,8 @@ export function evaluateBorrowerReadiness(
   const riskFlags = new Set<string>(credit.riskFlags);
   const blockingFlags = new Set<string>();
   const profileIsStale = false;
+  const businessProofState = getBusinessProofState(gates);
+  const hasBusinessProofAccepted = businessProofState === "accepted";
 
   if (!hasBusinessLocation(parsedPortfolio)) missingFields.push("Business location");
   if (parsedPortfolio.monthlyGrossRevenue <= 0) {
@@ -152,10 +154,13 @@ export function evaluateBorrowerReadiness(
   if (parsedPortfolio.yearsInOperation < 0.5) {
     riskFlags.add("very_new_business");
   }
-  if (!hasAcceptedBusinessProof(gates)) {
+  if (!hasBusinessProofAccepted) {
     riskFlags.add("no_business_proof");
   }
-  if (parsedPortfolio.revenueConfidence === "self_declared_only") {
+  if (
+    parsedPortfolio.revenueConfidence === "self_declared_only" &&
+    !hasBusinessProofAccepted
+  ) {
     riskFlags.add("self_declared_income_only");
   }
   if (
@@ -312,10 +317,6 @@ function addDeclaredRiskFlags(
   }
 }
 
-function hasAcceptedBusinessProof(gates: BorrowerReadinessGateInput) {
-  return getBusinessProofState(gates) === "accepted";
-}
-
 function getBusinessProofState(gates: BorrowerReadinessGateInput) {
   return getBusinessProofStatus(gates.borrowerVerification?.documents ?? []);
 }
@@ -366,14 +367,14 @@ function getNeedsReviewAction(
   if (riskFlags.has("vague_loan_purpose")) {
     return "Add more detail to your loan use context.";
   }
+  if (riskFlags.has("no_business_proof")) {
+    return getBusinessProofAction(gates);
+  }
   if (riskFlags.has("self_declared_income_only")) {
     return "Upload business proof in borrower verification when available.";
   }
   if (riskFlags.has("high_debt_burden")) {
     return "Review existing debt payments before applying.";
-  }
-  if (riskFlags.has("no_business_proof")) {
-    return getBusinessProofAction(gates);
   }
 
   return "Your profile can be reviewed with the flagged details.";

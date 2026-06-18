@@ -15,6 +15,7 @@ import {
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
 import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
+import type { BorrowerCreditSummary } from "@/lib/credit-limit";
 
 function completeProfile(overrides = {}) {
   return borrowerPortfolioSchema.parse({
@@ -150,6 +151,26 @@ function verificationWithBusinessProof(
         status === "submitted" || acceptedDocumentTypes.length > 0,
       documentsAccepted: false,
     },
+  };
+}
+
+function creditSummary(
+  overrides: Partial<BorrowerCreditSummary> = {},
+): BorrowerCreditSummary {
+  return {
+    calculatedCreditLimit: 30_000,
+    usedCredit: 0,
+    availableCredit: 30_000,
+    monthlyNetCashFlow: 17_000,
+    safeMonthlyRepaymentCapacity: 5_100,
+    incomeBasedCapacity: 30_000,
+    repaymentHistoryCap: 30_000,
+    maximumCap: 100_000,
+    cleanCompletedLoanCount: 0,
+    lateRepaymentCount: 0,
+    defaultedLoanCount: 0,
+    riskFlags: [],
+    ...overrides,
   };
 }
 
@@ -853,6 +874,73 @@ describe("microbusiness borrower readiness", () => {
 
     expect(readiness.readinessStatus).toBe("needs_review");
     expect(readiness.riskFlags).toContain("self_declared_income_only");
+  });
+
+  it("accepts self-declared revenue when approved verification has accepted business proof", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({ revenueConfidence: "self_declared_only" }),
+      {
+        borrowerVerification: verificationWithBusinessProof("accepted"),
+        creditSummary: creditSummary(),
+      },
+    );
+
+    expect(["eligible_to_apply", "complete"]).toContain(
+      readiness.readinessStatus,
+    );
+    expect(readiness.riskFlags).not.toContain("self_declared_income_only");
+    expect(readiness.riskFlags).not.toContain("no_business_proof");
+  });
+
+  it("keeps the business proof upload action when self-declared revenue has missing proof", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({ revenueConfidence: "self_declared_only" }),
+      {
+        borrowerVerification: verificationWithBusinessProof("missing"),
+        creditSummary: creditSummary(),
+      },
+    );
+
+    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.riskFlags).toContain("self_declared_income_only");
+    expect(readiness.riskFlags).toContain("no_business_proof");
+    expect(readiness.nextActions).toContain(
+      "Upload business proof in borrower verification.",
+    );
+  });
+
+  it("keeps pending business proof under review instead of asking for a profile update", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({ revenueConfidence: "self_declared_only" }),
+      {
+        borrowerVerification: verificationWithBusinessProof("submitted"),
+        creditSummary: creditSummary(),
+      },
+    );
+
+    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.riskFlags).toContain("no_business_proof");
+    expect(readiness.nextActions).toContain("Business proof is under review.");
+  });
+
+  it("keeps no available credit blocking after business proof is accepted", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({ revenueConfidence: "self_declared_only" }),
+      {
+        borrowerVerification: verificationWithBusinessProof("accepted"),
+        creditSummary: creditSummary({
+          usedCredit: 30_000,
+          availableCredit: 0,
+        }),
+      },
+    );
+
+    expect(readiness.readinessStatus).toBe("not_eligible");
+    expect(readiness.riskFlags).toContain("no_available_credit");
+    expect(readiness.riskFlags).not.toContain("self_declared_income_only");
+    expect(readiness.nextActions).toContain(
+      "You have no available credit remaining.",
+    );
   });
 
   it("maps old minimal portfolio rows without crashing", () => {
