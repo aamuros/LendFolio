@@ -381,7 +381,7 @@ function OfferActionSection({
   });
 
   return (
-    <ReviewCard title={title} className="h-full">
+    <ReviewCard title={title}>
       <div className="grid gap-5">
         <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
@@ -562,7 +562,7 @@ function CreditProfileGradeSection({
   const guidance = getCreditReviewGuidance(history.status);
 
   return (
-    <ReviewCard title="Credit Profile Grade" className="h-full">
+    <ReviewCard title="Credit Profile Grade">
       <div className="grid gap-4">
         <div className="flex flex-wrap items-center gap-2">
           <ToneBadge tone={tone}>{history.label}</ToneBadge>
