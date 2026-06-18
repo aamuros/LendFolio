@@ -57,10 +57,10 @@ export function ActivityChart({
   const metrics: ActivityMetric[] = ["applications", "offers", "loans"];
 
   return (
-    <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <Card className="min-w-0 border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <CardHeader className="flex flex-col gap-3 space-y-0 pb-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
-          <CardTitle>Platform activity</CardTitle>
+          <CardTitle className="text-base">Platform activity</CardTitle>
           <CardDescription>
             {monthsWithData >= 3
               ? "Monthly lending activity across the platform"
@@ -83,7 +83,7 @@ export function ActivityChart({
       <CardContent className="pt-0">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[190px] w-full"
+          className="aspect-auto h-[210px] w-full"
         >
           <BarChart
             accessibilityLayer

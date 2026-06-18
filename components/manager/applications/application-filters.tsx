@@ -22,7 +22,7 @@ export function ApplicationFilters({
   return (
     <Card>
       <CardContent>
-        <FilterForm className="grid gap-3 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1.5fr_auto]">
+        <FilterForm className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(140px,1fr)_minmax(160px,1fr)_minmax(140px,1fr)_minmax(260px,1.4fr)_auto]">
           <SelectFilter
             label="Status"
             name="status"
@@ -51,26 +51,26 @@ export function ApplicationFilters({
               { value: "12_months", label: "12 months" },
             ]}
           />
-          <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
             <span className="text-xs font-medium">Submitted date</span>
-            <div className="flex gap-2">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-2">
               <Input
                 name="submittedFrom"
                 type="date"
                 defaultValue={filters.submittedFrom ?? ""}
-                className="flex-1"
+                className="min-w-0"
                 aria-label="Submitted from"
               />
               <Input
                 name="submittedTo"
                 type="date"
                 defaultValue={filters.submittedTo ?? ""}
-                className="flex-1"
+                className="min-w-0"
                 aria-label="Submitted to"
               />
             </div>
           </div>
-          <div className="flex items-end gap-2 sm:col-span-2 lg:col-span-1">
+          <div className="flex min-w-0 items-end gap-2 sm:col-span-2 xl:col-span-1">
             <Button type="submit" className="flex-1 sm:flex-none">
               Apply
             </Button>

@@ -52,8 +52,9 @@ export function RepaymentProofsTable({
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <Card className="overflow-hidden py-0">
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1180px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Proof ID</TableHead>
@@ -120,6 +121,7 @@ export function RepaymentProofsTable({
               ))}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 

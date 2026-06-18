@@ -76,12 +76,12 @@ export function TodaysActions({
 
   return (
     <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
-      <CardHeader className="pb-3">
-        <CardTitle>Pending actions</CardTitle>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-base">Pending actions</CardTitle>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         {items.length === 0 ? (
-          <div className="flex items-center gap-2 py-2 text-sm text-muted-foreground">
+          <div className="flex items-center gap-2 rounded-lg bg-muted/60 px-3 py-2 text-sm text-muted-foreground">
             <CheckCircle2 className="size-4 text-emerald-600" />
             <span>No pending items</span>
           </div>
@@ -94,7 +94,7 @@ export function TodaysActions({
                 <Link
                   key={item.label}
                   href={item.href}
-                  className="group -mx-1 flex items-center gap-3 rounded-md px-1 py-2.5 outline-none transition-colors first:pt-0 last:pb-0 hover:bg-secondary/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  className="group -mx-2 flex items-center gap-3 rounded-md px-2 py-2 outline-none transition-colors hover:bg-secondary/70 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                 >
                   <Icon className="size-4 shrink-0 text-secondary-foreground" />
                   <div className="min-w-0 flex-1">

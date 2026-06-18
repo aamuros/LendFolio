@@ -36,11 +36,11 @@ export function ManagerShell({
 }) {
   return (
     <>
-      <div className="sticky top-0 z-30 flex h-12 shrink-0 items-center border-b border-border/70 bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
+      <div className="sticky top-0 z-30 flex h-12 min-w-0 shrink-0 items-center border-b border-border/70 bg-background/90 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/75">
         <SidebarTrigger />
       </div>
-      <div className="flex flex-1 flex-col gap-4 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.08),transparent_34rem)] px-4 py-4 md:py-6 lg:px-6">
-        <div className="mx-auto w-full max-w-[1600px]">
+      <div className="flex min-w-0 flex-1 flex-col gap-4 overflow-x-hidden bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.08),transparent_34rem)] px-4 py-4 md:py-6 lg:px-6">
+        <div className="mx-auto w-full min-w-0 max-w-[1600px]">
           {showHeading ? (
             <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div className="min-w-0 flex-1">

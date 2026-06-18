@@ -129,12 +129,14 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
     return (
       <>
         <div className="hidden md:block">
-          <Card className="py-0">
-            <Table>
+          <Card className="overflow-hidden py-0">
+            <div className="overflow-x-auto">
+            <Table className="min-w-[1120px]">
               <TableBody>
                 <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
+            </div>
           </Card>
         </div>
         <div className="md:hidden">
@@ -147,8 +149,9 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <Card className="overflow-hidden py-0">
+          <div className="overflow-x-auto">
+          <Table className="min-w-[1120px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Loan ID</TableHead>
@@ -200,6 +203,7 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
               ))}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 

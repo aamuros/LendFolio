@@ -39,7 +39,7 @@ export function DashboardShell({
           signOutAction={signOutAction}
           alternateWorkspaces={alternateWorkspaces}
         />
-        <SidebarInset>{children}</SidebarInset>
+        <SidebarInset className="min-w-0 overflow-x-hidden">{children}</SidebarInset>
       </TooltipProvider>
     </SidebarProvider>
   );

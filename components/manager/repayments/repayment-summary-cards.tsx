@@ -82,7 +82,7 @@ export function RepaymentSummaryCards({
   return (
     <section
       aria-label="Repayment summary"
-      className="*:data-[slot=card]:shadow-xs grid gap-4 sm:grid-cols-2 lg:grid-cols-4"
+      className="*:data-[slot=card]:shadow-xs grid grid-cols-[repeat(auto-fit,minmax(220px,1fr))] gap-4"
     >
       {cards.map((card) => (
         <Card key={card.label}>
@@ -107,7 +107,7 @@ export function RepaymentSummaryCards({
                 </Badge>
               ) : null}
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground text-pretty">
               {card.description}
             </p>
           </CardContent>

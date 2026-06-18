@@ -123,8 +123,9 @@ export function ApplicationsTable({
     return (
       <>
         <div className="hidden md:block">
-          <Card className="py-0">
-            <Table>
+          <Card className="overflow-hidden py-0">
+            <div className="overflow-x-auto">
+            <Table className="min-w-[980px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Borrower</TableHead>
@@ -141,6 +142,7 @@ export function ApplicationsTable({
                 <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
+            </div>
           </Card>
         </div>
         <div className="md:hidden">
@@ -153,8 +155,9 @@ export function ApplicationsTable({
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <Card className="overflow-hidden py-0">
+          <div className="overflow-x-auto">
+          <Table className="min-w-[980px]">
             <TableHeader>
               <TableRow>
                 <TableHead>Borrower</TableHead>
@@ -205,6 +208,7 @@ export function ApplicationsTable({
               ))}
             </TableBody>
           </Table>
+          </div>
         </Card>
       </div>
 

@@ -49,9 +49,9 @@ export function RevenueChart({
   const hasRevenue = data.some((row) => row.revenue > 0);
 
   return (
-    <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+    <Card className="min-w-0 border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
       <CardHeader className="pb-2">
-        <CardTitle>System revenue</CardTitle>
+        <CardTitle className="text-base">System revenue</CardTitle>
         <CardDescription>
           Monthly processing fee revenue from funded loans.
         </CardDescription>
@@ -66,7 +66,7 @@ export function RevenueChart({
           )}
           <ChartContainer
             config={chartConfig}
-            className="aspect-auto h-[190px] w-full"
+            className="aspect-auto h-[210px] w-full"
           >
             <LineChart
               accessibilityLayer

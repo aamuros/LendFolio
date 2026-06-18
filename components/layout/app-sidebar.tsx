@@ -66,7 +66,7 @@ export function AppSidebar({
             >
               <Link href={dashboardHref}>
                 <Logo variant="icon" size="md" />
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold">LendFolio</span>
                   <span className="truncate text-xs text-sidebar-foreground/65">
                     {brandLabel}
@@ -96,7 +96,7 @@ export function AppSidebar({
                     >
                       <Link href={item.href}>
                         <item.icon />
-                        <span>{item.title}</span>
+                        <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                     {item.showUnreadBadge ? <NotificationUnreadBadge /> : null}
