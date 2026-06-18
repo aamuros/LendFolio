@@ -8,15 +8,19 @@ import { cn } from "@/lib/utils";
 type LenderOfferHistoryProps = {
   offers: LoanOfferSummary[];
   compact?: boolean;
+  emptyDescription?: string;
+  emptyTitle?: string;
 };
 
 export function LenderOfferHistory({
   offers,
   compact = false,
+  emptyDescription = "Sent offers for this application will appear here.",
+  emptyTitle = "No previous offers yet.",
 }: LenderOfferHistoryProps) {
   if (compact) {
     return (
-      <section className="grid gap-3 rounded-lg border border-border bg-background px-3 py-3">
+      <section className="grid gap-3 rounded-xl border border-border bg-muted/30 p-4">
         <h3 className="text-sm font-semibold">Offer history</h3>
         {offers.length > 0 ? (
           <div className="grid gap-2">
@@ -39,7 +43,7 @@ export function LenderOfferHistory({
                   </div>
                   <OfferHistoryBadge status={offer.status} />
                 </div>
-                <dl className="grid grid-cols-2 gap-3 text-sm">
+                <dl className="grid gap-3 text-sm sm:grid-cols-2">
                   <ReviewItem
                     label="Interest/service charge"
                     value={`PHP ${formatCurrency(offer.interestAmount)}`}
@@ -67,9 +71,10 @@ export function LenderOfferHistory({
             ))}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-border/60 bg-muted/30 p-3 text-sm leading-6 text-muted-foreground">
-            No offers have been sent for this application yet.
-          </p>
+          <div className="rounded-lg border border-dashed border-border/70 bg-background/60 p-3 text-sm leading-6">
+            <p className="font-semibold text-foreground">{emptyTitle}</p>
+            <p className="mt-0.5 text-muted-foreground">{emptyDescription}</p>
+          </div>
         )}
       </section>
     );

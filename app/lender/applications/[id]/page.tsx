@@ -5,6 +5,7 @@ import { LenderBottomTabs } from "@/components/lender-bottom-tabs";
 import { LenderPageHeader } from "@/components/lender-page-header";
 import { LenderApplicationsStatus } from "@/components/lender-applications-list";
 import { LenderOfferDialog } from "@/components/lender-offer-dialog";
+import { LenderOfferHistory } from "@/components/lender-offer-history";
 import { formatCurrency, formatDate, formatYears } from "@/lib/lender-format";
 import {
   formatPreferredTerm,
@@ -366,6 +367,11 @@ function OfferActionSection({
   isOpenForOffers: boolean;
   pendingOffer: LoanOfferSummary | undefined;
 }) {
+  const currentOffer =
+    pendingOffer ??
+    offers.find((offer) => offer.status === "accepted") ??
+    offers.find((offer) => offer.status === "declined") ??
+    offers.find((offer) => offer.status === "expired");
   const title = getActionTitle({
     hasAcceptedApplication,
     isOpenForOffers,
@@ -374,35 +380,49 @@ function OfferActionSection({
 
   return (
     <ReviewCard title={title} className="h-full">
-      <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-          <p>
-            {hasAcceptedApplication
-              ? "Offer creation is closed."
-              : pendingOffer
-                ? "A pending offer is waiting for borrower review."
-                : isOpenForOffers
-                  ? "Ready to prepare offer details for this application."
-                  : "Offer creation is closed."}
-          </p>
+      <div className="grid gap-5">
+        <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
+            <p>
+              {hasAcceptedApplication
+                ? "Offer creation is closed."
+                : pendingOffer
+                  ? "A pending offer is waiting for borrower review."
+                  : isOpenForOffers
+                    ? "Ready to prepare offer details for this application."
+                    : "Offer creation is closed."}
+            </p>
+            {currentOffer && !pendingOffer ? (
+              <div className="mt-1">
+                <OfferStatusBadge status={currentOffer.status} />
+              </div>
+            ) : null}
+          </div>
+          {isOpenForOffers && !pendingOffer && !hasAcceptedApplication ? (
+            <LenderOfferDialog
+              applicationId={application.id}
+              requestedAmount={application.requestedAmount}
+              availableCreditAtSubmission={application.availableCreditAtSubmission}
+              defaultDueDate={getDefaultDueDate()}
+              preferredTerm={application.preferredTerm}
+              preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
+              offers={offers}
+            />
+          ) : null}
         </div>
-        {isOpenForOffers && !pendingOffer && !hasAcceptedApplication ? (
-          <LenderOfferDialog
-            applicationId={application.id}
-            requestedAmount={application.requestedAmount}
-            availableCreditAtSubmission={application.availableCreditAtSubmission}
-            defaultDueDate={getDefaultDueDate()}
-            preferredTerm={application.preferredTerm}
-            preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
-            offers={offers}
-          />
+        {currentOffer ? (
+          <div className="grid gap-3 rounded-xl border border-border/60 bg-background/70 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <h3 className="text-sm font-semibold">
+                {pendingOffer ? "Pending offer" : "Current offer state"}
+              </h3>
+              <OfferStatusBadge status={currentOffer.status} />
+            </div>
+            <OfferSummary offer={currentOffer} />
+          </div>
         ) : null}
+        <LenderOfferHistory offers={offers} compact />
       </div>
-      {pendingOffer ? (
-        <div className="rounded-xl border border-border/60 p-4">
-          <OfferSummary offer={pendingOffer} />
-        </div>
-      ) : null}
     </ReviewCard>
   );
 }
@@ -447,6 +467,19 @@ function OfferSummary({
       <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
     </dl>
   );
+}
+
+function OfferStatusBadge({ status }: { status: string }) {
+  const tone =
+    status === "pending"
+      ? "attention"
+      : status === "accepted"
+        ? "success"
+        : status === "declined"
+          ? "danger"
+          : "neutral";
+
+  return <ToneBadge tone={tone}>{status}</ToneBadge>;
 }
 
 function getActionTitle({
