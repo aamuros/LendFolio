@@ -112,7 +112,8 @@ describe("submitLoanApplication consent mapping", () => {
     expect(result).toEqual({
       ok: false,
       mode: "credit-limit",
-      message: "Requested amount exceeds your available credit.",
+      message:
+        "Requested amount exceeds your available credit. Maximum request: PHP 3,000.",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith("submit_loan_application", {
       p_requested_amount: 10000,

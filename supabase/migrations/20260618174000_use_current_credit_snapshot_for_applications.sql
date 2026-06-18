@@ -100,7 +100,8 @@ begin
   end if;
 
   if new.requested_amount > (v_credit->>'available_credit')::numeric then
-    raise exception 'Requested amount exceeds your available credit.'
+    raise exception 'Requested amount exceeds your available credit. Maximum request: PHP %.',
+      to_char((v_credit->>'available_credit')::numeric, 'FM999,999,999')
       using errcode = 'P0001';
   end if;
 
@@ -209,7 +210,8 @@ begin
     return jsonb_build_object(
       'ok', false,
       'code', 'credit_limit_exceeded',
-      'message', 'Requested amount exceeds your available credit.',
+      'message', 'Requested amount exceeds your available credit. Maximum request: PHP '
+        || to_char((v_credit->>'available_credit')::numeric, 'FM999,999,999') || '.',
       'credit_limit', (v_credit->>'calculated_credit_limit')::numeric,
       'used_credit', (v_credit->>'used_credit')::numeric,
       'available_credit', (v_credit->>'available_credit')::numeric

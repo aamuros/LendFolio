@@ -141,6 +141,20 @@ export function loanConsumesCredit(status: ActiveLoanStatus) {
   );
 }
 
+export function normalizeCreditComparisonAmount(value: unknown) {
+  return Math.floor(Number(value) || 0);
+}
+
+export function exceedsAvailableCredit(
+  requestedAmount: unknown,
+  availableCredit: unknown,
+) {
+  return (
+    normalizeCreditComparisonAmount(requestedAmount) >
+    normalizeCreditComparisonAmount(availableCredit)
+  );
+}
+
 export function formatCreditAmount(value: number) {
   return `PHP ${new Intl.NumberFormat("en-PH", {
     maximumFractionDigits: 0,

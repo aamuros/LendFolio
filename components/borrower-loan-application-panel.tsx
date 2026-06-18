@@ -43,7 +43,9 @@ import {
 } from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
+  exceedsAvailableCredit,
   formatCreditAmount,
+  normalizeCreditComparisonAmount,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
 import {
@@ -496,7 +498,9 @@ export function BorrowerLoanApplicationPanel({
     useWatch({ control, name: "requestedAmount" }),
   );
   const requestedAmount =
-    typeof watchedRequestedAmount === "number" ? watchedRequestedAmount : 0;
+    typeof watchedRequestedAmount === "number"
+      ? normalizeCreditComparisonAmount(watchedRequestedAmount)
+      : 0;
   const canSubmitApplication = canSubmitLoanApplicationForVerification(
     borrowerVerification,
   );
@@ -529,11 +533,11 @@ export function BorrowerLoanApplicationPanel({
 
     if (
       creditSummary &&
-      values.requestedAmount > creditSummary.availableCredit
+      exceedsAvailableCredit(values.requestedAmount, creditSummary.availableCredit)
     ) {
       setLoadState("ready");
       setMessage(
-        "Requested amount exceeds your available credit. Please reduce the amount or update your profile.",
+        `Requested amount exceeds your available credit. Maximum request: ${formatCreditAmount(normalizeCreditComparisonAmount(creditSummary.availableCredit))}.`,
       );
       return;
     }
@@ -551,8 +555,9 @@ export function BorrowerLoanApplicationPanel({
 
       applyLoadResult(beforeSubmit, { preserveFeedback: true });
 
-      const currentAvailableCredit =
-        beforeSubmit.creditSummary?.availableCredit ?? 0;
+      const currentAvailableCredit = normalizeCreditComparisonAmount(
+        beforeSubmit.creditSummary?.availableCredit,
+      );
 
       if (currentAvailableCredit <= 0) {
         setLoadState("ready");
@@ -562,7 +567,7 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      if (values.requestedAmount > currentAvailableCredit) {
+      if (exceedsAvailableCredit(values.requestedAmount, currentAvailableCredit)) {
         setLoadState("ready");
         setMessage(
           `Requested amount exceeds your available credit. Maximum request: ${formatCreditAmount(currentAvailableCredit)}.`,
@@ -2556,7 +2561,8 @@ function ApplicationForm({
   }
 
   const isOverAvailableCredit =
-    creditSummary !== null && requestedAmount > creditSummary.availableCredit;
+    creditSummary !== null &&
+    exceedsAvailableCredit(requestedAmount, creditSummary.availableCredit);
   const requestedAmountError = isOverAvailableCredit
     ? "Requested amount exceeds your available credit."
     : errors.requestedAmount?.message;

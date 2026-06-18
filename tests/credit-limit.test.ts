@@ -3,7 +3,9 @@ import {
   applicationConsumesCredit,
   calculateBorrowerAvailableCredit,
   calculateBorrowerCreditLimit,
+  exceedsAvailableCredit,
   explainBorrowerCreditLimit,
+  normalizeCreditComparisonAmount,
 } from "@/lib/credit-limit";
 
 const basePortfolio = {
@@ -230,6 +232,13 @@ describe("borrower credit limit", () => {
 
     expect(summary.availableCredit).toBe(3_000);
     expect(3_001 > summary.availableCredit).toBe(true);
+  });
+
+  it("allows requests exactly equal to normalized available credit", () => {
+    expect(normalizeCreditComparisonAmount("25000.99")).toBe(25_000);
+    expect(exceedsAvailableCredit(25_000, 25_000)).toBe(false);
+    expect(exceedsAvailableCredit(24_900, 25_000)).toBe(false);
+    expect(exceedsAvailableCredit(25_100, 25_000)).toBe(true);
   });
 
   it("allows simultaneous pending applications when total exposure fits", () => {

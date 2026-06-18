@@ -689,6 +689,34 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(applications).toHaveLength(2);
   });
 
+  it("allows another submitted application equal to the remaining credit", async () => {
+    await createTenThousandCreditPortfolioWithSubmittedApplication(
+      admin,
+      borrower,
+      7000,
+    );
+
+    const submission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 3000,
+      p_purpose: "Additional inventory financing",
+      p_preferred_term: "3_months",
+      p_remarks: "Second request exactly at remaining credit.",
+    });
+    const result = submission.data as Json as SubmitApplicationRpcResult;
+
+    expect(submission.error).toBeNull();
+    expect(result).toMatchObject({
+      ok: true,
+      credit_limit: 10000,
+      used_credit: 7000,
+      available_credit: 3000,
+    });
+    expect(result.application).toMatchObject({
+      requested_amount: 3000,
+      available_credit_at_submission: 3000,
+    });
+  });
+
   it("rejects another submitted application when it exceeds remaining credit", async () => {
     await createTenThousandCreditPortfolioWithSubmittedApplication(
       admin,
@@ -708,7 +736,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(result).toMatchObject({
       ok: false,
       code: "credit_limit_exceeded",
-      message: "Requested amount exceeds your available credit.",
+      message:
+        "Requested amount exceeds your available credit. Maximum request: PHP 3,000.",
       credit_limit: 10000,
       used_credit: 7000,
       available_credit: 3000,
