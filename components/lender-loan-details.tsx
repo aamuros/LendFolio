@@ -79,6 +79,10 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
               value={`PHP ${formatCurrency(activeLoan.fees)}`}
             />
             <MiniMetric
+              label="System processing fee"
+              value={`PHP ${formatCurrency(activeLoan.processingFee)}`}
+            />
+            <MiniMetric
               label="Total repayment"
               value={`PHP ${formatCurrency(activeLoan.totalRepaymentAmount)}`}
             />

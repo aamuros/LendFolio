@@ -66,6 +66,8 @@ export type ManagerLoanRow = {
   repaymentAmount: number;
   totalRepaymentAmount: number;
   fees: number;
+  processingFee: number;
+  processingFeeRate: number;
   interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
@@ -186,6 +188,8 @@ export type ManagerApplicationRow = {
     approvedAmount: number;
     repaymentAmount: number;
     fees: number;
+    processingFee: number;
+    processingFeeRate: number;
     interestAmount: number;
     totalRepaymentAmount: number;
     dueDate: string;
@@ -333,13 +337,13 @@ export type ManagerBorrowerVerificationRow = {
 };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 const applicationSelect =
   "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, borrower_removed_at, created_at, updated_at";
 const auditLogSelect =
   "id, actor_id, action, target_table, target_id, metadata, created_at";
 const offerSelect =
-  "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, processing_fee_rate, processing_fee_amount, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 const portfolioSelect =
   "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 const profileSelect = "id, role, additional_roles, display_name, status, created_at, updated_at";
@@ -1918,6 +1922,7 @@ async function mapManagerLoans(
       principalAmount: loan.principal_amount,
       repaymentAmount: loan.repayment_amount,
       fees: loan.fees,
+      processingFee: loan.processing_fee_amount ?? 0,
     });
 
     return {
@@ -1928,6 +1933,8 @@ async function mapManagerLoans(
       repaymentAmount: loan.repayment_amount,
       totalRepaymentAmount: loan.repayment_amount,
       fees: loan.fees,
+      processingFee: loan.processing_fee_amount ?? 0,
+      processingFeeRate: loan.processing_fee_rate ?? 0.02,
       interestAmount,
       outstandingBalance: loan.outstanding_balance,
       status: loan.status,
@@ -2050,10 +2057,13 @@ async function mapManagerApplications(
             approvedAmount: acceptedOffer.approved_amount,
             repaymentAmount: acceptedOffer.repayment_amount,
             fees: acceptedOffer.fees,
+            processingFee: acceptedOffer.processing_fee_amount ?? 0,
+            processingFeeRate: acceptedOffer.processing_fee_rate ?? 0.02,
             interestAmount: deriveInterestAmount({
               principalAmount: acceptedOffer.approved_amount,
               repaymentAmount: acceptedOffer.repayment_amount,
               fees: acceptedOffer.fees,
+              processingFee: acceptedOffer.processing_fee_amount ?? 0,
             }),
             totalRepaymentAmount: acceptedOffer.repayment_amount,
             dueDate: acceptedOffer.due_date,

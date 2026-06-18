@@ -89,18 +89,18 @@ end on the offer due date. Each installment starts as `due`.
 
 ## Credit Capacity Semantics
 
-Borrower available credit at submission caps the total repayment obligation, not
-only the approved principal. `available_credit_at_submission` is snapshotted when
+Borrower available credit at submission caps the approved principal, not the
+total repayment obligation. `available_credit_at_submission` is snapshotted when
 the borrower submits the application.
 
 Offer invariants enforced by `create_loan_offer`:
 
 - `approved_amount <= requested_amount`
-- `total_repayment_amount <= available_credit_at_submission`
-- `total_repayment_amount >= approved_amount + borrower_paid_fees`
+- `approved_amount <= available_credit_at_submission`
+- `total_repayment_amount >= approved_amount + borrower_paid_fees + system_processing_fee`
 
 Where `total_repayment_amount = approved_amount + interest/service charge +
-borrower_paid_fees`.
+borrower_paid_fees + system_processing_fee`.
 
 If `available_credit_at_submission` is null for older records, the RPC falls
 back to `requested_amount` as the credit cap.

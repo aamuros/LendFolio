@@ -201,13 +201,18 @@ export default async function ManagerApplicationDetailPage({
                       0,
                       acceptedOffer.repayment_amount -
                         acceptedOffer.approved_amount -
-                        acceptedOffer.fees,
+                        acceptedOffer.fees -
+                        (acceptedOffer.processing_fee_amount ?? 0),
                     ),
                   )}
                 />
                 <DetailItem
                   label="Fees"
                   value={formatCurrency(acceptedOffer.fees)}
+                />
+                <DetailItem
+                  label="System processing fee"
+                  value={formatCurrency(acceptedOffer.processing_fee_amount ?? 0)}
                 />
                 <DetailItem
                   label="Total repayment"

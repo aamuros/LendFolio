@@ -3558,12 +3558,13 @@ function ActiveLoanCard({
             <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
             <SummaryItem label="Interest/service charge" value={formatMoney(loan.interestAmount)} />
             <SummaryItem label="Other fees" value={formatMoney(loan.fees)} />
+            <SummaryItem label="System processing fee" value={formatMoney(loan.processingFee)} />
             <SummaryItem label="Total repayment" value={formatMoney(loan.totalRepaymentAmount)} />
             <SummaryItem label="Schedule total" value={formatMoney(scheduleTotal)} />
             <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, and other fees.
+            Total repayment includes principal, interest/service charge, other fees, and system processing fee.
           </p>
 
           <div className="grid gap-2">

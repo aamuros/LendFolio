@@ -135,6 +135,10 @@ export default async function BorrowerOfferDetailsPage({
               />
               <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
               <SummaryItem
+                label="System processing fee"
+                value={formatMoney(offer.processingFee)}
+              />
+              <SummaryItem
                 label="Total repayment"
                 value={formatMoney(offer.totalRepaymentAmount)}
               />

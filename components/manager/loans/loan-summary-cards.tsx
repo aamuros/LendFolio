@@ -20,6 +20,7 @@ const managerLoanSummaryMockData = {
   overdueLoans: 0,
   dueIn7Days: 0,
   outstandingBalance: 0,
+  platformRevenue: 0,
 };
 
 type SummaryCardConfig = {
@@ -48,24 +49,21 @@ function buildSummaryCards(loans: ManagerLoanRow[]): SummaryCardConfig[] {
         format: "number",
       },
       {
-        label: "Due in 7 days",
-        description: "Upcoming repayments requiring attention.",
-        value: managerLoanSummaryMockData.dueIn7Days,
-        icon: CalendarClock,
-        format: "number",
-      },
-      {
         label: "Outstanding balance",
-        description: "Total unpaid principal across active loans.",
+        description: "Total unpaid balance across monitored loans.",
         value: managerLoanSummaryMockData.outstandingBalance,
         icon: CircleDollarSign,
         format: "currency",
       },
+      {
+        label: "Platform revenue",
+        description: "Processing fee revenue from funded loans.",
+        value: managerLoanSummaryMockData.platformRevenue,
+        icon: CalendarClock,
+        format: "currency",
+      },
     ];
   }
-
-  const now = new Date();
-  const in7Days = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
   const activeLoans = loans.filter(
     (loan) => loan.status === "active" || loan.status === "overdue",
@@ -75,16 +73,13 @@ function buildSummaryCards(loans: ManagerLoanRow[]): SummaryCardConfig[] {
     (loan) => loan.status === "overdue",
   ).length;
 
-  const dueIn7Days = loans.filter((loan) => {
-    if (!loan.dueDate) return false;
-    if (loan.status !== "active" && loan.status !== "overdue") return false;
-    const due = new Date(loan.dueDate);
-    return due >= now && due <= in7Days;
-  }).length;
-
   const outstandingBalance = loans
     .filter((loan) => loan.status === "active" || loan.status === "overdue")
     .reduce((sum, loan) => sum + loan.outstandingBalance, 0);
+  const platformRevenue = loans.reduce(
+    (sum, loan) => sum + loan.processingFee,
+    0,
+  );
 
   return [
     {
@@ -102,17 +97,17 @@ function buildSummaryCards(loans: ManagerLoanRow[]): SummaryCardConfig[] {
       format: "number",
     },
     {
-      label: "Due in 7 days",
-      description: "Upcoming repayments requiring attention.",
-      value: dueIn7Days,
-      icon: CalendarClock,
-      format: "number",
-    },
-    {
       label: "Outstanding balance",
-      description: "Total unpaid principal across active loans.",
+      description: "Total unpaid balance across active loans.",
       value: outstandingBalance,
       icon: CircleDollarSign,
+      format: "currency",
+    },
+    {
+      label: "Platform revenue",
+      description: "Processing fee revenue from funded loans.",
+      value: platformRevenue,
+      icon: CalendarClock,
       format: "currency",
     },
   ];

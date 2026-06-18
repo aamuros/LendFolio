@@ -21,7 +21,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { LoanOfferSummary } from "@/lib/loan-offer";
+import {
+  calculatePlatformProcessingFee,
+  PLATFORM_PROCESSING_FEE_RATE,
+  type LoanOfferSummary,
+} from "@/lib/loan-offer";
 import { cn } from "@/lib/utils";
 
 type LenderOfferFormProps = {
@@ -62,8 +66,12 @@ export function LenderOfferForm({
   const parsedInterestRate = parseNumberValue(interestServiceChargeRate);
   const interestServiceCharge =
     parsedApprovedAmount * (parsedInterestRate / 100);
+  const processingFee = calculatePlatformProcessingFee(parsedApprovedAmount);
   const totalRepaymentAmount =
-    parsedApprovedAmount + interestServiceCharge + parseCurrencyValue(fees);
+    parsedApprovedAmount +
+    interestServiceCharge +
+    parseCurrencyValue(fees) +
+    processingFee;
 
   const maxPrincipal = availableCreditAtSubmission ?? requestedAmount;
   const exceedsAvailableCredit = parsedApprovedAmount > maxPrincipal;
@@ -112,8 +120,9 @@ export function LenderOfferForm({
                 <span className="font-semibold text-foreground">
                   PHP {formatCurrency(maxPrincipal)}
                 </span>
-                . Approved principal cannot exceed this amount. Charges and
-                optional fees are added to repayment only.
+                . Principal is checked against borrower credit limit. Interest,
+                other fees, and the system processing fee are added only to
+                repayment.
               </p>
             </div>
 
@@ -278,6 +287,7 @@ export function LenderOfferForm({
               interestRate={parsedInterestRate}
               interestServiceCharge={interestServiceCharge}
               fees={parseCurrencyValue(fees)}
+              processingFee={processingFee}
               totalRepaymentAmount={totalRepaymentAmount}
             />
             <LenderOfferHistory
@@ -399,12 +409,14 @@ function RepaymentSummary({
   interestRate,
   interestServiceCharge,
   fees,
+  processingFee,
   totalRepaymentAmount,
 }: {
   approvedAmount: number;
   interestRate: number;
   interestServiceCharge: number;
   fees: number;
+  processingFee: number;
   totalRepaymentAmount: number;
 }) {
   return (
@@ -416,7 +428,8 @@ function RepaymentSummary({
         </p>
       </div>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Calculated from principal, interest/service charge, and other fees.
+        Calculated from principal, interest/service charge, other fees, and
+        system processing fee.
       </p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
         <div>
@@ -436,6 +449,12 @@ function RepaymentSummary({
         <div>
           <dt className="text-xs text-muted-foreground">Other borrower-paid fees</dt>
           <dd className="font-semibold">PHP {formatCurrency(fees)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">
+            System processing fee ({formatPercent(PLATFORM_PROCESSING_FEE_RATE * 100)})
+          </dt>
+          <dd className="font-semibold">PHP {formatCurrency(processingFee)}</dd>
         </div>
       </dl>
     </section>

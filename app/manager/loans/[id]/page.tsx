@@ -163,6 +163,10 @@ export default async function ManagerLoanDetailPage({ params }: PageProps) {
               value={formatCurrency(loan.fees)}
             />
             <DetailItem
+              label="System processing fee"
+              value={formatCurrency(loan.processingFee)}
+            />
+            <DetailItem
               label="Total repayment"
               value={formatCurrency(loan.totalRepaymentAmount)}
             />

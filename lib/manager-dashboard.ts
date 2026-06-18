@@ -86,6 +86,11 @@ export type ManagerMonthlyActivityRow = {
 
 export type ManagerDashboardOverview = {
   kpis: ManagerDashboardKpi[];
+  revenue: {
+    totalPlatformRevenue: number;
+    currentMonthPlatformRevenue: number;
+    projectedProcessingFeeRevenue: number;
+  };
   pendingActions: ManagerPendingActionCounts;
   monthlyHeadcount: ManagerMonthlyUserHeadcount[];
   monthlyActivity: ManagerMonthlyActivityRow[];
@@ -124,6 +129,7 @@ export async function loadManagerDashboardOverview(
     pendingCountsResult,
     lenderPerfResult,
     borrowerPerfResult,
+    revenueResult,
   ] = await Promise.all([
     countActiveLoans(supabase),
     countProfilesByRole(supabase, "lender"),
@@ -135,6 +141,7 @@ export async function loadManagerDashboardOverview(
     supabase.rpc("manager_dashboard_pending_action_counts"),
     supabase.rpc("manager_dashboard_lender_performance"),
     supabase.rpc("manager_dashboard_borrower_performance"),
+    loadPlatformRevenue(supabase),
   ]);
 
   const counts = [
@@ -244,6 +251,7 @@ export async function loadManagerDashboardOverview(
           accent: "rose",
         },
       ],
+      revenue: revenueResult,
       pendingActions,
       monthlyHeadcount,
       monthlyActivity,
@@ -251,6 +259,40 @@ export async function loadManagerDashboardOverview(
       lenderPerformance,
       borrowerPerformance,
     },
+  };
+}
+
+async function loadPlatformRevenue(supabase: SupabaseServerClient) {
+  const currentMonthStart = new Date();
+  currentMonthStart.setUTCDate(1);
+  currentMonthStart.setUTCHours(0, 0, 0, 0);
+
+  const [activeLoansResult, pendingOffersResult] = await Promise.all([
+    supabase
+      .from("active_loans")
+      .select("processing_fee_amount, started_at"),
+    supabase
+      .from("loan_offers")
+      .select("processing_fee_amount")
+      .eq("status", "pending"),
+  ]);
+
+  const activeLoans = activeLoansResult.data ?? [];
+  const pendingOffers = pendingOffersResult.data ?? [];
+  const monthStartMs = currentMonthStart.getTime();
+
+  return {
+    totalPlatformRevenue: activeLoans.reduce(
+      (sum, loan) => sum + Number(loan.processing_fee_amount ?? 0),
+      0,
+    ),
+    currentMonthPlatformRevenue: activeLoans
+      .filter((loan) => new Date(loan.started_at).getTime() >= monthStartMs)
+      .reduce((sum, loan) => sum + Number(loan.processing_fee_amount ?? 0), 0),
+    projectedProcessingFeeRevenue: pendingOffers.reduce(
+      (sum, offer) => sum + Number(offer.processing_fee_amount ?? 0),
+      0,
+    ),
   };
 }
 

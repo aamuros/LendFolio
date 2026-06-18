@@ -15,9 +15,15 @@ const percentFormatter = new Intl.NumberFormat("en-US", {
 export function PlatformSnapshot({
   kpis,
   monthlyActivity,
+  revenue,
 }: {
   kpis: ManagerDashboardKpi[];
   monthlyActivity: ManagerMonthlyActivityRow[];
+  revenue: {
+    totalPlatformRevenue: number;
+    currentMonthPlatformRevenue: number;
+    projectedProcessingFeeRevenue: number;
+  };
 }) {
   const totals = {
     applications: monthlyActivity.reduce(
@@ -52,6 +58,11 @@ export function PlatformSnapshot({
         fundingRate !== null ? percentFormatter.format(fundingRate) : "\u2014",
     },
   ];
+  const pesoFormatter = new Intl.NumberFormat("en-PH", {
+    style: "currency",
+    currency: "PHP",
+    maximumFractionDigits: 0,
+  });
 
   return (
     <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
@@ -85,6 +96,26 @@ export function PlatformSnapshot({
         <Separator />
         <div className="flex flex-col gap-2">
           <span className="text-xs font-medium text-muted-foreground">
+            Platform revenue
+          </span>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-3">
+            <RevenueMetric
+              label="Total earned"
+              value={pesoFormatter.format(revenue.totalPlatformRevenue)}
+            />
+            <RevenueMetric
+              label="This month"
+              value={pesoFormatter.format(revenue.currentMonthPlatformRevenue)}
+            />
+            <RevenueMetric
+              label="Projected pending"
+              value={pesoFormatter.format(revenue.projectedProcessingFeeRevenue)}
+            />
+          </div>
+        </div>
+        <Separator />
+        <div className="flex flex-col gap-2">
+          <span className="text-xs font-medium text-muted-foreground">
             Current pipeline
           </span>
           <div className="grid grid-cols-3 gap-x-4 gap-y-2 sm:grid-cols-5">
@@ -102,5 +133,14 @@ export function PlatformSnapshot({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function RevenueMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-semibold tabular-nums">{value}</span>
+    </div>
   );
 }

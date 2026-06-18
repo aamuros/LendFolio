@@ -473,6 +473,10 @@ function OfferSummary({
         value={`PHP ${formatCurrency(offer.fees)}`}
       />
       <ReviewItem
+        label="System processing fee"
+        value={`PHP ${formatCurrency(offer.processingFee)}`}
+      />
+      <ReviewItem
         label="Total repayment"
         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
       />

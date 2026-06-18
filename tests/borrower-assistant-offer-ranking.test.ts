@@ -13,6 +13,8 @@ function offer(overrides: Partial<LoanOfferSummary>): LoanOfferSummary {
     principalAmount: 15_000,
     totalRepaymentAmount: 16_500,
     fees: 0,
+    processingFee: 0,
+    processingFeeRate: 0.02,
     interestAmount: 1_500,
     interestServiceChargeRate: 10,
     dueDate: "2026-07-18",

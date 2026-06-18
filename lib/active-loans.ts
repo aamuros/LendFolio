@@ -72,6 +72,8 @@ export type ActiveLoanSummary = {
   repaymentAmount: number;
   totalRepaymentAmount: number;
   fees: number;
+  processingFee: number;
+  processingFeeRate: number;
   interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
@@ -100,7 +102,7 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
@@ -214,6 +216,7 @@ export function mapActiveLoanRow(
     principalAmount: row.principal_amount,
     repaymentAmount: row.repayment_amount,
     fees: row.fees,
+    processingFee: row.processing_fee_amount ?? 0,
   });
 
   return {
@@ -226,6 +229,8 @@ export function mapActiveLoanRow(
     repaymentAmount: row.repayment_amount,
     totalRepaymentAmount: row.repayment_amount,
     fees: row.fees,
+    processingFee: row.processing_fee_amount ?? 0,
+    processingFeeRate: row.processing_fee_rate ?? 0.02,
     interestAmount,
     outstandingBalance: row.outstanding_balance,
     status: row.status,

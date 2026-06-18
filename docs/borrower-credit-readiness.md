@@ -138,22 +138,21 @@ submission.
 
 ## Credit Capacity and Total Repayment
 
-A borrower's **available credit** represents the maximum total repayment
-obligation they can take on. The total repayment for a loan includes the
-principal (approved amount), interest or service charges, and any other fees.
+A borrower's **available credit** represents the maximum approved principal they
+can take on. The total repayment for a loan includes the principal, interest or
+service charges, lender fees, and the borrower-paid system processing fee.
 
 When a borrower submits an application, the `requested_amount` is the desired
 principal. The `available_credit_at_submission` is snapshotted and used to cap
-the total repayment of any lender offer for that application.
+the approved principal of any lender offer for that application.
 
-Lender offers are validated so that `repayment_amount <= available_credit_at_submission`.
-This means a borrower who requests an amount equal to their full available credit
-will have no room for lenders to add interest or fees. Borrowers should request
-less than their available credit to leave room for lender charges.
+Lender offers are validated so that `approved_amount <= available_credit_at_submission`.
+Interest, lender fees, and the system processing fee are added only to the
+borrower's repayment obligation and do not consume credit capacity.
 
 When a borrower accepts an offer, the `accept_loan_offer` RPC re-checks that
-the offer's `repayment_amount` (not just the principal) fits within the
-borrower's current available credit.
+the offer's approved principal fits within the borrower's current available
+credit.
 
 ## Scope
 

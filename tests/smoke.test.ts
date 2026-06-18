@@ -855,7 +855,8 @@ describe("loan offer schema", () => {
     if (!result.success) {
       throw new Error("Expected offer schema to accept valid fields.");
     }
-    expect(result.data.repaymentAmount).toBe(22_000);
+    expect(result.data.repaymentAmount).toBe(22_400);
+    expect(result.data.processingFee).toBe(400);
   });
 
   it("rejects negative interest or service charge rate", () => {
@@ -1020,6 +1021,8 @@ describe("borrower offer acceptance", () => {
       interest_service_charge_rate: 7.5,
       repayment_amount: 22_000,
       fees: 500,
+      processing_fee_rate: 0.02,
+      processing_fee_amount: 0,
       due_date: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
       sent_at: "2026-05-24T08:00:00.000Z",

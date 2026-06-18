@@ -1403,7 +1403,7 @@ export async function loadBorrowerLoanApplications(
       supabase
         .from("loan_offers")
         .select(
-          "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at",
+          "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, processing_fee_rate, processing_fee_amount, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at",
         )
         .in("loan_application_id", applicationIds)
         .order("sent_at", { ascending: false }),

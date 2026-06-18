@@ -187,6 +187,8 @@ export type Database = {
           principal_amount: number;
           repayment_amount: number;
           fees: number;
+          processing_fee_rate: number;
+          processing_fee_amount: number;
           outstanding_balance: number;
           status: ActiveLoanStatus;
           started_at: string;
@@ -207,6 +209,8 @@ export type Database = {
           principal_amount: number;
           repayment_amount: number;
           fees?: number;
+          processing_fee_rate?: number;
+          processing_fee_amount?: number;
           outstanding_balance: number;
           status?: ActiveLoanStatus;
           started_at?: string;
@@ -227,6 +231,8 @@ export type Database = {
           principal_amount?: number;
           repayment_amount?: number;
           fees?: number;
+          processing_fee_rate?: number;
+          processing_fee_amount?: number;
           outstanding_balance?: number;
           status?: ActiveLoanStatus;
           started_at?: string;
@@ -878,6 +884,8 @@ export type Database = {
           interest_service_charge_rate: number | null;
           repayment_amount: number;
           fees: number;
+          processing_fee_rate: number;
+          processing_fee_amount: number;
           due_date: string;
           remarks: string | null;
           status: OfferStatus;
@@ -899,6 +907,8 @@ export type Database = {
           interest_service_charge_rate?: number | null;
           repayment_amount: number;
           fees?: number;
+          processing_fee_rate?: number;
+          processing_fee_amount?: number;
           due_date: string;
           remarks?: string | null;
           status?: OfferStatus;
@@ -920,6 +930,8 @@ export type Database = {
           interest_service_charge_rate?: number | null;
           repayment_amount?: number;
           fees?: number;
+          processing_fee_rate?: number;
+          processing_fee_amount?: number;
           due_date?: string;
           remarks?: string | null;
           status?: OfferStatus;
@@ -1450,6 +1462,8 @@ export type Database = {
           p_repayment_amount: number;
           p_interest_service_charge_rate?: number | null;
           p_fees: number;
+          p_processing_fee_rate?: number | null;
+          p_processing_fee_amount?: number | null;
           p_due_date: string;
           p_remarks?: string | null;
           p_repayment_channel?: string | null;

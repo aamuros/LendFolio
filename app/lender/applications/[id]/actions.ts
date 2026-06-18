@@ -107,6 +107,8 @@ export async function createLoanOffer(
       p_repayment_amount: parsed.data.repaymentAmount,
       p_interest_service_charge_rate: parsed.data.interestServiceChargeRate,
       p_fees: parsed.data.fees,
+      p_processing_fee_rate: parsed.data.processingFeeRate,
+      p_processing_fee_amount: parsed.data.processingFee,
       p_due_date: parsed.data.dueDate,
       p_remarks: parsed.data.remarks || null,
       p_repayment_channel: parsed.data.repaymentChannel,

@@ -108,6 +108,10 @@ function OfferDetail({ offer }: { offer: LenderOfferReview }) {
               value={`PHP ${formatCurrency(offer.fees)}`}
             />
             <MiniMetric
+              label="System processing fee"
+              value={`PHP ${formatCurrency(offer.processingFee)}`}
+            />
+            <MiniMetric
               label="Total repayment"
               value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
             />

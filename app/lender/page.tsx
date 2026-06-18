@@ -1226,6 +1226,11 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
               value={`PHP ${formatCurrency(offer.fees)}`}
               compact
             />
+            <MiniMetric
+              label="System processing fee"
+              value={`PHP ${formatCurrency(offer.processingFee)}`}
+              compact
+            />
             <MiniMetric label="Due" value={formatDateOnly(offer.dueDate)} compact />
             <MiniMetric label="Sent" value={formatDate(offer.sentAt)} compact />
             {offer.application ? (

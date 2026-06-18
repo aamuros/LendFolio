@@ -108,6 +108,10 @@ export function LenderOfferHistory({
                     value={`PHP ${formatCurrency(offer.fees)}`}
                   />
                   <ReviewItem
+                    label="System processing fee"
+                    value={`PHP ${formatCurrency(offer.processingFee)}`}
+                  />
+                  <ReviewItem
                     label="Total repayment"
                     value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
                   />
@@ -231,6 +235,10 @@ function OfferHistoryRow({
             <ReviewItem
               label="Other borrower-paid fees"
               value={`PHP ${formatCurrency(offer.fees)}`}
+            />
+            <ReviewItem
+              label="System processing fee"
+              value={`PHP ${formatCurrency(offer.processingFee)}`}
             />
             <ReviewItem
               label="Total repayment"
