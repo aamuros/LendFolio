@@ -653,7 +653,14 @@ function hasOnlyNoAvailableCreditIssue(
     hasNoAvailableCredit &&
     readiness.missingFields.length === 0 &&
     !readiness.profileIsStale &&
-    readiness.riskFlags.every((flag) => flag === "no_available_credit")
+    !readiness.riskFlags.some((flag) =>
+      [
+        "zero_revenue",
+        "non_positive_cash_flow",
+        "suspended",
+        "account_not_active",
+      ].includes(flag),
+    )
   );
 }
 
@@ -675,7 +682,14 @@ function hasActualProfileReadinessIssue(
     return false;
   }
 
-  return readiness.riskFlags.some((flag) => flag !== "no_available_credit");
+  return readiness.riskFlags.some((flag) =>
+    [
+      "zero_revenue",
+      "non_positive_cash_flow",
+      "suspended",
+      "account_not_active",
+    ].includes(flag),
+  );
 }
 
 function formatYearsInOperation(value: number) {

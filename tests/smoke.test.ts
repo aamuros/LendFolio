@@ -264,31 +264,28 @@ describe("loan application mapping", () => {
 });
 
 describe("borrower apply readiness gating", () => {
-  it("blocks needs_review borrowers from the apply form", () => {
-    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(true);
+  it("does not block advisory needs_review borrowers from the apply form", () => {
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
   });
 
-  it("keeps incomplete, needs_review, and not_eligible borrowers blocked", () => {
+  it("keeps incomplete and not_eligible borrowers blocked", () => {
     expect(isBlockingApplicationReadinessStatus("incomplete")).toBe(true);
-    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
     expect(isBlockingApplicationReadinessStatus("not_eligible")).toBe(true);
     expect(isBlockingApplicationReadinessStatus("complete")).toBe(false);
     expect(isBlockingApplicationReadinessStatus("eligible_to_apply")).toBe(false);
   });
 
-  it("renders the readiness blocker instead of the needs_review warning flow", () => {
+  it("renders a non-blocking advisory notice before the application form", () => {
     const source = readFileSync(
       "components/borrower-loan-application-panel.tsx",
       "utf8",
     );
 
-    expect(source).toContain("isBlockingApplicationReadinessStatus(readiness.readinessStatus)");
+    expect(source).toContain("isBlockingApplicationReadiness(readiness)");
     expect(source).toContain("<ProfileReadinessBlocker");
-    expect(source).toContain("Resolve flagged profile details before applying.");
-    expect(source).toContain("Update profile");
-    expect(source).not.toContain("shouldShowNeedsReviewApplicationWarning");
-    expect(source).not.toContain("NeedsReviewApplicationWarning");
-    expect(source).not.toContain("You can still submit");
+    expect(source).toContain("<AdvisoryReadinessNotice");
+    expect(source).toContain("you can still submit an");
   });
 
   it("passes borrower verification into the portfolio readiness panel", () => {
@@ -316,7 +313,7 @@ describe("borrower apply readiness gating", () => {
     );
 
     expect(source.indexOf("!canSubmitApplication")).toBeLessThan(
-      source.indexOf("isBlockingApplicationReadinessStatus(readiness.readinessStatus)"),
+      source.indexOf("isBlockingApplicationReadiness(readiness)"),
     );
     expect(source).toContain("<VerificationGateCard");
     expect(source).toContain("onNavigateVerification={onNavigateVerification}");
@@ -341,27 +338,26 @@ describe("borrower apply readiness gating", () => {
 
 describe("borrower application readiness migration", () => {
   const migrationPath =
-    "supabase/migrations/20260618191000_block_needs_review_application_submission.sql";
+    "supabase/migrations/20260618200000_allow_advisory_readiness_application_submission.sql";
 
-  it("blocks needs_review profile readiness with profile_needs_review", () => {
+  it("allows advisory needs_review profile readiness without profile_needs_review", () => {
     const migration = readFileSync(migrationPath, "utf8");
 
     expect(migration).toContain(
       "create or replace function app_private.borrower_application_readiness",
     );
-    expect(migration).toContain("elsif v_profile_status = 'needs_review' then");
-    expect(migration).toContain(
-      "v_codes := array_append(v_codes, 'profile_needs_review');",
-    );
+    expect(migration).not.toContain("profile_needs_review");
     expect(migration).toContain("'ok', cardinality(v_codes) = 0");
     expect(migration).toContain(
       "'application_ready', cardinality(v_codes) = 0",
     );
     expect(migration).toContain("'profile_readiness', v_profile_readiness");
     expect(migration).toContain(
-      "when v_codes[1] = 'profile_needs_review' then 'Resolve flagged profile details before applying.'",
+      "when cardinality(v_codes) = 0 and v_profile_status = 'needs_review' then 'Application ready. Lenders may review some profile details.'",
     );
-    expect(migration).not.toContain("'profile_stale'");
+    expect(migration).toContain(
+      "when cardinality(v_codes) = 0 and v_profile_status = 'needs_review'",
+    );
   });
 
   it("keeps incomplete and not_eligible profile readiness as hard blockers", () => {

@@ -193,8 +193,19 @@ export function evaluateBorrowerReadiness(
   }
 
   if (riskFlags.size > 0) {
+    const verificationReady =
+      !gates.borrowerVerification ||
+      gates.borrowerVerification.status === "approved";
+    const consentReady =
+      !gates.loanApplicationConsent || gates.loanApplicationConsent.isCurrent;
+    const eligible =
+      verificationReady &&
+      consentReady &&
+      gates.accountStatus !== "pending" &&
+      gates.accountStatus !== "suspended";
+
     return {
-      readinessStatus: "needs_review",
+      readinessStatus: eligible ? "eligible_to_apply" : "complete",
       missingFields,
       riskFlags: [...riskFlags],
       monthlyNetCashFlow: disposableIncome,

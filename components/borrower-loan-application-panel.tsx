@@ -518,7 +518,7 @@ export function BorrowerLoanApplicationPanel({
 
     if (
       readiness &&
-      isBlockingApplicationReadinessStatus(readiness.readinessStatus)
+      isBlockingApplicationReadiness(readiness)
     ) {
       setLoadState("ready");
       setMessage(
@@ -859,14 +859,16 @@ export function BorrowerLoanApplicationPanel({
               />
             ) : hasNoAvailableCredit ? (
               <CreditLimitBlocker />
-            ) : readiness &&
-              isBlockingApplicationReadinessStatus(readiness.readinessStatus) ? (
+            ) : readiness && isBlockingApplicationReadiness(readiness) ? (
               <ProfileReadinessBlocker
                 readiness={readiness}
                 onEditProfile={() => onNavigate?.("profile")}
               />
             ) : (
               <>
+                {readiness && hasAdvisoryReadinessFlags(readiness) ? (
+                  <AdvisoryReadinessNotice />
+                ) : null}
                 {hasOpenApplication ? <OpenApplicationNotice /> : null}
                 <ApplicationForm
                   control={control}
@@ -1022,10 +1024,34 @@ export function getVisibleApplyApplications(
 export function isBlockingApplicationReadinessStatus(
   status: BorrowerReadinessResult["readinessStatus"],
 ) {
+  return status === "incomplete" || status === "not_eligible";
+}
+
+export function isBlockingApplicationReadiness(
+  readiness: BorrowerReadinessResult,
+) {
   return (
-    status === "incomplete" ||
-    status === "needs_review" ||
-    status === "not_eligible"
+    isBlockingApplicationReadinessStatus(readiness.readinessStatus) ||
+    readiness.missingFields.length > 0 ||
+    readiness.profileIsStale ||
+    readiness.riskFlags.some(isHardApplicationBlockerFlag)
+  );
+}
+
+function isHardApplicationBlockerFlag(flag: string) {
+  return [
+    "zero_revenue",
+    "non_positive_cash_flow",
+    "no_available_credit",
+    "suspended",
+    "account_not_active",
+  ].includes(flag);
+}
+
+function hasAdvisoryReadinessFlags(readiness: BorrowerReadinessResult) {
+  return (
+    readiness.riskFlags.length > 0 &&
+    !readiness.riskFlags.some(isHardApplicationBlockerFlag)
   );
 }
 
@@ -1134,6 +1160,22 @@ function OpenApplicationNotice() {
         <p className="text-sm text-muted-foreground">
           You already have an open application. You may still request up to your
           remaining available credit.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdvisoryReadinessNotice() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Lender review details
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Some details may be reviewed by lenders, but you can still submit an
+          application.
         </p>
       </CardContent>
     </Card>
@@ -1573,7 +1615,7 @@ function FinancingSummaryCard({
         readiness.readinessStatus === "eligible_to_apply"
       ? "Complete"
       : readiness.readinessStatus === "needs_review"
-        ? "Needs review"
+        ? "Ready with review notes"
         : readiness.readinessStatus === "not_eligible"
           ? "Not eligible"
           : "In progress";
@@ -1586,7 +1628,7 @@ function FinancingSummaryCard({
       : readiness.readinessStatus === "not_eligible"
         ? "danger"
         : readiness.readinessStatus === "needs_review"
-          ? "warning"
+          ? "success"
           : "neutral";
 
   return (
@@ -1677,9 +1719,7 @@ function FinancingSummaryCard({
                         ? "bg-[#33423C]"
                         : readinessTone === "danger"
                           ? "bg-destructive"
-                          : readinessTone === "warning"
-                            ? "bg-[#9A6B1D]"
-                            : "bg-muted-foreground",
+                          : "bg-muted-foreground",
                     )}
                     aria-hidden="true"
                   />
@@ -2362,7 +2402,8 @@ export function hasProfileReadinessIssue(
     [
       "zero_revenue",
       "non_positive_cash_flow",
-      "expenses_exceed_revenue",
+      "suspended",
+      "account_not_active",
     ].includes(flag),
   );
 }

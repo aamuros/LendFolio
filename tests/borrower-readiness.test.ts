@@ -193,7 +193,7 @@ describe("microbusiness borrower readiness", () => {
 
     expect(borrowerPortfolioSchema.safeParse(profile).success).toBe(true);
     expect(evaluateBorrowerReadiness(profile).readinessStatus).toBe(
-      "needs_review",
+      "eligible_to_apply",
     );
     expect(evaluateBorrowerReadiness(profile).riskFlags).not.toContain(
       "zero_revenue",
@@ -211,9 +211,49 @@ describe("microbusiness borrower readiness", () => {
       }),
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.riskFlags).not.toContain("not_eligible");
+  });
+
+  it("allows verified borrowers with available credit to apply with advisory risk flags", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        yearsInOperation: 0,
+      }),
+      {
+        accountStatus: "active",
+        borrowerVerification: {
+          ...verificationWithBusinessProof("accepted"),
+          documentPolicy: {
+            requiredDocumentTypes: ["valid_id", "business_proof"],
+            missingRequiredDocumentTypes: [],
+            submittedDocumentTypes: ["valid_id", "business_proof"],
+            acceptedDocumentTypes: ["valid_id", "business_proof"],
+            rejectedDocumentTypes: [],
+            readyForManagerReview: true,
+            documentsAccepted: true,
+          },
+        },
+        loanApplicationConsent: {
+          scope: "borrower_loan_application",
+          isCurrent: true,
+          required: [],
+          missing: [],
+          accepted: [],
+        },
+        creditSummary: creditSummary({
+          calculatedCreditLimit: 100_000,
+          availableCredit: 100_000,
+          maximumCap: 100_000,
+        }),
+      },
+    );
+
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
+    expect(readiness.riskFlags).toContain("very_new_business");
+    expect(readiness.riskFlags).not.toContain("no_business_proof");
+    expect(readiness.nextActions[0]).toContain("ready for review");
   });
 
   it("uses accepted verification business proof for profile readiness", () => {
@@ -613,7 +653,7 @@ describe("microbusiness borrower readiness", () => {
 
     expect(readiness.missingFields).not.toContain("Business region");
     expect(readiness.missingFields).not.toContain("Business street address");
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
   });
 
   it("derives business address readiness from home address when same as home", () => {
@@ -642,7 +682,7 @@ describe("microbusiness borrower readiness", () => {
 
     expect(readiness.missingFields).not.toContain("Business region");
     expect(readiness.missingFields).not.toContain("Business street address");
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
   });
 
   it("blocks zero revenue", () => {
@@ -678,7 +718,7 @@ describe("microbusiness borrower readiness", () => {
       }),
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
     expect(readiness.riskFlags).toContain("high_debt_burden");
   });
 
@@ -687,7 +727,7 @@ describe("microbusiness borrower readiness", () => {
       completeProfile({ yearsInOperation: 0.25 }),
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
     expect(readiness.riskFlags).toContain("very_new_business");
   });
 
@@ -696,7 +736,7 @@ describe("microbusiness borrower readiness", () => {
       completeProfile({ loanPurposeContext: "" }),
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
     expect(readiness.missingFields).toEqual([]);
     expect(readiness.nextActions[0]).toBe(
       "Next, upload your business proof so your profile can be reviewed.",
@@ -888,7 +928,7 @@ describe("microbusiness borrower readiness", () => {
       completeProfile({ revenueConfidence: "self_declared_only" }),
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("eligible_to_apply");
     expect(readiness.riskFlags).toContain("self_declared_income_only");
   });
 
@@ -969,7 +1009,7 @@ describe("microbusiness borrower readiness", () => {
       },
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("complete");
     expect(readiness.riskFlags).toContain("self_declared_income_only");
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.nextActions).toContain(
@@ -986,7 +1026,7 @@ describe("microbusiness borrower readiness", () => {
       },
     );
 
-    expect(readiness.readinessStatus).toBe("needs_review");
+    expect(readiness.readinessStatus).toBe("complete");
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.nextActions).toContain("Business proof is under review.");
   });

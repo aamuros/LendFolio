@@ -108,7 +108,7 @@ describe("borrower profile status", () => {
     expect(status.actionLabel).toBeNull();
   });
 
-  it("shows profile update before no available credit for profile risk flags", () => {
+  it("shows no available credit before advisory profile risk flags", () => {
     const status = getProfileStatus(
       "ready",
       portfolio,
@@ -121,8 +121,8 @@ describe("borrower profile status", () => {
       "approved",
     );
 
-    expect(status.label).toBe("Profile needs update");
-    expect(status.title).toBe("Review your profile");
-    expect(status.actionLabel).toBe("Update profile details");
+    expect(status.label).toBe("Credit limit reached");
+    expect(status.title).toBe("No available credit remaining");
+    expect(status.actionLabel).toBe("View borrowing power");
   });
 });
