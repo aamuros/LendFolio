@@ -1866,4 +1866,30 @@ describe("manager lender review page", () => {
     expect(migration).not.toContain("'code', 'active_application'");
     expect(migration).not.toContain("You already have an open application");
   });
+
+  it("uses the current borrower credit snapshot for application validation", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618174000_use_current_credit_snapshot_for_applications.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "create or replace function app_private.get_borrower_credit_snapshot",
+    );
+    expect(migration).toContain(
+      "create or replace function app_private.enforce_loan_application_credit_limit",
+    );
+    expect(migration).toContain(
+      "v_credit := app_private.get_borrower_credit_snapshot(v_actor_id, null);",
+    );
+    expect(migration).toContain(
+      "v_credit := app_private.get_borrower_credit_snapshot(new.borrower_id, new.id);",
+    );
+    expect(migration).toContain("and status in ('active', 'overdue')");
+    expect(migration).toContain("sum(principal_amount)");
+    expect(migration).toContain(
+      "Unable to verify your latest credit limit. Please refresh and try again.",
+    );
+    expect(migration).not.toContain("credit_limit_at_submission >");
+  });
 });
