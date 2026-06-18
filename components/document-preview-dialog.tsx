@@ -38,7 +38,10 @@ export function DocumentPreviewDialog({
   onOpenChange: (open: boolean) => void;
 }) {
   const isPdf = fileType === "application/pdf";
-  const isImage = fileType === "image/jpeg" || fileType === "image/png";
+  const isImage =
+    fileType === "image/jpeg" ||
+    fileType === "image/png" ||
+    fileType === "image/webp";
   const canRenderPreview = Boolean(viewUrl) && (isPdf || isImage);
   const [isLoading, setIsLoading] = useState(canRenderPreview);
   const [hasPreviewError, setHasPreviewError] = useState(false);

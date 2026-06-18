@@ -1253,6 +1253,28 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("loan_balance_updated");
   });
 
+  it("allows borrowers to preview only their own lender release proofs", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260619130000_allow_borrower_release_proof_preview.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      'create policy "storage_repayment_proofs_borrower_release_select"',
+    );
+    expect(migration).toContain("active_loans.borrower_id = (select auth.uid())");
+    expect(migration).toContain(
+      "active_loans.release_proof_url = storage.objects.name",
+    );
+    expect(migration).toContain(
+      "active_loans.id::text = split_part(storage.objects.name, '/', 4)",
+    );
+    expect(migration).toContain(
+      'create policy "storage_repayment_proofs_lender_release_select"',
+    );
+    expect(migration).toContain("active_loans.lender_id = (select auth.uid())");
+  });
+
   it("hardens repayment proof re-upload lifecycle", () => {
     const migration = readFileSync(
       "supabase/migrations/20260525014423_harden_repayment_proof_lifecycle_v2.sql",

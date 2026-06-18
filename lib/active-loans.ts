@@ -425,7 +425,7 @@ async function loadSchedulesForLoans(
   const releaseProofUrls = await Promise.all(
     loans.map((loan) =>
       loan.release_proof_url
-        ? getRepaymentProofSignedUrl(supabase, "repayment-proofs", loan.release_proof_url)
+        ? getReleaseProofSignedUrl(supabase, loan)
         : Promise.resolve(null),
     ),
   );
@@ -503,9 +503,54 @@ export async function getRepaymentProofSignedUrl(
   storageBucket: string,
   storagePath: string,
 ): Promise<string | null> {
-  const { data } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from(storageBucket)
     .createSignedUrl(storagePath, 300);
 
+  if (error) {
+    console.warn("Could not create repayment proof signed URL.", {
+      storageBucket,
+      storagePath,
+      message: error.message,
+    });
+  }
+
   return data?.signedUrl ?? null;
+}
+
+async function getReleaseProofSignedUrl(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  loan: ActiveLoanRow,
+): Promise<string | null> {
+  if (!loan.release_proof_url) {
+    return null;
+  }
+
+  const expectedPathPrefix = `lenders/${loan.lender_id}/loans/${loan.id}/release/`;
+
+  if (!loan.release_proof_url.startsWith(expectedPathPrefix)) {
+    console.warn("Release proof path does not match its active loan.", {
+      activeLoanId: loan.id,
+      lenderId: loan.lender_id,
+    });
+
+    return null;
+  }
+
+  const signedUrl = await getRepaymentProofSignedUrl(
+    supabase,
+    "repayment-proofs",
+    loan.release_proof_url,
+  );
+
+  if (!signedUrl) {
+    console.warn("Could not create release proof signed URL.", {
+      activeLoanId: loan.id,
+      borrowerId: loan.borrower_id,
+      lenderId: loan.lender_id,
+      disbursementStatus: loan.disbursement_status,
+    });
+  }
+
+  return signedUrl;
 }
