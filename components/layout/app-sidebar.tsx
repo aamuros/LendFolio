@@ -52,8 +52,13 @@ export function AppSidebar({
           "border-sidebar-border/80 bg-sidebar/95 [--sidebar-accent:#eff3ea] [--sidebar-accent-foreground:#33423c]",
       )}
     >
-      <SidebarHeader className={cn(isManager && "border-b border-sidebar-border/70 p-3")}>
-        <SidebarMenu>
+      <SidebarHeader
+        className={cn(
+          isManager &&
+            "border-b border-sidebar-border/70 p-3 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-3",
+        )}
+      >
+        <SidebarMenu className={cn(isManager && "group-data-[collapsible=icon]:items-center")}>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
@@ -61,11 +66,11 @@ export function AppSidebar({
               className={cn(
                 "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
                 isManager &&
-                  "h-13 rounded-xl hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent",
+                  "h-14 rounded-xl px-3 hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!",
               )}
             >
               <Link href={dashboardHref}>
-                <Logo variant="icon" size="md" />
+                <Logo variant="icon" size="md" className="object-contain" priority={isManager} />
                 <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold">LendFolio</span>
                   <span className="truncate text-xs text-sidebar-foreground/65">
@@ -91,7 +96,7 @@ export function AppSidebar({
                       tooltip={item.title}
                       className={cn(
                         isManager &&
-                          "rounded-lg text-sidebar-foreground/75 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-[inset_3px_0_0_#33423c]",
+                          "rounded-lg text-sidebar-foreground/75 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-[inset_3px_0_0_#33423c] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:data-active:shadow-none",
                       )}
                     >
                       <Link href={item.href}>
