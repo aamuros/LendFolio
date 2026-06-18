@@ -25,6 +25,7 @@ type ActiveLoanRow = Database["public"]["Tables"]["active_loans"]["Row"];
 export type DisbursementStatus =
   | "awaiting_release"
   | "released_by_lender"
+  | "release_disputed"
   | "received_by_borrower";
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
@@ -86,6 +87,13 @@ export type ActiveLoanSummary = {
   disbursementMethod: string | null;
   disbursementReference: string | null;
   disbursementNotes: string | null;
+  releaseProofUrl: string | null;
+  releaseProofFileName: string | null;
+  releaseProofFileType: string | null;
+  releaseProofFileSize: number | null;
+  releaseDisputedAt: string | null;
+  releaseDisputeReason: string | null;
+  releaseDisputedBy: string | null;
   borrowerReceivedAt: string | null;
   startedAt: string;
   dueDate: string;
@@ -112,7 +120,7 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, release_disputed_at, release_dispute_reason, release_disputed_by, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
@@ -249,6 +257,13 @@ export function mapActiveLoanRow(
     disbursementMethod: row.disbursement_method,
     disbursementReference: row.disbursement_reference,
     disbursementNotes: row.disbursement_notes,
+    releaseProofUrl: row.release_proof_url,
+    releaseProofFileName: row.release_proof_file_name,
+    releaseProofFileType: row.release_proof_file_type,
+    releaseProofFileSize: row.release_proof_file_size,
+    releaseDisputedAt: row.release_disputed_at,
+    releaseDisputeReason: row.release_dispute_reason,
+    releaseDisputedBy: row.release_disputed_by,
     borrowerReceivedAt: row.borrower_received_at,
     startedAt: row.started_at,
     dueDate: row.due_date,

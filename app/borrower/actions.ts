@@ -243,6 +243,16 @@ export type LoanFundsReceivedResult =
       message: string;
     };
 
+export type LoanReleaseReportResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type BorrowerVerificationDocumentSubmitResult =
   | {
       ok: true;
@@ -1966,6 +1976,63 @@ export async function confirmLoanFundsReceived(
     return {
       ok: false,
       message: "Could not confirm receipt.",
+    };
+  }
+}
+
+export async function reportLoanReleaseNotReceived(
+  activeLoanId: string,
+  reason: string,
+): Promise<LoanReleaseReportResult> {
+  const trimmedReason = reason.trim();
+
+  if (!trimmedReason) {
+    return {
+      ok: false,
+      message: "Enter a reason for the report.",
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "report_loan_release_not_received",
+      {
+        p_active_loan_id: activeLoanId,
+        p_reason: trimmedReason,
+      },
+    );
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not submit the report.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath(`/lender/loans/${activeLoanId}`);
+
+    return {
+      ok: true,
+      message: result.message ?? "Report submitted.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not submit the report.",
     };
   }
 }

@@ -1408,6 +1408,134 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(receivedLoan?.borrower_received_at).toBeTruthy();
   });
 
+  it("lets borrower report released funds not received and pauses repayment", async () => {
+    const { applicationId, offerId } = await createPendingOfferFixture(admin);
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+    const { data: activeLoan } = await borrower
+      .from("active_loans")
+      .select("id")
+      .eq("loan_application_id", applicationId)
+      .single();
+    const activeLoanId = activeLoan?.id as string;
+    const { data: schedule } = await borrower
+      .from("loan_repayment_schedules")
+      .select("id")
+      .eq("active_loan_id", activeLoanId)
+      .single();
+    const repaymentScheduleId = schedule?.id as string;
+
+    const release = await approvedLender.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "Bank transfer",
+      p_disbursement_reference: "BANK-123",
+      p_disbursement_notes: null,
+    });
+    expect(release.error).toBeNull();
+    expect(release.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const report = await borrower.rpc("report_loan_release_not_received", {
+      p_active_loan_id: activeLoanId,
+      p_reason: "No transfer arrived in my bank account.",
+    });
+    expect(report.error).toBeNull();
+    expect(report.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: disputedLoan } = await approvedLender
+      .from("active_loans")
+      .select("disbursement_status, release_disputed_at, release_dispute_reason, release_disputed_by, disbursement_method, disbursement_reference")
+      .eq("id", activeLoanId)
+      .single();
+    expect(disputedLoan?.disbursement_status).toBe("release_disputed");
+    expect(disputedLoan?.release_disputed_at).toBeTruthy();
+    expect(disputedLoan?.release_dispute_reason).toBe("No transfer arrived in my bank account.");
+    expect(disputedLoan?.release_disputed_by).toBe(ids.borrower);
+    expect(disputedLoan?.disbursement_method).toBe("Bank transfer");
+    expect(disputedLoan?.disbursement_reference).toBe("BANK-123");
+
+    const duplicateReport = await borrower.rpc("report_loan_release_not_received", {
+      p_active_loan_id: activeLoanId,
+      p_reason: "Still not received.",
+    });
+    expect(duplicateReport.error).toBeNull();
+    expect(duplicateReport.data as Json as DisbursementResult).toMatchObject({
+      ok: false,
+      message: "This release was already reported.",
+    });
+
+    const confirmAfterDispute = await borrower.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+    expect(confirmAfterDispute.error).toBeNull();
+    expect(confirmAfterDispute.data as Json as DisbursementResult).toMatchObject({
+      ok: false,
+      message: "This release is under review.",
+    });
+
+    const submitResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "release-disputed",
+    );
+    expect(submitResult).toMatchObject({
+      ok: false,
+      message: "Confirm money received before uploading repayment proof.",
+    });
+  });
+
+  it("prevents borrower from reporting funds not received after confirming receipt", async () => {
+    const { applicationId, offerId } = await createPendingOfferFixture(admin);
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+    const { data: activeLoan } = await borrower
+      .from("active_loans")
+      .select("id")
+      .eq("loan_application_id", applicationId)
+      .single();
+    const activeLoanId = activeLoan?.id as string;
+
+    const release = await approvedLender.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "GCash",
+      p_disbursement_reference: "GCASH-456",
+      p_disbursement_notes: null,
+    });
+    expect(release.error).toBeNull();
+
+    const received = await borrower.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+    expect(received.error).toBeNull();
+    expect(received.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const report = await borrower.rpc("report_loan_release_not_received", {
+      p_active_loan_id: activeLoanId,
+      p_reason: "Trying after confirmation.",
+    });
+    expect(report.error).toBeNull();
+    expect(report.data as Json as DisbursementResult).toMatchObject({
+      ok: false,
+      message: "Money receipt was already confirmed.",
+    });
+  });
+
   it("enforces the approved lender configured min and max loan range", async () => {
     const { applicationId } = await createPortfolioAndApplication(borrower);
 

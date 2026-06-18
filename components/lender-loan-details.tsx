@@ -29,6 +29,7 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
   const isReadOnly = isCompletedLoan(activeLoan);
   const isAwaitingRelease = activeLoan.disbursementStatus === "awaiting_release";
   const isFundsReleased = activeLoan.disbursementStatus === "released_by_lender";
+  const isReleaseDisputed = activeLoan.disbursementStatus === "release_disputed";
   const fundsReceived = activeLoan.disbursementStatus === "received_by_borrower";
 
   return (
@@ -126,6 +127,25 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
             <Alert>
               <AlertDescription className="font-semibold">
                 Funds were marked released. Waiting for the borrower to confirm receipt.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly && isReleaseDisputed ? (
+            <Alert variant="destructive">
+              <AlertDescription className="grid gap-2">
+                <span className="font-semibold">
+                  Borrower reported funds not received.
+                </span>
+                <span>
+                  Reported {activeLoan.releaseDisputedAt ? formatDate(activeLoan.releaseDisputedAt) : "by borrower"}
+                </span>
+                {activeLoan.releaseDisputeReason ? (
+                  <span>Reason: {activeLoan.releaseDisputeReason}</span>
+                ) : null}
+                <span>
+                  Repayment management is paused until the release is reviewed.
+                </span>
               </AlertDescription>
             </Alert>
           ) : null}
@@ -236,6 +256,10 @@ export function LoanStatusBadge({
 
   if (disbursementStatus === "released_by_lender") {
     return <ToneBadge tone="neutral">Funds released</ToneBadge>;
+  }
+
+  if (disbursementStatus === "release_disputed") {
+    return <ToneBadge tone="danger">Funds disputed</ToneBadge>;
   }
 
   const tone = status === "overdue" ? "danger" : "success";

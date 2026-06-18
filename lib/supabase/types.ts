@@ -59,6 +59,7 @@ export type ActiveLoanStatus =
 export type DisbursementStatus =
   | "awaiting_release"
   | "released_by_lender"
+  | "release_disputed"
   | "received_by_borrower";
 export type RepaymentStatus =
   | "due"
@@ -204,6 +205,9 @@ export type Database = {
           release_proof_file_name: string | null;
           release_proof_file_type: string | null;
           release_proof_file_size: number | null;
+          release_disputed_at: string | null;
+          release_dispute_reason: string | null;
+          release_disputed_by: string | null;
           borrower_received_at: string | null;
           started_at: string;
           due_date: string;
@@ -236,6 +240,9 @@ export type Database = {
           release_proof_file_name?: string | null;
           release_proof_file_type?: string | null;
           release_proof_file_size?: number | null;
+          release_disputed_at?: string | null;
+          release_dispute_reason?: string | null;
+          release_disputed_by?: string | null;
           borrower_received_at?: string | null;
           started_at?: string;
           due_date: string;
@@ -268,6 +275,9 @@ export type Database = {
           release_proof_file_name?: string | null;
           release_proof_file_type?: string | null;
           release_proof_file_size?: number | null;
+          release_disputed_at?: string | null;
+          release_dispute_reason?: string | null;
+          release_disputed_by?: string | null;
           borrower_received_at?: string | null;
           started_at?: string;
           due_date?: string;
@@ -1546,6 +1556,13 @@ export type Database = {
       confirm_loan_funds_received: {
         Args: {
           p_active_loan_id: string;
+        };
+        Returns: Json;
+      };
+      report_loan_release_not_received: {
+        Args: {
+          p_active_loan_id: string;
+          p_reason: string;
         };
         Returns: Json;
       };

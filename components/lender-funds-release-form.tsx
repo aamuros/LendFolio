@@ -1,11 +1,13 @@
 "use client";
 
+import { Upload, X } from "lucide-react";
 import { useActionState, useRef, useState } from "react";
 import {
   markLoanFundsReleased,
   type LoanFundsReleaseResult,
 } from "@/app/lender/actions";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -40,6 +42,7 @@ export function LenderFundsReleaseForm({
   const [method, setMethod] = useState("");
   const [customMethod, setCustomMethod] = useState("");
   const [selectedFileName, setSelectedFileName] = useState("");
+  const [selectedFileSize, setSelectedFileSize] = useState("");
   const [clientMethodError, setClientMethodError] = useState<string | null>(null);
   const [clientCustomMethodError, setClientCustomMethodError] = useState<
     string | null
@@ -54,6 +57,7 @@ export function LenderFundsReleaseForm({
 
   function clearSelectedFile() {
     setSelectedFileName("");
+    setSelectedFileSize("");
     setClientFileError(null);
 
     if (fileInputRef.current) {
@@ -67,10 +71,12 @@ export function LenderFundsReleaseForm({
 
     if (!file) {
       setSelectedFileName("");
+      setSelectedFileSize("");
       return;
     }
 
     setSelectedFileName(file.name);
+    setSelectedFileSize(formatFileSize(file.size));
 
     if (!releaseProofAllowedTypes.has(file.type)) {
       setClientFileError("Upload a PNG, JPG, WEBP, or PDF file.");
@@ -193,34 +199,67 @@ export function LenderFundsReleaseForm({
         </div>
       </div>
       <div className="grid gap-2">
-        <Label htmlFor={`proof-${activeLoanId}`}>
-          Upload release proof (optional)
-        </Label>
-        <Input
+        <div className="flex items-center gap-2">
+          <Label htmlFor={`proof-${activeLoanId}`}>Release proof</Label>
+          <Badge variant="outline" className="bg-muted/30 text-muted-foreground">
+            Optional
+          </Badge>
+        </div>
+        <input
           ref={fileInputRef}
           id={`proof-${activeLoanId}`}
           name="proofFile"
           type="file"
           accept="image/png,image/jpeg,image/webp,application/pdf"
           onChange={handleFileChange}
+          className="sr-only"
         />
-        <p className="text-sm text-muted-foreground">
-          Receipt, screenshot, or transfer confirmation. Max 5MB.
-        </p>
-        {selectedFileName ? (
-          <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="font-medium text-foreground">{selectedFileName}</span>
+        <div className="rounded-xl border border-border bg-muted/30 p-3">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
             <Button
               type="button"
-              variant="ghost"
-              size="sm"
-              onClick={clearSelectedFile}
-              className="h-8 px-2"
+              variant="outline"
+              onClick={() => fileInputRef.current?.click()}
+              className="h-9 w-fit rounded-xl"
+              disabled={isPending || state?.ok}
             >
-              Clear
+              <Upload aria-hidden="true" />
+              Choose file
             </Button>
+            <div className="min-w-0 flex-1 text-sm">
+              {selectedFileName ? (
+                <div className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+                  <span className="truncate font-medium text-foreground">
+                    {selectedFileName}
+                  </span>
+                  {selectedFileSize ? (
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {selectedFileSize}
+                    </span>
+                  ) : null}
+                </div>
+              ) : (
+                <span className="text-muted-foreground">No file selected</span>
+              )}
+            </div>
+            {selectedFileName ? (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={clearSelectedFile}
+                className="h-8 w-fit rounded-xl px-2 text-muted-foreground"
+                disabled={isPending || state?.ok}
+              >
+                <X aria-hidden="true" />
+                Clear
+              </Button>
+            ) : null}
           </div>
-        ) : null}
+        </div>
+        <p className="text-sm text-muted-foreground">
+          PNG, JPG, WEBP, or PDF up to 5MB.
+        </p>
         {proofError ? (
           <p className="text-sm text-destructive">{proofError}</p>
         ) : null}
@@ -246,4 +285,12 @@ export function LenderFundsReleaseForm({
       </Button>
     </form>
   );
+}
+
+function formatFileSize(size: number) {
+  if (size < 1024 * 1024) {
+    return `${Math.max(1, Math.round(size / 1024))} KB`;
+  }
+
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
 }

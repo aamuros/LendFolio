@@ -25,6 +25,7 @@ import {
   dismissWithdrawnLoanApplication,
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
+  reportLoanReleaseNotReceived,
   submitRepaymentProof,
   submitLoanApplication,
   updateLoanApplication,
@@ -3534,7 +3535,10 @@ function ActiveLoanCard({
   const loanIsCompleted = isCompletedLoan(loan);
   const isAwaitingRelease = loan.disbursementStatus === "awaiting_release";
   const isFundsReleased = loan.disbursementStatus === "released_by_lender";
+  const isReleaseDisputed = loan.disbursementStatus === "release_disputed";
   const fundsReceived = loan.disbursementStatus === "received_by_borrower";
+  const canReportReleaseNotReceived =
+    isFundsReleased && !loan.borrowerReceivedAt && !loanIsCompleted;
   const primaryAmount = loanIsCompleted ? paidAmount : loan.outstandingBalance;
   const remainingAmount = loanIsCompleted ? 0 : loan.outstandingBalance;
   const scheduleTotal = loan.schedule.reduce(
@@ -3598,11 +3602,52 @@ function ActiveLoanCard({
                   {loan.disbursementNotes ? (
                     <SummaryItem label="Notes" value={loan.disbursementNotes} />
                   ) : null}
+                  {loan.releaseProofFileName ? (
+                    <SummaryItem label="Proof" value={loan.releaseProofFileName} />
+                  ) : null}
                 </dl>
-                <ConfirmMoneyReceivedButton
-                  activeLoanId={loan.id}
-                  onSuccess={onProofSubmitted}
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ConfirmMoneyReceivedButton
+                    activeLoanId={loan.id}
+                    onSuccess={onProofSubmitted}
+                  />
+                  {canReportReleaseNotReceived ? (
+                    <ReportFundsNotReceivedButton
+                      activeLoanId={loan.id}
+                      onSuccess={onProofSubmitted}
+                    />
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isReleaseDisputed ? (
+            <Card className="rounded-xl border-destructive/30 bg-destructive/5">
+              <CardContent className="grid gap-3 p-4">
+                <ActionBanner
+                  tone="error"
+                  title="Funds not received"
+                  message="You reported that the money was not received. The lender/manager must review the release before this loan can continue."
                 />
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <SummaryItem
+                    label="Reported"
+                    value={loan.releaseDisputedAt ? formatDate(loan.releaseDisputedAt) : "Submitted"}
+                  />
+                  {loan.releaseDisputeReason ? (
+                    <SummaryItem label="Reason" value={loan.releaseDisputeReason} />
+                  ) : null}
+                  {loan.disbursementMethod ? (
+                    <SummaryItem label="Release method" value={loan.disbursementMethod} />
+                  ) : null}
+                  {loan.disbursementReference ? (
+                    <SummaryItem label="Reference" value={loan.disbursementReference} />
+                  ) : null}
+                  {loan.releaseProofFileName ? (
+                    <SummaryItem label="Proof" value={loan.releaseProofFileName} />
+                  ) : null}
+                </dl>
               </CardContent>
             </Card>
           ) : null}
@@ -4021,6 +4066,92 @@ function ConfirmMoneyReceivedButton({
   );
 }
 
+function ReportFundsNotReceivedButton({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function onSubmit() {
+    setMessage("");
+
+    if (!reason.trim()) {
+      setMessage("Enter a reason for the report.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await reportLoanReleaseNotReceived(activeLoanId, reason);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      setOpen(false);
+      setReason("");
+      setMessage("");
+      onSuccess();
+    });
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        className="h-10 rounded-full border-destructive/40 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+      >
+        I did not receive the money
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Report funds not received?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Use this only if the lender marked the funds as released but the money has not arrived in your account.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="grid gap-2">
+          <Label htmlFor={`release-report-reason-${activeLoanId}`}>Reason</Label>
+          <Textarea
+            id={`release-report-reason-${activeLoanId}`}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              setMessage("");
+            }}
+            placeholder="Example: I checked my GCash/bank account but no transfer was received."
+            maxLength={500}
+            required
+          />
+          {message ? (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {message}
+            </p>
+          ) : null}
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={isPending || !reason.trim()}
+          >
+            {isPending ? "Submitting..." : "Submit report"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 function RepaymentProofForm({
   isRejected,
   repaymentId,
@@ -4373,6 +4504,10 @@ function LoanStatusPill({
 
   if (disbursementStatus === "released_by_lender") {
     return <StatusPill tone="neutral">Funds released</StatusPill>;
+  }
+
+  if (disbursementStatus === "release_disputed") {
+    return <StatusPill tone="danger">Funds disputed</StatusPill>;
   }
 
   const tone = status === "overdue" ? "danger" : "success";
