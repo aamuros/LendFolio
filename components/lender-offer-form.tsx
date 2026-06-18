@@ -101,7 +101,7 @@ export function LenderOfferForm({
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
-        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,22rem)] lg:items-start">
+        <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(20rem,22rem)]">
           <div className="grid gap-4">
             <div className="rounded-lg border border-border bg-muted/30 px-3 py-2.5">
               <p className="text-sm font-semibold">Borrower credit capacity</p>
@@ -116,10 +116,11 @@ export function LenderOfferForm({
             </div>
 
             <Section title="Loan terms">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field
+              <div className="grid gap-x-4 gap-y-5 md:grid-cols-2">
+                <LoanTermField
                   label="Approved amount (principal)"
                   error={state.fieldErrors?.approvedAmount?.[0]}
+                  helper=" "
                 >
                   <CurrencyInput
                     name="approvedAmount"
@@ -127,11 +128,12 @@ export function LenderOfferForm({
                     disabled={isPending}
                     onChange={(event) => setApprovedAmount(event.currentTarget.value)}
                   />
-                </Field>
+                </LoanTermField>
 
-                <Field
+                <LoanTermField
                   label="Interest / service charge rate (%)"
                   error={state.fieldErrors?.interestServiceChargeRate?.[0]}
+                  helper={`Charge: PHP ${formatCurrency(interestServiceCharge)}`}
                 >
                   <Input
                     type="number"
@@ -147,14 +149,12 @@ export function LenderOfferForm({
                       setInterestServiceChargeRate(event.currentTarget.value)
                     }
                   />
-                  <span className="text-xs text-muted-foreground">
-                    Charge: PHP {formatCurrency(interestServiceCharge)}
-                  </span>
-                </Field>
+                </LoanTermField>
 
-                <Field
+                <LoanTermField
                   label="Other borrower-paid fees (optional)"
                   error={state.fieldErrors?.fees?.[0]}
+                  helper="Use 0 if there are no additional fees."
                 >
                   <CurrencyInput
                     name="fees"
@@ -163,12 +163,13 @@ export function LenderOfferForm({
                     emptyValue={0}
                     onChange={(event) => setFees(event.currentTarget.value)}
                   />
-                  <span className="text-xs text-muted-foreground">
-                    Use 0 if there are no additional fees.
-                  </span>
-                </Field>
+                </LoanTermField>
 
-                <Field label="Final repayment date" error={state.fieldErrors?.dueDate?.[0]}>
+                <LoanTermField
+                  label="Final repayment date"
+                  error={state.fieldErrors?.dueDate?.[0]}
+                  helper={`Borrower prefers ${preferredTermLabel}. Earlier installments are spaced monthly.`}
+                >
                   <Input
                     type="date"
                     name="dueDate"
@@ -176,11 +177,7 @@ export function LenderOfferForm({
                     disabled={isPending}
                     className="h-9"
                   />
-                  <span className="text-xs text-muted-foreground">
-                    Borrower prefers {preferredTermLabel}. Earlier installments
-                    are spaced monthly.
-                  </span>
-                </Field>
+                </LoanTermField>
               </div>
             </Section>
 
@@ -273,7 +270,7 @@ export function LenderOfferForm({
             </Section>
           </div>
 
-          <aside className="grid gap-4 self-start">
+          <aside className="grid w-full gap-4 self-start">
             <RepaymentSummary
               approvedAmount={parsedApprovedAmount}
               interestRate={parsedInterestRate}
@@ -317,7 +314,7 @@ export function LenderOfferForm({
         </div>
       </div>
 
-      <div className="grid shrink-0 gap-2 border-t border-border bg-popover px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] sm:flex sm:items-center sm:justify-between sm:px-5">
+      <div className="grid shrink-0 gap-2 border-t border-border bg-popover px-4 py-3 sm:flex sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-baseline justify-between gap-3 sm:grid sm:justify-start sm:gap-0.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Total repayment
@@ -334,7 +331,7 @@ export function LenderOfferForm({
             exceedsRequestedAmount ||
             hasNegativeInputs
           }
-          className="h-11 rounded-full font-semibold"
+          className="h-11 rounded-full font-semibold sm:ml-auto"
         >
           {isPending ? "Sending..." : "Send offer"}
         </Button>
@@ -436,6 +433,32 @@ function RepaymentSummary({
         </div>
       </dl>
     </section>
+  );
+}
+
+function LoanTermField({
+  label,
+  error,
+  helper,
+  children,
+}: {
+  label: string;
+  error?: string;
+  helper: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className="grid content-start gap-2">
+      <Label className="text-sm font-semibold">{label}</Label>
+      {children}
+      {error ? (
+        <p className="min-h-6 text-sm leading-6 text-destructive">{error}</p>
+      ) : (
+        <p className="min-h-6 text-sm leading-6 text-muted-foreground">
+          {helper}
+        </p>
+      )}
+    </div>
   );
 }
 

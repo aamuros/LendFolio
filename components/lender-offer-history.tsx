@@ -14,13 +14,63 @@ export function LenderOfferHistory({
   offers,
   compact = false,
 }: LenderOfferHistoryProps) {
-  if (offers.length === 0 && compact) {
+  if (compact) {
     return (
-      <section className="grid gap-2">
+      <section className="grid gap-3 rounded-lg border border-border bg-background px-3 py-3">
         <h3 className="text-sm font-semibold">Offer history</h3>
-        <p className="text-xs leading-5 text-muted-foreground">
-          No previous offers yet.
-        </p>
+        {offers.length > 0 ? (
+          <div className="grid gap-2">
+            {offers.map((offer) => (
+              <div
+                key={offer.id}
+                className={cn(
+                  "grid gap-3 rounded-lg border border-border/60 bg-muted/30 p-3",
+                  offer.status !== "pending" && "opacity-75",
+                )}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Approved
+                    </p>
+                    <p className="mt-1 text-lg font-semibold">
+                      PHP {formatCurrency(offer.approvedAmount)}
+                    </p>
+                  </div>
+                  <OfferHistoryBadge status={offer.status} />
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <ReviewItem
+                    label="Interest/service charge"
+                    value={`PHP ${formatCurrency(offer.interestAmount)}`}
+                  />
+                  <ReviewItem
+                    label="Fees"
+                    value={`PHP ${formatCurrency(offer.fees)}`}
+                  />
+                  <ReviewItem
+                    label="Total repayment"
+                    value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
+                  />
+                  <ReviewItem
+                    label="Final repayment"
+                    value={formatDateOnly(offer.dueDate)}
+                  />
+                  <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
+                </dl>
+                {offer.remarks ? (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    {offer.remarks}
+                  </p>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        ) : (
+          <p className="rounded-lg border border-dashed border-border/60 bg-muted/30 p-3 text-sm leading-6 text-muted-foreground">
+            No offers have been sent for this application yet.
+          </p>
+        )}
       </section>
     );
   }
