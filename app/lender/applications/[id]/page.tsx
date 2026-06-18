@@ -18,10 +18,6 @@ import { Button } from "@/components/ui/button";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
-import {
-  formatCreditProfileGrade,
-  getGradeTone,
-} from "@/lib/borrower-credit-profile-grade";
 
 export const dynamic = "force-dynamic";
 
@@ -94,6 +90,7 @@ export default async function LenderApplicationDetailPage({
             <LenderReviewPage>
               <ReviewFinancialsSection application={application} />
               <ReviewCreditSection application={application} />
+              <CreditProfileGradeSection application={application} />
 
               <OfferActionSection
                 application={application}
@@ -275,7 +272,7 @@ function ReviewFinancialsSection({
   >;
 }) {
   return (
-    <section className="grid gap-3 border-t border-border pt-6">
+    <section className="grid gap-3">
       <h2 className="text-lg font-semibold">Financials</h2>
       <dl className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
         <Metric
@@ -345,7 +342,6 @@ function ReviewCreditSection({
           </p>
         )}
 
-        <CreditProfileGradeSection application={application} compact />
       </div>
     </section>
   );
@@ -521,128 +517,83 @@ function getDefaultDueDate() {
 
 function CreditProfileGradeSection({
   application,
-  compact = false,
 }: {
   application: {
-    creditProfileGrade: string | null;
-    creditProfileAssessment: {
-      grade: string;
-      label: string;
-      summary: string;
-      positiveFactors: string[];
-      riskFactors: string[];
-    } | null;
-    creditReadinessStatus: string | null;
-    availableCreditAtSubmission: number | null;
-    monthlyNetCashFlowAtSubmission: number | null;
-    creditProfileAssessmentSource: "stored" | "derived" | null;
+    creditProfileHistory: LenderApplicationReview["creditProfileHistory"];
+    creditReadinessStatus: LenderApplicationReview["creditReadinessStatus"];
   };
-  compact?: boolean;
 }) {
-  const grade = application.creditProfileGrade;
-  const assessment = application.creditProfileAssessment;
-
-  if (!grade) {
-    return compact ? (
-      <div className="grid gap-2 border-t border-border pt-4">
-        <p className="text-xs font-semibold text-foreground">
-          Credit profile grade
-        </p>
-        <p className="text-sm leading-6 text-muted-foreground">
-          Credit profile snapshot is incomplete.
-        </p>
-      </div>
-    ) : (
-      <section className="grid gap-3">
-        <h2 className="text-lg font-semibold">Credit profile grade</h2>
-        <Card className="rounded-2xl border-border/50 shadow-sm">
-          <CardContent className="p-4">
-            <p className="text-sm leading-6 text-muted-foreground">
-              Credit profile snapshot is incomplete.
-            </p>
-          </CardContent>
-        </Card>
-      </section>
-    );
-  }
-
-  const tone = getGradeTone(grade as Parameters<typeof getGradeTone>[0]);
-  const content = (
-    <div className={cn("grid gap-4", compact && "border-t border-border pt-4")}>
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="grid gap-1">
-          <p className="text-xs font-semibold text-muted-foreground">
-            Credit Profile Grade
-          </p>
-          <div className="flex items-center gap-2">
-            <ToneBadge tone={tone}>
-              {formatCreditProfileGrade(
-                grade as Parameters<typeof formatCreditProfileGrade>[0],
-              )}
-            </ToneBadge>
-            {assessment?.label ? (
-              <span className="text-sm text-muted-foreground">
-                {assessment.label}
-              </span>
-            ) : null}
-          </div>
-        </div>
-      </div>
-
-      {assessment?.summary ? (
-        <p className="text-sm leading-6 text-muted-foreground">
-          {assessment.summary}
-        </p>
-      ) : null}
-
-      {application.creditProfileAssessmentSource === "derived" ? (
-        <p className="text-xs leading-relaxed text-muted-foreground">
-          Generated from submitted profile snapshot.
-        </p>
-      ) : null}
-
-      <p className="text-xs leading-relaxed text-muted-foreground">
-        This grade summarizes profile completeness, cash flow strength, debt
-        burden, verification status, and risk flags. It is not a formal credit
-        score and does not approve or reject the loan.
-      </p>
-
-      {assessment?.positiveFactors && assessment.positiveFactors.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold text-foreground">
-            Positive factors
-          </p>
-          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
-            {assessment.positiveFactors.map((factor, index) => (
-              <li key={index}>{factor}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-
-      {assessment?.riskFactors && assessment.riskFactors.length > 0 ? (
-        <div>
-          <p className="text-xs font-semibold text-foreground">Risk notes</p>
-          <ul className="mt-1 grid gap-1 text-xs leading-relaxed text-muted-foreground">
-            {assessment.riskFactors.map((factor, index) => (
-              <li key={index}>{factor}</li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </div>
-  );
-
-  if (compact) {
-    return content;
-  }
+  const history = getLenderFacingCreditHistory(application);
+  const tone = getCreditHistoryTone(history.status);
 
   return (
-    <section className="grid gap-3">
-      <h2 className="text-lg font-semibold">Credit profile grade</h2>
+    <section className="grid gap-3 border-t border-border pt-6">
       <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="p-4">{content}</CardContent>
+        <CardContent className="grid gap-4 p-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="grid gap-2">
+              <p className="text-xs font-semibold text-muted-foreground">
+                Credit Profile Grade
+              </p>
+              <ToneBadge tone={tone}>{history.label}</ToneBadge>
+            </div>
+          </div>
+
+          <p className="text-sm leading-6 text-muted-foreground">
+            {history.description}
+          </p>
+
+          <dl className="grid grid-cols-3 gap-3 text-sm">
+            <Metric
+              label="Completed loan cycles"
+              value={String(history.completedLoanCycles)}
+            />
+            <Metric
+              label="On-time repayments"
+              value={
+                history.onTimeRepayments === null
+                  ? "-"
+                  : String(history.onTimeRepayments)
+              }
+            />
+            <Metric label="Active loans" value={String(history.activeLoanCount)} />
+          </dl>
+        </CardContent>
       </Card>
     </section>
   );
+}
+
+function getLenderFacingCreditHistory(application: {
+  creditProfileHistory: LenderApplicationReview["creditProfileHistory"];
+  creditReadinessStatus: LenderApplicationReview["creditReadinessStatus"];
+}): LenderApplicationReview["creditProfileHistory"] {
+  if (
+    application.creditReadinessStatus === "incomplete" ||
+    application.creditReadinessStatus === "not_eligible"
+  ) {
+    return {
+      ...application.creditProfileHistory,
+      status: "needs_review",
+      label: "Needs review",
+      description:
+        "Current profile or verification status needs review before an offer decision.",
+    };
+  }
+
+  return application.creditProfileHistory;
+}
+
+function getCreditHistoryTone(
+  status: LenderApplicationReview["creditProfileHistory"]["status"],
+) {
+  if (status === "needs_review") {
+    return "attention";
+  }
+
+  if (status === "good_payer" || status === "strong_repeat_payer") {
+    return "success";
+  }
+
+  return "neutral";
 }

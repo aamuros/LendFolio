@@ -47,7 +47,25 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     estimatedNetMonthlyRevenue: number;
     monthlyCashAfterLoanPayments: number;
   };
+  creditProfileHistory: BorrowerCreditProfileHistorySummary;
   offers: LoanOfferSummary[];
+};
+
+export type BorrowerCreditProfileHistoryStatus =
+  | "first_time_applicant"
+  | "completed_one_cycle"
+  | "completed_multiple_cycles"
+  | "good_payer"
+  | "strong_repeat_payer"
+  | "needs_review";
+
+export type BorrowerCreditProfileHistorySummary = {
+  status: BorrowerCreditProfileHistoryStatus;
+  label: string;
+  description: string;
+  completedLoanCycles: number;
+  onTimeRepayments: number | null;
+  activeLoanCount: number;
 };
 
 export type LenderOfferReview = LoanOfferSummary & {
@@ -115,6 +133,10 @@ const lenderReviewPortfolioSelect =
 
 const lenderReviewOfferSelect =
   "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+const lenderReviewActiveLoanSelect =
+  "id, borrower_id, lender_id, status";
+const lenderReviewRepaymentScheduleSelect =
+  "active_loan_id, status";
 
 export async function loadOpenLenderApplications(
   verifiedAccess?: ApprovedLenderAccess,
@@ -307,8 +329,9 @@ export async function loadLenderApplicationDetail(
       };
     }
 
-    const offerFlagsResult = await loadAcceptedOfferFlags(supabase, [
-      application.id,
+    const [offerFlagsResult, creditProfileHistory] = await Promise.all([
+      loadAcceptedOfferFlags(supabase, [application.id]),
+      loadBorrowerCreditProfileHistory(supabase, application.borrower_id),
     ]);
 
     if (!offerFlagsResult.ok) {
@@ -328,6 +351,7 @@ export async function loadLenderApplicationDetail(
         portfolio,
         offers,
         offerFlagsResult.flags.get(application.id) ?? false,
+        creditProfileHistory,
       ),
       message: "Application loaded.",
     };
@@ -506,6 +530,10 @@ function toLenderApplicationReview(
   portfolio: BorrowerPortfolioRow,
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
   hasAcceptedOffer = offers.some((offer) => offer.status === "accepted"),
+  creditProfileHistory: BorrowerCreditProfileHistorySummary = buildBorrowerCreditProfileHistorySummary(
+    [],
+    [],
+  ),
 ): LenderApplicationReview {
   const mappedApplication = mapLoanApplicationRow(application);
   const reviewPortfolio = getSubmittedPortfolio(application, portfolio);
@@ -538,7 +566,135 @@ function toLenderApplicationReview(
       monthlyCashAfterLoanPayments:
         estimatedNetMonthlyRevenue - existingLoanPayments,
     },
+    creditProfileHistory,
     offers: offers.map(mapLoanOfferRow),
+  };
+}
+
+async function loadBorrowerCreditProfileHistory(
+  supabase: SupabaseServerClient,
+  borrowerId: string,
+): Promise<BorrowerCreditProfileHistorySummary> {
+  const { data: loans, error: loansError } = await supabase
+    .from("active_loans")
+    .select(lenderReviewActiveLoanSelect)
+    .eq("borrower_id", borrowerId);
+
+  if (loansError || loans.length === 0) {
+    return buildBorrowerCreditProfileHistorySummary([], []);
+  }
+
+  const loanIds = loans.map((loan) => loan.id);
+  const { data: repayments, error: repaymentsError } = await supabase
+    .from("loan_repayment_schedules")
+    .select(lenderReviewRepaymentScheduleSelect)
+    .in("active_loan_id", loanIds);
+
+  return buildBorrowerCreditProfileHistorySummary(
+    loans,
+    repaymentsError ? [] : repayments,
+  );
+}
+
+function buildBorrowerCreditProfileHistorySummary(
+  loans: Pick<
+    Database["public"]["Tables"]["active_loans"]["Row"],
+    "id" | "status"
+  >[],
+  repayments: Pick<
+    Database["public"]["Tables"]["loan_repayment_schedules"]["Row"],
+    "active_loan_id" | "status"
+  >[],
+): BorrowerCreditProfileHistorySummary {
+  const completedLoanCycles = loans.filter((loan) =>
+    loan.status === "paid" || loan.status === "closed"
+  ).length;
+  const activeLoanCount = loans.filter((loan) =>
+    loan.status === "active" || loan.status === "overdue"
+  ).length;
+  const hasRepaymentConcern =
+    loans.some((loan) => loan.status === "overdue" || loan.status === "defaulted") ||
+    repayments.some((repayment) =>
+      repayment.status === "late" || repayment.status === "rejected"
+    );
+  const onTimeRepayments =
+    repayments.length === 0
+      ? null
+      : repayments.filter((repayment) => repayment.status === "verified").length;
+  const hasCleanCompletedHistory =
+    completedLoanCycles > 0 &&
+    repayments.length > 0 &&
+    repayments.every((repayment) => repayment.status === "verified") &&
+    !hasRepaymentConcern;
+
+  if (hasRepaymentConcern) {
+    return {
+      status: "needs_review",
+      label: "Needs review",
+      description:
+        "Repayment history includes an overdue or unresolved repayment item.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+    };
+  }
+
+  if (completedLoanCycles >= 2 && hasCleanCompletedHistory) {
+    return {
+      status: "strong_repeat_payer",
+      label: "Strong repeat payer",
+      description:
+        "Completed 2+ loan cycles with no missed repayments in available records.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+    };
+  }
+
+  if (hasCleanCompletedHistory) {
+    return {
+      status: "good_payer",
+      label: "Good payer",
+      description:
+        "Completed loan cycle with no missed repayments in available records.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+    };
+  }
+
+  if (completedLoanCycles >= 2) {
+    return {
+      status: "completed_multiple_cycles",
+      label: "Completed 2+ loan cycles",
+      description:
+        "Borrower has completed repeat loan cycles. Review current financials before sending an offer.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+    };
+  }
+
+  if (completedLoanCycles === 1) {
+    return {
+      status: "completed_one_cycle",
+      label: "Completed 1 loan cycle",
+      description:
+        "Borrower has completed one loan cycle. Review current financials before sending an offer.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+    };
+  }
+
+  return {
+    status: "first_time_applicant",
+    label: "First-time applicant",
+    description:
+      "No completed loan cycles yet. Review submitted financials and verification before sending an offer.",
+    completedLoanCycles,
+    onTimeRepayments,
+    activeLoanCount,
   };
 }
 
