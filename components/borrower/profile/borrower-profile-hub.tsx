@@ -576,27 +576,18 @@ export function getProfileStatus(
     };
   }
 
-  const hasVagueLoanPurpose =
-    readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
   const hasProfileReadinessIssue = hasActualProfileReadinessIssue(readiness);
 
-  if (hasVagueLoanPurpose || hasProfileReadinessIssue) {
-    const isLoanPurposeIssue = hasVagueLoanPurpose;
-
+  if (hasProfileReadinessIssue) {
     return {
       tone: "attention" as const,
-      label: isLoanPurposeIssue ? "Update needed" : "Profile needs update",
-      title: isLoanPurposeIssue
-        ? "Add more detail to your loan purpose"
-        : "Review your profile",
-      description: isLoanPurposeIssue
-        ? "Add more detail to your loan purpose before applying."
-        : readiness?.nextActions[0] ??
-          "Some profile details may affect loan application readiness.",
+      label: "Profile needs update",
+      title: "Review your profile",
+      description:
+        readiness?.nextActions[0] ??
+        "Some profile details may affect loan application readiness.",
       action: "edit" as const,
-      actionLabel: isLoanPurposeIssue
-        ? "Edit loan purpose"
-        : "Update profile details",
+      actionLabel: "Update profile details",
     };
   }
 

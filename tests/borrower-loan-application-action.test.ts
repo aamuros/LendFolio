@@ -73,13 +73,14 @@ describe("submitLoanApplication consent mapping", () => {
     });
   });
 
-  it("maps RPC active_application to a clear borrower message", async () => {
+  it("maps RPC credit_limit_exceeded to credit-limit mode", async () => {
     const mockSupabase = {
       rpc: vi.fn().mockResolvedValue({
         data: {
           ok: false,
-          code: "active_application",
-          message: "active application",
+          code: "credit_limit_exceeded",
+          message: "Requested amount exceeds your available credit.",
+          available_credit: 3000,
         },
         error: null,
       }),
@@ -110,9 +111,8 @@ describe("submitLoanApplication consent mapping", () => {
 
     expect(result).toEqual({
       ok: false,
-      mode: "active-application",
-      message:
-        "You already have an open application. Withdraw it before submitting a new one.",
+      mode: "credit-limit",
+      message: "Requested amount exceeds your available credit.",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith("submit_loan_application", {
       p_requested_amount: 10000,

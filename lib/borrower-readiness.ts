@@ -50,21 +50,11 @@ const requiredProfileFields = [
   ["businessName", "Business name"],
   ["businessType", "Business type"],
   ["yearsInOperation", "Years in operation"],
-  ["loanPurposeContext", "Loan use context"],
   ["confirmsInformationTrue", "Truthfulness confirmation"],
   ["consentsToDataProcessing", "Data processing consent"],
   ["consentsToCreditCheck", "Credit check consent"],
   ["confirmsBusinessOperating", "Business operating confirmation"],
 ] as const satisfies ReadonlyArray<readonly [keyof BorrowerPortfolioInput, string]>;
-
-const vagueLoanPurposes = new Set([
-  "business",
-  "personal",
-  "need money",
-  "expenses",
-  "capital",
-  "capital only",
-]);
 
 export function evaluateBorrowerReadiness(
   portfolio: Partial<BorrowerPortfolioInput> | null,
@@ -147,9 +137,6 @@ export function evaluateBorrowerReadiness(
   }
   if (debtBurdenRatio !== null && debtBurdenRatio >= 0.4) {
     riskFlags.add("high_debt_burden");
-  }
-  if (isVagueLoanPurpose(parsedPortfolio.loanPurposeContext)) {
-    riskFlags.add("vague_loan_purpose");
   }
   if (parsedPortfolio.yearsInOperation < 0.5) {
     riskFlags.add("very_new_business");
@@ -282,16 +269,6 @@ function hasValue(value: unknown) {
   return value != null;
 }
 
-function isVagueLoanPurpose(value: string | undefined) {
-  const normalized = (value ?? "").trim().toLowerCase();
-
-  return (
-    normalized.length < 40 ||
-    vagueLoanPurposes.has(normalized) ||
-    normalized.split(/\s+/).length <= 3
-  );
-}
-
 function addDeclaredRiskFlags(
   portfolio: BorrowerPortfolioInput,
   riskFlags: Set<string>,
@@ -357,25 +334,22 @@ function getBusinessProofAction(gates: BorrowerReadinessGateInput) {
     return "Business proof was rejected. Please upload a new document.";
   }
   if (state === "accepted") return "Business proof accepted.";
-  return "Upload business proof in borrower verification.";
+  return "Next, upload your business proof so your profile can be reviewed.";
 }
 
 function getNeedsReviewAction(
   riskFlags: Set<string>,
   gates: BorrowerReadinessGateInput,
 ) {
-  if (riskFlags.has("vague_loan_purpose")) {
-    return "Add more detail to your loan use context.";
-  }
   if (riskFlags.has("no_business_proof")) {
     return getBusinessProofAction(gates);
   }
   if (riskFlags.has("self_declared_income_only")) {
-    return "Upload business proof in borrower verification when available.";
+    return "Adding business proof can help verify your income faster.";
   }
   if (riskFlags.has("high_debt_burden")) {
     return "Review existing debt payments before applying.";
   }
 
-  return "Your profile can be reviewed with the flagged details.";
+  return "Your profile is ready for review. You can continue with the next step.";
 }

@@ -314,7 +314,7 @@ describe("microbusiness borrower readiness", () => {
 
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.nextActions).toContain(
-      "Upload business proof in borrower verification.",
+      "Next, upload your business proof so your profile can be reviewed.",
     );
   });
 
@@ -678,13 +678,16 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.riskFlags).toContain("very_new_business");
   });
 
-  it("flags vague loan purpose", () => {
+  it("does not flag vague or blank loan purpose", () => {
     const readiness = evaluateBorrowerReadiness(
-      completeProfile({ loanPurposeContext: "capital only" }),
+      completeProfile({ loanPurposeContext: "" }),
     );
 
     expect(readiness.readinessStatus).toBe("needs_review");
-    expect(readiness.riskFlags).toContain("vague_loan_purpose");
+    expect(readiness.missingFields).toEqual([]);
+    expect(readiness.nextActions[0]).toBe(
+      "Next, upload your business proof so your profile can be reviewed.",
+    );
   });
 
   it("blocks readiness when profile confirmations are false", () => {
@@ -905,7 +908,7 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.riskFlags).toContain("self_declared_income_only");
     expect(readiness.riskFlags).toContain("no_business_proof");
     expect(readiness.nextActions).toContain(
-      "Upload business proof in borrower verification.",
+      "Next, upload your business proof so your profile can be reviewed.",
     );
   });
 

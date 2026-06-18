@@ -195,11 +195,13 @@ describe("borrower apply readiness gating", () => {
       shouldShowNeedsReviewApplicationWarning({
         readinessStatus: "needs_review",
         missingFields: [],
-        riskFlags: ["vague_loan_purpose"],
+        riskFlags: ["no_business_proof"],
         monthlyNetCashFlow: 10_000,
         debtBurdenRatio: null,
         profileIsStale: false,
-        nextActions: ["Add more detail to your loan use context."],
+        nextActions: [
+          "Next, upload your business proof so your profile can be reviewed.",
+        ],
       }),
     ).toBe(true);
   });
@@ -1774,14 +1776,13 @@ describe("manager lender review page", () => {
 
   it("allows multiple borrower applications through credit-line migration safeguards", () => {
     const migration = readFileSync(
-      "supabase/migrations/20260608203000_allow_multiple_applications_with_credit_line.sql",
+      "supabase/migrations/20260618123000_allow_open_applications_with_available_credit.sql",
       "utf8",
     );
 
     expect(migration).toContain(
-      "calculate_borrower_used_credit_excluding_application",
+      "calculate_borrower_credit_limit_details_for_application",
     );
-    expect(migration).toContain("status in ('submitted', 'open')");
     expect(migration).toContain(
       "perform pg_advisory_xact_lock(hashtext(v_actor_id::text));",
     );

@@ -2182,7 +2182,7 @@ function ReadinessPanel({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <p className="font-semibold">Readiness</p>
           <span className="rounded-full bg-muted px-3 py-1 text-xs font-semibold capitalize text-muted-foreground">
-            {readiness.readinessStatus.replaceAll("_", " ")}
+            {formatReadinessStatus(readiness.readinessStatus)}
           </span>
         </div>
         <div className="grid gap-2 sm:grid-cols-2">
@@ -2244,18 +2244,19 @@ function ReadinessPanel({
             Missing: {readiness.missingFields.join(", ")}
           </p>
         ) : null}
-        {readiness.riskFlags.length ? (
-          <p className="text-muted-foreground">
-            Flags:{" "}
-            {readiness.riskFlags
-              .map((flag) => flag.replaceAll("_", " "))
-              .join(", ")}
-          </p>
-        ) : null}
         <p className="font-medium">{readiness.nextActions[0]}</p>
       </CardContent>
     </Card>
   );
+}
+
+function formatReadinessStatus(
+  status: ReturnType<typeof evaluateBorrowerReadiness>["readinessStatus"],
+) {
+  if (status === "needs_review") return "Ready for review";
+  if (status === "eligible_to_apply") return "Eligible to apply";
+  if (status === "not_eligible") return "Action needed";
+  return status.replaceAll("_", " ");
 }
 
 function Summary({ label, value }: { label: string; value: string }) {

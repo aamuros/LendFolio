@@ -316,13 +316,6 @@ function buildEligibleAssessment(
   }
 
   for (const flag of readiness.riskFlags) {
-    if (flag === "vague_loan_purpose") {
-      deductions++;
-      riskFactors.push("Loan purpose could be more specific.");
-      improvementActions.push(
-        "Add more detail to your loan purpose before applying.",
-      );
-    }
     if (flag === "high_debt_burden") {
       if (!riskFactors.some((f) => f.includes("Debt burden"))) {
         deductions++;
@@ -409,7 +402,6 @@ function formatRiskFlag(flag: string): string {
     expenses_exceed_revenue: "Monthly expenses exceed revenue.",
     zero_revenue: "No revenue recorded.",
     very_new_business: "Business is very new.",
-    vague_loan_purpose: "Loan purpose could be more specific.",
     non_positive_cash_flow: "Monthly net cash flow is not positive.",
     no_available_credit: "No available credit remaining.",
     suspended: "Account is suspended.",

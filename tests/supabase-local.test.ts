@@ -66,6 +66,22 @@ type OfferRpcResult = {
   offer_id?: string;
   loan_application_id?: string;
 };
+type SubmitApplicationRpcResult = {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  application?: {
+    id: string;
+    requested_amount: number;
+    status: string;
+    credit_limit_at_submission: number;
+    used_credit_at_submission: number;
+    available_credit_at_submission: number;
+  };
+  credit_limit?: number;
+  used_credit?: number;
+  available_credit?: number;
+};
 type LenderReviewRpcResult = {
   ok: boolean;
   message?: string;
@@ -221,6 +237,68 @@ async function createPortfolioAndApplication(
   return {
     portfolioId: portfolio.id as string,
     applicationId: application.id as string,
+  };
+}
+
+async function createTenThousandCreditPortfolioWithSubmittedApplication(
+  admin: TestClient,
+  borrowerClient: TestClient,
+  requestedAmount: number,
+) {
+  const { data: portfolio, error: portfolioError } = await borrowerClient
+    .from("borrower_portfolios")
+    .insert({
+      borrower_id: ids.borrower,
+      business_type: "sari_sari_store",
+      location: "Quezon City",
+      monthly_gross_revenue: 20000,
+      monthly_expenses: 8888,
+      existing_loan_payments: 0,
+      years_in_operation: 3,
+      loan_purpose_context:
+        "Working capital for inventory and supplier purchases during peak demand.",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(portfolioError).toBeNull();
+  expect(portfolio?.id).toBeTruthy();
+  if (!portfolio) {
+    throw new Error("Expected borrower portfolio insert to return a row.");
+  }
+
+  const { data: application, error: applicationError } = await admin
+    .from("loan_applications")
+    .insert({
+      borrower_id: ids.borrower,
+      borrower_portfolio_id: portfolio.id,
+      requested_amount: requestedAmount,
+      purpose: "Initial inventory financing",
+      preferred_term: "3_months",
+      remarks: "First pending request against the credit line.",
+    })
+    .select(
+      "id, status, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission",
+    )
+    .single<
+      InsertedRow & {
+        credit_limit_at_submission: number;
+        used_credit_at_submission: number;
+        available_credit_at_submission: number;
+      }
+    >();
+
+  expect(applicationError).toBeNull();
+  expect(application).toMatchObject({
+    status: "submitted",
+    credit_limit_at_submission: 10000,
+    used_credit_at_submission: 0,
+    available_credit_at_submission: 10000,
+  });
+
+  return {
+    portfolioId: portfolio.id as string,
+    applicationId: application?.id as string,
   };
 }
 
@@ -560,6 +638,72 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(review.data as Json as LenderReviewRpcResult).toMatchObject({
       ok: false,
       message: "Lender must accept the required disclosures before approval.",
+    });
+  });
+
+  it("allows another submitted application when remaining credit covers the request", async () => {
+    await createTenThousandCreditPortfolioWithSubmittedApplication(
+      admin,
+      borrower,
+      7000,
+    );
+
+    const submission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 3000,
+      p_purpose: "Additional inventory financing",
+      p_preferred_term: "3_months",
+      p_remarks: "Second request within remaining credit.",
+    });
+    const result = submission.data as Json as SubmitApplicationRpcResult;
+
+    expect(submission.error).toBeNull();
+    expect(result).toMatchObject({
+      ok: true,
+      credit_limit: 10000,
+      used_credit: 7000,
+      available_credit: 3000,
+    });
+    expect(result.application).toMatchObject({
+      requested_amount: 3000,
+      status: "submitted",
+      credit_limit_at_submission: 10000,
+      used_credit_at_submission: 7000,
+      available_credit_at_submission: 3000,
+    });
+
+    const { data: applications, error: applicationsError } = await borrower
+      .from("loan_applications")
+      .select("id")
+      .eq("borrower_id", ids.borrower)
+      .eq("status", "submitted");
+
+    expect(applicationsError).toBeNull();
+    expect(applications).toHaveLength(2);
+  });
+
+  it("rejects another submitted application when it exceeds remaining credit", async () => {
+    await createTenThousandCreditPortfolioWithSubmittedApplication(
+      admin,
+      borrower,
+      7000,
+    );
+
+    const submission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 3001,
+      p_purpose: "Additional inventory financing",
+      p_preferred_term: "3_months",
+      p_remarks: "Second request above remaining credit.",
+    });
+    const result = submission.data as Json as SubmitApplicationRpcResult;
+
+    expect(submission.error).toBeNull();
+    expect(result).toMatchObject({
+      ok: false,
+      code: "credit_limit_exceeded",
+      message: "Requested amount exceeds your available credit.",
+      credit_limit: 10000,
+      used_credit: 7000,
+      available_credit: 3000,
     });
   });
 

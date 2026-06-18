@@ -47,6 +47,10 @@ import {
   formatCreditAmount,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
+import {
+  borrowerPortfolioStepIds,
+  type BorrowerPortfolioStep,
+} from "@/lib/borrower-portfolio";
 import type { ConsentStatus } from "@/lib/consents";
 import {
   getLoanPurposeLabel,
@@ -160,6 +164,9 @@ export function BorrowerLoanApplicationPanel({
   const [hasPortfolio, setHasPortfolio] = useState(
     initialLoadResult?.hasPortfolio ?? false,
   );
+  const [completedPortfolioSteps, setCompletedPortfolioSteps] = useState<
+    BorrowerPortfolioStep[]
+  >(initialLoadResult?.completedPortfolioSteps ?? []);
   const [borrowerVerification, setBorrowerVerification] =
     useState<BorrowerVerificationSummary | null>(
       initialLoadResult?.borrowerVerification ?? null,
@@ -234,6 +241,7 @@ export function BorrowerLoanApplicationPanel({
     const nextApplications = result.ok ? result.applications : [];
 
     setHasPortfolio(nextHasPortfolio);
+    setCompletedPortfolioSteps(result.completedPortfolioSteps);
     setBorrowerVerification(result.borrowerVerification);
     setReadiness(result.readiness);
     setConsentStatuses(result.consentStatuses);
@@ -544,8 +552,7 @@ export function BorrowerLoanApplicationPanel({
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required" ||
             result.mode === "readiness" ||
-            result.mode === "credit-limit" ||
-            result.mode === "active-application"
+            result.mode === "credit-limit"
             ? "ready"
             : "error",
       );
@@ -876,6 +883,7 @@ export function BorrowerLoanApplicationPanel({
             borrowerVerification={borrowerVerification}
             consentStatuses={consentStatuses}
             creditSummary={creditSummary}
+            completedPortfolioSteps={completedPortfolioSteps}
             hasPortfolio={hasPortfolio}
             loadState={loadState}
             onNavigate={onNavigate}
@@ -919,8 +927,6 @@ export function BorrowerLoanApplicationPanel({
                   )
                 }
               />
-            ) : hasOpenApplication ? (
-              <OpenApplicationNotice />
             ) : hasNoAvailableCredit ? (
               <CreditLimitBlocker />
             ) : readiness &&
@@ -931,6 +937,7 @@ export function BorrowerLoanApplicationPanel({
               />
             ) : (
               <>
+                {hasOpenApplication ? <OpenApplicationNotice /> : null}
                 {readiness &&
                 shouldShowNeedsReviewApplicationWarning(readiness) ? (
                   <NeedsReviewApplicationWarning />
@@ -1102,7 +1109,6 @@ function isProfileReadinessFeedbackMessage(
   return [
     "Update your flagged profile details before applying.",
     "Update your profile before applying.",
-    "Add more detail to your loan purpose before applying.",
   ].includes(message);
 }
 
@@ -1188,10 +1194,11 @@ function OpenApplicationNotice() {
     <Card className="rounded-2xl" role="status" aria-live="polite">
       <CardContent className="grid gap-1 p-5">
         <p className="text-sm font-semibold text-foreground">
-          Application already open
+          Open application in progress
         </p>
         <p className="text-sm text-muted-foreground">
-          Review or edit your current application below.
+          You already have an open application. You may still request up to your
+          remaining available credit.
         </p>
       </CardContent>
     </Card>
@@ -1222,11 +1229,11 @@ function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
   if (readiness.riskFlags.includes("no_available_credit")) {
     return "You have no available credit remaining. Repay an active loan, withdraw a pending application, or wait for an application decision before applying again.";
   }
-  if (readiness.riskFlags.includes("vague_loan_purpose")) {
-    return "Add more detail to your loan purpose before applying.";
-  }
   if (readiness.riskFlags.includes("no_business_proof")) {
-    return readiness.nextActions[0] ?? "Upload business proof in borrower verification.";
+    return (
+      readiness.nextActions[0] ??
+      "Next, upload your business proof so your profile can be reviewed."
+    );
   }
 
   return readiness.nextActions[0] ?? "Update your profile before applying.";
@@ -1237,7 +1244,6 @@ function hasEditableProfileIssue(readiness: BorrowerReadinessResult) {
     readiness.missingFields.length > 0 ||
     readiness.riskFlags.some((flag) =>
       [
-        "vague_loan_purpose",
         "self_declared_income_only",
         "high_debt_burden",
         "zero_revenue",
@@ -1294,6 +1300,7 @@ function HomeSummary({
   borrowerVerification,
   consentStatuses,
   creditSummary,
+  completedPortfolioSteps,
   hasPortfolio,
   loadState,
   onNavigate,
@@ -1304,6 +1311,7 @@ function HomeSummary({
   borrowerVerification: BorrowerVerificationSummary | null;
   consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
   creditSummary: BorrowerCreditSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
@@ -1316,13 +1324,20 @@ function HomeSummary({
     borrowerVerification,
     consentStatuses,
     creditSummary,
+    completedPortfolioSteps,
     hasPortfolio,
     readiness,
   });
-  const usedCreditRatio = creditSummary
+  const showBorrowingPower = canShowBorrowingPower(
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
+  const displayCreditSummary = showBorrowingPower ? creditSummary : null;
+  const usedCreditRatio = displayCreditSummary
     ? getProgressRatio(
-      creditSummary.usedCredit,
-      creditSummary.calculatedCreditLimit,
+      displayCreditSummary.usedCredit,
+      displayCreditSummary.calculatedCreditLimit,
     )
     : 0;
   const hasActiveLoans = activeLoans.length > 0;
@@ -1334,8 +1349,9 @@ function HomeSummary({
   );
   const hasPendingOffers = pendingOfferCount > 0;
   const hasNoAvailableCredit =
-    readiness?.riskFlags.includes("no_available_credit") ||
-    (creditSummary ? creditSummary.availableCredit <= 0 : false);
+    showBorrowingPower &&
+    (readiness?.riskFlags.includes("no_available_credit") ||
+      (displayCreditSummary ? displayCreditSummary.availableCredit <= 0 : false));
 
   const borrowerState = getBorrowerDashboardState({
     hasPortfolio,
@@ -1369,7 +1385,8 @@ function HomeSummary({
 
           <FinancingSummaryCard
             className="col-span-12 lg:col-span-5"
-            creditSummary={creditSummary}
+            creditSummary={displayCreditSummary}
+            completedPortfolioSteps={completedPortfolioSteps}
             hasPortfolio={hasPortfolio}
             usedCreditRatio={usedCreditRatio}
             debtProgress={debtProgress}
@@ -1575,6 +1592,7 @@ function UtilizationRing({ ratio }: { ratio: number }) {
 function FinancingSummaryCard({
   className,
   creditSummary,
+  completedPortfolioSteps,
   hasPortfolio,
   usedCreditRatio,
   debtProgress,
@@ -1584,6 +1602,7 @@ function FinancingSummaryCard({
 }: {
   className?: string;
   creditSummary: BorrowerCreditSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   hasPortfolio: boolean;
   usedCreditRatio: number;
   debtProgress: {
@@ -1596,6 +1615,11 @@ function FinancingSummaryCard({
   readiness: BorrowerReadinessResult | null;
   onNavigate?: (tab: BorrowerTab) => void;
 }) {
+  const showBorrowingPower = canShowBorrowingPower(
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
   const readinessLabel = !readiness
     ? "Pending"
     : readiness.readinessStatus === "complete" ||
@@ -1630,11 +1654,11 @@ function FinancingSummaryCard({
           Financing overview
         </CardDescription>
         <CardTitle className="text-lg leading-tight sm:text-xl">
-          {creditSummary ? "Available to request" : "Financing summary"}
+          {showBorrowingPower ? "Available to request" : "Borrowing power pending"}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
-        {creditSummary ? (
+        {showBorrowingPower && creditSummary ? (
           <>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1747,10 +1771,20 @@ function FinancingSummaryCard({
             </div>
           </>
         ) : hasPortfolio ? (
-          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
-            <p className="text-xs text-muted-foreground">
-              Your credit limit will appear after your profile is evaluated.
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
+            <p className="text-sm font-semibold text-foreground">
+              Borrowing power pending
             </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Complete your profile details to calculate your available credit.
+            </p>
+            <Button
+              className="rounded-full"
+              size="sm"
+              onClick={() => onNavigate?.("profile")}
+            >
+              Continue profile
+            </Button>
           </div>
         ) : (
           <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
@@ -2222,12 +2256,14 @@ function getDebtProgress(activeLoans: ActiveLoan[]) {
 
 function getProfileCompletion({
   borrowerVerification,
+  completedPortfolioSteps,
   consentStatuses,
   creditSummary,
   hasPortfolio,
   readiness,
 }: {
   borrowerVerification: BorrowerVerificationSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
   creditSummary: BorrowerCreditSummary | null;
   hasPortfolio: boolean;
@@ -2239,34 +2275,47 @@ function getProfileCompletion({
   const loanConsentCurrent =
     consentStatuses?.borrowerLoanApplication.isCurrent ?? false;
   const profileNeedsUpdate = hasProfileReadinessIssue(readiness);
-  const profileHasVagueLoanPurpose =
-    readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
+  const completedProfileStepCount = new Set(completedPortfolioSteps).size;
+  const profileStepPercentage = hasPortfolio
+    ? Math.round(
+        (completedProfileStepCount / borrowerPortfolioStepIds.length) * 50,
+      )
+    : 0;
+  const creditEvaluationComplete = canShowBorrowingPower(
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
   const percentage =
-    (hasPortfolio && !profileNeedsUpdate ? 50 : hasPortfolio ? 40 : 0) +
+    profileStepPercentage +
     (verificationComplete ? 30 : 0) +
     (loanConsentCurrent ? 10 : 0) +
-    (creditSummary ? 10 : 0);
+    (creditEvaluationComplete ? 10 : 0);
 
   const readinessNextStep = readiness?.nextActions[0];
   const nextStep = !hasPortfolio
     ? "Save your business profile to unlock financing."
     : profileNeedsUpdate
-      ? profileHasVagueLoanPurpose
-        ? "Add more detail to your loan purpose before applying."
-        : readinessNextStep ?? "Update your profile before applying."
+      ? readinessNextStep ?? "Update your profile before applying."
       : !verificationComplete
         ? "Complete borrower verification before applying."
-        : !loanConsentCurrent
-          ? "Accept the current loan application consent."
-          : !creditSummary
+          : !loanConsentCurrent
+            ? "Accept the current loan application consent."
+            : !creditEvaluationComplete
             ? "Update your business profile to calculate your request limit."
             : readinessNextStep ?? "Your profile is ready for financing requests.";
 
   const steps = [
-    { label: "Business profile", done: hasPortfolio && !profileNeedsUpdate },
+    {
+      label: "Business profile",
+      done:
+        hasPortfolio &&
+        !profileNeedsUpdate &&
+        completedProfileStepCount === borrowerPortfolioStepIds.length,
+    },
     { label: "Verification", done: verificationComplete },
     { label: "Loan consent", done: loanConsentCurrent },
-    { label: "Credit evaluation", done: Boolean(creditSummary) },
+    { label: "Credit evaluation", done: creditEvaluationComplete },
   ];
 
   return {
@@ -2275,6 +2324,42 @@ function getProfileCompletion({
     steps,
     profileNeedsUpdate,
   };
+}
+
+const borrowingPowerRequiredSteps = [
+  "homeAddress",
+  "householdExpenses",
+  "businessBasics",
+  "businessAddress",
+  "businessOperations",
+  "financials",
+  "businessExpenses",
+  "existingDebts",
+  "assets",
+  "customerCredit",
+  "repaymentHistory",
+  "businessStatus",
+] as const satisfies readonly BorrowerPortfolioStep[];
+
+function canShowBorrowingPower(
+  readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
+  completedPortfolioSteps: BorrowerPortfolioStep[],
+) {
+  if (!readiness || !creditSummary) {
+    return false;
+  }
+
+  const completed = new Set(completedPortfolioSteps);
+  const hasRequiredProfileInputs = borrowingPowerRequiredSteps.every((step) =>
+    completed.has(step),
+  );
+
+  if (!hasRequiredProfileInputs || readiness.missingFields.length > 0) {
+    return false;
+  }
+
+  return readiness.readinessStatus !== "incomplete";
 }
 
 function hasProfileReadinessIssue(readiness: BorrowerReadinessResult | null) {

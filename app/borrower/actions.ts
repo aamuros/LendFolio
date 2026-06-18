@@ -133,7 +133,6 @@ export type LoanApplicationSubmitResult =
         | "borrower-verification"
         | "consent-required"
         | "credit-limit"
-        | "active-application"
         | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
@@ -179,6 +178,7 @@ export type LoanApplicationsLoadResult =
       mode: "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      completedPortfolioSteps: BorrowerPortfolioStep[];
       borrowerVerification: BorrowerVerificationSummary;
       creditSummary: BorrowerCreditSummary | null;
       readiness: BorrowerReadinessResult | null;
@@ -193,6 +193,7 @@ export type LoanApplicationsLoadResult =
       mode: "auth" | "supabase";
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
+      completedPortfolioSteps: BorrowerPortfolioStep[];
       borrowerVerification: BorrowerVerificationSummary | null;
       creditSummary: BorrowerCreditSummary | null;
       readiness: BorrowerReadinessResult | null;
@@ -1266,6 +1267,7 @@ export async function loadBorrowerLoanApplications(
         mode: "auth",
         applications: [],
         hasPortfolio: false,
+        completedPortfolioSteps: [],
         borrowerVerification: null,
         creditSummary: null,
         readiness: null,
@@ -1302,6 +1304,7 @@ export async function loadBorrowerLoanApplications(
         mode: "supabase",
         applications: [],
         hasPortfolio: false,
+        completedPortfolioSteps: [],
         borrowerVerification,
         creditSummary: null,
         readiness: null,
@@ -1310,11 +1313,14 @@ export async function loadBorrowerLoanApplications(
       };
     }
 
-    const creditSummary = portfolio
-      ? await loadBorrowerCreditSummary(access.profile.id, portfolio, supabase)
+    const mappedPortfolio = portfolio ? mapBorrowerPortfolioRow(portfolio) : null;
+    const completedPortfolioSteps =
+      getCompletedBorrowerPortfolioSteps(mappedPortfolio);
+    const creditSummary = canCalculateBorrowerCredit(completedPortfolioSteps)
+      ? await loadBorrowerCreditSummary(access.profile.id, portfolio!, supabase)
       : null;
     const readiness = evaluateBorrowerReadiness(
-      portfolio ? mapBorrowerPortfolioRow(portfolio) : null,
+      mappedPortfolio,
       {
         accountStatus: access.profile.status,
         borrowerVerification,
@@ -1338,6 +1344,7 @@ export async function loadBorrowerLoanApplications(
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        completedPortfolioSteps,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1352,6 +1359,7 @@ export async function loadBorrowerLoanApplications(
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        completedPortfolioSteps,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1381,6 +1389,7 @@ export async function loadBorrowerLoanApplications(
         mode: "supabase",
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        completedPortfolioSteps,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1395,6 +1404,7 @@ export async function loadBorrowerLoanApplications(
         mode: activeLoansResult.mode,
         applications: [],
         hasPortfolio: Boolean(portfolio),
+        completedPortfolioSteps,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1432,6 +1442,7 @@ export async function loadBorrowerLoanApplications(
         };
       }),
       hasPortfolio: Boolean(portfolio),
+      completedPortfolioSteps,
       borrowerVerification,
       creditSummary,
       readiness,
@@ -1446,6 +1457,7 @@ export async function loadBorrowerLoanApplications(
       mode: "auth",
       applications: [],
       hasPortfolio: false,
+      completedPortfolioSteps: [],
       borrowerVerification: null,
       creditSummary: null,
       readiness: null,
@@ -1453,6 +1465,27 @@ export async function loadBorrowerLoanApplications(
       message: "Sign in to continue.",
     };
   }
+}
+
+const borrowerCreditCalculationSteps = [
+  "homeAddress",
+  "householdExpenses",
+  "businessBasics",
+  "businessAddress",
+  "businessOperations",
+  "financials",
+  "businessExpenses",
+  "existingDebts",
+  "assets",
+  "customerCredit",
+  "repaymentHistory",
+  "businessStatus",
+] as const satisfies readonly BorrowerPortfolioStep[];
+
+function canCalculateBorrowerCredit(completedSteps: BorrowerPortfolioStep[]) {
+  const completed = new Set(completedSteps);
+
+  return borrowerCreditCalculationSteps.every((step) => completed.has(step));
 }
 
 async function loadBorrowerCreditSummary(
@@ -1594,9 +1627,7 @@ export async function submitLoanApplication(
 
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
       const message =
-        result?.code === "active_application"
-          ? "You already have an open application. Withdraw it before submitting a new one."
-          : result?.code === "profile_needs_review"
+        result?.code === "profile_needs_review"
             ? "Database readiness migration is not applied. Apply the latest Supabase migrations."
           : result?.message ?? "Could not submit application.";
 
@@ -1617,8 +1648,6 @@ export async function submitLoanApplication(
               ? "auth"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
-            : result?.code === "active_application"
-              ? "active-application"
             : result?.code === "profile_stale" ||
                 result?.code === "not_eligible"
               ? "readiness"

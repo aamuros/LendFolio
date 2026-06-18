@@ -108,20 +108,21 @@ describe("borrower profile status", () => {
     expect(status.actionLabel).toBeNull();
   });
 
-  it("shows loan purpose update before no available credit", () => {
+  it("shows profile update before no available credit for profile risk flags", () => {
     const status = getProfileStatus(
       "ready",
       portfolio,
       makeReadiness({
         readinessStatus: "not_eligible",
-        riskFlags: ["vague_loan_purpose", "no_available_credit"],
+        riskFlags: ["self_declared_income_only", "no_available_credit"],
+        nextActions: ["Adding business proof can help verify your income faster."],
       }),
       makeCreditSummary({ usedCredit: 30_000, availableCredit: 0 }),
       "approved",
     );
 
-    expect(status.label).toBe("Update needed");
-    expect(status.title).toBe("Add more detail to your loan purpose");
-    expect(status.actionLabel).toBe("Edit loan purpose");
+    expect(status.label).toBe("Profile needs update");
+    expect(status.title).toBe("Review your profile");
+    expect(status.actionLabel).toBe("Update profile details");
   });
 });
