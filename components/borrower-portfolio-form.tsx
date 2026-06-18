@@ -88,6 +88,7 @@ import {
   type BusinessProfileSection,
 } from "@/lib/borrower-portfolio";
 import { evaluateBorrowerReadiness } from "@/lib/borrower-readiness";
+import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import { getBarangaysByCity } from "@/lib/philippine-addresses";
 import { parseMoneyInput } from "@/lib/money-input";
@@ -102,6 +103,7 @@ const formSyncOptions = {
 } as const;
 
 type BorrowerPortfolioFormProps = {
+  borrowerVerification?: BorrowerVerificationSummary | null;
   initialStep?: BorrowerPortfolioStep;
   businessSection?: BusinessProfileSection;
   mode?: "completion" | "edit";
@@ -119,6 +121,7 @@ type BorrowerPortfolioMilestone = {
 type BorrowerPortfolioMilestoneId = BorrowerPortfolioMilestone["id"];
 
 export function BorrowerPortfolioForm({
+  borrowerVerification = null,
   businessSection,
   initialStep,
   mode = "completion",
@@ -209,7 +212,9 @@ export function BorrowerPortfolioForm({
   const currentPortfolio = parsedCurrent.success
     ? parsedCurrent.data
     : defaultValues;
-  const readiness = evaluateBorrowerReadiness(currentPortfolio);
+  const readiness = evaluateBorrowerReadiness(currentPortfolio, {
+    borrowerVerification,
+  });
   const currentStep = milestoneSteps[currentStepIndex];
   const isEditMode = mode === "edit";
   const activeLegacySteps = isEditMode

@@ -240,6 +240,26 @@ describe("verification messages", () => {
     expect(getBorrowerVerificationMessage(verification)).toContain("approved");
   });
 
+  it("returns business proof guidance when approved verification is missing accepted business proof", () => {
+    const verification = createVerification({
+      status: "approved",
+      documentPolicy: {
+        requiredDocumentTypes: ["valid_id", "business_proof"],
+        missingRequiredDocumentTypes: ["business_proof"],
+        submittedDocumentTypes: ["valid_id"],
+        acceptedDocumentTypes: ["valid_id"],
+        rejectedDocumentTypes: [],
+        readyForManagerReview: true,
+        documentsAccepted: false,
+      },
+    });
+
+    expect(canSubmitLoanApplicationForVerification(verification)).toBe(false);
+    expect(getBorrowerVerificationMessage(verification)).toBe(
+      "Upload and wait for approval of your business proof before applying.",
+    );
+  });
+
   it("returns upload message when documents are not ready for review", () => {
     const verification = createVerification({ status: "pending" });
     expect(getBorrowerVerificationMessage(verification)).toContain("Upload");

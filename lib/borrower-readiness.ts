@@ -295,6 +295,13 @@ function addDeclaredRiskFlags(
 }
 
 function getBusinessProofState(gates: BorrowerReadinessGateInput) {
+  if (
+    gates.borrowerVerification?.status === "approved" &&
+    gates.borrowerVerification.documentPolicy.documentsAccepted
+  ) {
+    return "accepted";
+  }
+
   return getBusinessProofStatus(gates.borrowerVerification?.documents ?? []);
 }
 

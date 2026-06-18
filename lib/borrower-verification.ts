@@ -298,9 +298,19 @@ export function getBorrowerVerificationMessage(
   }
 
   if (verification.status === "approved") {
-    return verification.documentPolicy.documentsAccepted
-      ? "Borrower verification approved."
-      : "Required verification documents must be accepted before applying.";
+    if (verification.documentPolicy.documentsAccepted) {
+      return "Borrower verification approved.";
+    }
+
+    if (
+      !verification.documentPolicy.acceptedDocumentTypes.includes(
+        "business_proof",
+      )
+    ) {
+      return "Upload and wait for approval of your business proof before applying.";
+    }
+
+    return "Required verification documents must be accepted before applying.";
   }
 
   if (

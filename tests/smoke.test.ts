@@ -291,6 +291,39 @@ describe("borrower apply readiness gating", () => {
     expect(source).not.toContain("You can still submit");
   });
 
+  it("passes borrower verification into the portfolio readiness panel", () => {
+    const workspaceSource = readFileSync(
+      "components/borrower-workspace.tsx",
+      "utf8",
+    );
+    const formSource = readFileSync(
+      "components/borrower-portfolio-form.tsx",
+      "utf8",
+    );
+
+    expect(workspaceSource).toContain(
+      "borrowerVerification={borrowerVerification}",
+    );
+    expect(formSource).toContain("borrowerVerification?: BorrowerVerificationSummary | null");
+    expect(formSource).toContain("evaluateBorrowerReadiness(currentPortfolio, {");
+    expect(formSource).toContain("borrowerVerification,");
+  });
+
+  it("keeps missing business proof on the verification gate instead of the profile blocker", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source.indexOf("!canSubmitApplication")).toBeLessThan(
+      source.indexOf("isBlockingApplicationReadinessStatus(readiness.readinessStatus)"),
+    );
+    expect(source).toContain("<VerificationGateCard");
+    expect(source).toContain("onNavigateVerification={onNavigateVerification}");
+    expect(source).toContain("<ProfileReadinessBlocker");
+    expect(source).toContain("onEditProfile={() => onNavigate?.(\"profile\")}");
+  });
+
   it("uses principal-only available credit copy", () => {
     const source = readFileSync(
       "components/borrower-loan-application-panel.tsx",

@@ -29,6 +29,7 @@ import {
 } from "@/lib/borrower-portfolio";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
+import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
 import { type BorrowerCreditSummary } from "@/lib/credit-limit";
 
 type ProfileMode =
@@ -92,6 +93,10 @@ export function BorrowerWorkspace({
   const [readiness, setReadiness] = useState<BorrowerReadinessResult | null>(
     initialLoanApplications?.readiness ?? null,
   );
+  const [borrowerVerification, setBorrowerVerification] =
+    useState<BorrowerVerificationSummary | null>(
+      initialLoanApplications?.borrowerVerification ?? null,
+    );
   const hasSavedPortfolioRef = useRef(portfolio !== null);
   const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
@@ -101,6 +106,7 @@ export function BorrowerWorkspace({
       void loadBorrowerLoanApplications().then((result) => {
         setCreditSummary(result.creditSummary);
         setReadiness(result.readiness);
+        setBorrowerVerification(result.borrowerVerification);
       });
     });
   }
@@ -123,6 +129,7 @@ export function BorrowerWorkspace({
 
           setCreditSummary(result.creditSummary);
           setReadiness(result.readiness);
+          setBorrowerVerification(result.borrowerVerification);
         });
       });
     }
@@ -150,6 +157,7 @@ export function BorrowerWorkspace({
 
         setCreditSummary(result.creditSummary);
         setReadiness(result.readiness);
+        setBorrowerVerification(result.borrowerVerification);
       });
     });
 
@@ -240,8 +248,7 @@ export function BorrowerWorkspace({
     setPortfolioMessage("");
     hasSavedPortfolioRef.current = true;
 
-    const verificationStatus =
-      initialLoanApplications?.borrowerVerification?.status ?? null;
+    const verificationStatus = borrowerVerification?.status ?? null;
     const needsVerification =
       verificationStatus !== null && verificationStatus !== "approved";
 
@@ -301,6 +308,7 @@ export function BorrowerWorkspace({
                   }
                 />
                 <BorrowerPortfolioForm
+                  borrowerVerification={borrowerVerification}
                   businessSection={
                     profileMode === "edit" ? editBusinessSection : undefined
                   }

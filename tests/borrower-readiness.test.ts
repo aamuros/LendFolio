@@ -908,6 +908,33 @@ describe("microbusiness borrower readiness", () => {
     expect(readiness.riskFlags).not.toContain("no_business_proof");
   });
 
+  it("treats approved verification with accepted required documents as accepted business proof", () => {
+    const verification = verificationWithBusinessProof("missing");
+    verification.status = "approved";
+    verification.documentPolicy = {
+      ...verification.documentPolicy,
+      missingRequiredDocumentTypes: [],
+      submittedDocumentTypes: ["valid_id", "business_proof"],
+      acceptedDocumentTypes: ["valid_id", "business_proof"],
+      readyForManagerReview: true,
+      documentsAccepted: true,
+    };
+
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({ revenueConfidence: "self_declared_only" }),
+      {
+        borrowerVerification: verification,
+        creditSummary: creditSummary(),
+      },
+    );
+
+    expect(readiness.riskFlags).not.toContain("no_business_proof");
+    expect(readiness.riskFlags).not.toContain("self_declared_income_only");
+    expect(readiness.nextActions).not.toContain(
+      "Next, upload your business proof so your profile can be reviewed.",
+    );
+  });
+
   it("keeps accepted business proof when a newer proof upload is still submitted", () => {
     const verification = verificationWithBusinessProof("accepted");
     verification.documents.unshift({
