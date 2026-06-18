@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   borrowerBusinessAddressSchema,
   copyHomeAddressToBusinessAddress,
+  normalizeBorrowerBusinessAddressFields,
 } from "@/lib/borrower-portfolio";
 import { getBarangaysByCity } from "@/lib/philippine-addresses";
 
@@ -98,7 +99,70 @@ describe("borrower business address sync", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects same-as-home business address submission if copied city or barangay is missing", () => {
+  it("validates same-as-home when visible business fields have not updated yet", () => {
+    const result = borrowerBusinessAddressSchema.safeParse({
+      operatingModel: "physical_store",
+      country: "Philippines",
+      businessAddress: "",
+      isBusinessAddressSameAsHome: true,
+      homeAddress: "",
+      homeAddressSelection: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Upper Bicutan",
+        zipCode: "1630",
+      },
+      homeStreetAddress: "#37 Luzon Street",
+      address: {
+        regionCode: "",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Upper Bicutan",
+        zipCode: "1630",
+      },
+      streetAddress: "",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("normalizes same-as-home into the saved business address payload", () => {
+    const normalized = normalizeBorrowerBusinessAddressFields({
+      operatingModel: "physical_store",
+      country: "Philippines",
+      businessAddress: "",
+      isBusinessAddressSameAsHome: true,
+      homeAddressSelection: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Upper Bicutan",
+        zipCode: "1630",
+      },
+      homeStreetAddress: "#37 Luzon Street",
+      address: {
+        regionCode: "",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "",
+        barangay: "",
+        zipCode: "",
+      },
+      streetAddress: "",
+    });
+
+    expect(normalized.address).toMatchObject({
+      regionCode: "NCR",
+      regionName: "NCR - National Capital Region",
+      cityOrMunicipality: "Taguig",
+      barangay: "Upper Bicutan",
+      zipCode: "1630",
+    });
+    expect(normalized.streetAddress).toBe("#37 Luzon Street");
+    expect(normalized.businessAddress).toBe("#37 Luzon Street");
+  });
+
+  it("rejects same-as-home business address submission if source city or barangay is missing", () => {
     const result = borrowerBusinessAddressSchema.safeParse({
       operatingModel: "physical_store",
       country: "Philippines",
@@ -107,8 +171,8 @@ describe("borrower business address sync", () => {
       homeAddressSelection: {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
-        cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        cityOrMunicipality: "",
+        barangay: "",
         zipCode: "1100",
       },
       homeStreetAddress: "Unit 2, 123 Maginhawa Street",

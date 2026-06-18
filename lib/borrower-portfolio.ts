@@ -713,8 +713,15 @@ export const borrowerHomeAddressSchema = borrowerPortfolioBaseSchema
     }
   });
 
-export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
-  .pick({
+export const borrowerBusinessAddressSchema = z.preprocess(
+  (input) => {
+    if (!input || typeof input !== "object") {
+      return input;
+    }
+
+    return normalizeBorrowerBusinessAddressFields(input);
+  },
+  borrowerPortfolioBaseSchema.pick({
     country: true,
     businessAddress: true,
     address: true,
@@ -724,15 +731,21 @@ export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
     homeAddressSelection: true,
     homeStreetAddress: true,
     operatingModel: true,
-  })
+  }),
+)
   .superRefine((value, context) => {
     if (!isPhysicalBusinessAddressRequired(value.operatingModel)) return;
 
     if (value.isBusinessAddressSameAsHome) {
-      const hasLegacyHomeAddress = Boolean(value.homeAddress?.trim());
+      const normalizedBusinessAddress =
+        normalizeBorrowerBusinessAddressFields(value);
+      const hasLegacyHomeAddress = Boolean(
+        normalizedBusinessAddress.homeAddress?.trim(),
+      );
       const hasCompleteStructuredHomeAddress =
-        isValidPhilippineAddressSelection(value.homeAddressSelection) &&
-        Boolean(value.homeStreetAddress?.trim());
+        isValidPhilippineAddressSelection(
+          normalizedBusinessAddress.homeAddressSelection,
+        ) && Boolean(resolveStreetAddressValue(normalizedBusinessAddress));
 
       if (!hasLegacyHomeAddress && !hasCompleteStructuredHomeAddress) {
         context.addIssue({
@@ -743,11 +756,35 @@ export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
         });
       }
 
-      if (!value.address.barangay) {
+      if (!normalizedBusinessAddress.address.regionCode) {
+        context.addIssue({
+          code: "custom",
+          path: ["address", "regionCode"],
+          message: "Select your business region.",
+        });
+      }
+
+      if (!normalizedBusinessAddress.address.cityOrMunicipality) {
+        context.addIssue({
+          code: "custom",
+          path: ["address", "cityOrMunicipality"],
+          message: "Select your business city or municipality.",
+        });
+      }
+
+      if (!normalizedBusinessAddress.address.barangay) {
         context.addIssue({
           code: "custom",
           path: ["address", "barangay"],
           message: "Select your business barangay.",
+        });
+      }
+
+      if (!resolveStreetAddressValue(normalizedBusinessAddress)) {
+        context.addIssue({
+          code: "custom",
+          path: ["streetAddress"],
+          message: "Enter your business street address.",
         });
       }
 
@@ -1562,10 +1599,35 @@ export function resolveBorrowerAddressFields(
 export function normalizeBorrowerBusinessAddressFields<
   T extends Partial<BorrowerPortfolioFormInput>,
 >(input: T): T {
-  const streetAddress = resolveStreetAddressValue(input);
+  const copiedHomeAddress = input.isBusinessAddressSameAsHome
+    ? copyHomeAddressToBusinessAddress(
+        input.homeAddressSelection,
+        input.homeStreetAddress,
+      )
+    : null;
+  const address = copiedHomeAddress
+    ? {
+        ...(input.address ?? emptyAddressSelection),
+        regionCode: copiedHomeAddress.regionCode,
+        regionName: copiedHomeAddress.regionName,
+        cityOrMunicipality: copiedHomeAddress.cityOrMunicipality,
+        barangay: copiedHomeAddress.barangay,
+        zipCode: copiedHomeAddress.zipCode,
+      }
+    : input.address;
+  const streetAddress =
+    (typeof input.streetAddress === "string" ? input.streetAddress.trim() : "") ||
+    (typeof input.businessAddress === "string"
+      ? input.businessAddress.trim()
+      : "") ||
+    copiedHomeAddress?.streetAddress ||
+    (typeof input.homeStreetAddress === "string"
+      ? input.homeStreetAddress.trim()
+      : "");
 
   return {
     ...input,
+    address,
     businessAddress: streetAddress,
     streetAddress,
   };

@@ -1489,6 +1489,7 @@ function syncBusinessAddressFromHome({
   );
   setValue("address.zipCode", copiedAddress.zipCode, formSyncOptions);
   setValue("streetAddress", copiedAddress.streetAddress, formSyncOptions);
+  setValue("businessAddress", copiedAddress.streetAddress, formSyncOptions);
   setValue("address.barangay", syncedBarangay, formSyncOptions);
 }
 
