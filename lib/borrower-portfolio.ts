@@ -214,6 +214,7 @@ const borrowerPortfolioBaseSchema = z.object({
   businessName: shortText(120),
   businessType: z.enum(businessTypeOptions).default("sari_sari_store"),
   location: shortText(240),
+  businessAddress: shortText(240),
   country: z.literal("Philippines").default("Philippines"),
   address: addressSelectionSchema.default(emptyAddressSelection),
   streetAddress: shortText(240),
@@ -546,7 +547,7 @@ const borrowerPortfolioValidatedSchema = z
       });
     }
 
-    if (!value.streetAddress?.trim()) {
+    if (!resolveStreetAddressValue(value)) {
       context.addIssue({
         code: "custom",
         path: ["streetAddress"],
@@ -633,6 +634,7 @@ export const borrowerBusinessBasicsSchema = borrowerPortfolioBaseSchema
   .pick({
     businessName: true,
     businessType: true,
+    businessAddress: true,
     ownershipType: true,
     borrowerRole: true,
     yearsInOperation: true,
@@ -674,6 +676,7 @@ export const borrowerBusinessBasicsSchema = borrowerPortfolioBaseSchema
 export const borrowerHomeAddressSchema = borrowerPortfolioBaseSchema
   .pick({
     country: true,
+    businessAddress: true,
     mobileNumber: true,
     yearsAtCurrentAddress: true,
     homeAddress: true,
@@ -692,10 +695,6 @@ export const borrowerHomeAddressSchema = borrowerPortfolioBaseSchema
     emergencyContactNumber: requiredShortText(
       30,
       "Enter your emergency contact number.",
-    ),
-    emergencyContactRelationship: requiredShortText(
-      80,
-      "Enter your emergency contact relationship.",
     ),
   })
   .superRefine((value, context) => {
@@ -717,6 +716,7 @@ export const borrowerHomeAddressSchema = borrowerPortfolioBaseSchema
 export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
   .pick({
     country: true,
+    businessAddress: true,
     address: true,
     streetAddress: true,
     isBusinessAddressSameAsHome: true,
@@ -778,7 +778,7 @@ export const borrowerBusinessAddressSchema = borrowerPortfolioBaseSchema
       });
     }
 
-    if (!value.streetAddress?.trim()) {
+    if (!resolveStreetAddressValue(value)) {
       context.addIssue({
         code: "custom",
         path: ["streetAddress"],
@@ -905,12 +905,26 @@ export const borrowerAssetsSchema = borrowerPortfolioBaseSchema
     inventoryValue: value.hasInventory ? value.inventoryValue : 0,
   }));
 
-export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema.pick({
-  loanPurposeCategory: true,
-  loanPurposeOther: true,
-  loanPurposeDetails: true,
-  loanPurposeContext: true,
-});
+export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema
+  .pick({
+    loanPurposeCategory: true,
+    loanPurposeOther: true,
+    loanPurposeDetails: true,
+    loanPurposeContext: true,
+  })
+  .superRefine((value, context) => {
+    if (
+      !formatLoanPurposeContext(value, {
+        preferSelectedCategory: true,
+      }).trim()
+    ) {
+      context.addIssue({
+        code: "custom",
+        path: ["loanPurposeDetails"],
+        message: "Enter how you plan to use the loan.",
+      });
+    }
+  });
 
 export const borrowerCustomerCreditSchema = borrowerPortfolioBaseSchema.pick({
   offersCustomerCredit: true,
@@ -1124,6 +1138,10 @@ function isBorrowerPortfolioStepComplete(
 
   if (step === "assets") {
     return portfolio.assetDeclarationCompleted;
+  }
+
+  if (step === "loanUse") {
+    return Boolean(portfolio.loanPurposeContext?.trim());
   }
 
   return true;
@@ -1354,6 +1372,7 @@ export function mapBorrowerPortfolioRow(
     businessName: row.business_name ?? "",
     businessType: mapBusinessType(row.business_type),
     location: row.location === draftLocationPlaceholder ? "" : row.location ?? "",
+    businessAddress: row.business_address ?? "",
     country: "Philippines" as const,
     address,
     streetAddress: row.business_address ?? "",
@@ -1528,7 +1547,7 @@ export function resolveBorrowerAddressFields(
         .filter(Boolean)
         .join(", ")
     : (input.location ?? "").trim();
-  const businessAddress = input.streetAddress?.trim() ?? "";
+  const businessAddress = resolveStreetAddressValue(input);
 
   return {
     location: formatted || draftLocationPlaceholder,
@@ -1538,6 +1557,31 @@ export function resolveBorrowerAddressFields(
     region: input.address.regionCode || null,
     zipCode: input.address.zipCode || null,
   };
+}
+
+export function normalizeBorrowerBusinessAddressFields<
+  T extends Partial<BorrowerPortfolioFormInput>,
+>(input: T): T {
+  const streetAddress = resolveStreetAddressValue(input);
+
+  return {
+    ...input,
+    businessAddress: streetAddress,
+    streetAddress,
+  };
+}
+
+function resolveStreetAddressValue(
+  input: Partial<
+    Pick<BorrowerPortfolioFormInput, "businessAddress" | "streetAddress">
+  >,
+) {
+  return (
+    (typeof input.streetAddress === "string" ? input.streetAddress.trim() : "") ||
+    (typeof input.businessAddress === "string"
+      ? input.businessAddress.trim()
+      : "")
+  );
 }
 
 export function isPhysicalBusinessAddressRequired(

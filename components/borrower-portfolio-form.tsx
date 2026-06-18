@@ -69,6 +69,7 @@ import {
   loanPurposeCategoryOptions,
   mainProductsOrServicesCategoryLabels,
   mainProductsOrServicesCategoryOptions,
+  normalizeBorrowerBusinessAddressFields,
   operatingModelLabels,
   operatingModelOptions,
   ownershipTypeLabels,
@@ -374,7 +375,10 @@ export function BorrowerPortfolioForm({
     startTransition(async () => {
       const result =
         isEditMode && businessSection
-          ? await saveBorrowerBusinessProfileSection(businessSection, values)
+          ? await saveBorrowerBusinessProfileSection(
+              businessSection,
+              normalizeBorrowerBusinessAddressFields(values),
+            )
           : await saveBorrowerPortfolioMilestone(currentStep, values);
       setLoadState(result.ok ? "ready" : "error");
       if (result.ok) {
@@ -397,9 +401,7 @@ export function BorrowerPortfolioForm({
         }
 
         setStatusMessage(
-          result.debugMessage && process.env.NODE_ENV !== "production"
-            ? `${result.message} ${result.debugMessage}`
-            : result.message,
+          result.message,
         );
         if (result.fieldErrors) {
           setServerErrors(result.fieldErrors);
@@ -438,7 +440,6 @@ export function BorrowerPortfolioForm({
             title={editTitle}
             progressValue={isEditMode ? 100 : progressValue}
             completedSteps={completedSteps}
-            currentIndex={visibleStepIndex}
           />
 
           {activeLegacySteps.includes("homeAddress") ? (
@@ -521,15 +522,6 @@ export function BorrowerPortfolioForm({
                   label="Number of dependents"
                   error={errors.numberOfDependents?.message}
                   register={register("numberOfDependents", {
-                    setValueAs: parseMoneyInput,
-                  })}
-                  step="1"
-                />
-                <NumberField
-                  id="numberOfEarningHouseholdMembers"
-                  label="Earning household members"
-                  error={errors.numberOfEarningHouseholdMembers?.message}
-                  register={register("numberOfEarningHouseholdMembers", {
                     setValueAs: parseMoneyInput,
                   })}
                   step="1"
@@ -761,7 +753,9 @@ export function BorrowerPortfolioForm({
                           required
                           readOnly={Boolean(isBusinessAddressSameAsHome)}
                           errors={{
-                            regionCode: errors.address?.regionCode?.message,
+                            regionCode:
+                              errors.address?.regionCode?.message ??
+                              firstServerError(serverErrors, "address"),
                             cityOrMunicipality:
                               errors.address?.cityOrMunicipality?.message,
                             barangay: errors.address?.barangay?.message,
@@ -775,7 +769,15 @@ export function BorrowerPortfolioForm({
                   <TextField
                     id="streetAddress"
                     label="Street / house no. / unit / landmark / specific address"
-                    error={errors.streetAddress?.message}
+                    error={
+                      errors.streetAddress?.message ??
+                      firstServerError(
+                        serverErrors,
+                        "streetAddress",
+                        "businessAddress",
+                        "address",
+                      )
+                    }
                     register={register("streetAddress")}
                     className="sm:col-span-2"
                     readOnly={Boolean(isBusinessAddressSameAsHome)}
@@ -918,15 +920,6 @@ export function BorrowerPortfolioForm({
                 label="Number of dependents"
                 error={errors.numberOfDependents?.message}
                 register={register("numberOfDependents", {
-                  setValueAs: parseMoneyInput,
-                })}
-                step="1"
-              />
-              <NumberField
-                id="numberOfEarningHouseholdMembers"
-                label="Earning household members"
-                error={errors.numberOfEarningHouseholdMembers?.message}
-                register={register("numberOfEarningHouseholdMembers", {
                   setValueAs: parseMoneyInput,
                 })}
                 step="1"
@@ -1262,16 +1255,9 @@ const businessExpenseFields = [
 >;
 
 const householdExpenseFields = [
-  ["monthlyRentOrMortgage", "Rent or mortgage"],
-  ["monthlyElectricityBill", "Electricity"],
-  ["monthlyWaterBill", "Water"],
-  ["monthlyInternetPhoneBill", "Internet / phone"],
+  ["monthlyRentOrMortgage", "Monthly rent / housing fee"],
+  ["monthlyInternetPhoneBill", "Monthly utilities"],
   ["monthlyFoodGroceries", "Food / groceries"],
-  ["monthlyTransportation", "Household transportation"],
-  ["monthlyTuitionEducation", "Tuition / education"],
-  ["monthlyMedicalExpenses", "Medical expenses"],
-  ["monthlyInsurance", "Insurance"],
-  ["monthlyFamilySupport", "Family support"],
   ["otherHouseholdExpenses", "Other household expenses"],
 ] as const satisfies ReadonlyArray<
   readonly [keyof BorrowerPortfolioFormInput, string]
@@ -1396,7 +1382,10 @@ async function saveBorrowerPortfolioMilestone(
   let latestCompletedSteps: BorrowerPortfolioStep[] = [];
 
   for (const legacyStep of milestone.legacySteps) {
-    const result = await saveBorrowerPortfolioStep(legacyStep, latestPortfolio);
+    const result = await saveBorrowerPortfolioStep(
+      legacyStep,
+      normalizeBorrowerBusinessAddressFields(latestPortfolio),
+    );
 
     if (!result.ok) {
       return result;
@@ -1424,14 +1413,50 @@ function normalizeMilestoneValues(
 ): BorrowerPortfolioInput {
   return {
     ...values,
+    ...normalizeBorrowerBusinessAddressFields(values),
     country: "Philippines",
+    monthlyElectricityBill:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyElectricityBill,
+    monthlyWaterBill:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyWaterBill,
+    monthlyTransportation:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyTransportation,
+    monthlyTuitionEducation:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyTuitionEducation,
+    monthlyMedicalExpenses:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyMedicalExpenses,
+    monthlyInsurance:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyInsurance,
+    monthlyFamilySupport:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.monthlyFamilySupport,
+    numberOfEarningHouseholdMembers:
+      milestone.legacySteps.includes("householdExpenses") ||
+      milestone.legacySteps.includes("homeAddress")
+        ? 0
+        : values.numberOfEarningHouseholdMembers,
     numberOfDependents: Number.isFinite(values.numberOfDependents)
       ? values.numberOfDependents
-      : 0,
-    numberOfEarningHouseholdMembers: Number.isFinite(
-      values.numberOfEarningHouseholdMembers,
-    )
-      ? values.numberOfEarningHouseholdMembers
       : 0,
     householdExpensesCompleted:
       milestone.legacySteps.includes("householdExpenses") ||
@@ -1474,7 +1499,6 @@ function WizardHeader({
   title,
   progressValue,
   completedSteps,
-  currentIndex,
 }: {
   activeStep: BorrowerPortfolioMilestoneId;
   stepNumber: number;
@@ -1482,7 +1506,6 @@ function WizardHeader({
   title: string;
   progressValue: number;
   completedSteps: BorrowerPortfolioStep[];
-  currentIndex: number;
 }) {
   return (
     <div className="grid gap-4">
@@ -1509,13 +1532,13 @@ function WizardHeader({
                 "grid min-w-0 gap-1 rounded-lg border px-2 py-2 text-center text-[11px] font-medium leading-4 sm:px-3 sm:text-xs",
                 isActive
                   ? "border-primary bg-primary text-primary-foreground"
-                  : isComplete || index < currentIndex
+                  : isComplete
                   ? "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]"
                   : "border-border bg-muted/30 text-muted-foreground",
               )}
             >
               <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-[10px] text-foreground">
-                {isComplete || index < currentIndex ? (
+                {isComplete ? (
                   <Check className="h-3.5 w-3.5" aria-hidden="true" />
                 ) : (
                   index + 1
@@ -2108,6 +2131,18 @@ function fieldError(
 ) {
   const error = errors[field];
   return typeof error?.message === "string" ? error.message : undefined;
+}
+
+function firstServerError(
+  errors: Partial<Record<keyof BorrowerPortfolioInput, string[]>>,
+  ...fields: (keyof BorrowerPortfolioInput)[]
+) {
+  for (const field of fields) {
+    const message = errors[field]?.[0];
+    if (message) return message;
+  }
+
+  return undefined;
 }
 
 function formatMoney(value: number) {

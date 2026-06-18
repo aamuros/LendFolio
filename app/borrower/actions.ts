@@ -20,6 +20,7 @@ import {
   getBusinessProfileSectionStep,
   mapBorrowerPortfolioRow,
   mergeBorrowerPortfolioSectionValues,
+  normalizeBorrowerBusinessAddressFields,
   normalizeBorrowerBusinessRegistrationFields,
   resolveMainProductsOrServicesValue,
   resolveBorrowerAddressFields,
@@ -542,7 +543,7 @@ export async function saveBorrowerPortfolioStep(
   values: BorrowerPortfolioInput,
 ): Promise<BorrowerPortfolioStepSaveResult> {
   const schema = borrowerPortfolioStepSchemas[step];
-  const parsed = schema.safeParse(values);
+  const parsed = schema.safeParse(normalizeBorrowerBusinessAddressFields(values));
 
   if (!parsed.success) {
     const { fieldErrors } = parsed.error.flatten();
@@ -722,9 +723,10 @@ export async function saveBorrowerBusinessProfileSection(
     const existingPortfolio = existingRow
       ? mapBorrowerPortfolioRow(existingRow)
       : null;
+    const normalizedValues = normalizeBorrowerBusinessAddressFields(values);
     const mergedPortfolio = mergeBorrowerPortfolioSectionValues(
       existingPortfolio,
-      values,
+      normalizedValues,
     );
     const payload = buildBorrowerBusinessProfileSectionPayload(
       section,
