@@ -827,6 +827,7 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
     (r) => r.latestProof?.status === "submitted",
   );
   const isQuiet = offer.status !== "pending" && !isHighlighted && !hasActionableProofs;
+  const href = `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
   const context = offer.application?.portfolio
     ? `${offer.application.portfolio.businessTypeLabel} in ${offer.application.portfolio.location}`
     : "Application context unavailable";
@@ -834,12 +835,17 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
   return (
     <Card
       className={cn(
-        "rounded-2xl border-border/50 shadow-sm transition",
+        "group relative rounded-2xl border-border/50 shadow-sm transition hover:border-primary/30 hover:bg-muted/20 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
         isHighlighted && "ring-2 ring-primary/30",
         isQuiet && "opacity-75",
       )}
     >
-      <CardContent className="grid gap-3 p-4">
+      <Link
+        href={href}
+        aria-label={`Open offer for ${context}`}
+        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none"
+      />
+      <CardContent className="pointer-events-none relative z-20 grid gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <h3 className="font-semibold">{context}</h3>
@@ -889,7 +895,7 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
           </dl>
         </div>
         {activeLoan ? (
-          <div className="grid gap-3">
+          <div className="pointer-events-auto relative z-30 grid gap-3">
             <Separator />
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-semibold text-foreground">

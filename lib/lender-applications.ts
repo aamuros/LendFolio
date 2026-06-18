@@ -225,15 +225,19 @@ export async function loadOpenLenderApplications(
       };
     }
 
+    const openApplications = combineApplicationsWithPortfolios(
+      applications,
+      portfolios,
+      lenderOffers,
+      offerFlagsResult.flags,
+    ).filter(
+      (application) => application.currentLenderOfferState === "not_offered",
+    );
+
     return {
       ok: true,
       mode: "supabase",
-      applications: combineApplicationsWithPortfolios(
-        applications,
-        portfolios,
-        lenderOffers,
-        offerFlagsResult.flags,
-      ),
+      applications: openApplications,
       message: "Applications loaded.",
     };
   } catch {

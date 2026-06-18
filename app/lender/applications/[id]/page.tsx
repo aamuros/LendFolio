@@ -90,15 +90,18 @@ export default async function LenderApplicationDetailPage({
             <LenderReviewPage>
               <ReviewFinancialsSection application={application} />
               <ReviewCreditSection application={application} />
-              <CreditProfileGradeSection application={application} />
 
-              <OfferActionSection
-                application={application}
-                offers={application.offers}
-                hasAcceptedApplication={hasAcceptedApplication}
-                isOpenForOffers={isOpenForOffers}
-                pendingOffer={pendingOffer}
-              />
+              <div className="grid items-start gap-6 lg:grid-cols-2">
+                <CreditProfileGradeSection application={application} />
+
+                <OfferActionSection
+                  application={application}
+                  offers={application.offers}
+                  hasAcceptedApplication={hasAcceptedApplication}
+                  isOpenForOffers={isOpenForOffers}
+                  pendingOffer={pendingOffer}
+                />
+              </div>
             </LenderReviewPage>
           </div>
         </div>
@@ -227,7 +230,7 @@ function BorrowerResumePage({
 
 function LenderReviewPage({ children }: { children: ReactNode }) {
   return (
-    <DocumentPage className="grid content-start gap-7">
+    <DocumentPage className="grid content-start gap-6">
       <div className="grid gap-2 border-b border-border pb-5">
         <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
           Review summary
@@ -272,31 +275,30 @@ function ReviewFinancialsSection({
   >;
 }) {
   return (
-    <section className="grid gap-3">
-      <h2 className="text-lg font-semibold">Financials</h2>
+    <ReviewCard title="Financials">
       <dl className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
-        <Metric
-          label="Gross revenue"
-          value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
-        />
-        <Metric
-          label="Expenses"
-          value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
-        />
-        <Metric
-          label="Existing loans"
-          value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
-        />
-        <Metric
-          label="Net revenue"
-          value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-        />
-        <Metric
-          label="Cash after loans"
-          value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
-        />
-      </dl>
-    </section>
+          <Metric
+            label="Gross revenue"
+            value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
+          />
+          <Metric
+            label="Expenses"
+            value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
+          />
+          <Metric
+            label="Existing loans"
+            value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
+          />
+          <Metric
+            label="Net revenue"
+            value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+          />
+          <Metric
+            label="Cash after loans"
+            value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
+          />
+        </dl>
+    </ReviewCard>
   );
 }
 
@@ -306,8 +308,7 @@ function ReviewCreditSection({
   application: LenderApplicationReview;
 }) {
   return (
-    <section className="grid gap-3 border-t border-border pt-6">
-      <h2 className="text-lg font-semibold">Credit review</h2>
+    <ReviewCard title="Credit review">
       <div className="grid gap-4">
         {hasCreditSnapshot(application) ? (
           <dl className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
@@ -343,7 +344,7 @@ function ReviewCreditSection({
         )}
 
       </div>
-    </section>
+    </ReviewCard>
   );
 }
 
@@ -373,10 +374,9 @@ function OfferActionSection({
   });
 
   return (
-    <section className="grid gap-4 border-t border-border pt-6">
+    <ReviewCard title={title} className="h-full">
       <div className="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="grid gap-1 text-sm leading-6 text-muted-foreground">
-          <p className="font-semibold text-foreground">{title}</p>
           <p>
             {hasAcceptedApplication
               ? "Offer creation is closed."
@@ -404,7 +404,7 @@ function OfferActionSection({
           <OfferSummary offer={pendingOffer} />
         </div>
       ) : null}
-    </section>
+    </ReviewCard>
   );
 }
 
@@ -527,40 +527,48 @@ function CreditProfileGradeSection({
   const tone = getCreditHistoryTone(history.status);
 
   return (
-    <section className="grid gap-3 border-t border-border pt-6">
-      <Card className="rounded-2xl border-border/50 shadow-sm">
-        <CardContent className="grid gap-4 p-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="grid gap-2">
-              <p className="text-xs font-semibold text-muted-foreground">
-                Credit Profile Grade
-              </p>
-              <ToneBadge tone={tone}>{history.label}</ToneBadge>
-            </div>
-          </div>
+    <ReviewCard title="Credit Profile Grade" className="h-full">
+      <div className="grid gap-3">
+        <ToneBadge tone={tone}>{history.label}</ToneBadge>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {history.description}
+        </p>
+        <dl className="grid grid-cols-3 gap-3 text-sm">
+          <Metric
+            label="Completed loan cycles"
+            value={String(history.completedLoanCycles)}
+          />
+          <Metric
+            label="On-time repayments"
+            value={
+              history.onTimeRepayments === null
+                ? "-"
+                : String(history.onTimeRepayments)
+            }
+          />
+          <Metric label="Active loans" value={String(history.activeLoanCount)} />
+        </dl>
+      </div>
+    </ReviewCard>
+  );
+}
 
-          <p className="text-sm leading-6 text-muted-foreground">
-            {history.description}
-          </p>
-
-          <dl className="grid grid-cols-3 gap-3 text-sm">
-            <Metric
-              label="Completed loan cycles"
-              value={String(history.completedLoanCycles)}
-            />
-            <Metric
-              label="On-time repayments"
-              value={
-                history.onTimeRepayments === null
-                  ? "-"
-                  : String(history.onTimeRepayments)
-              }
-            />
-            <Metric label="Active loans" value={String(history.activeLoanCount)} />
-          </dl>
-        </CardContent>
-      </Card>
-    </section>
+function ReviewCard({
+  children,
+  className,
+  title,
+}: {
+  children: ReactNode;
+  className?: string;
+  title: string;
+}) {
+  return (
+    <Card className={cn("rounded-2xl border-border/50 shadow-sm", className)}>
+      <CardContent className="grid gap-4 p-4">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
