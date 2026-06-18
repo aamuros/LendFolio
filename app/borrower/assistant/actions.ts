@@ -5,16 +5,21 @@ import type { BorrowerAssistantSafeSummary } from "@/lib/borrower-assistant/type
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 const MIN_POLISHED_REPLY_LENGTH = 50;
+const GEMINI_LOG_PREFIX = "[BorrowerAssistant/Gemini]";
 
 export async function polishBorrowerAssistantReply(
   summary: BorrowerAssistantSafeSummary,
 ) {
   const fallback = summary.ruleBasedAnswer;
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
-  if (!apiKey) return fallback;
+  if (!apiKey) {
+    warnGemini("missing_key", "Skipping polish request.");
+    return fallback;
+  }
 
   try {
+    warnGemini("attempt", `Polishing ${summary.promptTopic} answer.`);
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
@@ -35,10 +40,14 @@ export async function polishBorrowerAssistantReply(
     });
     const polished = response.text?.trim();
 
-    return polished && isUsablePolishedReply(polished, summary)
-      ? polished
-      : fallback;
-  } catch {
+    if (!polished || !isUsablePolishedReply(polished, summary)) {
+      warnGemini("unusable_response", "Using deterministic assistant answer.");
+      return fallback;
+    }
+
+    return polished;
+  } catch (error) {
+    warnGemini("api_error", getErrorMessage(error));
     return fallback;
   }
 }
@@ -47,11 +56,15 @@ export async function getBorrowerAssistantFallbackReply(input: {
   prompt: string;
   fallback: string;
 }) {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = getGeminiApiKey();
 
-  if (!apiKey) return input.fallback;
+  if (!apiKey) {
+    warnGemini("missing_key", "Skipping fallback classification request.");
+    return input.fallback;
+  }
 
   try {
+    warnGemini("attempt", "Checking unknown prompt against LendFolio scope.");
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: GEMINI_MODEL,
@@ -72,12 +85,32 @@ export async function getBorrowerAssistantFallbackReply(input: {
     });
     const reply = response.text?.trim();
 
-    return reply && isUsableFallbackReply(reply, input.fallback)
-      ? reply
-      : input.fallback;
-  } catch {
+    if (!reply || !isUsableFallbackReply(reply, input.fallback)) {
+      warnGemini("unusable_response", "Using LendFolio-only fallback.");
+      return input.fallback;
+    }
+
+    return reply;
+  } catch (error) {
+    warnGemini("api_error", getErrorMessage(error));
     return input.fallback;
   }
+}
+
+function getGeminiApiKey() {
+  return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || "";
+}
+
+function warnGemini(reason: string, detail: string) {
+  if (process.env.NODE_ENV !== "development") return;
+
+  console.warn(`${GEMINI_LOG_PREFIX} ${reason}: ${detail}`);
+}
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+
+  return "Unknown Gemini request failure.";
 }
 
 function isUsablePolishedReply(

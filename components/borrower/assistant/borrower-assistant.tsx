@@ -446,7 +446,7 @@ function answerGenericPrompt(prompt: string): BorrowerAssistantReply | null {
 
   if (
     !/[a-z]/.test(normalizedPrompt) ||
-    /^(test|none|n\/a|na)$/.test(normalizedPrompt)
+    /^(none|n\/a|na)$/.test(normalizedPrompt)
   ) {
     return {
       content: OUT_OF_SCOPE_REPLY,
