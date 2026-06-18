@@ -1892,4 +1892,37 @@ describe("manager lender review page", () => {
     );
     expect(migration).not.toContain("credit_limit_at_submission >");
   });
+
+  it("exposes and uses the current borrower credit snapshot for offer detail checks", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618180000_expose_my_borrower_credit_snapshot.sql",
+      "utf8",
+    );
+    const offerPage = readFileSync(
+      "app/borrower/offers/[offerId]/page.tsx",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "create or replace function public.get_my_borrower_credit_snapshot",
+    );
+    expect(migration).toContain("v_actor_id uuid := auth.uid();");
+    expect(migration).toContain("if not app_private.is_borrower(v_actor_id)");
+    expect(migration).toContain(
+      "app_private.get_borrower_credit_snapshot(",
+    );
+    expect(migration).toContain(
+      "'active_principal_used', (v_credit->>'active_principal_used')::numeric",
+    );
+    expect(migration).toContain(
+      "'available_credit', (v_credit->>'available_credit')::numeric",
+    );
+    expect(offerPage).toContain("get_my_borrower_credit_snapshot");
+    expect(offerPage).toContain("p_excluded_application_id: applicationId");
+    expect(offerPage).toContain(
+      "offer.principalAmount > creditSnapshot.availableCredit",
+    );
+    expect(offerPage).not.toContain("creditLimitAtSubmission");
+    expect(offerPage).not.toContain("availableCreditAtSubmission");
+  });
 });

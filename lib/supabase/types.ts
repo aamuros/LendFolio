@@ -1465,6 +1465,12 @@ export type Database = {
           has_accepted_offer: boolean;
         }[];
       };
+      get_my_borrower_credit_snapshot: {
+        Args: {
+          p_excluded_application_id?: string | null;
+        };
+        Returns: Json;
+      };
       review_repayment_proof: {
         Args: {
           p_proof_id: string;

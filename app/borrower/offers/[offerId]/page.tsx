@@ -19,7 +19,9 @@ import {
   type LoanApplicationSummary,
 } from "@/lib/loan-application";
 import type { LoanOfferSummary } from "@/lib/loan-offer";
+import type { Database } from "@/lib/supabase/types";
 import { AlertCircle, ArrowLeft } from "lucide-react";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
@@ -80,6 +82,12 @@ export default async function BorrowerOfferDetailsPage({
   }
 
   const { application, offer } = selected;
+  const creditSnapshot = await loadLatestCreditSnapshot(
+    access.supabase,
+    application.id,
+  );
+  const isOverCurrentLimit =
+    creditSnapshot.ok && offer.principalAmount > creditSnapshot.availableCredit;
 
   return (
     <main className="theme-lendfolio min-h-svh bg-background px-4 py-5 text-foreground sm:px-6 sm:py-8">
@@ -169,12 +177,83 @@ export default async function BorrowerOfferDetailsPage({
               </Alert>
             ) : null}
 
-            <BorrowerOfferActions offerId={offer.id} status={offer.status} />
+            {offer.status === "pending" && !creditSnapshot.ok ? (
+              <Alert variant="destructive" role="alert">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{creditSnapshot.message}</AlertDescription>
+              </Alert>
+            ) : null}
+
+            {offer.status === "pending" && isOverCurrentLimit ? (
+              <Alert variant="destructive" role="alert">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Accepting this offer would exceed your credit limit. The
+                  approved principal of {formatMoney(offer.principalAmount)}{" "}
+                  exceeds your available credit of{" "}
+                  {formatMoney(creditSnapshot.availableCredit)}.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+
+            <BorrowerOfferActions
+              offerId={offer.id}
+              status={offer.status}
+              creditSnapshotStatus={creditSnapshot.ok ? "ready" : "error"}
+              isOverCurrentLimit={isOverCurrentLimit}
+            />
           </CardContent>
         </Card>
       </div>
     </main>
   );
+}
+
+type BorrowerCreditSnapshot =
+  | {
+      ok: true;
+      currentCreditLimit: number;
+      activePrincipalUsed: number;
+      availableCredit: number;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+async function loadLatestCreditSnapshot(
+  supabase: SupabaseClient<Database>,
+  applicationId: string,
+): Promise<BorrowerCreditSnapshot> {
+  const { data, error } = await supabase.rpc("get_my_borrower_credit_snapshot", {
+    p_excluded_application_id: applicationId,
+  });
+
+  const snapshot = data as
+    | {
+        ok?: boolean;
+        message?: string;
+        current_credit_limit?: number | string;
+        active_principal_used?: number | string;
+        available_credit?: number | string;
+      }
+    | null;
+
+  if (error || !snapshot?.ok) {
+    return {
+      ok: false,
+      message:
+        snapshot?.message ??
+        "Unable to verify your latest credit limit. Please refresh and try again.",
+    };
+  }
+
+  return {
+    ok: true,
+    currentCreditLimit: Number(snapshot.current_credit_limit ?? 0),
+    activePrincipalUsed: Number(snapshot.active_principal_used ?? 0),
+    availableCredit: Number(snapshot.available_credit ?? 0),
+  };
 }
 
 function formatMoney(value: number) {

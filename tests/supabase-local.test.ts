@@ -96,6 +96,14 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
+type BorrowerCreditSnapshotResult = {
+  ok: boolean;
+  code?: string;
+  message?: string;
+  current_credit_limit?: number;
+  active_principal_used?: number;
+  available_credit?: number;
+};
 
 function toCents(value: number | string) {
   return Math.round(Number(value) * 100);
@@ -1850,6 +1858,22 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(nextOffer.error).toBeNull();
     expect(nextOfferResult).toMatchObject({ ok: true });
     expect(nextOfferResult.offer_id).toBeTruthy();
+
+    const latestSnapshot = await borrower.rpc("get_my_borrower_credit_snapshot", {
+      p_excluded_application_id: nextSubmissionResult.application?.id ?? "",
+    });
+    const latestSnapshotResult =
+      latestSnapshot.data as Json as BorrowerCreditSnapshotResult;
+
+    expect(latestSnapshot.error).toBeNull();
+    expect(latestSnapshotResult).toMatchObject({
+      ok: true,
+      current_credit_limit: 15000,
+      active_principal_used: 0,
+      available_credit: 15000,
+    });
+    expect(nextOfferResult.offer_id).toBeTruthy();
+    expect(nextSubmissionResult.credit_limit).not.toBe(10000);
 
     const nextAcceptance = await borrower.rpc("accept_loan_offer", {
       p_offer_id: nextOfferResult.offer_id ?? "",

@@ -13,14 +13,23 @@ import { AlertCircle } from "lucide-react";
 export function BorrowerOfferActions({
   offerId,
   status,
+  creditSnapshotStatus = "ready",
+  isOverCurrentLimit = false,
 }: {
   offerId: string;
   status: string;
+  creditSnapshotStatus?: "ready" | "loading" | "error";
+  isOverCurrentLimit?: boolean;
 }) {
   const router = useRouter();
   const [message, setMessage] = useState("");
   const [isPending, startTransition] = useTransition();
   const isClosed = status !== "pending";
+  const isAcceptDisabled =
+    isPending ||
+    isClosed ||
+    creditSnapshotStatus !== "ready" ||
+    isOverCurrentLimit;
 
   function returnToOffers() {
     router.push("/borrower?tab=offers");
@@ -75,7 +84,7 @@ export function BorrowerOfferActions({
         </Button>
         <Button
           type="button"
-          disabled={isPending || isClosed}
+          disabled={isAcceptDisabled}
           onClick={onAccept}
           className="h-11 rounded-full font-semibold"
         >
@@ -83,9 +92,15 @@ export function BorrowerOfferActions({
             ? "Accepted"
             : status === "declined"
               ? "Closed"
-              : isPending
-                ? "Working..."
-                : "Accept offer"}
+              : creditSnapshotStatus === "loading"
+                ? "Verifying latest credit limit..."
+                : creditSnapshotStatus === "error"
+                  ? "Accept offer"
+                  : isOverCurrentLimit
+                    ? "Credit limit exceeded"
+                    : isPending
+                      ? "Working..."
+                      : "Accept offer"}
         </Button>
       </div>
     </div>
