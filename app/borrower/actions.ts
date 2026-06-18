@@ -132,6 +132,7 @@ export type LoanApplicationSubmitResult =
         | "borrower-verification"
         | "consent-required"
         | "credit-limit"
+        | "active-application"
         | "supabase";
       message: string;
       fieldErrors?: Partial<Record<keyof LoanApplicationInput, string[]>>;
@@ -1573,7 +1574,7 @@ export async function submitLoanApplication(
         p_requested_amount: parsed.data.requestedAmount,
         p_purpose: parsed.data.purpose,
         p_preferred_term: parsed.data.preferredTerm,
-        p_remarks: parsed.data.remarks || "",
+        p_remarks: parsed.data.remarks ?? null,
       });
 
     const result = data as
@@ -1586,6 +1587,11 @@ export async function submitLoanApplication(
       | null;
 
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
+      const message =
+        result?.code === "active_application"
+          ? "You already have an open application. Withdraw it before submitting a new one."
+          : result?.message ?? "Could not submit application.";
+
       return {
         ok: false,
         mode:
@@ -1603,12 +1609,14 @@ export async function submitLoanApplication(
               ? "auth"
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
+            : result?.code === "active_application"
+              ? "active-application"
             : result?.code === "profile_needs_review" ||
                 result?.code === "profile_stale" ||
                 result?.code === "not_eligible"
               ? "readiness"
               : "supabase",
-        message: result?.message ?? "Could not submit application.",
+        message,
       };
     }
 
@@ -1665,7 +1673,7 @@ export async function updateLoanApplication(
       p_requested_amount: parsed.data.requestedAmount,
       p_purpose: parsed.data.purpose,
       p_preferred_term: parsed.data.preferredTerm,
-      p_remarks: parsed.data.remarks || "",
+      p_remarks: parsed.data.remarks ?? "",
     });
 
     const result = data as

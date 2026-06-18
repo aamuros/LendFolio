@@ -49,14 +49,21 @@ import {
 } from "@/lib/credit-limit";
 import type { ConsentStatus } from "@/lib/consents";
 import {
+  getLoanPurposeLabel,
+  isLoanPurposeOption,
   loanApplicationSchema,
+  loanPurposeLabels,
+  loanPurposeOptions,
   preferredTermLabels,
   preferredTermOptions,
   type LoanApplicationFormInput,
   type LoanApplicationInput,
 } from "@/lib/loan-application";
 import { parseMoneyInput } from "@/lib/money-input";
-import { canEditApplication } from "@/lib/workflow-rules";
+import {
+  canEditApplication,
+  openApplicationStatuses,
+} from "@/lib/workflow-rules";
 
 import {
   Card,
@@ -66,7 +73,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -105,12 +111,13 @@ import {
   borrowerPageBottomPadding,
 } from "@/components/borrower/ui";
 
-const defaultValues: LoanApplicationInput = {
+const defaultValues: LoanApplicationFormInput = {
   requestedAmount: 0,
   purpose: "",
   preferredTerm: "3_months",
   remarks: "",
 };
+const loanPurposeSelectPlaceholderValue = "__select_purpose__";
 
 const collapsedApplicationsStorageKey =
   "lendfolio.borrower.collapsedApplications";
@@ -539,7 +546,8 @@ export function BorrowerLoanApplicationPanel({
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required" ||
             result.mode === "readiness" ||
-            result.mode === "credit-limit"
+            result.mode === "credit-limit" ||
+            result.mode === "active-application"
             ? "ready"
             : "error",
       );
@@ -843,13 +851,24 @@ export function BorrowerLoanApplicationPanel({
   const hasNoAvailableCredit =
     readiness?.riskFlags.includes("no_available_credit") ||
     (creditSummary ? creditSummary.availableCredit <= 0 : false);
+  const hasOpenApplication = applications.some((application) =>
+    openApplicationStatuses.includes(
+      application.status as (typeof openApplicationStatuses)[number],
+    ),
+  );
+  const displayedMessage =
+    view === "apply" &&
+    hasOpenApplication &&
+    isProfileReadinessFeedbackMessage(message, readiness)
+      ? ""
+      : message;
 
   return (
     <>
       <section className="grid gap-5">
         <InlineFeedback
           loadState={loadState}
-          message={message}
+          message={displayedMessage}
           successMessage={successMessage}
         />
 
@@ -902,6 +921,8 @@ export function BorrowerLoanApplicationPanel({
                   )
                 }
               />
+            ) : hasOpenApplication ? (
+              <OpenApplicationNotice />
             ) : hasNoAvailableCredit ? (
               <CreditLimitBlocker />
             ) : readiness &&
@@ -917,6 +938,8 @@ export function BorrowerLoanApplicationPanel({
                 control={control}
                 creditSummary={creditSummary}
                 errors={errors}
+                feedbackMessage={message}
+                feedbackTone={loadState === "error" ? "error" : "success"}
                 isPending={isPending}
                 requestedAmount={requestedAmount}
                 register={register}
@@ -1039,6 +1062,25 @@ export function BorrowerLoanApplicationPanel({
   );
 }
 
+function isProfileReadinessFeedbackMessage(
+  message: string,
+  readiness: BorrowerReadinessResult | null,
+) {
+  if (!message) {
+    return false;
+  }
+
+  if (readiness?.nextActions.includes(message)) {
+    return true;
+  }
+
+  return [
+    "Update your flagged profile details before applying.",
+    "Update your profile before applying.",
+    "Add more detail to your loan purpose before applying.",
+  ].includes(message);
+}
+
 function VerificationGateCard({
   borrowerVerification,
   message,
@@ -1111,6 +1153,21 @@ function ProfileReadinessBlocker({
             Edit profile
           </Button>
         ) : null}
+      </CardContent>
+    </Card>
+  );
+}
+
+function OpenApplicationNotice() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Application already open
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Review or edit your current application below.
+        </p>
       </CardContent>
     </Card>
   );
@@ -2328,6 +2385,8 @@ function ApplicationForm({
   control,
   creditSummary,
   errors,
+  feedbackMessage,
+  feedbackTone,
   isPending,
   onSubmit,
   requestedAmount,
@@ -2336,6 +2395,8 @@ function ApplicationForm({
   control: Control<LoanApplicationFormInput>;
   creditSummary: BorrowerCreditSummary | null;
   errors: FieldErrors<LoanApplicationFormInput>;
+  feedbackMessage: string;
+  feedbackTone: "error" | "success";
   isPending: boolean;
   onSubmit: FormEventHandler<HTMLFormElement>;
   requestedAmount: number;
@@ -2370,7 +2431,7 @@ function ApplicationForm({
         <form
           onSubmit={onSubmit}
           className="grid gap-5"
-          aria-describedby="loan-application-state"
+          aria-describedby={feedbackMessage ? "loan-application-state" : undefined}
         >
           {creditSummary ? (
             <div
@@ -2457,16 +2518,41 @@ function ApplicationForm({
           </Field>
 
           <Field label="Purpose" error={errors.purpose?.message} id="purpose">
-            <Input
-              id="purpose"
-              className="h-12 rounded-xl"
-              aria-invalid={Boolean(errors.purpose)}
-              {...register("purpose")}
-              placeholder="Inventory, equipment, working capital"
+            <Controller
+              control={control}
+              name="purpose"
+              render={({ field }) => (
+                <Select
+                  onValueChange={(value) =>
+                    field.onChange(
+                      value === loanPurposeSelectPlaceholderValue ? "" : value,
+                    )
+                  }
+                  value={field.value || loanPurposeSelectPlaceholderValue}
+                >
+                  <SelectTrigger
+                    id="purpose"
+                    className="h-12 rounded-xl"
+                    aria-invalid={Boolean(errors.purpose)}
+                  >
+                    <SelectValue placeholder="--select--" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={loanPurposeSelectPlaceholderValue}>
+                      --select--
+                    </SelectItem>
+                    {loanPurposeOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {loanPurposeLabels[option]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             />
           </Field>
 
-          <Field label="Remarks" error={errors.remarks?.message} id="remarks">
+          <Field label="Remarks (optional)" error={errors.remarks?.message} id="remarks">
             <Textarea
               id="remarks"
               className="rounded-xl"
@@ -2475,15 +2561,21 @@ function ApplicationForm({
               rows={3}
               placeholder="Optional notes for the lender."
             />
+            <span className="text-xs text-muted-foreground">
+              Optional, but adding details may help lenders review your request.
+            </span>
           </Field>
 
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
-            <p
-              id="loan-application-state"
-              className="text-sm leading-6 text-muted-foreground"
-            >
-              Lenders will review your request and send offers here.
-            </p>
+            <div className="grid gap-2">
+              {feedbackMessage ? (
+                <InlineStatus
+                  id="loan-application-state"
+                  message={feedbackMessage}
+                  tone={feedbackTone}
+                />
+              ) : null}
+            </div>
             <Button
               type="submit"
               disabled={isPending || isOverAvailableCredit}
@@ -2544,7 +2636,7 @@ function ApplicationList({
               key={application.id}
               detailsId={applicationDetailsId}
               isExpanded={isExpanded}
-              label={application.purpose}
+              label={getLoanPurposeLabel(application.purpose)}
               amount={application.requestedAmount}
               metadata={[
                 preferredTermLabels[application.preferredTerm],
@@ -2842,7 +2934,10 @@ function OfferCard({
       {isExpanded ? (
         <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
           <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryItem label="Application" value={application.purpose} />
+            <SummaryItem
+              label="Application"
+              value={getLoanPurposeLabel(application.purpose)}
+            />
             <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
             {offer.interestServiceChargeRate !== null ? (
               <SummaryItem
@@ -3482,7 +3577,9 @@ function ApplicationEditForm({
     resolver: zodResolver(loanApplicationSchema),
     defaultValues: {
       requestedAmount: application.requestedAmount,
-      purpose: application.purpose,
+      purpose: isLoanPurposeOption(application.purpose)
+        ? application.purpose
+        : "",
       preferredTerm: application.preferredTerm,
       remarks: application.remarks ?? "",
     },
@@ -3524,20 +3621,50 @@ function ApplicationEditForm({
       </div>
 
       <Field label="Purpose" error={errors.purpose?.message} id="edit-purpose">
-        <Input
-          id="edit-purpose"
-          aria-invalid={Boolean(errors.purpose)}
-          {...register("purpose")}
+        <Controller
+          control={control}
+          name="purpose"
+          render={({ field }) => (
+            <Select
+              onValueChange={(value) =>
+                field.onChange(
+                  value === loanPurposeSelectPlaceholderValue ? "" : value,
+                )
+              }
+              value={field.value || loanPurposeSelectPlaceholderValue}
+            >
+              <SelectTrigger
+                id="edit-purpose"
+                className="h-11 rounded-xl"
+                aria-invalid={Boolean(errors.purpose)}
+              >
+                <SelectValue placeholder="--select--" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={loanPurposeSelectPlaceholderValue}>
+                  --select--
+                </SelectItem>
+                {loanPurposeOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {loanPurposeLabels[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         />
       </Field>
 
-      <Field label="Remarks" error={errors.remarks?.message} id="edit-remarks">
+      <Field label="Remarks (optional)" error={errors.remarks?.message} id="edit-remarks">
         <Textarea
           id="edit-remarks"
           aria-invalid={Boolean(errors.remarks)}
           {...register("remarks")}
           rows={3}
         />
+        <span className="text-xs text-muted-foreground">
+          Optional, but adding details may help lenders review your request.
+        </span>
       </Field>
 
       <div className="grid gap-2 sm:flex sm:justify-end">

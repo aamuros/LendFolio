@@ -12,6 +12,39 @@ export const preferredTermOptions = [
   "12_months",
 ] as const;
 
+export const loanPurposeOptions = [
+  "Inventory purchase",
+  "Online business expansion",
+  "Equipment purchase",
+  "Working capital",
+  "Store renovation",
+  "Marketing or promotion",
+  "Supplier payment",
+  "Emergency business expense",
+  "Other business need",
+] as const;
+
+export type LoanPurpose = (typeof loanPurposeOptions)[number];
+
+export const loanPurposeLabels: Record<
+  LoanPurpose,
+  string
+> = Object.fromEntries(
+  loanPurposeOptions.map((option) => [option, option]),
+) as Record<LoanPurpose, string>;
+
+export function getLoanPurposeLabel(purpose: string) {
+  return purpose in loanPurposeLabels
+    ? loanPurposeLabels[purpose as LoanPurpose]
+    : purpose;
+}
+
+export function isLoanPurposeOption(
+  purpose: string,
+): purpose is LoanPurpose {
+  return loanPurposeOptions.includes(purpose as LoanPurpose);
+}
+
 function normalizeNumberInput(value: unknown) {
   if (typeof value === "string") {
     const normalizedValue = value.replace(/,/g, "").trim();
@@ -44,8 +77,8 @@ export const loanApplicationSchema = z.object({
   purpose: z
     .string()
     .trim()
-    .min(10, "Add a short purpose for this loan request.")
-    .max(160, "Keep the purpose under 160 characters."),
+    .refine(isLoanPurposeOption, "Select loan purpose.")
+    .transform((purpose) => purpose as LoanPurpose),
   preferredTerm: z.enum(preferredTermOptions, {
     error: "Select a preferred repayment term.",
   }),

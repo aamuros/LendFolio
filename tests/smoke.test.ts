@@ -16,7 +16,10 @@ import {
   getManagerSubmittedDateRange,
   resolveSubmittedDateRangeFilters,
 } from "../lib/date-ranges";
-import { loanApplicationSchema } from "../lib/loan-application";
+import {
+  loanApplicationSchema,
+  loanPurposeOptions,
+} from "../lib/loan-application";
 import { isApplicationActionableForOffer } from "../lib/lender-applications";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
 import {
@@ -103,7 +106,7 @@ describe("loan application schema", () => {
   it("accepts the loan application fields", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: 25_000,
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "Best reviewed after the saved portfolio cash-flow fields.",
     });
@@ -111,10 +114,54 @@ describe("loan application schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts empty remarks", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: loanPurposeOptions[0],
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty purpose", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects arbitrary purpose text", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "Inventory restock",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects remarks over 500 characters", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "Inventory purchase",
+      preferredTerm: "3_months",
+      remarks: "x".repeat(501),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an invalid requested amount", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: 500,
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "",
     });
@@ -125,7 +172,7 @@ describe("loan application schema", () => {
   it("shows friendly validation for empty numeric inputs", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: "",
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "",
     });

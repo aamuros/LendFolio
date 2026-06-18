@@ -31,14 +31,17 @@ export function ActionBanner({
 }
 
 export function InlineStatus({
+  id,
   message,
   tone = "success",
 }: {
+  id?: string;
   message: string;
   tone?: "success" | "error";
 }) {
   return (
     <p
+      id={id}
       className={cn(
         "rounded-xl border px-3 py-2 text-sm leading-6",
         tone === "error"
