@@ -1,13 +1,19 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useMemo, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, X } from "lucide-react";
+import { polishBorrowerAssistantReply } from "@/app/borrower/assistant/actions";
 import type {
   BorrowerLoanApplicationSummary,
   LoanApplicationsLoadResult,
 } from "@/app/borrower/actions";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import { answerOfferComparison } from "@/lib/borrower-assistant/offer-ranking";
+import type {
+  BorrowerAssistantAction,
+  BorrowerAssistantReply,
+  BorrowerAssistantSafeSummary,
+} from "@/lib/borrower-assistant/types";
 import {
   answerApplyBlockers,
   answerCompleteProfile,
@@ -34,12 +40,16 @@ type BorrowerAssistantProps = {
   readiness: BorrowerReadinessResult | null;
   result: LoanApplicationsLoadResult | null;
   selectedApplicationId?: string | null;
+  onNavigate: (tab: BorrowerTab) => void;
+  onNavigateVerification: () => void;
 };
 
 type ChatMessage = {
   id: number;
   role: "assistant" | "user";
   content: string;
+  actions?: BorrowerAssistantAction[];
+  isPending?: boolean;
 };
 
 const quickPrompts = [
@@ -57,19 +67,23 @@ export function BorrowerAssistant({
   readiness,
   result,
   selectedApplicationId = null,
+  onNavigate,
+  onNavigateVerification,
 }: BorrowerAssistantProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [draft, setDraft] = useState("");
+  const nextMessageId = useRef(2);
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: 1,
       role: "assistant",
       content:
-        "Hi, I can help compare offers, explain your credit limit, or guide your borrower workflow.",
+        "Hi, I can help compare offers, explain your credit limit, or guide your borrower profile.",
     },
   ]);
   const selectedApplicationForTab = useMemo(() => {
     if (selectedApplicationId) return selectedApplicationId;
+
     if (activeTab === "offers") {
       const applicationWithPendingOffers = applications.find((application) =>
         application.offers.some((offer) => offer.status === "pending"),
@@ -81,7 +95,7 @@ export function BorrowerAssistant({
     return null;
   }, [activeTab, applications, selectedApplicationId]);
 
-  function submitPrompt(prompt: string) {
+  async function submitPrompt(prompt: string) {
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) return;
 
@@ -92,14 +106,43 @@ export function BorrowerAssistant({
       result,
       selectedApplicationId: selectedApplicationForTab,
     });
+    const safeSummary = buildSafeSummary(trimmedPrompt, answer.content, {
+      applications,
+      creditSummary,
+      readiness,
+      selectedApplicationId: selectedApplicationForTab,
+    });
+    const userMessageId = nextMessageId.current;
+    const assistantMessageId = nextMessageId.current + 1;
+    nextMessageId.current += 2;
 
     setMessages((current) => [
       ...current,
-      { id: Date.now(), role: "user", content: trimmedPrompt },
-      { id: Date.now() + 1, role: "assistant", content: answer },
+      { id: userMessageId, role: "user", content: trimmedPrompt },
+      {
+        id: assistantMessageId,
+        role: "assistant",
+        content: "Thinking...",
+        actions: answer.actions,
+        isPending: true,
+      },
     ]);
     setDraft("");
     setIsOpen(true);
+
+    const polishedContent = await polishBorrowerAssistantReply(safeSummary);
+
+    setMessages((current) =>
+      current.map((message) =>
+        message.id === assistantMessageId
+          ? {
+              ...message,
+              content: polishedContent,
+              isPending: false,
+            }
+          : message,
+      ),
+    );
   }
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -107,12 +150,23 @@ export function BorrowerAssistant({
     submitPrompt(draft);
   }
 
+  function handleAction(action: BorrowerAssistantAction) {
+    setIsOpen(false);
+
+    if (action.type === "verification") {
+      onNavigateVerification();
+      return;
+    }
+
+    onNavigate(action.tab);
+  }
+
   return (
     <>
       <Button
         type="button"
         className={cn(
-          "fixed right-4 z-40 gap-2 rounded-full shadow-lg sm:right-6",
+          "fixed right-4 z-40 h-10 gap-2 rounded-full px-4 shadow-lg sm:right-6",
           "bottom-24 sm:bottom-6",
         )}
         onClick={() => setIsOpen(true)}
@@ -121,17 +175,26 @@ export function BorrowerAssistant({
         Ask LendFolio
       </Button>
 
-      {isOpen ? (
+      <div
+        className={cn(
+          "fixed z-50 transition-all duration-200 ease-out",
+          "inset-x-3 bottom-20 sm:inset-auto sm:bottom-6 sm:right-6",
+          isOpen
+            ? "translate-y-0 opacity-100"
+            : "pointer-events-none translate-y-4 opacity-0",
+        )}
+        aria-hidden={!isOpen}
+      >
         <Card
           className={cn(
-            "fixed z-50 flex max-h-[calc(100svh-6rem)] flex-col border-border/80 shadow-2xl",
-            "inset-x-3 bottom-20 sm:inset-auto sm:bottom-6 sm:right-6 sm:h-[620px] sm:w-[380px]",
+            "flex max-h-[calc(100svh-7rem)] flex-col overflow-hidden border-border/80 shadow-2xl",
+            "sm:h-[560px] sm:w-[360px]",
           )}
         >
-          <CardHeader className="space-y-3 pb-3">
+          <CardHeader className="space-y-3 p-4 pb-3">
             <div className="flex items-start justify-between gap-3">
               <div className="flex items-start gap-2">
-                <span className="mt-0.5 rounded-full bg-primary/10 p-2 text-primary">
+                <span className="mt-0.5 rounded-full bg-primary/10 p-1.5 text-primary">
                   <Bot className="h-4 w-4" />
                 </span>
                 <div>
@@ -153,14 +216,14 @@ export function BorrowerAssistant({
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex gap-2 overflow-x-auto pb-1">
               {quickPrompts.map((prompt) => (
                 <Button
                   key={prompt}
                   type="button"
                   variant="outline"
                   size="sm"
-                  className="h-8 rounded-full px-3 text-xs"
+                  className="h-8 shrink-0 rounded-full px-3 text-xs"
                   onClick={() => submitPrompt(prompt)}
                 >
                   {prompt}
@@ -175,20 +238,37 @@ export function BorrowerAssistant({
                 <div
                   key={message.id}
                   className={cn(
-                    "flex",
-                    message.role === "user" ? "justify-end" : "justify-start",
+                    "flex flex-col gap-2",
+                    message.role === "user" ? "items-end" : "items-start",
                   )}
                 >
                   <div
                     className={cn(
-                      "max-w-[85%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-relaxed",
+                      "max-w-[88%] whitespace-pre-line rounded-2xl px-3 py-2 text-sm leading-relaxed",
                       message.role === "user"
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-foreground",
+                      message.isPending && "text-muted-foreground",
                     )}
                   >
                     {message.content}
                   </div>
+                  {message.role === "assistant" && message.actions?.length ? (
+                    <div className="flex flex-wrap gap-2">
+                      {message.actions.map((action) => (
+                        <Button
+                          key={`${message.id}-${action.label}`}
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          className="h-7 rounded-full px-3 text-xs"
+                          onClick={() => handleAction(action)}
+                        >
+                          {action.label}
+                        </Button>
+                      ))}
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
@@ -209,7 +289,7 @@ export function BorrowerAssistant({
             </form>
           </CardContent>
         </Card>
-      ) : null}
+      </div>
     </>
   );
 }
@@ -223,7 +303,7 @@ function answerPrompt(
     result: LoanApplicationsLoadResult | null;
     selectedApplicationId: string | null;
   },
-) {
+): BorrowerAssistantReply {
   const normalizedPrompt = prompt.toLowerCase().replace(/[?!.]/g, "").trim();
 
   if (
@@ -249,6 +329,7 @@ function answerPrompt(
   if (
     normalizedPrompt.includes("why cant i apply") ||
     normalizedPrompt.includes("why can't i apply") ||
+    normalizedPrompt.includes("why can’t i apply") ||
     normalizedPrompt.includes("cannot apply")
   ) {
     return answerApplyBlockers({
@@ -265,5 +346,65 @@ function answerPrompt(
     return answerCreditLimit({ creditSummary: context.creditSummary });
   }
 
-  return "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile.";
+  return {
+    content:
+      "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile.",
+  };
+}
+
+function buildSafeSummary(
+  prompt: string,
+  ruleBasedAnswer: string,
+  context: {
+    applications: BorrowerLoanApplicationSummary[];
+    creditSummary: BorrowerCreditSummary | null;
+    readiness: BorrowerReadinessResult | null;
+    selectedApplicationId: string | null;
+  },
+): BorrowerAssistantSafeSummary {
+  const selectedApplication = context.selectedApplicationId
+    ? context.applications.find(
+        (application) => application.id === context.selectedApplicationId,
+      )
+    : null;
+  const sourceApplications = selectedApplication
+    ? [selectedApplication]
+    : context.applications;
+
+  return {
+    ruleBasedAnswer,
+    promptTopic: getPromptTopic(prompt),
+    offers: sourceApplications.flatMap((application) =>
+      application.offers.slice(0, 5).map((offer) => ({
+        lenderDisplayName: offer.lenderName,
+        principalAmount: offer.principalAmount,
+        totalRepayment: offer.totalRepaymentAmount,
+        fees: offer.fees,
+        serviceChargeRate: offer.interestServiceChargeRate,
+        dueDate: offer.dueDate,
+        status: offer.status,
+      })),
+    ),
+    creditSummary: context.creditSummary
+      ? {
+          calculatedCreditLimit: context.creditSummary.calculatedCreditLimit,
+          usedCredit: context.creditSummary.usedCredit,
+          availableCredit: context.creditSummary.availableCredit,
+          safeMonthlyRepaymentCapacity:
+            context.creditSummary.safeMonthlyRepaymentCapacity,
+        }
+      : null,
+    profileNextActions: context.readiness?.nextActions.slice(0, 4) ?? [],
+  };
+}
+
+function getPromptTopic(prompt: string) {
+  const normalizedPrompt = prompt.toLowerCase();
+
+  if (normalizedPrompt.includes("offer")) return "offer comparison";
+  if (normalizedPrompt.includes("credit")) return "credit limit";
+  if (normalizedPrompt.includes("apply")) return "application readiness";
+  if (normalizedPrompt.includes("profile")) return "profile completion";
+
+  return "borrower workflow help";
 }

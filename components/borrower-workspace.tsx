@@ -359,6 +359,8 @@ export function BorrowerWorkspace({
           readiness={readiness}
           result={initialLoanApplications}
           selectedApplicationId={highlightApplicationId}
+          onNavigate={changeTab}
+          onNavigateVerification={navigateToVerification}
         />
       ) : null}
     </div>
