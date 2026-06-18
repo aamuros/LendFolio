@@ -22,6 +22,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
@@ -34,13 +39,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, Check } from "lucide-react";
 import {
   averageCollectionPeriodLabels,
   averageCollectionPeriodOptions,
   copyHomeAddressToBusinessAddress,
   borrowerPortfolioSchema,
-  borrowerPortfolioStepLabels,
   borrowerRoleLabels,
   borrowerRoleOptions,
   businessRegistrationTypeLabels,
@@ -101,6 +105,15 @@ type BorrowerPortfolioFormProps = {
   onCancel?: () => void;
   onSaved?: (portfolio: BorrowerPortfolioInput) => void;
 };
+
+type BorrowerPortfolioMilestone = {
+  id: "personal" | "business" | "financials" | "loanRequest" | "review";
+  title: string;
+  shortLabel: string;
+  legacySteps: readonly BorrowerPortfolioStep[];
+};
+
+type BorrowerPortfolioMilestoneId = BorrowerPortfolioMilestone["id"];
 
 export function BorrowerPortfolioForm({
   businessSection,
@@ -194,24 +207,19 @@ export function BorrowerPortfolioForm({
     ? parsedCurrent.data
     : defaultValues;
   const readiness = evaluateBorrowerReadiness(currentPortfolio);
-  const currentStep = profileSteps[currentStepIndex];
-  const progressValue =
-    currentStep.id === "review"
-      ? 100
-      : ((currentStepIndex + 1) / (profileSteps.length - 1)) * 100;
-  const isFinalStep = currentStepIndex === profileSteps.length - 1;
+  const currentStep = milestoneSteps[currentStepIndex];
   const isEditMode = mode === "edit";
+  const activeLegacySteps = isEditMode
+    ? ([initialStep ?? currentStep.legacySteps[0]] as const)
+    : currentStep.legacySteps;
+  const progressValue = (currentStepIndex / (milestoneSteps.length - 1)) * 100;
+  const isFinalStep = currentStepIndex === milestoneSteps.length - 1;
   const editTitle =
     isEditMode && businessSection
       ? businessProfileSectionLabels[businessSection]
       : currentStep.title;
-  const visibleSteps = isEditMode
-    ? [currentStep.id]
-    : profileSteps
-        .map((step) => step.id)
-        .filter((step) => step !== "review");
-  const visibleStepIndex = Math.max(visibleSteps.indexOf(currentStep.id), 0);
-  const visibleStepTotal = visibleSteps.length;
+  const visibleStepIndex = currentStepIndex;
+  const visibleStepTotal = milestoneSteps.length;
   const previousBusinessRegistration = useRef<boolean | undefined>(undefined);
 
   useEffect(() => {
@@ -367,7 +375,7 @@ export function BorrowerPortfolioForm({
       const result =
         isEditMode && businessSection
           ? await saveBorrowerBusinessProfileSection(businessSection, values)
-          : await saveBorrowerPortfolioStep(currentStep.id, values);
+          : await saveBorrowerPortfolioMilestone(currentStep, values);
       setLoadState(result.ok ? "ready" : "error");
       if (result.ok) {
         setStatusMessage("");
@@ -378,7 +386,7 @@ export function BorrowerPortfolioForm({
           onSaved?.(result.portfolio);
         } else {
           setCurrentStepIndex((index) => {
-            const nextIndex = Math.min(index + 1, profileSteps.length - 1);
+            const nextIndex = Math.min(index + 1, milestoneSteps.length - 1);
             return nextIndex;
           });
         }
@@ -425,42 +433,21 @@ export function BorrowerPortfolioForm({
 
           <WizardHeader
             activeStep={currentStep.id}
-            stepNumber={
-              currentStep.id === "review"
-                ? visibleStepTotal + 1
-                : visibleStepIndex + 1
-            }
+            stepNumber={visibleStepIndex + 1}
             totalSteps={visibleStepTotal}
             title={editTitle}
             progressValue={isEditMode ? 100 : progressValue}
             completedSteps={completedSteps}
-            visibleSteps={visibleSteps}
+            currentIndex={visibleStepIndex}
           />
 
-          {currentStep.id === "homeAddress" ? (
+          {activeLegacySteps.includes("homeAddress") ? (
             <FormSection title="Personal / Home address">
-              <SelectField
-                control={control}
-                name="country"
-                label="Country"
-                options={["Philippines"] as const}
-                labels={{ Philippines: "Philippines" }}
-                error={errors.country?.message}
-              />
               <TextField
                 id="mobileNumber"
                 label="Mobile number"
                 error={errors.mobileNumber?.message}
                 register={register("mobileNumber")}
-              />
-              <NumberField
-                id="yearsAtCurrentAddress"
-                label="Years at current address"
-                error={errors.yearsAtCurrentAddress?.message}
-                register={register("yearsAtCurrentAddress", {
-                  setValueAs: parseMoneyInput,
-                })}
-                step="0.5"
               />
               <div className="sm:col-span-2">
                 <Controller
@@ -505,16 +492,62 @@ export function BorrowerPortfolioForm({
                 error={errors.emergencyContactNumber?.message}
                 register={register("emergencyContactNumber")}
               />
-              <TextField
-                id="emergencyContactRelationship"
-                label="Emergency contact relationship"
-                error={errors.emergencyContactRelationship?.message}
-                register={register("emergencyContactRelationship")}
-              />
+              <AdditionalDetails className="sm:col-span-2">
+                <SelectField
+                  control={control}
+                  name="country"
+                  label="Country"
+                  options={["Philippines"] as const}
+                  labels={{ Philippines: "Philippines" }}
+                  error={errors.country?.message}
+                />
+                <NumberField
+                  id="yearsAtCurrentAddress"
+                  label="Years at current address"
+                  error={errors.yearsAtCurrentAddress?.message}
+                  register={register("yearsAtCurrentAddress", {
+                    setValueAs: parseMoneyInput,
+                  })}
+                  step="0.5"
+                />
+                <TextField
+                  id="emergencyContactRelationship"
+                  label="Emergency contact relationship"
+                  error={errors.emergencyContactRelationship?.message}
+                  register={register("emergencyContactRelationship")}
+                />
+                <NumberField
+                  id="numberOfDependents"
+                  label="Number of dependents"
+                  error={errors.numberOfDependents?.message}
+                  register={register("numberOfDependents", {
+                    setValueAs: parseMoneyInput,
+                  })}
+                  step="1"
+                />
+                <NumberField
+                  id="numberOfEarningHouseholdMembers"
+                  label="Earning household members"
+                  error={errors.numberOfEarningHouseholdMembers?.message}
+                  register={register("numberOfEarningHouseholdMembers", {
+                    setValueAs: parseMoneyInput,
+                  })}
+                  step="1"
+                />
+                {householdExpenseFields.map(([name, label]) => (
+                  <MoneyField
+                    key={name}
+                    id={name}
+                    label={label}
+                    error={fieldError(errors, name)}
+                    register={register(name, { setValueAs: parseMoneyInput })}
+                  />
+                ))}
+              </AdditionalDetails>
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessBasics" &&
+          {activeLegacySteps.includes("businessBasics") &&
           (!isEditMode || !businessSection || businessSection === "basic") ? (
             <FormSection title="Business basics">
               <TextField
@@ -550,7 +583,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessBasics" &&
+          {activeLegacySteps.includes("businessBasics") &&
           (!isEditMode || !businessSection || businessSection === "operations") ? (
             <FormSection title="Operations and sales">
               <NumberField
@@ -598,7 +631,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessBasics" &&
+          {activeLegacySteps.includes("businessBasics") &&
           (!isEditMode || !businessSection || businessSection === "products") ? (
             <FormSection title="Products, services, and suppliers">
               <SelectField
@@ -626,7 +659,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessBasics" &&
+          {activeLegacySteps.includes("businessBasics") &&
           (!isEditMode || !businessSection || businessSection === "records") ? (
             <FormSection title="Records and payment channels">
               <CheckboxField
@@ -642,7 +675,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessAddress" ? (
+          {activeLegacySteps.includes("businessAddress") ? (
             <FormSection title="Business address">
               {shouldShowBusinessAddress ? (
                 <>
@@ -758,7 +791,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessOperations" ? (
+          {activeLegacySteps.includes("businessOperations") ? (
             <FormSection title="Business operations">
               <CheckboxField
                 control={control}
@@ -793,7 +826,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "financials" ? (
+          {activeLegacySteps.includes("financials") ? (
             <FormSection title="Financials">
               <MoneyField
                 id="averageDailySales"
@@ -854,7 +887,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessExpenses" ? (
+          {activeLegacySteps.includes("businessExpenses") ? (
             <FormSection title="Business expenses">
               {businessExpenseFields.map(([name, label]) => (
                 <MoneyField
@@ -868,7 +901,8 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "householdExpenses" ? (
+          {activeLegacySteps.includes("householdExpenses") &&
+          !activeLegacySteps.includes("homeAddress") ? (
             <FormSection title="Household expenses">
               {householdExpenseFields.map(([name, label]) => (
                 <MoneyField
@@ -900,7 +934,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "existingDebts" ? (
+          {activeLegacySteps.includes("existingDebts") ? (
             <FormSection
               title="Existing loans / debts"
               description="Declare active loans, debts, or installment payments only if you currently have them."
@@ -929,7 +963,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "assets" ? (
+          {activeLegacySteps.includes("assets") ? (
             <FormSection
               title="Assets"
               description="Declare cash, savings, equipment, property, and other assets owned by the borrower or business."
@@ -964,7 +998,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "loanUse" ? (
+          {activeLegacySteps.includes("loanUse") ? (
             <FormSection
               title="Loan purpose"
               description="Tell lenders how you plan to use the loan. Keep it specific and practical."
@@ -1002,7 +1036,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "customerCredit" ? (
+          {activeLegacySteps.includes("customerCredit") ? (
             <FormSection
               title="Customer credit / utang practices"
               description="Share whether customers buy from you now and pay later."
@@ -1053,7 +1087,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "repaymentHistory" ? (
+          {activeLegacySteps.includes("repaymentHistory") ? (
             <FormSection
               title="Existing loans, debts, and repayment history"
               description="Answer only based on your current situation and the last 12 months."
@@ -1071,7 +1105,7 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "businessStatus" ? (
+          {activeLegacySteps.includes("businessStatus") ? (
             <FormSection
               title="Business status"
               description="Confirm whether the business is operating now."
@@ -1092,8 +1126,16 @@ export function BorrowerPortfolioForm({
             </FormSection>
           ) : null}
 
-          {currentStep.id === "review" ? (
+          {activeLegacySteps.includes("review") ? (
             <FormSection title="Review and submit">
+              <div className="sm:col-span-2">
+                <MilestoneSummary
+                  portfolio={currentPortfolio}
+                  onEdit={(stepId) =>
+                    setCurrentStepIndex(getMilestoneIndex(stepId))
+                  }
+                />
+              </div>
               <Alert className="sm:col-span-2">
                 <AlertDescription>
                   Home address on file:{" "}
@@ -1287,162 +1329,114 @@ const repaymentHistoryFields = [
   readonly [keyof BorrowerPortfolioFormInput, string, string?]
 >;
 
-const profileSteps = [
+const milestoneSteps: readonly BorrowerPortfolioMilestone[] = [
   {
-    id: "homeAddress",
-    title: borrowerPortfolioStepLabels.homeAddress,
-    fields: [
-      "country",
-      "mobileNumber",
-      "yearsAtCurrentAddress",
-      "homeAddressSelection",
-      "homeStreetAddress",
-      "emergencyContactName",
-      "emergencyContactNumber",
-      "emergencyContactRelationship",
-    ],
+    id: "personal",
+    title: "Personal",
+    shortLabel: "Personal",
+    legacySteps: ["homeAddress", "householdExpenses"],
   },
   {
-    id: "businessBasics",
-    title: borrowerPortfolioStepLabels.businessBasics,
-    fields: [
-      "businessName",
-      "businessType",
-      "ownershipType",
-      "borrowerRole",
-      "yearsInOperation",
-      "operatingModel",
-      "primarySalesChannel",
-      "businessSchedule",
-      "numberOfEmployees",
-      "mainProductsOrServicesCategory",
-      "mainProductsOrServicesOther",
-      "mainSuppliers",
-      "keepsSalesRecords",
-      "usesBankOrEwallet",
-    ],
-  },
-  {
-    id: "businessAddress",
-    title: borrowerPortfolioStepLabels.businessAddress,
-    fields: [
-      "address",
-      "streetAddress",
-      "isBusinessAddressSameAsHome",
-      "homeAddressSelection",
-      "homeStreetAddress",
-    ],
-  },
-  {
-    id: "businessOperations",
-    title: borrowerPortfolioStepLabels.businessOperations,
-    fields: [
-      "hasBusinessRegistration",
-      "businessRegistrationType",
-      "registrationNumber",
-      "registrationDate",
+    id: "business",
+    title: "Business",
+    shortLabel: "Business",
+    legacySteps: [
+      "businessBasics",
+      "businessAddress",
+      "businessOperations",
+      "businessStatus",
     ],
   },
   {
     id: "financials",
-    title: borrowerPortfolioStepLabels.financials,
-    fields: [
-      "averageDailySales",
-      "averageWeeklySales",
-      "monthlyGrossRevenue",
-      "revenuePeriod",
-      "revenueConfidence",
-      "bestMonthSales",
-      "worstMonthSales",
+    title: "Financials",
+    shortLabel: "Financials",
+    legacySteps: [
+      "financials",
+      "businessExpenses",
+      "assets",
+      "existingDebts",
+      "customerCredit",
+      "repaymentHistory",
     ],
   },
   {
-    id: "businessExpenses",
-    title: borrowerPortfolioStepLabels.businessExpenses,
-    fields: [
-      ...businessExpenseFields.map(([name]) => name),
-    ],
-  },
-  {
-    id: "householdExpenses",
-    title: borrowerPortfolioStepLabels.householdExpenses,
-    fields: [
-      ...householdExpenseFields.map(([name]) => name),
-      "numberOfDependents",
-      "numberOfEarningHouseholdMembers",
-    ],
-  },
-  {
-    id: "existingDebts",
-    title: borrowerPortfolioStepLabels.existingDebts,
-    fields: [
-      "hasExistingDebts",
-      ...debtFields.map(([name]) => name),
-    ],
-  },
-  {
-    id: "assets",
-    title: borrowerPortfolioStepLabels.assets,
-    fields: [
-      "hasInventory",
-      "inventoryValue",
-      ...assetFields.map(([name]) => name),
-    ],
-  },
-  {
-    id: "loanUse",
-    title: borrowerPortfolioStepLabels.loanUse,
-    fields: [
-      "loanPurposeCategory",
-      "loanPurposeOther",
-      "loanPurposeDetails",
-    ],
-  },
-  {
-    id: "customerCredit",
-    title: borrowerPortfolioStepLabels.customerCredit,
-    fields: [
-      "offersCustomerCredit",
-      "estimatedCustomerCreditAmount",
-      "averageCollectionPeriod",
-      "keepsCustomerDebtList",
-    ],
-  },
-  {
-    id: "repaymentHistory",
-    title: borrowerPortfolioStepLabels.repaymentHistory,
-    fields: [
-      ...repaymentHistoryFields.map(([name]) => name),
-    ],
-  },
-  {
-    id: "businessStatus",
-    title: borrowerPortfolioStepLabels.businessStatus,
-    fields: [
-      "businessTemporarilyStopped",
-      "confirmsBusinessOperating",
-    ],
+    id: "loanRequest",
+    title: "Loan request",
+    shortLabel: "Loan request",
+    legacySteps: ["loanUse"],
   },
   {
     id: "review",
-    title: borrowerPortfolioStepLabels.review,
-    fields: [
-      "confirmsInformationTrue",
-      "consentsToDataProcessing",
-      "consentsToCreditCheck",
-    ],
+    title: "Review",
+    shortLabel: "Review",
+    legacySteps: ["review"],
   },
-] as const satisfies ReadonlyArray<{
-  id: BorrowerPortfolioStep;
-  title: string;
-  fields: readonly (keyof BorrowerPortfolioFormInput)[];
-}>;
+];
 
 function getStepIndex(step?: BorrowerPortfolioStep) {
   if (!step) return 0;
 
-  const index = profileSteps.findIndex((profileStep) => profileStep.id === step);
+  const index = milestoneSteps.findIndex((milestone) =>
+    milestone.legacySteps.includes(step),
+  );
   return index >= 0 ? index : 0;
+}
+
+function getMilestoneIndex(stepId: BorrowerPortfolioMilestoneId) {
+  const index = milestoneSteps.findIndex((step) => step.id === stepId);
+  return index >= 0 ? index : 0;
+}
+
+async function saveBorrowerPortfolioMilestone(
+  milestone: BorrowerPortfolioMilestone,
+  values: BorrowerPortfolioInput,
+) {
+  let latestPortfolio = normalizeMilestoneValues(milestone, values);
+  let latestCompletedSteps: BorrowerPortfolioStep[] = [];
+
+  for (const legacyStep of milestone.legacySteps) {
+    const result = await saveBorrowerPortfolioStep(legacyStep, latestPortfolio);
+
+    if (!result.ok) {
+      return result;
+    }
+
+    latestPortfolio = result.portfolio;
+    latestCompletedSteps = result.completedSteps;
+  }
+
+  return {
+    ok: true,
+    mode: "supabase",
+    message: `${milestone.title} saved.`,
+    portfolio: latestPortfolio,
+    completedSteps: latestCompletedSteps,
+    nextIncompleteStep: latestCompletedSteps.length
+      ? undefined
+      : milestone.legacySteps[0],
+  } as const;
+}
+
+function normalizeMilestoneValues(
+  milestone: BorrowerPortfolioMilestone,
+  values: BorrowerPortfolioInput,
+): BorrowerPortfolioInput {
+  return {
+    ...values,
+    country: "Philippines",
+    numberOfDependents: Number.isFinite(values.numberOfDependents)
+      ? values.numberOfDependents
+      : 0,
+    numberOfEarningHouseholdMembers: Number.isFinite(
+      values.numberOfEarningHouseholdMembers,
+    )
+      ? values.numberOfEarningHouseholdMembers
+      : 0,
+    householdExpensesCompleted:
+      milestone.legacySteps.includes("householdExpenses") ||
+      values.householdExpensesCompleted,
+  };
 }
 
 function syncBusinessAddressFromHome({
@@ -1480,46 +1474,57 @@ function WizardHeader({
   title,
   progressValue,
   completedSteps,
-  visibleSteps,
+  currentIndex,
 }: {
-  activeStep: BorrowerPortfolioStep;
+  activeStep: BorrowerPortfolioMilestoneId;
   stepNumber: number;
   totalSteps: number;
   title: string;
   progressValue: number;
   completedSteps: BorrowerPortfolioStep[];
-  visibleSteps: BorrowerPortfolioStep[];
+  currentIndex: number;
 }) {
-  const isReview = stepNumber > totalSteps;
-
   return (
-    <div className="grid gap-3">
+    <div className="grid gap-4">
       <div className="flex items-end justify-between gap-3">
         <div className="grid gap-1">
           <p className="text-sm font-medium text-muted-foreground">
-            {isReview ? "Review" : `Part ${stepNumber} of ${totalSteps}`}
+            Step {stepNumber} of {totalSteps}
           </p>
           <h3 className="text-lg font-semibold">{title}</h3>
         </div>
       </div>
       <Progress value={progressValue} aria-label="Profile progress" />
-      <div className="flex flex-wrap gap-2">
-        {visibleSteps
-          .map((step) => (
-            <span
-              key={step}
+      <div className="grid grid-cols-5 gap-1.5 sm:gap-2">
+        {milestoneSteps.map((step, index) => {
+          const isComplete = step.legacySteps.every((legacyStep) =>
+            completedSteps.includes(legacyStep),
+          );
+          const isActive = step.id === activeStep;
+
+          return (
+            <div
+              key={step.id}
               className={cn(
-                "rounded-full border px-2.5 py-1 text-xs font-medium",
-                step === activeStep
+                "grid min-w-0 gap-1 rounded-lg border px-2 py-2 text-center text-[11px] font-medium leading-4 sm:px-3 sm:text-xs",
+                isActive
                   ? "border-primary bg-primary text-primary-foreground"
-                  : completedSteps.includes(step)
+                  : isComplete || index < currentIndex
                   ? "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]"
                   : "border-border bg-muted/30 text-muted-foreground",
               )}
             >
-              {borrowerPortfolioStepLabels[step]}
-            </span>
-          ))}
+              <span className="mx-auto flex h-5 w-5 items-center justify-center rounded-full bg-background/80 text-[10px] text-foreground">
+                {isComplete || index < currentIndex ? (
+                  <Check className="h-3.5 w-3.5" aria-hidden="true" />
+                ) : (
+                  index + 1
+                )}
+              </span>
+              <span className="truncate">{step.shortLabel}</span>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -1546,6 +1551,137 @@ function FormSection({
       </div>
       <div className="grid gap-4 sm:grid-cols-2">{children}</div>
     </section>
+  );
+}
+
+function AdditionalDetails({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return (
+    <Collapsible className={cn("grid gap-3", className)}>
+      <CollapsibleTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 w-fit rounded-full px-4 text-sm font-semibold"
+        >
+          Additional details
+        </Button>
+      </CollapsibleTrigger>
+      <CollapsibleContent className="grid gap-4 rounded-xl border bg-muted/10 p-4 sm:grid-cols-2">
+        {children}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+function MilestoneSummary({
+  portfolio,
+  onEdit,
+}: {
+  portfolio: BorrowerPortfolioInput;
+  onEdit: (stepId: BorrowerPortfolioMilestoneId) => void;
+}) {
+  const totalBusinessExpenses = calculateTotalBusinessExpenses(portfolio);
+  const totalHouseholdExpenses = calculateTotalHouseholdExpenses(portfolio);
+  const totalDebtPayments = calculateTotalExistingDebtPayments(portfolio);
+  const totalAssets = calculateTotalDeclaredAssets(portfolio);
+
+  const groups = [
+    {
+      id: "personal",
+      title: "Personal",
+      rows: [
+        ["Mobile number", portfolio.mobileNumber || "Not provided"],
+        ["Home address", formatHomeAddress(portfolio) || "Not provided"],
+        [
+          "Emergency contact",
+          portfolio.emergencyContactName && portfolio.emergencyContactNumber
+            ? `${portfolio.emergencyContactName} · ${portfolio.emergencyContactNumber}`
+            : "Not provided",
+        ],
+        ["Household expenses", formatMoney(totalHouseholdExpenses)],
+      ],
+    },
+    {
+      id: "business",
+      title: "Business",
+      rows: [
+        ["Business name", portfolio.businessName || "Not provided"],
+        [
+          "Business type",
+          portfolio.businessType
+            ? businessTypeLabels[portfolio.businessType]
+            : "Not provided",
+        ],
+        ["Years operating", formatPlain(portfolio.yearsInOperation)],
+        [
+          "Operating model",
+          operatingModelLabels[portfolio.operatingModel] ?? "Not provided",
+        ],
+      ],
+    },
+    {
+      id: "financials",
+      title: "Financials",
+      rows: [
+        ["Monthly gross sales", formatMoney(portfolio.monthlyGrossRevenue)],
+        ["Business expenses", formatMoney(totalBusinessExpenses)],
+        ["Debt payments", formatMoney(totalDebtPayments)],
+        ["Declared assets", formatMoney(totalAssets)],
+      ],
+    },
+    {
+      id: "loanRequest",
+      title: "Loan request",
+      rows: [
+        [
+          "Loan purpose",
+          loanPurposeCategoryLabels[portfolio.loanPurposeCategory] ??
+            "Not provided",
+        ],
+        [
+          "Details",
+          portfolio.loanPurposeDetails?.trim() || "Not provided",
+        ],
+      ],
+    },
+  ] as const satisfies readonly {
+    id: BorrowerPortfolioMilestoneId;
+    title: string;
+    rows: readonly (readonly [string, string])[];
+  }[];
+
+  return (
+    <div className="grid gap-3">
+      {groups.map((group) => (
+        <Card key={group.id} className="rounded-xl bg-muted/20">
+          <CardContent className="grid gap-3 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h4 className="font-semibold">{group.title}</h4>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-9 rounded-full"
+                onClick={() => onEdit(group.id)}
+              >
+                Edit
+              </Button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {group.rows.map(([label, value]) => (
+                <Summary key={label} label={label} value={value} />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
 }
 
