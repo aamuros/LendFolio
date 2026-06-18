@@ -890,8 +890,11 @@ export function BorrowerPortfolioForm({
           ) : null}
 
           {activeLegacySteps.includes("businessExpenses") ? (
-            <FormSection title="Business expenses">
-              {businessExpenseFields.map(([name, label]) => (
+            <FormSection
+              title="Business expenses"
+              description="Enter your usual monthly business costs. Use estimates if you do not track exact records."
+            >
+              {primaryBusinessExpenseFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
                   id={name}
@@ -900,6 +903,20 @@ export function BorrowerPortfolioForm({
                   register={register(name, { setValueAs: parseMoneyInput })}
                 />
               ))}
+              <AdditionalDetails
+                className="sm:col-span-2"
+                triggerLabel="Advanced expense details"
+              >
+                {advancedBusinessExpenseFields.map(([name, label]) => (
+                  <MoneyField
+                    key={name}
+                    id={name}
+                    label={label}
+                    error={fieldError(errors, name)}
+                    register={register(name, { setValueAs: parseMoneyInput })}
+                  />
+                ))}
+              </AdditionalDetails>
             </FormSection>
           ) : null}
 
@@ -959,7 +976,7 @@ export function BorrowerPortfolioForm({
           {activeLegacySteps.includes("assets") ? (
             <FormSection
               title="Assets"
-              description="Declare cash, savings, equipment, property, and other assets owned by the borrower or business."
+              description="Enter estimated values only. If you are unsure, use your best estimate."
             >
               <RadioBooleanField
                 control={control}
@@ -979,7 +996,7 @@ export function BorrowerPortfolioForm({
                   description="Use the purchase/cost price of your remaining stocks, not the selling price. Inventory means products or materials you still have and plan to sell. Do not include equipment, tools, vehicles, or cash here."
                 />
               ) : null}
-              {assetFields.map(([name, label]) => (
+              {primaryAssetFields.map(([name, label]) => (
                 <MoneyField
                   key={name}
                   id={name}
@@ -1238,18 +1255,23 @@ export function BorrowerPortfolioForm({
   );
 }
 
-const businessExpenseFields = [
-  ["monthlyInventoryCost", "Inventory cost"],
-  ["monthlyBusinessRent", "Business rent"],
-  ["monthlyBusinessElectricity", "Business electricity"],
+const primaryBusinessExpenseFields = [
+  ["monthlyInventoryCost", "Inventory / stock cost"],
+  ["monthlyBusinessRent", "Rent / stall fee"],
+  ["monthlyBusinessElectricity", "Utilities"],
+  ["monthlyHelperSalary", "Labor / helper salary"],
+  ["monthlyTransportationDelivery", "Delivery / transport"],
+  ["otherBusinessExpenses", "Other business expenses"],
+] as const satisfies ReadonlyArray<
+  readonly [keyof BorrowerPortfolioFormInput, string]
+>;
+
+const advancedBusinessExpenseFields = [
   ["monthlyBusinessWater", "Business water"],
-  ["monthlyHelperSalary", "Helper salary"],
-  ["monthlyTransportationDelivery", "Transport / delivery"],
   ["monthlyPackagingCost", "Packaging"],
   ["monthlyPlatformFees", "Platform fees"],
   ["monthlyMaintenanceRepairs", "Maintenance / repairs"],
   ["monthlySupplierCreditPayment", "Supplier credit payment"],
-  ["otherBusinessExpenses", "Other business expenses"],
 ] as const satisfies ReadonlyArray<
   readonly [keyof BorrowerPortfolioFormInput, string]
 >;
@@ -1278,13 +1300,9 @@ const debtFields = [
   readonly [keyof BorrowerPortfolioFormInput, string]
 >;
 
-const assetFields = [
-  ["cashOnHand", "Cash on hand"],
-  ["bankSavings", "Bank savings"],
-  ["ewalletBalance", "E-wallet balance"],
+const primaryAssetFields = [
+  ["cashOnHand", "Cash / savings / e-wallet total"],
   ["businessEquipmentValue", "Business equipment"],
-  ["vehicleValue", "Vehicle value"],
-  ["propertyLandValue", "Property / land"],
   ["otherAssetsValue", "Other assets"],
 ] as const satisfies ReadonlyArray<
   readonly [keyof BorrowerPortfolioFormInput, string]
@@ -1378,20 +1396,28 @@ async function saveBorrowerPortfolioMilestone(
   milestone: BorrowerPortfolioMilestone,
   values: BorrowerPortfolioInput,
 ) {
-  let latestPortfolio = normalizeMilestoneValues(milestone, values);
+  const submittedMilestoneValues = normalizeMilestoneValues(milestone, values);
+  let latestPortfolio = submittedMilestoneValues;
   let latestCompletedSteps: BorrowerPortfolioStep[] = [];
 
   for (const legacyStep of milestone.legacySteps) {
+    const valuesForStep = normalizeBorrowerBusinessAddressFields({
+      ...latestPortfolio,
+      ...submittedMilestoneValues,
+    });
     const result = await saveBorrowerPortfolioStep(
       legacyStep,
-      normalizeBorrowerBusinessAddressFields(latestPortfolio),
+      valuesForStep,
     );
 
     if (!result.ok) {
       return result;
     }
 
-    latestPortfolio = result.portfolio;
+    latestPortfolio = normalizeMilestoneValues(milestone, {
+      ...result.portfolio,
+      ...submittedMilestoneValues,
+    });
     latestCompletedSteps = result.completedSteps;
   }
 
@@ -1461,6 +1487,18 @@ function normalizeMilestoneValues(
     householdExpensesCompleted:
       milestone.legacySteps.includes("householdExpenses") ||
       values.householdExpensesCompleted,
+    bankSavings: milestone.legacySteps.includes("assets")
+      ? 0
+      : values.bankSavings,
+    ewalletBalance: milestone.legacySteps.includes("assets")
+      ? 0
+      : values.ewalletBalance,
+    vehicleValue: milestone.legacySteps.includes("assets")
+      ? 0
+      : values.vehicleValue,
+    propertyLandValue: milestone.legacySteps.includes("assets")
+      ? 0
+      : values.propertyLandValue,
   };
 }
 
@@ -1581,9 +1619,11 @@ function FormSection({
 function AdditionalDetails({
   children,
   className,
+  triggerLabel = "Additional details",
 }: {
   children: ReactNode;
   className?: string;
+  triggerLabel?: string;
 }) {
   return (
     <Collapsible className={cn("grid gap-3", className)}>
@@ -1593,7 +1633,7 @@ function AdditionalDetails({
           variant="outline"
           className="h-10 w-fit rounded-full px-4 text-sm font-semibold"
         >
-          Additional details
+          {triggerLabel}
         </Button>
       </CollapsibleTrigger>
       <CollapsibleContent className="grid gap-4 rounded-xl border bg-muted/10 p-4 sm:grid-cols-2">
