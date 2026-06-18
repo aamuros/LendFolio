@@ -1644,7 +1644,7 @@ export async function submitLoanApplication(
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
       const message =
         result?.code === "profile_needs_review"
-            ? "Database readiness migration is not applied. Apply the latest Supabase migrations."
+          ? "Resolve flagged profile details before applying."
           : result?.message ?? "Could not submit application.";
 
       return {
@@ -1665,10 +1665,9 @@ export async function submitLoanApplication(
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
             : result?.code === "profile_stale" ||
-                result?.code === "not_eligible"
+                result?.code === "not_eligible" ||
+                result?.code === "profile_needs_review"
               ? "readiness"
-            : result?.code === "profile_needs_review"
-              ? "supabase"
               : "supabase",
         message,
       };

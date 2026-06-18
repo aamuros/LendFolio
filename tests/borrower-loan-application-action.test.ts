@@ -122,7 +122,7 @@ describe("submitLoanApplication consent mapping", () => {
     });
   });
 
-  it("reports unapplied database migration if old RPC returns profile_needs_review", async () => {
+  it("maps RPC profile_needs_review to readiness mode", async () => {
     const mockSupabase = {
       rpc: vi.fn().mockResolvedValue({
         data: {
@@ -159,45 +159,25 @@ describe("submitLoanApplication consent mapping", () => {
 
     expect(result).toEqual({
       ok: false,
-      mode: "supabase",
-      message:
-        "Database readiness migration is not applied. Apply the latest Supabase migrations.",
+      mode: "readiness",
+      message: "Resolve flagged profile details before applying.",
     });
   });
 
-  it("accepts successful needs_review application snapshots", async () => {
-    const application = {
-      id: "application-1",
-      borrower_id: "borrower-1",
-      borrower_portfolio_id: "portfolio-1",
-      requested_amount: 7000,
-      purpose: "Working capital",
-      preferred_term: "3_months",
-      remarks: null,
-      status: "submitted",
-      submitted_at: "2026-06-18T00:00:00.000Z",
-      created_at: "2026-06-18T00:00:00.000Z",
-      updated_at: "2026-06-18T00:00:00.000Z",
-      credit_limit_at_submission: 10000,
-      used_credit_at_submission: 0,
-      available_credit_at_submission: 10000,
-      monthly_net_cash_flow_at_submission: 5000,
-      credit_readiness_status: "needs_review",
-      borrower_profile_snapshot: {},
-      borrower_readiness_snapshot: {
-        application_ready: true,
-        readiness_status: "needs_review",
-        profile_readiness: {
-          risk_flags: ["self_declared_income_only"],
-        },
-      },
-    };
+  it("rejects needs_review application snapshots even if an RPC returns one", async () => {
     const mockSupabase = {
       rpc: vi.fn().mockResolvedValue({
         data: {
-          ok: true,
-          message: "Application submitted.",
-          application,
+          ok: false,
+          code: "profile_needs_review",
+          message: "Resolve flagged profile details before applying.",
+          readiness: {
+            application_ready: false,
+            readiness_status: "needs_review",
+            profile_readiness: {
+              risk_flags: ["self_declared_income_only"],
+            },
+          },
         },
         error: null,
       }),
@@ -226,10 +206,10 @@ describe("submitLoanApplication consent mapping", () => {
       remarks: "",
     });
 
-    expect(result.ok).toBe(true);
-    if (result.ok) {
-      expect(result.application.creditReadinessStatus).toBe("needs_review");
-      expect(result.application.requestedAmount).toBe(7000);
-    }
+    expect(result).toEqual({
+      ok: false,
+      mode: "readiness",
+      message: "Resolve flagged profile details before applying.",
+    });
   });
 });

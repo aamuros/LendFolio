@@ -28,7 +28,6 @@ import {
   getRepaymentActionSummary,
   getRepaymentCalendarDateTone,
   isBlockingApplicationReadinessStatus,
-  shouldShowNeedsReviewApplicationWarning,
 } from "../components/borrower-loan-application-panel";
 import {
   createMetadataPreview,
@@ -265,38 +264,31 @@ describe("loan application mapping", () => {
 });
 
 describe("borrower apply readiness gating", () => {
-  it("does not block needs_review borrowers from the apply form", () => {
-    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
-    expect(
-      shouldShowNeedsReviewApplicationWarning({
-        readinessStatus: "needs_review",
-        missingFields: [],
-        riskFlags: ["no_business_proof"],
-        monthlyNetCashFlow: 10_000,
-        debtBurdenRatio: null,
-        profileIsStale: false,
-        nextActions: [
-          "Next, upload your business proof so your profile can be reviewed.",
-        ],
-      }),
-    ).toBe(true);
+  it("blocks needs_review borrowers from the apply form", () => {
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(true);
   });
 
-  it("keeps incomplete and not_eligible borrowers blocked", () => {
+  it("keeps incomplete, needs_review, and not_eligible borrowers blocked", () => {
     expect(isBlockingApplicationReadinessStatus("incomplete")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(true);
     expect(isBlockingApplicationReadinessStatus("not_eligible")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("complete")).toBe(false);
     expect(isBlockingApplicationReadinessStatus("eligible_to_apply")).toBe(false);
   });
 
-  it("keeps the needs_review warning visible above the application form", () => {
+  it("renders the readiness blocker instead of the needs_review warning flow", () => {
     const source = readFileSync(
       "components/borrower-loan-application-panel.tsx",
       "utf8",
     );
 
-    expect(source).toContain("shouldShowNeedsReviewApplicationWarning(readiness)");
-    expect(source).toContain("<NeedsReviewApplicationWarning />");
     expect(source).toContain("isBlockingApplicationReadinessStatus(readiness.readinessStatus)");
+    expect(source).toContain("<ProfileReadinessBlocker");
+    expect(source).toContain("Resolve flagged profile details before applying.");
+    expect(source).toContain("Update profile");
+    expect(source).not.toContain("shouldShowNeedsReviewApplicationWarning");
+    expect(source).not.toContain("NeedsReviewApplicationWarning");
+    expect(source).not.toContain("You can still submit");
   });
 
   it("uses principal-only available credit copy", () => {
@@ -316,24 +308,26 @@ describe("borrower apply readiness gating", () => {
 
 describe("borrower application readiness migration", () => {
   const migrationPath =
-    "supabase/migrations/20260618110000_allow_needs_review_without_stale_blocker.sql";
+    "supabase/migrations/20260618191000_block_needs_review_application_submission.sql";
 
-  it("allows needs_review profile readiness without appending profile_needs_review", () => {
+  it("blocks needs_review profile readiness with profile_needs_review", () => {
     const migration = readFileSync(migrationPath, "utf8");
 
     expect(migration).toContain(
       "create or replace function app_private.borrower_application_readiness",
     );
-    expect(migration).toContain("v_profile_status = 'needs_review'");
+    expect(migration).toContain("elsif v_profile_status = 'needs_review' then");
     expect(migration).toContain(
-      "then 'needs_review'::public.borrower_credit_readiness_status",
+      "v_codes := array_append(v_codes, 'profile_needs_review');",
     );
     expect(migration).toContain("'ok', cardinality(v_codes) = 0");
     expect(migration).toContain(
       "'application_ready', cardinality(v_codes) = 0",
     );
     expect(migration).toContain("'profile_readiness', v_profile_readiness");
-    expect(migration).not.toContain("'profile_needs_review'");
+    expect(migration).toContain(
+      "when v_codes[1] = 'profile_needs_review' then 'Resolve flagged profile details before applying.'",
+    );
     expect(migration).not.toContain("'profile_stale'");
   });
 
@@ -346,18 +340,17 @@ describe("borrower application readiness migration", () => {
     expect(migration).toContain("v_codes := array_append(v_codes, 'not_eligible');");
   });
 
-  it("submits applications using the readiness application_ready flag and stores needs_review snapshots", () => {
-    const migration = readFileSync(migrationPath, "utf8");
+  it("keeps submit_loan_application gated by application_ready", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618174000_use_current_credit_snapshot_for_applications.sql",
+      "utf8",
+    );
 
     expect(migration).toContain(
       "create or replace function app_private.submit_loan_application",
     );
     expect(migration).toContain(
       "if not coalesce((v_readiness->>'application_ready')::boolean, false) then",
-    );
-    expect(migration).toContain("borrower_readiness_snapshot");
-    expect(migration).toContain(
-      "coalesce(nullif(v_readiness->>'readiness_status', ''), 'eligible_to_apply')::public.borrower_credit_readiness_status",
     );
   });
 });

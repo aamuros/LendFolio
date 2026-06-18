@@ -868,10 +868,6 @@ export function BorrowerLoanApplicationPanel({
             ) : (
               <>
                 {hasOpenApplication ? <OpenApplicationNotice /> : null}
-                {readiness &&
-                shouldShowNeedsReviewApplicationWarning(readiness) ? (
-                  <NeedsReviewApplicationWarning />
-                ) : null}
                 <ApplicationForm
                   control={control}
                   creditSummary={creditSummary}
@@ -1026,23 +1022,10 @@ export function getVisibleApplyApplications(
 export function isBlockingApplicationReadinessStatus(
   status: BorrowerReadinessResult["readinessStatus"],
 ) {
-  return status === "incomplete" || status === "not_eligible";
-}
-
-export function shouldShowNeedsReviewApplicationWarning(
-  readiness: BorrowerReadinessResult,
-) {
-  return readiness.readinessStatus === "needs_review";
-}
-
-function NeedsReviewApplicationWarning() {
   return (
-    <Alert className="rounded-2xl border-[#D6C28A] bg-[#FFF9E8] text-[#5D4612]">
-      <AlertDescription>
-        Some profile details may need review. You can still submit; lenders will
-        see these flags.
-      </AlertDescription>
-    </Alert>
+    status === "incomplete" ||
+    status === "needs_review" ||
+    status === "not_eligible"
   );
 }
 
@@ -1124,7 +1107,7 @@ function ProfileReadinessBlocker({
       <CardContent className="grid gap-3 p-5">
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-foreground">
-            Profile update needed
+            Profile update required
           </p>
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
@@ -1133,7 +1116,7 @@ function ProfileReadinessBlocker({
             onClick={onEditProfile}
             className="w-fit rounded-full h-10 px-5 font-semibold"
           >
-            Edit profile
+            Update profile
           </Button>
         ) : null}
       </CardContent>
@@ -1175,6 +1158,9 @@ function CreditLimitBlocker() {
 }
 
 function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
+  if (readiness.readinessStatus === "needs_review") {
+    return "Resolve flagged profile details before applying.";
+  }
   if (readiness.missingFields.length > 0) {
     return `Complete ${readiness.missingFields[0]} before applying.`;
   }
@@ -1193,6 +1179,7 @@ function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
 
 function hasEditableProfileIssue(readiness: BorrowerReadinessResult) {
   return (
+    readiness.readinessStatus === "needs_review" ||
     readiness.missingFields.length > 0 ||
     readiness.riskFlags.some((flag) =>
       [
