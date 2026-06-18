@@ -45,7 +45,7 @@ export default async function LenderApplicationDetailPage({
       <main className="theme-lendfolio min-h-svh bg-background text-foreground">
         <LenderPageHeader activeTab="applications" />
         <div className="mx-auto max-w-7xl">
-          <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
+          <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8 lg:px-8">
             <div className="mx-auto grid max-w-7xl gap-5">
               <DetailHeader />
               <section className="grid gap-4">
@@ -84,7 +84,7 @@ export default async function LenderApplicationDetailPage({
     <main className="theme-lendfolio min-h-svh bg-background text-foreground">
       <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
-        <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
+        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-5">
             <DetailHeader />
           </div>
@@ -145,14 +145,16 @@ function DocumentPage({
   className?: string;
 }) {
   return (
-    <section
+    <Card
       className={cn(
-        "min-h-0 rounded-xl border border-border/70 bg-card p-5 shadow-sm sm:p-6 lg:min-h-[520px] lg:p-8",
+        "h-full min-h-0 rounded-2xl border-border/50 shadow-sm lg:min-h-[520px]",
         className,
       )}
     >
-      {children}
-    </section>
+      <CardContent className="grid h-full content-start gap-7 p-5 sm:p-6 lg:p-8">
+        {children}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -172,7 +174,7 @@ function BorrowerResumePage({
   >;
 }) {
   return (
-    <DocumentPage className="grid content-start gap-7">
+    <DocumentPage>
       <div className="grid gap-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-2">
@@ -230,14 +232,14 @@ function BorrowerResumePage({
 
 function LenderReviewPage({ children }: { children: ReactNode }) {
   return (
-    <DocumentPage className="grid content-start gap-6">
+    <DocumentPage>
       <div className="grid gap-2 border-b border-border pb-5">
-        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          Review summary
-        </p>
         <h2 className="text-2xl font-semibold leading-tight">
           Borrower financial review
         </h2>
+        <p className="text-sm leading-6 text-muted-foreground">
+          Review borrower cash flow and credit capacity before sending terms.
+        </p>
       </div>
       {children}
     </DocumentPage>
