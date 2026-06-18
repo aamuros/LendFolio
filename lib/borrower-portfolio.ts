@@ -422,6 +422,27 @@ function validateBorrowerBusinessRegistrationFields(
   }
 }
 
+function validateBorrowerBusinessStatusFields(
+  value: Pick<
+    BorrowerPortfolioFormInput,
+    "businessTemporarilyStopped" | "confirmsBusinessOperating"
+  >,
+  context: z.RefinementCtx,
+) {
+  if (value.businessTemporarilyStopped && value.confirmsBusinessOperating) {
+    context.addIssue({
+      code: "custom",
+      path: ["confirmsBusinessOperating"],
+      message: "Select only one business status.",
+    });
+    context.addIssue({
+      code: "custom",
+      path: ["businessTemporarilyStopped"],
+      message: "Select only one business status.",
+    });
+  }
+}
+
 const borrowerPortfolioValidatedSchema = z
   .preprocess((input) => {
     if (!input || typeof input !== "object") {
@@ -504,6 +525,7 @@ const borrowerPortfolioValidatedSchema = z
     }
 
     validateBorrowerBusinessRegistrationFields(value, context);
+    validateBorrowerBusinessStatusFields(value, context);
 
     if (!isPhysicalBusinessAddressRequired(value.operatingModel)) {
       return;
@@ -982,7 +1004,7 @@ export const borrowerRepaymentHistorySchema = borrowerPortfolioBaseSchema.pick({
 export const borrowerBusinessStatusSchema = borrowerPortfolioBaseSchema.pick({
   businessTemporarilyStopped: true,
   confirmsBusinessOperating: true,
-});
+}).superRefine(validateBorrowerBusinessStatusFields);
 
 export const borrowerReviewSchema = borrowerPortfolioBaseSchema
   .pick({
@@ -1527,6 +1549,10 @@ export function mapBorrowerPortfolioRow(
     backfillDetailedTotals({
       ...mapped,
       ...normalizeBorrowerBusinessRegistrationFields(mapped),
+      businessTemporarilyStopped:
+        mapped.confirmsBusinessOperating && mapped.businessTemporarilyStopped
+          ? false
+          : mapped.businessTemporarilyStopped,
     }),
   );
 }

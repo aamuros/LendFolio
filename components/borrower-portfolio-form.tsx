@@ -1183,17 +1183,13 @@ export function BorrowerPortfolioForm({
               title="Business status"
               description="Confirm whether the business is operating now."
             >
-              <CheckboxField
+              <BusinessStatusField
                 control={control}
-                name="confirmsBusinessOperating"
-                label="My business is currently operating."
-                className="sm:col-span-2"
-              />
-              <CheckboxField
-                control={control}
-                name="businessTemporarilyStopped"
-                label="My business is temporarily stopped."
-                description="Use this if operations are paused but you plan to resume."
+                setValue={setValue}
+                error={
+                  errors.confirmsBusinessOperating?.message ??
+                  errors.businessTemporarilyStopped?.message
+                }
                 className="sm:col-span-2"
               />
             </FormSection>
@@ -2004,6 +2000,104 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
             </p>
           ) : null}
         </div>
+      )}
+    />
+  );
+}
+
+function BusinessStatusField({
+  control,
+  setValue,
+  error,
+  className,
+}: {
+  control: Control<BorrowerPortfolioFormInput>;
+  setValue: UseFormSetValue<BorrowerPortfolioFormInput>;
+  error?: string;
+  className?: string;
+}) {
+  return (
+    <Controller
+      control={control}
+      name="confirmsBusinessOperating"
+      render={({ field }) => (
+        <Controller
+          control={control}
+          name="businessTemporarilyStopped"
+          render={({ field: stoppedField }) => {
+            const value = field.value
+              ? "operating"
+              : stoppedField.value
+                ? "stopped"
+                : "";
+
+            return (
+              <div className={cn("grid gap-2", className)}>
+                <RadioGroup
+                  value={value}
+                  onValueChange={(nextValue) => {
+                    const isOperating = nextValue === "operating";
+                    const isStopped = nextValue === "stopped";
+
+                    field.onChange(isOperating);
+                    stoppedField.onChange(isStopped);
+                    setValue(
+                      "confirmsBusinessOperating",
+                      isOperating,
+                      formSyncOptions,
+                    );
+                    setValue(
+                      "businessTemporarilyStopped",
+                      isStopped,
+                      formSyncOptions,
+                    );
+                  }}
+                  className="grid gap-2 sm:grid-cols-2"
+                  aria-invalid={Boolean(error)}
+                  aria-describedby={error ? "business-status-error" : undefined}
+                >
+                  <Label
+                    htmlFor="business-status-operating"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl bg-muted/25 px-4 py-3 text-sm leading-5 transition-colors hover:bg-muted/40"
+                  >
+                    <RadioGroupItem
+                      id="business-status-operating"
+                      value="operating"
+                      className="mt-0.5"
+                    />
+                    <span className="grid gap-1">
+                      <span>Currently operating</span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        My business is currently operating.
+                      </span>
+                    </span>
+                  </Label>
+                  <Label
+                    htmlFor="business-status-stopped"
+                    className="flex cursor-pointer items-start gap-3 rounded-xl bg-muted/25 px-4 py-3 text-sm leading-5 transition-colors hover:bg-muted/40"
+                  >
+                    <RadioGroupItem
+                      id="business-status-stopped"
+                      value="stopped"
+                      className="mt-0.5"
+                    />
+                    <span className="grid gap-1">
+                      <span>Temporarily stopped</span>
+                      <span className="text-xs leading-5 text-muted-foreground">
+                        Operations are paused but you plan to resume.
+                      </span>
+                    </span>
+                  </Label>
+                </RadioGroup>
+                {error ? (
+                  <p id="business-status-error" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+            );
+          }}
+        />
       )}
     />
   );

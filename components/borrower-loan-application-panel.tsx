@@ -1329,6 +1329,7 @@ function HomeSummary({
     readiness,
   });
   const showBorrowingPower = canShowBorrowingPower(
+    borrowerVerification,
     readiness,
     creditSummary,
     completedPortfolioSteps,
@@ -1385,6 +1386,7 @@ function HomeSummary({
 
           <FinancingSummaryCard
             className="col-span-12 lg:col-span-5"
+            borrowerVerification={borrowerVerification}
             creditSummary={displayCreditSummary}
             completedPortfolioSteps={completedPortfolioSteps}
             hasPortfolio={hasPortfolio}
@@ -1393,6 +1395,7 @@ function HomeSummary({
             hasDebt={hasDebt}
             readiness={readiness}
             onNavigate={onNavigate}
+            onNavigateVerification={onNavigateVerification}
           />
 
           <RepaymentCalendarCard
@@ -1591,6 +1594,7 @@ function UtilizationRing({ ratio }: { ratio: number }) {
 
 function FinancingSummaryCard({
   className,
+  borrowerVerification,
   creditSummary,
   completedPortfolioSteps,
   hasPortfolio,
@@ -1599,8 +1603,10 @@ function FinancingSummaryCard({
   hasDebt,
   readiness,
   onNavigate,
+  onNavigateVerification,
 }: {
   className?: string;
+  borrowerVerification: BorrowerVerificationSummary | null;
   creditSummary: BorrowerCreditSummary | null;
   completedPortfolioSteps: BorrowerPortfolioStep[];
   hasPortfolio: boolean;
@@ -1614,8 +1620,10 @@ function FinancingSummaryCard({
   hasDebt: boolean;
   readiness: BorrowerReadinessResult | null;
   onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
 }) {
   const showBorrowingPower = canShowBorrowingPower(
+    borrowerVerification,
     readiness,
     creditSummary,
     completedPortfolioSteps,
@@ -1654,7 +1662,11 @@ function FinancingSummaryCard({
           Financing overview
         </CardDescription>
         <CardTitle className="text-lg leading-tight sm:text-xl">
-          {showBorrowingPower ? "Available to request" : "Borrowing power pending"}
+          {showBorrowingPower
+            ? "Available to request"
+            : hasPortfolio
+              ? "Borrowing power locked"
+              : "Borrowing power pending"}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
@@ -1773,17 +1785,18 @@ function FinancingSummaryCard({
         ) : hasPortfolio ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
             <p className="text-sm font-semibold text-foreground">
-              Borrowing power pending
+              Borrowing power locked
             </p>
             <p className="text-xs leading-5 text-muted-foreground">
-              Complete your profile details to calculate your available credit.
+              Complete borrower verification before your request limit becomes
+              available.
             </p>
             <Button
               className="rounded-full"
               size="sm"
-              onClick={() => onNavigate?.("profile")}
+              onClick={() => onNavigateVerification?.()}
             >
-              Continue profile
+              Go to verification
             </Button>
           </div>
         ) : (
@@ -2282,6 +2295,7 @@ function getProfileCompletion({
       )
     : 0;
   const creditEvaluationComplete = canShowBorrowingPower(
+    borrowerVerification,
     readiness,
     creditSummary,
     completedPortfolioSteps,
@@ -2295,15 +2309,16 @@ function getProfileCompletion({
   const readinessNextStep = readiness?.nextActions[0];
   const nextStep = !hasPortfolio
     ? "Save your business profile to unlock financing."
+    : !verificationComplete
+      ? "Complete borrower verification before applying."
     : profileNeedsUpdate
       ? readinessNextStep ?? "Update your profile before applying."
-      : !verificationComplete
-        ? "Complete borrower verification before applying."
-          : !loanConsentCurrent
-            ? "Accept the current loan application consent."
-            : !creditEvaluationComplete
-            ? "Update your business profile to calculate your request limit."
-            : readinessNextStep ?? "Your profile is ready for financing requests.";
+      : !loanConsentCurrent
+        ? "Accept the current loan application consent."
+        : !creditEvaluationComplete
+          ? "Update your business profile to calculate your request limit."
+          : readinessNextStep ??
+            "Your profile is ready for financing requests.";
 
   const steps = [
     {
@@ -2342,10 +2357,19 @@ const borrowingPowerRequiredSteps = [
 ] as const satisfies readonly BorrowerPortfolioStep[];
 
 function canShowBorrowingPower(
+  borrowerVerification: BorrowerVerificationSummary | null,
   readiness: BorrowerReadinessResult | null,
   creditSummary: BorrowerCreditSummary | null,
   completedPortfolioSteps: BorrowerPortfolioStep[],
 ) {
+  const verificationApproved = canSubmitLoanApplicationForVerification(
+    borrowerVerification,
+  );
+
+  if (!verificationApproved) {
+    return false;
+  }
+
   if (!readiness || !creditSummary) {
     return false;
   }

@@ -17,6 +17,8 @@ import { borrowerVerificationUpdatedEvent } from "@/lib/borrower-workflow-events
 import {
   borrowerFacingVerificationStateDescriptions,
   borrowerFacingVerificationStateLabels,
+  borrowerVerificationDocumentAllowedTypes,
+  borrowerVerificationDocumentMaxFileSize,
   borrowerVerificationDocumentTypeDescriptions,
   borrowerVerificationDocumentTypeLabels,
   getBorrowerFacingVerificationState,
@@ -360,6 +362,7 @@ function RequiredDocumentRow({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fileValidationError, setFileValidationError] = useState("");
   const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
 
@@ -394,19 +397,50 @@ function RequiredDocumentRow({
       }
       setSelectedFile(null);
       setPreviewUrl(null);
+      setFileValidationError("");
     }
 
     form.addEventListener("reset", handleFormReset);
     return () => form.removeEventListener("reset", handleFormReset);
   }, []);
 
+  function clearSelectedFile(input: HTMLInputElement) {
+    input.value = "";
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setLocalPreviewOpen(false);
+  }
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
+
+    setFileValidationError("");
+
+    if (!file) {
+      clearSelectedFile(event.currentTarget);
+      return;
+    }
+
+    if (!borrowerVerificationDocumentAllowedTypes.has(file.type)) {
+      clearSelectedFile(event.currentTarget);
+      setFileValidationError("Upload a JPG, PNG, WebP, or PDF file.");
+      return;
+    }
+
+    if (file.size > borrowerVerificationDocumentMaxFileSize) {
+      clearSelectedFile(event.currentTarget);
+      setFileValidationError(
+        `This file is ${formatFileSize(file.size)}. Upload a file up to 5 MB.`,
+      );
+      return;
+    }
+
     setSelectedFile(file);
-    const url = file ? URL.createObjectURL(file) : null;
+    const url = URL.createObjectURL(file);
     previewUrlRef.current = url;
     setPreviewUrl(url);
   }
@@ -514,10 +548,15 @@ function RequiredDocumentRow({
                 ) : null}
               </div>
             ) : null}
+            {fileValidationError ? (
+              <p className="text-xs text-destructive" role="alert">
+                {fileValidationError}
+              </p>
+            ) : null}
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || Boolean(fileValidationError)}
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
                 <UploadIcon className="size-3" />

@@ -49,6 +49,7 @@ import {
   borrowerVerificationDocumentBucket,
   borrowerVerificationDocumentMaxFileSize,
   createSafeUploadFileName,
+  canSubmitLoanApplicationForVerification,
   getBorrowerVerificationMessage,
   getBorrowerVerificationStatus,
   isBorrowerVerificationDocumentType,
@@ -1316,8 +1317,13 @@ export async function loadBorrowerLoanApplications(
     const mappedPortfolio = portfolio ? mapBorrowerPortfolioRow(portfolio) : null;
     const completedPortfolioSteps =
       getCompletedBorrowerPortfolioSteps(mappedPortfolio);
-    const creditSummary = canCalculateBorrowerCredit(completedPortfolioSteps)
+    const calculatedCreditSummary = canCalculateBorrowerCredit(completedPortfolioSteps)
       ? await loadBorrowerCreditSummary(access.profile.id, portfolio!, supabase)
+      : null;
+    const creditSummary = canSubmitLoanApplicationForVerification(
+      borrowerVerification,
+    )
+      ? calculatedCreditSummary
       : null;
     const readiness = evaluateBorrowerReadiness(
       mappedPortfolio,
@@ -1325,7 +1331,7 @@ export async function loadBorrowerLoanApplications(
         accountStatus: access.profile.status,
         borrowerVerification,
         loanApplicationConsent: consentStatuses.borrowerLoanApplication,
-        creditSummary,
+        creditSummary: calculatedCreditSummary,
       },
     );
 

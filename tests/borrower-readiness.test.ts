@@ -175,6 +175,19 @@ function creditSummary(
 }
 
 describe("microbusiness borrower readiness", () => {
+  it("rejects contradictory business status values", () => {
+    const result = borrowerPortfolioSchema.safeParse({
+      ...completeProfile(),
+      confirmsBusinessOperating: true,
+      businessTemporarilyStopped: true,
+    });
+
+    expect(result.success).toBe(false);
+    expect(result.error?.issues.map((issue) => issue.message)).toContain(
+      "Select only one business status.",
+    );
+  });
+
   it("accepts a complete sari-sari store profile", () => {
     const profile = completeProfile();
 
