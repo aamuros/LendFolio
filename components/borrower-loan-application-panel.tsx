@@ -215,6 +215,9 @@ export function BorrowerLoanApplicationPanel({
     null,
   );
   const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(
+    highlightLoanId ?? null,
+  );
 
   const {
     register,
@@ -349,8 +352,23 @@ export function BorrowerLoanApplicationPanel({
     } else if (highlightApplicationId) {
       scrollTargetId = `application-${highlightApplicationId}`;
     } else if (highlightRepaymentId && view === "loans") {
+      const parentLoan = applications
+        .flatMap((application) =>
+          application.activeLoan ? [application.activeLoan] : [],
+        )
+        .find((loan) =>
+          loan.schedule.some((repayment) => repayment.id === highlightRepaymentId),
+        );
+      if (parentLoan && selectedLoanId !== parentLoan.id) {
+        return;
+      }
+
       scrollTargetId = `repayment-${highlightRepaymentId}`;
     } else if (highlightLoanId && view === "loans") {
+      if (selectedLoanId !== highlightLoanId) {
+        return;
+      }
+
       scrollTargetId = `loan-${highlightLoanId}`;
     }
 
@@ -371,6 +389,7 @@ export function BorrowerLoanApplicationPanel({
     highlightRepaymentId,
     highlightProofId,
     selectedOfferApplicationId,
+    selectedLoanId,
   ]);
 
   useEffect(() => {
@@ -409,7 +428,19 @@ export function BorrowerLoanApplicationPanel({
         false,
       );
     } else if (highlightRepaymentId && view === "loans") {
+      const parentLoan = applications
+        .flatMap((application) =>
+          application.activeLoan ? [application.activeLoan] : [],
+        )
+        .find((loan) =>
+          loan.schedule.some((repayment) => repayment.id === highlightRepaymentId),
+        );
+
       startTransition(() => {
+        if (parentLoan) {
+          setSelectedLoanId(parentLoan.id);
+        }
+
         setExpandedRepaymentIds((current) => {
           if (current.has(highlightRepaymentId)) return current;
           const next = new Set(current);
@@ -422,12 +453,17 @@ export function BorrowerLoanApplicationPanel({
         highlightRepaymentId,
         false,
       );
+    } else if (highlightLoanId && view === "loans") {
+      startTransition(() => {
+        setSelectedLoanId(highlightLoanId);
+      });
     }
   }, [
     applications,
     view,
     highlightOfferId,
     highlightApplicationId,
+    highlightLoanId,
     highlightRepaymentId,
   ]);
 
@@ -858,7 +894,7 @@ export function BorrowerLoanApplicationPanel({
           <>
             <PageHeader
               title="Offers"
-              description="Compare lender offers and accept the one that fits."
+              description="Review pending lender offers only. Accepted offers continue as active loans."
             />
             <OfferList
               applications={applications}
@@ -881,16 +917,25 @@ export function BorrowerLoanApplicationPanel({
           <>
             <PageHeader
               title="Loans"
-              description="Track active loans, repayment schedules, and payment proof."
+              description="Choose an active loan first, then view repayment details."
             />
             <BorrowerLoansPanel
               applications={applications}
               expandedRepaymentIds={expandedRepaymentIds}
               onNavigate={onNavigate}
               onProofSubmitted={loadApplications}
+              onSelectLoan={(loanId) => {
+                setSuccessMessage("");
+                setSelectedLoanId(loanId);
+              }}
+              onBackToLoans={() => {
+                setSuccessMessage("");
+                setSelectedLoanId(null);
+              }}
               onToggleRepayment={toggleRepayment}
               highlightRepaymentId={highlightRepaymentId}
               highlightLoanId={highlightLoanId}
+              selectedLoanId={selectedLoanId}
             />
           </>
         ) : null}
@@ -2084,9 +2129,17 @@ export type RepaymentActionSummary = {
 };
 
 function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
-  return applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
+  return applications
+    .flatMap((application) =>
+      application.activeLoan ? [application.activeLoan] : [],
+    )
+    .filter(isLoanActiveForBorrowerList);
+}
+
+function isLoanActiveForBorrowerList(
+  loan: BorrowerLoanApplicationSummary["activeLoan"],
+): loan is ActiveLoan {
+  return loan?.status === "active" || loan?.status === "overdue";
 }
 
 export function getRepaymentActionSummary(
@@ -2757,25 +2810,32 @@ function OfferList({
       const pendingOffers = application.offers.filter(
         (offer) => offer.status === "pending",
       );
-      const closedOffers = application.offers.filter(
-        (offer) => offer.status !== "pending",
-      );
 
       return {
         application,
         pendingOffers,
-        closedOffers,
-        offers: application.offers,
       };
     })
-    .filter((group) => group.offers.length > 0);
+    .filter((group) => group.pendingOffers.length > 0);
+  const hasActiveLoan = applications.some((application) =>
+    isLoanActiveForBorrowerList(application.activeLoan),
+  );
+  const hasAnyOffer = applications.some(
+    (application) => application.offers.length > 0,
+  );
 
   if (offerApplicationGroups.length === 0) {
     return (
       <EmptyState
-        message="Offers from lenders will appear after you submit an application."
-        action="Go to Apply"
-        onAction={() => onNavigate?.("apply")}
+        message={
+          hasActiveLoan
+            ? "Accepted offers are now active loans. Go to Loans to view repayment details."
+            : hasAnyOffer
+              ? "There are no pending offers right now."
+              : "Pending offers from lenders will appear after you submit an application."
+        }
+        action={hasActiveLoan ? "Go to Loans" : "Go to Apply"}
+        onAction={() => onNavigate?.(hasActiveLoan ? "loans" : "apply")}
       />
     );
   }
@@ -2806,8 +2866,6 @@ function OfferList({
 type OfferApplicationGroup = {
   application: BorrowerLoanApplicationSummary;
   pendingOffers: BorrowerLoanApplicationSummary["offers"];
-  closedOffers: BorrowerLoanApplicationSummary["offers"];
-  offers: BorrowerLoanApplicationSummary["offers"];
 };
 
 function OfferApplicationList({
@@ -2837,8 +2895,7 @@ function OfferApplicationRow({
   group: OfferApplicationGroup;
   onSelect: () => void;
 }) {
-  const { application, closedOffers, pendingOffers } = group;
-  const totalOffers = pendingOffers.length + closedOffers.length;
+  const { application, pendingOffers } = group;
   const bestPendingRepayment =
     pendingOffers.length > 0
       ? Math.min(...pendingOffers.map((offer) => offer.totalRepaymentAmount))
@@ -2868,11 +2925,6 @@ function OfferApplicationRow({
         </CompactRowText>
         <div className="flex items-center gap-2">
           <StatusBadge value={application.status} />
-          {closedOffers.length > 0 ? (
-            <span className="text-xs text-muted-foreground">
-              {totalOffers} total
-            </span>
-          ) : null}
         </div>
         <Button
           type="button"
@@ -2896,7 +2948,7 @@ function SelectedApplicationOffers({
   highlightOfferId?: string | null;
   onBack: () => void;
 }) {
-  const offerCount = group.offers.length;
+  const offerCount = group.pendingOffers.length;
 
   return (
     <div className="grid gap-3">
@@ -2919,7 +2971,7 @@ function SelectedApplicationOffers({
             Requested {formatMoney(group.application.requestedAmount)}
           </CompactRowText>
           <CompactRowText label="Offers">
-            {offerCount} {offerCount === 1 ? "offer" : "offers"}
+            {offerCount} pending {offerCount === 1 ? "offer" : "offers"}
           </CompactRowText>
           <CompactRowText label="Term">
             {preferredTermLabels[group.application.preferredTerm]}
@@ -2928,7 +2980,7 @@ function SelectedApplicationOffers({
       </Card>
 
       <div className="grid gap-2">
-        {group.offers.map((offer) => (
+        {group.pendingOffers.map((offer) => (
           <CompactOfferRow
             key={offer.id}
             offer={offer}
@@ -3125,22 +3177,32 @@ function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
   onNavigate,
+  onBackToLoans,
   onProofSubmitted,
+  onSelectLoan,
   onToggleRepayment,
   highlightRepaymentId,
   highlightLoanId,
+  selectedLoanId,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   expandedRepaymentIds: Set<string>;
   onNavigate?: (tab: BorrowerTab) => void;
+  onBackToLoans: () => void;
   onProofSubmitted: () => void;
+  onSelectLoan: (loanId: string) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
   highlightRepaymentId?: string | null;
   highlightLoanId?: string | null;
+  selectedLoanId: string | null;
 }) {
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
+  const activeLoans = applications
+    .flatMap((application) =>
+      application.activeLoan
+        ? [{ application, loan: application.activeLoan }]
+        : [],
+    )
+    .filter(({ loan }) => isLoanActiveForBorrowerList(loan));
 
   if (activeLoans.length === 0) {
     return (
@@ -3152,24 +3214,103 @@ function BorrowerLoansPanel({
     );
   }
 
-  return (
-    <div className="grid gap-4">
-      {activeLoans.map((loan) => (
+  const selectedLoan =
+    activeLoans.find(({ loan }) => loan.id === selectedLoanId)?.loan ?? null;
+  const selectedApplication =
+    activeLoans.find(({ loan }) => loan.id === selectedLoanId)?.application ??
+    null;
+
+  if (selectedLoan) {
+    return (
+      <div className="grid gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBackToLoans}
+          className="h-10 w-fit rounded-full px-4 font-semibold"
+        >
+          <ArrowLeft className="size-4" />
+          Back to active loans
+        </Button>
         <ActiveLoanCard
-          key={loan.id}
+          application={selectedApplication}
           expandedRepaymentIds={expandedRepaymentIds}
-          loan={loan}
+          loan={selectedLoan}
           onProofSubmitted={onProofSubmitted}
           onToggleRepayment={onToggleRepayment}
-          isHighlighted={loan.id === highlightLoanId}
+          isHighlighted={selectedLoan.id === highlightLoanId}
           highlightRepaymentId={highlightRepaymentId}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-2">
+      {activeLoans.map(({ application, loan }) => (
+        <ActiveLoanListRow
+          key={loan.id}
+          application={application}
+          loan={loan}
+          onSelect={() => onSelectLoan(loan.id)}
+          isHighlighted={loan.id === highlightLoanId}
         />
       ))}
     </div>
   );
 }
 
+function ActiveLoanListRow({
+  application,
+  isHighlighted,
+  loan,
+  onSelect,
+}: {
+  application: BorrowerLoanApplicationSummary;
+  isHighlighted?: boolean;
+  loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+  onSelect: () => void;
+}) {
+  const nextRepayment = getNextRepayment(loan.schedule);
+
+  return (
+    <Card
+      id={`loan-${loan.id}`}
+      className={cn(
+        "rounded-xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(10rem,1.3fr)_auto_auto_auto_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {getLoanPurposeLabel(application.purpose)}
+          </p>
+        </div>
+        <CompactRowText label="Outstanding">
+          {formatMoney(loan.outstandingBalance)}
+        </CompactRowText>
+        <CompactRowText label="Next due">
+          {nextRepayment
+            ? `${formatDateOnly(nextRepayment.dueDate)} · ${formatMoney(nextRepayment.amountDue)}`
+            : "No unpaid repayments"}
+        </CompactRowText>
+        <LoanStatusPill status={loan.status} />
+        <Button
+          type="button"
+          onClick={onSelect}
+          size="sm"
+          className="h-9 w-full rounded-full font-semibold sm:w-fit"
+        >
+          View details
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ActiveLoanCard({
+  application,
   expandedRepaymentIds,
   loan,
   onProofSubmitted,
@@ -3177,6 +3318,7 @@ function ActiveLoanCard({
   isHighlighted,
   highlightRepaymentId,
 }: {
+  application: BorrowerLoanApplicationSummary | null;
   expandedRepaymentIds: Set<string>;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onProofSubmitted: () => void;
@@ -3207,6 +3349,11 @@ function ActiveLoanCard({
               <p className="text-sm font-semibold text-muted-foreground">
                 {isCompletedLoan ? "Completed loan" : "Current loan"}
               </p>
+              {application ? (
+                <p className="text-base font-semibold">
+                  {getLoanPurposeLabel(application.purpose)}
+                </p>
+              ) : null}
               <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
               <p className="text-sm text-muted-foreground">
                 {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
@@ -3971,9 +4118,11 @@ function getDefaultExpandedRepaymentIds(
   applications: BorrowerLoanApplicationSummary[],
   collapsedRepaymentIds = new Set<string>(),
 ) {
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
+  const activeLoans = applications
+    .flatMap((application) =>
+      application.activeLoan ? [application.activeLoan] : [],
+    )
+    .filter(isLoanActiveForBorrowerList);
   const priorityRepayments = activeLoans
     .flatMap((loan) => loan.schedule)
     .filter(

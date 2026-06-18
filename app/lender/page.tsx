@@ -1049,11 +1049,9 @@ function LoanListCard({ offer }: { offer: LenderOfferReview }) {
 function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview; isHighlighted?: boolean }) {
   const activeLoan = offer.activeLoan;
   const isQuiet = offer.status !== "pending" && !isHighlighted;
-  const href =
-    offer.status === "accepted" && activeLoan
-      ? `/lender/loans/${activeLoan.id}`
-      : `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
-  const context = getOfferContext(offer);
+  const href = getOfferCardHref(offer);
+  const title = offer.application ? getOfferContext(offer) : "Offer details";
+  const subtitle = offer.application?.purpose ?? "Application context unavailable";
 
   return (
     <Card
@@ -1065,14 +1063,14 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
     >
       <Link
         href={href}
-        aria-label={`Open offer for ${context}`}
+        aria-label={`Open offer for ${title}`}
         className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none"
       />
       <CardContent className="pointer-events-none relative z-20 grid gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h3 className="font-semibold">{context}</h3>
+              <h3 className="font-semibold">{title}</h3>
               {offer.status === "accepted" && activeLoan ? (
                 <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
                   Active loan created
@@ -1080,7 +1078,7 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
               ) : null}
             </div>
             <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
-              {offer.application?.purpose ?? "Offer sent"}
+              {subtitle}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -1133,6 +1131,27 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
       </CardContent>
     </Card>
   );
+}
+
+function getOfferCardHref(offer: LenderOfferReview) {
+  if (offer.status === "accepted" && offer.activeLoan) {
+    return `/lender/loans/${offer.activeLoan.id}`;
+  }
+
+  if (
+    offer.status === "declined" ||
+    offer.status === "expired" ||
+    offer.status === "accepted" ||
+    !offer.application
+  ) {
+    return `/lender/offers/${offer.id}`;
+  }
+
+  if (offer.status === "pending" && (offer.application?.id || offer.applicationId)) {
+    return `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
+  }
+
+  return `/lender/offers/${offer.id}`;
 }
 
 function parseOfferStatusFilter(status: string | undefined): OfferStatusFilter {
