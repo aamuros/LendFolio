@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireApprovedLender } from "@/lib/access-control";
 import {
   lenderProfileDetailsSchema,
@@ -48,6 +49,220 @@ export type RepaymentProofReviewResult =
       ok: false;
       message: string;
     };
+
+export type LoanFundsReleaseResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+      fieldErrors?: Partial<
+        Record<"method" | "customMethod" | "reference" | "notes" | "proofFile", string[]>
+      >;
+    };
+
+const releaseProofBucket = "repayment-proofs";
+const releaseProofMaxFileSize = 5 * 1024 * 1024;
+const releaseProofAllowedTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+]);
+const releaseMethodOptions = new Set([
+  "Bank transfer",
+  "GCash",
+  "Cash",
+  "Maya",
+  "Other",
+]);
+
+const loanFundsReleaseSchema = z.object({
+  activeLoanId: z.string().uuid(),
+  method: z
+    .string()
+    .trim()
+    .min(1, "Choose a release method.")
+    .refine((value) => releaseMethodOptions.has(value), "Choose a release method."),
+  customMethod: z
+    .string()
+    .trim()
+    .max(80, "Keep the method under 80 characters.")
+    .optional(),
+  reference: z.string().trim().max(120, "Keep the reference under 120 characters.").optional(),
+  notes: z.string().trim().max(500, "Keep notes under 500 characters.").optional(),
+}).superRefine((value, context) => {
+  if (value.method === "Other" && !value.customMethod) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["customMethod"],
+      message: "Enter the release method.",
+    });
+  }
+});
+
+export async function markLoanFundsReleased(
+  _previousState: LoanFundsReleaseResult | null,
+  formData: FormData,
+): Promise<LoanFundsReleaseResult> {
+  const parsed = loanFundsReleaseSchema.safeParse({
+    activeLoanId: formData.get("activeLoanId"),
+    method: String(formData.get("method") ?? ""),
+    customMethod: String(formData.get("customMethod") ?? ""),
+    reference: String(formData.get("reference") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+  });
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+
+    return {
+      ok: false,
+      message: "Check the disbursement details.",
+      fieldErrors: {
+        method: fieldErrors.method,
+        customMethod: fieldErrors.customMethod,
+        reference: fieldErrors.reference,
+        notes: fieldErrors.notes,
+      },
+    };
+  }
+
+  const proofFile = formData.get("proofFile");
+  const hasProofFile = proofFile instanceof File && proofFile.size > 0;
+
+  if (hasProofFile && !releaseProofAllowedTypes.has(proofFile.type)) {
+    return {
+      ok: false,
+      message: "Upload a PNG, JPG, WEBP, or PDF file.",
+      fieldErrors: {
+        proofFile: ["Upload a PNG, JPG, WEBP, or PDF file."],
+      },
+    };
+  }
+
+  if (hasProofFile && proofFile.size > releaseProofMaxFileSize) {
+    return {
+      ok: false,
+      message: "Release proof must be 5MB or smaller.",
+      fieldErrors: {
+        proofFile: ["Release proof must be 5MB or smaller."],
+      },
+    };
+  }
+
+  let storagePath: string | null = null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const releaseMethod =
+      parsed.data.method === "Other"
+        ? (parsed.data.customMethod ?? "").trim()
+        : parsed.data.method;
+
+    if (hasProofFile) {
+      const safeFileName = createSafeReleaseProofFileName(proofFile.name);
+      storagePath = [
+        "lenders",
+        access.profile.id,
+        "loans",
+        parsed.data.activeLoanId,
+        "release",
+        `${Date.now()}-${safeFileName}`,
+      ].join("/");
+
+      const { error: uploadError } = await supabase.storage
+        .from(releaseProofBucket)
+        .upload(storagePath, proofFile, {
+          contentType: proofFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return {
+          ok: false,
+          message: "Could not upload release proof.",
+          fieldErrors: {
+            proofFile: ["Could not upload release proof."],
+          },
+        };
+      }
+    }
+
+    const { data, error } = await supabase.rpc("mark_loan_funds_released", {
+      p_active_loan_id: parsed.data.activeLoanId,
+      p_disbursement_method: releaseMethod,
+      p_disbursement_reference: parsed.data.reference || null,
+      p_disbursement_notes: parsed.data.notes || null,
+      p_release_proof_path: storagePath,
+      p_release_proof_file_name: hasProofFile ? proofFile.name : null,
+      p_release_proof_file_type: hasProofFile ? proofFile.type : null,
+      p_release_proof_file_size: hasProofFile ? proofFile.size : null,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      if (storagePath) {
+        await supabase.storage.from(releaseProofBucket).remove([storagePath]);
+      }
+
+      return {
+        ok: false,
+        message: result?.message ?? "Could not mark funds released.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath(`/lender/loans/${parsed.data.activeLoanId}`);
+    revalidatePath("/lender/applications");
+
+    return {
+      ok: true,
+      message: result.message ?? "Funds marked as released.",
+    };
+  } catch {
+    if (storagePath) {
+      try {
+        const supabase = await createSupabaseServerClient();
+        await supabase.storage.from(releaseProofBucket).remove([storagePath]);
+      } catch {
+        // The release remains unreleased; cleanup failure should not expose internals.
+      }
+    }
+
+    return {
+      ok: false,
+      message: "Could not mark funds released.",
+    };
+  }
+}
+
+function createSafeReleaseProofFileName(fileName: string) {
+  const extension = fileName.includes(".")
+    ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase()
+    : "";
+  const baseName = fileName.replace(/\.[^/.]+$/, "");
+  const safeBaseName = baseName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return `${safeBaseName || "release-proof"}${extension}`;
+}
 
 export async function verifyRepaymentProof(
   proofId: string,

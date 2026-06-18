@@ -27,6 +27,7 @@ export default async function BorrowerPage({
     loanId?: string;
     repaymentId?: string;
     proofId?: string;
+    accepted?: string;
   }>;
 }) {
   const {
@@ -37,6 +38,7 @@ export default async function BorrowerPage({
     loanId,
     repaymentId,
     proofId,
+    accepted,
   } = await searchParams;
 
   if (message === "signed-in") {
@@ -71,6 +73,11 @@ export default async function BorrowerPage({
             highlightLoanId={loanId ?? null}
             highlightRepaymentId={repaymentId ?? null}
             highlightProofId={proofId ?? null}
+            initialLoanMessage={
+              accepted === "1"
+                ? "Offer accepted. Your loan is waiting for fund release."
+                : ""
+            }
           />
         ) : (
           <div className="px-4 pt-6 sm:px-6 sm:pt-8">

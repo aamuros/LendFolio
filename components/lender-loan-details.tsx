@@ -3,6 +3,7 @@ import { ArrowRight } from "lucide-react";
 import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
 import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
 import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
+import { LenderFundsReleaseForm } from "@/components/lender-funds-release-form";
 import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -26,6 +27,9 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
   }
 
   const isReadOnly = isCompletedLoan(activeLoan);
+  const isAwaitingRelease = activeLoan.disbursementStatus === "awaiting_release";
+  const isFundsReleased = activeLoan.disbursementStatus === "released_by_lender";
+  const fundsReceived = activeLoan.disbursementStatus === "received_by_borrower";
 
   return (
     <section className="grid gap-5">
@@ -43,7 +47,10 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
               : (offer.application?.purpose ?? "Active loan")}
           </p>
         </div>
-        <LoanStatusBadge status={activeLoan.status} />
+        <LoanStatusBadge
+          status={activeLoan.status}
+          disbursementStatus={activeLoan.disbursementStatus}
+        />
       </div>
 
       <Card className="rounded-2xl border-border/60">
@@ -104,6 +111,35 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
           ) : null}
 
           {!isReadOnly &&
+          isAwaitingRelease ? (
+            <Alert>
+              <AlertDescription className="grid gap-3">
+                <span className="font-semibold">
+                  Borrower accepted this offer. Release the funds, then mark this loan as released.
+                </span>
+                <LenderFundsReleaseForm activeLoanId={activeLoan.id} />
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly && isFundsReleased ? (
+            <Alert>
+              <AlertDescription className="font-semibold">
+                Funds were marked released. Waiting for the borrower to confirm receipt.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly && fundsReceived ? (
+            <Alert>
+              <AlertDescription className="font-semibold">
+                Borrower confirmed receipt. Repayment workflow is active.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly &&
+          fundsReceived &&
           (activeLoan.repaymentChannel ||
             activeLoan.additionalRepaymentChannels.length > 0) ? (
             <RepaymentChannelsManager
@@ -187,7 +223,21 @@ function RepaymentScheduleItem({
   );
 }
 
-export function LoanStatusBadge({ status }: { status: string }) {
+export function LoanStatusBadge({
+  status,
+  disbursementStatus = "received_by_borrower",
+}: {
+  status: string;
+  disbursementStatus?: string;
+}) {
+  if (disbursementStatus === "awaiting_release") {
+    return <ToneBadge tone="neutral">Waiting for release</ToneBadge>;
+  }
+
+  if (disbursementStatus === "released_by_lender") {
+    return <ToneBadge tone="neutral">Funds released</ToneBadge>;
+  }
+
   const tone = status === "overdue" ? "danger" : "success";
   return <ToneBadge tone={tone}>{status}</ToneBadge>;
 }

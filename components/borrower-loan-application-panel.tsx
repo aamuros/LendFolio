@@ -21,6 +21,7 @@ import {
 } from "react-hook-form";
 import {
   type BorrowerLoanApplicationSummary,
+  confirmLoanFundsReceived,
   dismissWithdrawnLoanApplication,
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
@@ -153,6 +154,7 @@ type BorrowerLoanApplicationPanelProps = {
   highlightLoanId?: string | null;
   highlightRepaymentId?: string | null;
   highlightProofId?: string | null;
+  initialSuccessMessage?: string;
 };
 
 export function BorrowerLoanApplicationPanel({
@@ -165,6 +167,7 @@ export function BorrowerLoanApplicationPanel({
   highlightLoanId = null,
   highlightRepaymentId = null,
   highlightProofId = null,
+  initialSuccessMessage = "",
 }: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>(
@@ -190,7 +193,7 @@ export function BorrowerLoanApplicationPanel({
   const [message, setMessage] = useState(
     initialLoadResult ? (initialLoadResult.ok ? "" : initialLoadResult.message) : "",
   );
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState(initialSuccessMessage);
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
   >(initialLoadResult?.ok ? initialLoadResult.applications : []);
@@ -3431,7 +3434,10 @@ function ActiveLoanListRow({
             ? `${formatDateOnly(nextRepayment.dueDate)} · ${formatMoney(nextRepayment.amountDue)}`
             : "No unpaid repayments"}
         </CompactRowText>
-        <LoanStatusPill status={loan.status} />
+        <LoanStatusPill
+          status={loan.status}
+          disbursementStatus={loan.disbursementStatus}
+        />
         <Button
           type="button"
           onClick={onSelect}
@@ -3482,7 +3488,10 @@ function CompletedLoanListRow({
           {formatDateOnly(loan.dueDate)}
         </CompactRowText>
         <div className="flex flex-wrap items-center gap-2">
-          <LoanStatusPill status={loan.status} />
+        <LoanStatusPill
+          status={loan.status}
+          disbursementStatus={loan.disbursementStatus}
+        />
           <Button
             type="button"
             onClick={onSelect}
@@ -3523,6 +3532,9 @@ function ActiveLoanCard({
       : 0;
   const nextRepayment = getNextRepayment(loan.schedule);
   const loanIsCompleted = isCompletedLoan(loan);
+  const isAwaitingRelease = loan.disbursementStatus === "awaiting_release";
+  const isFundsReleased = loan.disbursementStatus === "released_by_lender";
+  const fundsReceived = loan.disbursementStatus === "received_by_borrower";
   const primaryAmount = loanIsCompleted ? paidAmount : loan.outstandingBalance;
   const remainingAmount = loanIsCompleted ? 0 : loan.outstandingBalance;
   const scheduleTotal = loan.schedule.reduce(
@@ -3549,8 +3561,59 @@ function ActiveLoanCard({
                 {loanIsCompleted ? "Total repaid" : "Outstanding balance"}
               </p>
             </div>
-            <LoanStatusPill status={loan.status} />
+            <LoanStatusPill
+              status={loan.status}
+              disbursementStatus={loan.disbursementStatus}
+            />
           </div>
+
+          {isAwaitingRelease ? (
+            <ActionBanner
+              tone="info"
+              title="Waiting for fund release"
+              message="You accepted this offer. Wait for the lender to release the funds."
+            />
+          ) : null}
+
+          {isFundsReleased ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-3 p-4">
+                <div className="grid gap-1">
+                  <p className="text-sm font-semibold">Funds released</p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Confirm once the money is in your account.
+                  </p>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <SummaryItem
+                    label="Released"
+                    value={loan.disbursedAt ? formatDate(loan.disbursedAt) : "Marked by lender"}
+                  />
+                  {loan.disbursementMethod ? (
+                    <SummaryItem label="Method" value={loan.disbursementMethod} />
+                  ) : null}
+                  {loan.disbursementReference ? (
+                    <SummaryItem label="Reference" value={loan.disbursementReference} />
+                  ) : null}
+                  {loan.disbursementNotes ? (
+                    <SummaryItem label="Notes" value={loan.disbursementNotes} />
+                  ) : null}
+                </dl>
+                <ConfirmMoneyReceivedButton
+                  activeLoanId={loan.id}
+                  onSuccess={onProofSubmitted}
+                />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {fundsReceived && loan.borrowerReceivedAt ? (
+            <ActionBanner
+              tone="success"
+              title="Money received"
+              message="Money received. Your loan is now active."
+            />
+          ) : null}
 
           <Separator />
 
@@ -3604,7 +3667,7 @@ function ActiveLoanCard({
             </Card>
           ) : null}
 
-          {loan.repaymentChannel ? (
+          {loan.repaymentChannel && fundsReceived ? (
             <Card className="rounded-xl border-primary/20 bg-primary/5">
               <CardContent className="grid gap-3 p-4">
                 <p className="text-sm font-semibold">Repayment destination</p>
@@ -3665,7 +3728,11 @@ function ActiveLoanCard({
               {loan.schedule.length} {loan.schedule.length === 1 ? "installment" : "installments"}
             </p>
           </div>
-          {loan.schedule.length > 0 ? (
+          {!fundsReceived && !loanIsCompleted ? (
+            <p className="rounded-xl bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Repayment upload opens after you confirm the money was received.
+            </p>
+          ) : loan.schedule.length > 0 ? (
             <Card className="overflow-hidden rounded-xl">
               <div className="divide-y divide-border">
                 {loan.schedule.map((repayment) => (
@@ -3678,7 +3745,7 @@ function ActiveLoanCard({
                     repaymentAccountNumber={loan.repaymentAccountNumber}
                     repaymentInstructions={loan.repaymentInstructions}
                     additionalRepaymentChannels={loan.additionalRepaymentChannels}
-                    isReadOnly={isReadOnly}
+                    isReadOnly={isReadOnly || !fundsReceived}
                     onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     isHighlighted={repayment.id === highlightRepaymentId}
@@ -3899,6 +3966,58 @@ function ProofHistory({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function ConfirmMoneyReceivedButton({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function onConfirm() {
+    setMessage("");
+    startTransition(async () => {
+      const result = await confirmLoanFundsReceived(activeLoanId);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      setMessage(result.message);
+      onSuccess();
+    });
+  }
+
+  return (
+    <div className="grid gap-2">
+      {message ? (
+        <p
+          role="status"
+          className={cn(
+            "rounded-xl px-3 py-2 text-sm font-medium",
+            message.startsWith("Money received")
+              ? "bg-emerald-50 text-emerald-900"
+              : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {message}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        onClick={onConfirm}
+        disabled={isPending}
+        className="h-10 rounded-full font-semibold"
+      >
+        {isPending ? "Confirming..." : "Confirm money received"}
+      </Button>
+    </div>
   );
 }
 
@@ -4241,7 +4360,21 @@ function getRejectedProofNextStep(reviewNotes?: string | null) {
   return `Lender note: ${reviewNotes} ${nextStep}`;
 }
 
-function LoanStatusPill({ status }: { status: string }) {
+function LoanStatusPill({
+  status,
+  disbursementStatus = "received_by_borrower",
+}: {
+  status: string;
+  disbursementStatus?: string;
+}) {
+  if (disbursementStatus === "awaiting_release") {
+    return <StatusPill tone="neutral">Waiting for release</StatusPill>;
+  }
+
+  if (disbursementStatus === "released_by_lender") {
+    return <StatusPill tone="neutral">Funds released</StatusPill>;
+  }
+
   const tone = status === "overdue" ? "danger" : "success";
 
   return (

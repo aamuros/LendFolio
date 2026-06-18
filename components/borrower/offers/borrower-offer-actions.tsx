@@ -36,6 +36,12 @@ export function BorrowerOfferActions({
     router.refresh();
   }
 
+  function goToLoan(activeLoanId: string | null) {
+    const loanParam = activeLoanId ? `&loanId=${encodeURIComponent(activeLoanId)}` : "";
+    router.push(`/borrower?tab=loans${loanParam}&accepted=1`);
+    router.refresh();
+  }
+
   function onAccept() {
     setMessage("");
     startTransition(async () => {
@@ -46,7 +52,7 @@ export function BorrowerOfferActions({
         return;
       }
 
-      returnToOffers();
+      goToLoan(result.activeLoanId);
     });
   }
 

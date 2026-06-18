@@ -22,6 +22,10 @@ type LenderAccess = Extract<
 >;
 
 type ActiveLoanRow = Database["public"]["Tables"]["active_loans"]["Row"];
+export type DisbursementStatus =
+  | "awaiting_release"
+  | "released_by_lender"
+  | "received_by_borrower";
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
 type RepaymentProofRow = Database["public"]["Tables"]["repayment_proofs"]["Row"];
@@ -77,6 +81,12 @@ export type ActiveLoanSummary = {
   interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
+  disbursementStatus: DisbursementStatus;
+  disbursedAt: string | null;
+  disbursementMethod: string | null;
+  disbursementReference: string | null;
+  disbursementNotes: string | null;
+  borrowerReceivedAt: string | null;
   startedAt: string;
   dueDate: string;
   repaymentChannel: string | null;
@@ -102,7 +112,7 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
@@ -234,6 +244,12 @@ export function mapActiveLoanRow(
     interestAmount,
     outstandingBalance: row.outstanding_balance,
     status: row.status,
+    disbursementStatus: row.disbursement_status ?? "awaiting_release",
+    disbursedAt: row.disbursed_at,
+    disbursementMethod: row.disbursement_method,
+    disbursementReference: row.disbursement_reference,
+    disbursementNotes: row.disbursement_notes,
+    borrowerReceivedAt: row.borrower_received_at,
     startedAt: row.started_at,
     dueDate: row.due_date,
     repaymentChannel: row.repayment_channel,

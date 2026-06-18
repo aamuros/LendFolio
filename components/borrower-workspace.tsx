@@ -53,6 +53,7 @@ type BorrowerWorkspaceProps = {
   highlightLoanId?: string | null;
   highlightRepaymentId?: string | null;
   highlightProofId?: string | null;
+  initialLoanMessage?: string;
 };
 
 const desktopTabs: AppHeaderNavItem[] = [
@@ -71,6 +72,7 @@ export function BorrowerWorkspace({
   highlightLoanId = null,
   highlightRepaymentId = null,
   highlightProofId = null,
+  initialLoanMessage = "",
 }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>(initialTab);
   const [profileMode, setProfileMode] = useState<ProfileMode>("index");
@@ -351,6 +353,7 @@ export function BorrowerWorkspace({
             highlightLoanId={highlightLoanId}
             highlightRepaymentId={highlightRepaymentId}
             highlightProofId={highlightProofId}
+            initialSuccessMessage={initialLoanMessage}
           />
         )}
       </div>

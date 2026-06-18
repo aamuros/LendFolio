@@ -233,6 +233,16 @@ export type RepaymentProofSubmitResult =
       message: string;
     };
 
+export type LoanFundsReceivedResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
 export type BorrowerVerificationDocumentSubmitResult =
   | {
       ok: true;
@@ -1906,13 +1916,56 @@ export async function acceptLoanOffer(
 
     return {
       ok: true,
-      message: result.message ?? "Offer accepted.",
+      message: "Offer accepted. Your loan is waiting for fund release.",
       activeLoanId: result.active_loan_id ?? null,
     };
   } catch {
     return {
       ok: false,
       message: "Could not accept offer.",
+    };
+  }
+}
+
+export async function confirmLoanFundsReceived(
+  activeLoanId: string,
+): Promise<LoanFundsReceivedResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not confirm receipt.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath(`/lender/loans/${activeLoanId}`);
+
+    return {
+      ok: true,
+      message: result.message ?? "Money received. Your loan is now active.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not confirm receipt.",
     };
   }
 }
@@ -2044,7 +2097,7 @@ export async function submitRepaymentProof(
 
     const { data: activeLoan, error: activeLoanError } = await supabase
       .from("active_loans")
-      .select("id, status")
+      .select("id, status, disbursement_status")
       .eq("id", repayment.active_loan_id)
       .eq("borrower_id", access.profile.id)
       .maybeSingle();
@@ -2057,6 +2110,13 @@ export async function submitRepaymentProof(
       return {
         ok: false,
         message: "This loan is not active.",
+      };
+    }
+
+    if (activeLoan.disbursement_status !== "received_by_borrower") {
+      return {
+        ok: false,
+        message: "Confirm money received before uploading repayment proof.",
       };
     }
 

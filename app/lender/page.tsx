@@ -1129,7 +1129,10 @@ function LoanListCard({
             />
           </>
         )}
-        <LoanStatusBadge status={activeLoan.status} />
+        <LoanStatusBadge
+          status={activeLoan.status}
+          disbursementStatus={activeLoan.disbursementStatus}
+        />
         <Button asChild size="sm" className="h-9 rounded-xl font-semibold">
           <Link href={`/lender/loans/${activeLoan.id}`}>
             {variant === "completed" ? "View summary" : "View details"}

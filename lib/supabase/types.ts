@@ -56,6 +56,10 @@ export type ActiveLoanStatus =
   | "overdue"
   | "defaulted"
   | "closed";
+export type DisbursementStatus =
+  | "awaiting_release"
+  | "released_by_lender"
+  | "received_by_borrower";
 export type RepaymentStatus =
   | "due"
   | "submitted"
@@ -191,6 +195,16 @@ export type Database = {
           processing_fee_amount: number;
           outstanding_balance: number;
           status: ActiveLoanStatus;
+          disbursement_status: DisbursementStatus;
+          disbursed_at: string | null;
+          disbursement_method: string | null;
+          disbursement_reference: string | null;
+          disbursement_notes: string | null;
+          release_proof_url: string | null;
+          release_proof_file_name: string | null;
+          release_proof_file_type: string | null;
+          release_proof_file_size: number | null;
+          borrower_received_at: string | null;
           started_at: string;
           due_date: string;
           repayment_channel: string | null;
@@ -213,6 +227,16 @@ export type Database = {
           processing_fee_amount?: number;
           outstanding_balance: number;
           status?: ActiveLoanStatus;
+          disbursement_status?: DisbursementStatus;
+          disbursed_at?: string | null;
+          disbursement_method?: string | null;
+          disbursement_reference?: string | null;
+          disbursement_notes?: string | null;
+          release_proof_url?: string | null;
+          release_proof_file_name?: string | null;
+          release_proof_file_type?: string | null;
+          release_proof_file_size?: number | null;
+          borrower_received_at?: string | null;
           started_at?: string;
           due_date: string;
           repayment_channel?: string | null;
@@ -235,6 +259,16 @@ export type Database = {
           processing_fee_amount?: number;
           outstanding_balance?: number;
           status?: ActiveLoanStatus;
+          disbursement_status?: DisbursementStatus;
+          disbursed_at?: string | null;
+          disbursement_method?: string | null;
+          disbursement_reference?: string | null;
+          disbursement_notes?: string | null;
+          release_proof_url?: string | null;
+          release_proof_file_name?: string | null;
+          release_proof_file_type?: string | null;
+          release_proof_file_size?: number | null;
+          borrower_received_at?: string | null;
           started_at?: string;
           due_date?: string;
           repayment_channel?: string | null;
@@ -1496,6 +1530,25 @@ export type Database = {
         };
         Returns: Json;
       };
+      mark_loan_funds_released: {
+        Args: {
+          p_active_loan_id: string;
+          p_disbursement_method?: string | null;
+          p_disbursement_reference?: string | null;
+          p_disbursement_notes?: string | null;
+          p_release_proof_path?: string | null;
+          p_release_proof_file_name?: string | null;
+          p_release_proof_file_type?: string | null;
+          p_release_proof_file_size?: number | null;
+        };
+        Returns: Json;
+      };
+      confirm_loan_funds_received: {
+        Args: {
+          p_active_loan_id: string;
+        };
+        Returns: Json;
+      };
       refresh_overdue_repayment_statuses: {
         Args: Record<PropertyKey, never>;
         Returns: Json;
@@ -1747,6 +1800,7 @@ export type Database = {
     };
     Enums: {
       active_loan_status: ActiveLoanStatus;
+      disbursement_status: DisbursementStatus;
       app_role: AppRole;
       application_status: ApplicationStatus;
       business_type: BusinessType;

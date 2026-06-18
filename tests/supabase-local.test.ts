@@ -96,6 +96,11 @@ type RepaymentProofResult = {
   outstanding_balance?: number;
   loan_status?: string;
 };
+type DisbursementResult = {
+  ok: boolean;
+  message?: string;
+  active_loan_id?: string;
+};
 type BorrowerCreditSnapshotResult = {
   ok: boolean;
   code?: string;
@@ -209,6 +214,7 @@ async function createPortfolioAndApplication(
   client: TestClient,
   borrowerId: string = ids.borrower,
   preferredTerm: Database["public"]["Enums"]["preferred_term"] = "3_months",
+  requestedAmount = 25000,
 ) {
   const { data: portfolio, error: portfolioError } = await client
     .from("borrower_portfolios")
@@ -237,7 +243,7 @@ async function createPortfolioAndApplication(
     .insert({
       borrower_id: borrowerId,
       borrower_portfolio_id: portfolio.id,
-      requested_amount: 25000,
+      requested_amount: requestedAmount,
       purpose: "Inventory restock",
       preferred_term: preferredTerm,
       remarks: "Review against current cash flow.",
@@ -421,6 +427,74 @@ async function createOffer(
   return { data, error: offerError, result };
 }
 
+async function createPendingOfferFixture(
+  adminClient: TestClient,
+  borrowerId: string = ids.borrower,
+  lenderId: string = ids.approvedLender,
+  amount = 9000,
+) {
+  const { data: portfolio, error: portfolioError } = await adminClient
+    .from("borrower_portfolios")
+    .insert({
+      borrower_id: borrowerId,
+      business_type: "sari_sari_store",
+      location: "Quezon City",
+      monthly_gross_revenue: 48000,
+      monthly_expenses: 31000,
+      existing_loan_payments: 2500,
+      years_in_operation: 3,
+      loan_purpose_context: "Working capital for inventory.",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(portfolioError).toBeNull();
+  expect(portfolio?.id).toBeTruthy();
+
+  const { data: application, error: applicationError } = await adminClient
+    .from("loan_applications")
+    .insert({
+      borrower_id: borrowerId,
+      borrower_portfolio_id: portfolio?.id ?? "",
+      requested_amount: amount,
+      purpose: "Inventory restock",
+      preferred_term: "1_month",
+      remarks: "Disbursement workflow fixture.",
+      status: "submitted",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(applicationError).toBeNull();
+  expect(application?.id).toBeTruthy();
+
+  const { data: offer, error: offerError } = await adminClient
+    .from("loan_offers")
+    .insert({
+      loan_application_id: application?.id ?? "",
+      borrower_id: borrowerId,
+      lender_id: lenderId,
+      lender_name: "Approved Capital",
+      approved_amount: amount,
+      repayment_amount: amount + 1800,
+      interest_service_charge_rate: 10,
+      fees: 500,
+      due_date: "2026-08-24",
+      remarks: "Offer based on submitted business profile.",
+      status: "pending",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(offerError).toBeNull();
+  expect(offer?.id).toBeTruthy();
+
+  return {
+    applicationId: application?.id as string,
+    offerId: offer?.id as string,
+  };
+}
+
 async function acceptOfferAndLoadActiveLoan(
   borrower: TestClient,
   offerId: string,
@@ -435,7 +509,7 @@ async function acceptOfferAndLoadActiveLoan(
 
   const { data: activeLoan, error: activeLoanError } = await borrower
     .from("active_loans")
-    .select("id, lender_id")
+    .select("id, lender_id, disbursement_status")
     .eq("loan_application_id", applicationId)
     .single();
 
@@ -444,23 +518,28 @@ async function acceptOfferAndLoadActiveLoan(
 
   return {
     activeLoanId: activeLoan?.id as string,
+    disbursementStatus: activeLoan?.disbursement_status as string,
   };
 }
 
 async function createAcceptedLoanWithSchedule(
   borrowerClient: TestClient,
   lenderClient: TestClient,
+  options: { confirmFunds?: boolean } = {},
 ) {
+  const confirmFunds = options.confirmFunds ?? true;
   const { applicationId } = await createPortfolioAndApplication(
     borrowerClient,
     ids.borrower,
     "1_month",
+    9000,
   );
   const offer = await createOffer(
     lenderClient,
     ids.approvedLender,
     applicationId,
     "Approved Capital",
+    9000,
   );
 
   expect(offer.error).toBeNull();
@@ -473,6 +552,29 @@ async function createAcceptedLoanWithSchedule(
     offer.data.id,
     applicationId,
   );
+
+  if (confirmFunds) {
+    const release = await lenderClient.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "Bank transfer",
+      p_disbursement_reference: "TEST-RELEASE",
+      p_disbursement_notes: "Released in local test.",
+    });
+    expect(release.error).toBeNull();
+    expect(release.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const received = await borrowerClient.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+    expect(received.error).toBeNull();
+    expect(received.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+  }
 
   const { data: schedule, error: scheduleError } = await borrowerClient
     .from("loan_repayment_schedules")
@@ -502,6 +604,7 @@ async function createAcceptedLoanWithTerm(
     borrowerClient,
     ids.borrower,
     preferredTerm,
+    repaymentAmount - 1800,
   );
   const offer = await createOffer(
     lenderClient,
@@ -521,6 +624,19 @@ async function createAcceptedLoanWithTerm(
     offer.data.id,
     applicationId,
   );
+
+  const release = await lenderClient.rpc("mark_loan_funds_released", {
+    p_active_loan_id: activeLoanId,
+    p_disbursement_method: "Bank transfer",
+    p_disbursement_reference: "TEST-TERM-RELEASE",
+    p_disbursement_notes: "Released in local test.",
+  });
+  expect(release.error).toBeNull();
+
+  const received = await borrowerClient.rpc("confirm_loan_funds_received", {
+    p_active_loan_id: activeLoanId,
+  });
+  expect(received.error).toBeNull();
 
   const { data: schedules, error: schedulesError } = await borrowerClient
     .from("loan_repayment_schedules")
@@ -990,7 +1106,12 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
   });
 
   it("creates lender offers through the RPC and preserves offer audit logging", async () => {
-    const { applicationId } = await createPortfolioAndApplication(borrower);
+    const { applicationId } = await createPortfolioAndApplication(
+      borrower,
+      ids.borrower,
+      "3_months",
+      9000,
+    );
 
     const offer = await createOffer(
       approvedLender,
@@ -1159,8 +1280,8 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
 
     const offer = await approvedLender.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
-      p_approved_amount: 20000,
-      p_repayment_amount: 27000,
+      p_approved_amount: 9000,
+      p_repayment_amount: 10800,
       p_interest_service_charge_rate: 10,
       p_fees: 2000,
       p_due_date: "2026-08-24",
@@ -1202,6 +1323,89 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       0,
     );
     expect(scheduleTotal).toBe(27000);
+  });
+
+  it("sets accepted loans to awaiting fund release before borrower receipt", async () => {
+    const { applicationId, offerId } = await createPendingOfferFixture(admin);
+
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const { data: activeLoan, error: activeLoanError } = await borrower
+      .from("active_loans")
+      .select("id, status, disbursement_status, borrower_received_at")
+      .eq("loan_application_id", applicationId)
+      .single();
+
+    expect(activeLoanError).toBeNull();
+    expect(activeLoan).toMatchObject({
+      status: "active",
+      disbursement_status: "awaiting_release",
+      borrower_received_at: null,
+    });
+
+    const snapshot = await borrower.rpc("get_my_borrower_credit_snapshot", {
+      p_excluded_application_id: null,
+    });
+    expect(snapshot.error).toBeNull();
+    expect(Number((snapshot.data as Json as BorrowerCreditSnapshotResult).used_credit)).toBeGreaterThanOrEqual(9000);
+  });
+
+  it("lets lender mark funds released and borrower confirm receipt", async () => {
+    const { applicationId, offerId } = await createPendingOfferFixture(admin);
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+    const { data: activeLoan } = await borrower
+      .from("active_loans")
+      .select("id")
+      .eq("loan_application_id", applicationId)
+      .single();
+    const activeLoanId = activeLoan?.id as string;
+
+    const release = await approvedLender.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "GCash",
+      p_disbursement_reference: "GCASH-123",
+      p_disbursement_notes: "Released to registered wallet.",
+    });
+    expect(release.error).toBeNull();
+    expect(release.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: releasedLoan } = await borrower
+      .from("active_loans")
+      .select("disbursement_status, disbursed_at, disbursement_method, disbursement_reference")
+      .eq("id", activeLoanId)
+      .single();
+    expect(releasedLoan?.disbursement_status).toBe("released_by_lender");
+    expect(releasedLoan?.disbursed_at).toBeTruthy();
+    expect(releasedLoan?.disbursement_method).toBe("GCash");
+    expect(releasedLoan?.disbursement_reference).toBe("GCASH-123");
+
+    const received = await borrower.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+    expect(received.error).toBeNull();
+    expect(received.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: receivedLoan } = await borrower
+      .from("active_loans")
+      .select("disbursement_status, borrower_received_at")
+      .eq("id", activeLoanId)
+      .single();
+    expect(receivedLoan?.disbursement_status).toBe("received_by_borrower");
+    expect(receivedLoan?.borrower_received_at).toBeTruthy();
   });
 
   it("enforces the approved lender configured min and max loan range", async () => {
@@ -2138,6 +2342,40 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         expect.objectContaining({ action: "repayment_proof_submitted" }),
       ]),
     );
+  });
+
+  it("prevents repayment proof upload before borrower confirms money received", async () => {
+    const { applicationId, offerId } = await createPendingOfferFixture(admin);
+    const acceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: offerId,
+    });
+    expect(acceptance.error).toBeNull();
+    expect((acceptance.data as Json as AcceptanceResult).ok).toBe(true);
+    const { data: activeLoan } = await borrower
+      .from("active_loans")
+      .select("id")
+      .eq("loan_application_id", applicationId)
+      .single();
+    const activeLoanId = activeLoan?.id as string;
+    const { data: schedule } = await borrower
+      .from("loan_repayment_schedules")
+      .select("id")
+      .eq("active_loan_id", activeLoanId)
+      .single();
+    const repaymentScheduleId = schedule?.id as string;
+
+    const submitResult = await submitProofForSchedule(
+      borrower,
+      repaymentScheduleId,
+      activeLoanId,
+      ids.borrower,
+      "before-receipt",
+    );
+
+    expect(submitResult).toMatchObject({
+      ok: false,
+      message: "Confirm money received before uploading repayment proof.",
+    });
   });
 
   it("prevents borrowers from submitting proof for another borrower's repayment", async () => {

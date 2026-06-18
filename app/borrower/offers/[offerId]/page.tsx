@@ -65,6 +65,7 @@ export default async function BorrowerOfferDetailsPage({
     | {
         application: LoanApplicationSummary;
         offer: LoanOfferSummary;
+        activeLoanId: string | null;
       }
     | null = null;
 
@@ -72,7 +73,7 @@ export default async function BorrowerOfferDetailsPage({
     const offer = application.offers.find((item) => item.id === offerId);
 
     if (offer) {
-      selected = { application, offer };
+      selected = { application, offer, activeLoanId: application.activeLoan?.id ?? null };
       break;
     }
   }
@@ -81,7 +82,7 @@ export default async function BorrowerOfferDetailsPage({
     notFound();
   }
 
-  const { application, offer } = selected;
+  const { application, offer, activeLoanId } = selected;
   const creditSnapshot = await loadLatestCreditSnapshot(
     access.supabase,
     application.id,
@@ -174,9 +175,19 @@ export default async function BorrowerOfferDetailsPage({
 
             {offer.status !== "pending" ? (
               <Alert>
-                <AlertDescription>
-                  This offer is {formatStatus(offer.status).toLowerCase()}.
-                  Actions are no longer available.
+                <AlertDescription className="grid gap-3">
+                  <span>
+                    {offer.status === "accepted"
+                      ? "This offer was accepted and moved to Loans."
+                      : `This offer is ${formatStatus(offer.status).toLowerCase()}. Actions are no longer available.`}
+                  </span>
+                  {offer.status === "accepted" && activeLoanId ? (
+                    <Button asChild className="h-10 w-fit rounded-full font-semibold">
+                      <Link href={`/borrower?tab=loans&loanId=${activeLoanId}`}>
+                        View loan
+                      </Link>
+                    </Button>
+                  ) : null}
                 </AlertDescription>
               </Alert>
             ) : null}
