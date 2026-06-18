@@ -6,7 +6,6 @@ import {
   loadBorrowerActiveLoans,
   type ActiveLoanSummary,
 } from "@/lib/active-loans";
-import { isCompletedLoan } from "@/lib/active-loan-status";
 import {
   calculateTotalBusinessExpenses,
   calculateTotalExistingDebtPayments,
@@ -29,12 +28,7 @@ import {
   type BorrowerPortfolioStep,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
-import {
-  calculateBorrowerAvailableCredit,
-  creditConsumingApplicationStatuses,
-  formatCreditAmount,
-  type BorrowerCreditSummary,
-} from "@/lib/credit-limit";
+import { formatCreditAmount, type BorrowerCreditSummary } from "@/lib/credit-limit";
 import {
   evaluateBorrowerReadiness,
   type BorrowerReadinessResult,
@@ -1543,82 +1537,58 @@ async function loadBorrowerCreditSummary(
   },
   verifiedClient?: Awaited<ReturnType<typeof createSupabaseServerClient>>,
 ) {
-  const supabase = verifiedClient ?? (await createSupabaseServerClient());
-  const [
-    { data: loans, error: loansError },
-    { data: pendingApps, error: appsError },
-    { data: lateRepayments, error: lateRepaymentsError },
-  ] = await Promise.all([
-    supabase
-      .from("active_loans")
-      .select("id, principal_amount, outstanding_balance, status")
-      .eq("borrower_id", borrowerId),
-    supabase
-      .from("loan_applications")
-      .select("requested_amount")
-      .eq("borrower_id", borrowerId)
-      .in("status", [...creditConsumingApplicationStatuses]),
-    supabase
-      .from("loan_repayment_schedules")
-      .select("active_loan_id, was_late")
-      .eq("borrower_id", borrowerId)
-      .eq("was_late", true),
-  ]);
+  void borrowerId;
+  void portfolio;
 
-  if (loansError || lateRepaymentsError) {
+  const supabase = verifiedClient ?? (await createSupabaseServerClient());
+  const { data, error } = await supabase.rpc("get_my_borrower_credit_snapshot", {
+    p_excluded_application_id: null,
+  });
+
+  if (error) {
     return null;
   }
 
-  const lateLoanIds = new Set(
-    (lateRepayments ?? []).map((repayment) => repayment.active_loan_id),
-  );
-  const cleanCompletedLoanCount = (loans ?? []).filter(
-    (loan) =>
-      isCompletedLoan({
-        status: loan.status,
-        outstandingBalance: Number(loan.outstanding_balance),
-      }) &&
-      loan.status !== "defaulted" &&
-      !lateLoanIds.has(loan.id),
-  ).length;
-  const defaultedLoanCount = (loans ?? []).filter(
-    (loan) => loan.status === "defaulted",
-  ).length;
+  return mapBorrowerCreditSnapshot(data);
+}
 
-  return calculateBorrowerAvailableCredit({
-    portfolio: {
-      monthlyGrossRevenue: portfolio.monthly_gross_revenue ?? 0,
-      monthlyExpenses: portfolio.monthly_expenses ?? 0,
-      existingLoanPayments: portfolio.existing_loan_payments ?? 0,
-      yearsInOperation: portfolio.years_in_operation ?? 0,
-      totalHouseholdExpenses: [
-        portfolio.monthly_rent_or_mortgage,
-        portfolio.monthly_electricity_bill,
-        portfolio.monthly_water_bill,
-        portfolio.monthly_internet_phone_bill,
-        portfolio.monthly_food_groceries,
-        portfolio.monthly_transportation,
-        portfolio.monthly_tuition_education,
-        portfolio.monthly_medical_expenses,
-        portfolio.monthly_insurance,
-        portfolio.monthly_family_support,
-        portfolio.other_household_expenses,
-      ].reduce<number>((total, value) => total + (Number(value) || 0), 0),
-    },
-    activeLoans: (loans ?? []).map((loan) => ({
-      principalAmount: loan.principal_amount,
-      outstandingBalance: loan.outstanding_balance,
-      status: loan.status,
-    })),
-    pendingApplicationAmounts: appsError
-      ? []
-      : (pendingApps ?? []).map((app) => app.requested_amount),
-    repaymentHistory: {
-      cleanCompletedLoanCount,
-      lateRepaymentCount: lateRepayments?.length ?? 0,
-      defaultedLoanCount,
-    },
-  });
+function mapBorrowerCreditSnapshot(data: Json): BorrowerCreditSummary | null {
+  if (!isJsonRecord(data) || data.ok !== true) {
+    return null;
+  }
+
+  return {
+    calculatedCreditLimit: readSnapshotNumber(data, "calculated_credit_limit"),
+    usedCredit: readSnapshotNumber(data, "used_credit"),
+    availableCredit: readSnapshotNumber(data, "available_credit"),
+    monthlyNetCashFlow: readSnapshotNumber(data, "monthly_net_cash_flow"),
+    safeMonthlyRepaymentCapacity: readSnapshotNumber(
+      data,
+      "safe_monthly_repayment_capacity",
+    ),
+    incomeBasedCapacity: readSnapshotNumber(data, "income_based_capacity"),
+    repaymentHistoryCap: readSnapshotNumber(data, "repayment_history_cap"),
+    maximumCap: readSnapshotNumber(data, "maximum_cap"),
+    cleanCompletedLoanCount: readSnapshotNumber(
+      data,
+      "clean_completed_loan_count",
+    ),
+    lateRepaymentCount: readSnapshotNumber(data, "late_repayment_count"),
+    defaultedLoanCount: readSnapshotNumber(data, "defaulted_loan_count"),
+    riskFlags: Array.isArray(data.risk_flags)
+      ? data.risk_flags.filter((flag): flag is string => typeof flag === "string")
+      : [],
+  };
+}
+
+function readSnapshotNumber(data: Record<string, Json | undefined>, key: string) {
+  const value = Number(data[key]);
+
+  return Number.isFinite(value) ? value : 0;
+}
+
+function isJsonRecord(data: Json): data is Record<string, Json | undefined> {
+  return Boolean(data) && typeof data === "object" && !Array.isArray(data);
 }
 
 export async function submitLoanApplication(

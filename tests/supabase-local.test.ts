@@ -101,8 +101,17 @@ type BorrowerCreditSnapshotResult = {
   code?: string;
   message?: string;
   current_credit_limit?: number;
+  calculated_credit_limit?: number;
+  used_credit?: number;
   active_principal_used?: number;
   available_credit?: number;
+  clean_completed_loan_count?: number;
+  late_repayment_count?: number;
+  defaulted_loan_count?: number;
+  repayment_history_cap?: number;
+  monthly_net_cash_flow?: number;
+  safe_monthly_repayment_capacity?: number;
+  risk_flags?: string[];
 };
 
 function toCents(value: number | string) {
@@ -307,6 +316,76 @@ async function createTenThousandCreditPortfolioWithSubmittedApplication(
   return {
     portfolioId: portfolio.id as string,
     applicationId: application?.id as string,
+  };
+}
+
+async function createCleanPaidLoanCycle(
+  admin: TestClient,
+  portfolioId: string,
+  requestedAmount: number,
+  dueDate: string,
+) {
+  const { data: application, error: applicationError } = await admin
+    .from("loan_applications")
+    .insert({
+      borrower_id: ids.borrower,
+      borrower_portfolio_id: portfolioId,
+      requested_amount: requestedAmount,
+      purpose: "Completed clean repayment cycle",
+      preferred_term: "3_months",
+      remarks: "Historical clean paid loan.",
+      status: "accepted",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(applicationError).toBeNull();
+  expect(application?.id).toBeTruthy();
+
+  const { data: offer, error: offerError } = await admin
+    .from("loan_offers")
+    .insert({
+      loan_application_id: application?.id ?? "",
+      borrower_id: ids.borrower,
+      lender_id: ids.approvedLender,
+      lender_name: "Approved Test Lender",
+      approved_amount: requestedAmount,
+      repayment_amount: requestedAmount,
+      fees: 0,
+      due_date: dueDate,
+      remarks: "Accepted historical offer.",
+      status: "accepted",
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(offerError).toBeNull();
+  expect(offer?.id).toBeTruthy();
+
+  const { data: loan, error: loanError } = await admin
+    .from("active_loans")
+    .insert({
+      loan_application_id: application?.id ?? "",
+      accepted_offer_id: offer?.id ?? "",
+      borrower_id: ids.borrower,
+      lender_id: ids.approvedLender,
+      principal_amount: requestedAmount,
+      repayment_amount: requestedAmount,
+      fees: 0,
+      outstanding_balance: 0,
+      status: "paid",
+      due_date: dueDate,
+    })
+    .select("id")
+    .single<InsertedRow>();
+
+  expect(loanError).toBeNull();
+  expect(loan?.id).toBeTruthy();
+
+  return {
+    applicationId: application?.id as string,
+    offerId: offer?.id as string,
+    activeLoanId: loan?.id as string,
   };
 }
 
@@ -741,6 +820,100 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       credit_limit: 10000,
       used_credit: 7000,
       available_credit: 3000,
+    });
+  });
+
+  it("uses the same PHP 25,000 snapshot for display and submission after two clean paid loans", async () => {
+    const { data: portfolio, error: portfolioError } = await borrower
+      .from("borrower_portfolios")
+      .insert({
+        borrower_id: ids.borrower,
+        business_type: "sari_sari_store",
+        location: "Quezon City",
+        monthly_gross_revenue: 60000,
+        monthly_expenses: 20000,
+        existing_loan_payments: 0,
+        years_in_operation: 3,
+        loan_purpose_context:
+          "Working capital for inventory and supplier purchases during peak demand.",
+      })
+      .select("id")
+      .single<InsertedRow>();
+
+    expect(portfolioError).toBeNull();
+    expect(portfolio?.id).toBeTruthy();
+
+    const portfolioId = portfolio?.id as string;
+    await createCleanPaidLoanCycle(admin, portfolioId, 10000, "2026-03-24");
+    await createCleanPaidLoanCycle(admin, portfolioId, 15000, "2026-04-24");
+
+    const displaySnapshot = await borrower.rpc("get_my_borrower_credit_snapshot", {
+      p_excluded_application_id: null,
+    });
+    const displaySnapshotResult =
+      displaySnapshot.data as Json as BorrowerCreditSnapshotResult;
+
+    expect(displaySnapshot.error).toBeNull();
+    expect(displaySnapshotResult).toMatchObject({
+      ok: true,
+      calculated_credit_limit: 25000,
+      current_credit_limit: 25000,
+      used_credit: 0,
+      active_principal_used: 0,
+      available_credit: 25000,
+      clean_completed_loan_count: 2,
+      late_repayment_count: 0,
+      defaulted_loan_count: 0,
+      repayment_history_cap: 25000,
+    });
+
+    const exactSubmission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 25000,
+      p_purpose: "Inventory financing after two clean paid cycles",
+      p_preferred_term: "3_months",
+      p_remarks: "Exact available credit request.",
+    });
+    const exactSubmissionResult =
+      exactSubmission.data as Json as SubmitApplicationRpcResult;
+
+    expect(exactSubmission.error).toBeNull();
+    expect(exactSubmissionResult).toMatchObject({
+      ok: true,
+      credit_limit: 25000,
+      used_credit: 0,
+      available_credit: 25000,
+    });
+    expect(exactSubmissionResult.application).toMatchObject({
+      requested_amount: 25000,
+      credit_limit_at_submission: 25000,
+      used_credit_at_submission: 0,
+      available_credit_at_submission: 25000,
+    });
+
+    const withdrawn = await borrower.rpc("withdraw_loan_application", {
+      p_application_id: exactSubmissionResult.application?.id ?? "",
+    });
+    expect(withdrawn.error).toBeNull();
+    expect((withdrawn.data as Json as AcceptanceResult).ok).toBe(true);
+
+    const excessiveSubmission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 25100,
+      p_purpose: "Inventory financing above the clean paid cycle limit",
+      p_preferred_term: "3_months",
+      p_remarks: "Above available credit request.",
+    });
+    const excessiveSubmissionResult =
+      excessiveSubmission.data as Json as SubmitApplicationRpcResult;
+
+    expect(excessiveSubmission.error).toBeNull();
+    expect(excessiveSubmissionResult).toMatchObject({
+      ok: false,
+      code: "credit_limit_exceeded",
+      message:
+        "Requested amount exceeds your available credit. Maximum request: PHP 25,000.",
+      credit_limit: 25000,
+      used_credit: 0,
+      available_credit: 25000,
     });
   });
 
