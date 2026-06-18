@@ -327,7 +327,9 @@ const borrowerPortfolioBaseSchema = z.object({
     .or(z.literal("")),
   loanPurposeCategory: z
     .enum(loanPurposeCategoryOptions)
-    .default("working_capital"),
+    .nullable()
+    .optional()
+    .default(null),
   loanPurposeOther: shortText(80),
   loanPurposeDetails: shortText(160),
 
@@ -950,15 +952,11 @@ export const borrowerLoanUseSchema = borrowerPortfolioBaseSchema
     loanPurposeContext: true,
   })
   .superRefine((value, context) => {
-    if (
-      !formatLoanPurposeContext(value, {
-        preferSelectedCategory: true,
-      }).trim()
-    ) {
+    if (value.loanPurposeCategory === "other" && !value.loanPurposeOther?.trim()) {
       context.addIssue({
         code: "custom",
-        path: ["loanPurposeDetails"],
-        message: "Enter how you plan to use the loan.",
+        path: ["loanPurposeOther"],
+        message: "Enter a short loan purpose.",
       });
     }
   });
@@ -1178,7 +1176,7 @@ function isBorrowerPortfolioStepComplete(
   }
 
   if (step === "loanUse") {
-    return Boolean(portfolio.loanPurposeContext?.trim());
+    return borrowerPortfolioStepSchemas.loanUse.safeParse(portfolio).success;
   }
 
   return true;
@@ -1797,7 +1795,9 @@ export function formatLoanPurposeContext(
   const category =
     value.loanPurposeCategory === "other"
       ? value.loanPurposeOther?.trim()
-      : loanPurposeCategoryLabels[value.loanPurposeCategory];
+      : value.loanPurposeCategory
+        ? loanPurposeCategoryLabels[value.loanPurposeCategory]
+        : "";
   const details = value.loanPurposeDetails?.trim();
   const existingContext = value.loanPurposeContext?.trim();
 
@@ -1870,7 +1870,7 @@ function parseLoanPurposeContext(value: string): Pick<
   if (!trimmed) {
     return {
       loanPurposeContext: "",
-      loanPurposeCategory: "working_capital",
+      loanPurposeCategory: null,
       loanPurposeOther: "",
       loanPurposeDetails: "",
     };

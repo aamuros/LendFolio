@@ -19,6 +19,7 @@ import {
 import { AddressSelect } from "@/components/address/address-select";
 import { CurrencyInput } from "@/components/currency-input";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -39,6 +40,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { AlertCircle, Check } from "lucide-react";
 import {
   averageCollectionPeriodLabels,
@@ -892,28 +894,45 @@ export function BorrowerPortfolioForm({
           {activeLegacySteps.includes("businessExpenses") ? (
             <FormSection
               title="Business expenses"
-              description="Enter your usual monthly business costs. Use estimates if you do not track exact records."
+              description="Enter your usual monthly business costs. Estimates are okay - only fill in costs that apply to your business."
             >
-              {primaryBusinessExpenseFields.map(([name, label]) => (
-                <MoneyField
-                  key={name}
-                  id={name}
-                  label={label}
-                  error={fieldError(errors, name)}
-                  register={register(name, { setValueAs: parseMoneyInput })}
-                />
-              ))}
+              <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2 sm:items-stretch">
+                {primaryBusinessExpenseFields.map((field) => (
+                  <ExpenseFieldCard
+                    key={field.name}
+                    id={field.name}
+                    label={field.label}
+                    description={field.description}
+                    error={fieldError(errors, field.name)}
+                    register={register(field.name, {
+                      setValueAs: parseMoneyInput,
+                    })}
+                  />
+                ))}
+              </div>
               <AdditionalDetails
                 className="sm:col-span-2"
-                triggerLabel="Advanced expense details"
+                triggerLabel="More specific expenses"
               >
-                {advancedBusinessExpenseFields.map(([name, label]) => (
-                  <MoneyField
-                    key={name}
-                    id={name}
-                    label={label}
-                    error={fieldError(errors, name)}
-                    register={register(name, { setValueAs: parseMoneyInput })}
+                <p className="sm:col-span-2 text-sm leading-5 text-muted-foreground">
+                  Optional: fill in only the costs that apply to your business.
+                </p>
+                {advancedBusinessExpenseFields.map((field, index) => (
+                  <ExpenseFieldCard
+                    key={field.name}
+                    id={field.name}
+                    label={field.label}
+                    description={field.description}
+                    error={fieldError(errors, field.name)}
+                    register={register(field.name, {
+                      setValueAs: parseMoneyInput,
+                    })}
+                    className={
+                      index === advancedBusinessExpenseFields.length - 1 &&
+                      advancedBusinessExpenseFields.length % 2 === 1
+                        ? "sm:col-span-2"
+                        : undefined
+                    }
                   />
                 ))}
               </AdditionalDetails>
@@ -986,23 +1005,30 @@ export function BorrowerPortfolioForm({
                 className="sm:col-span-2"
               />
               {hasInventory === true ? (
-                <MoneyField
-                  id="inventoryValue"
-                  label="Estimated value of current unsold stock/products"
-                  error={fieldError(errors, "inventoryValue")}
-                  register={register("inventoryValue", {
-                    setValueAs: parseMoneyInput,
-                  })}
-                  description="Use the purchase/cost price of your remaining stocks, not the selling price. Inventory means products or materials you still have and plan to sell. Do not include equipment, tools, vehicles, or cash here."
-                />
+                <div className="grid gap-3 rounded-2xl border border-border bg-muted/10 p-4 sm:col-span-2">
+                  <MoneyField
+                    id="inventoryValue"
+                    label="Estimated value of current unsold stock/products"
+                    error={fieldError(errors, "inventoryValue")}
+                    register={register("inventoryValue", {
+                      setValueAs: parseMoneyInput,
+                    })}
+                    description="Use the cost price of remaining stocks, not the selling price. Do not include cash, equipment, or vehicles here."
+                  />
+                </div>
               ) : null}
-              {primaryAssetFields.map(([name, label]) => (
+              {primaryAssetFields.map(([name, label], index) => (
                 <MoneyField
                   key={name}
                   id={name}
                   label={label}
                   error={fieldError(errors, name)}
                   register={register(name, { setValueAs: parseMoneyInput })}
+                  className={
+                    index === primaryAssetFields.length - 1
+                      ? "sm:col-span-2"
+                      : undefined
+                  }
                 />
               ))}
             </FormSection>
@@ -1010,39 +1036,76 @@ export function BorrowerPortfolioForm({
 
           {activeLegacySteps.includes("loanUse") ? (
             <FormSection
-              title="Loan purpose"
-              description="Tell lenders how you plan to use the loan. Keep it specific and practical."
+              title="Loan purpose (optional)"
+              description="Add this if you already know how you plan to use the loan. You can leave it blank and continue."
             >
-              <SelectField
-                control={control}
-                name="loanPurposeCategory"
-                label="Loan purpose"
-                options={loanPurposeCategoryOptions}
-                labels={loanPurposeCategoryLabels}
-                error={errors.loanPurposeCategory?.message}
-              />
-              {currentValues.loanPurposeCategory === "other" ? (
-                <TextField
-                  id="loanPurposeOther"
-                  label="Short purpose"
-                  error={errors.loanPurposeOther?.message}
-                  register={register("loanPurposeOther")}
-                />
-              ) : null}
-              <TextField
-                id="loanPurposeDetails"
-                label="Additional details"
-                error={errors.loanPurposeDetails?.message}
-                register={register("loanPurposeDetails")}
-                className="sm:col-span-2"
-              />
-              <Alert className="sm:col-span-2">
-                <AlertDescription>
-                  A clear loan purpose helps lenders understand what the funds
-                  will support, such as inventory, equipment, rent, or working
-                  capital.
-                </AlertDescription>
-              </Alert>
+              <div className="grid gap-4 rounded-2xl border border-border bg-muted/20 p-4 sm:col-span-2 sm:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)] sm:p-5">
+                <div className="grid content-start gap-4">
+                  <div className="grid gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-base font-semibold">
+                        Tell lenders how the loan may help
+                      </h4>
+                      <Badge variant="outline">Optional</Badge>
+                    </div>
+                    <p className="text-sm leading-5 text-muted-foreground">
+                      Optional, but adding a purpose can help lenders understand
+                      your request.
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[
+                      "Inventory",
+                      "Equipment",
+                      "Rent or utilities",
+                      "Working capital",
+                    ].map((purpose) => (
+                      <span
+                        key={purpose}
+                        className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-muted-foreground"
+                      >
+                        {purpose}
+                      </span>
+                    ))}
+                  </div>
+                  <div className="rounded-2xl border border-border bg-muted/20 p-4 text-sm leading-6 text-muted-foreground">
+                    Examples: buying inventory, repairing equipment, paying rent
+                    or utilities, adding working capital, or covering delivery
+                    costs.
+                  </div>
+                </div>
+                <div className="grid content-start gap-4">
+                  <SelectField
+                    control={control}
+                    name="loanPurposeCategory"
+                    label="Purpose category"
+                    options={loanPurposeCategoryOptions}
+                    labels={loanPurposeCategoryLabels}
+                    error={errors.loanPurposeCategory?.message}
+                    optional
+                  />
+                  {currentValues.loanPurposeCategory === "other" ? (
+                    <TextField
+                      id="loanPurposeOther"
+                      label="Short purpose"
+                      error={errors.loanPurposeOther?.message}
+                      register={register("loanPurposeOther")}
+                    />
+                  ) : null}
+                  <Field
+                    label="Notes for lender (optional)"
+                    error={errors.loanPurposeDetails?.message}
+                    id="loanPurposeDetails"
+                  >
+                    <Textarea
+                      id="loanPurposeDetails"
+                      placeholder="Example: I will use the loan to buy more sari-sari store inventory before payday week."
+                      aria-invalid={Boolean(errors.loanPurposeDetails)}
+                      {...register("loanPurposeDetails")}
+                    />
+                  </Field>
+                </div>
+              </div>
             </FormSection>
           ) : null}
 
@@ -1256,25 +1319,74 @@ export function BorrowerPortfolioForm({
 }
 
 const primaryBusinessExpenseFields = [
-  ["monthlyInventoryCost", "Inventory / stock cost"],
-  ["monthlyBusinessRent", "Rent / stall fee"],
-  ["monthlyBusinessElectricity", "Utilities"],
-  ["monthlyHelperSalary", "Labor / helper salary"],
-  ["monthlyTransportationDelivery", "Delivery / transport"],
-  ["otherBusinessExpenses", "Other business expenses"],
-] as const satisfies ReadonlyArray<
-  readonly [keyof BorrowerPortfolioFormInput, string]
->;
+  {
+    name: "monthlyInventoryCost",
+    label: "Inventory / stock cost",
+    description: "Goods, ingredients, or supplies you buy to sell.",
+  },
+  {
+    name: "monthlyBusinessRent",
+    label: "Rent / stall fee",
+    description: "Rent for your store, stall, storage, or selling spot.",
+  },
+  {
+    name: "monthlyBusinessElectricity",
+    label: "Utilities",
+    description: "Electricity, water, internet, or phone costs for business.",
+  },
+  {
+    name: "monthlyHelperSalary",
+    label: "Helper / staff pay",
+    description: "Pay for helpers, workers, or family members assisting you.",
+  },
+  {
+    name: "monthlyTransportationDelivery",
+    label: "Delivery / transport",
+    description: "Fuel, fare, courier, rider, or delivery costs.",
+  },
+  {
+    name: "otherBusinessExpenses",
+    label: "Other business costs",
+    description: "Any regular business cost not listed above.",
+  },
+] as const satisfies ReadonlyArray<{
+  name: keyof BorrowerPortfolioFormInput;
+  label: string;
+  description: string;
+}>;
 
 const advancedBusinessExpenseFields = [
-  ["monthlyBusinessWater", "Business water"],
-  ["monthlyPackagingCost", "Packaging"],
-  ["monthlyPlatformFees", "Platform fees"],
-  ["monthlyMaintenanceRepairs", "Maintenance / repairs"],
-  ["monthlySupplierCreditPayment", "Supplier credit payment"],
-] as const satisfies ReadonlyArray<
-  readonly [keyof BorrowerPortfolioFormInput, string]
->;
+  {
+    name: "monthlyBusinessWater",
+    label: "Water bill",
+    description: "Water used for the business.",
+  },
+  {
+    name: "monthlyPackagingCost",
+    label: "Packaging",
+    description: "Bags, boxes, containers, labels, or wrapping materials.",
+  },
+  {
+    name: "monthlyPlatformFees",
+    label: "Online platform fees",
+    description:
+      "Fees from Shopee, Lazada, TikTok, delivery apps, or payment apps.",
+  },
+  {
+    name: "monthlyMaintenanceRepairs",
+    label: "Repairs / maintenance",
+    description: "Fixing equipment, tools, vehicles, or store items.",
+  },
+  {
+    name: "monthlySupplierCreditPayment",
+    label: "Supplier credit payment",
+    description: "Payments for supplies you got first and pay later.",
+  },
+] as const satisfies ReadonlyArray<{
+  name: keyof BorrowerPortfolioFormInput;
+  label: string;
+  description: string;
+}>;
 
 const householdExpenseFields = [
   ["monthlyRentOrMortgage", "Monthly rent / housing fee"],
@@ -1636,10 +1748,48 @@ function AdditionalDetails({
           {triggerLabel}
         </Button>
       </CollapsibleTrigger>
-      <CollapsibleContent className="grid gap-4 rounded-xl border bg-muted/10 p-4 sm:grid-cols-2">
+      <CollapsibleContent className="grid items-stretch gap-4 rounded-2xl border border-border bg-muted/10 p-4 sm:grid-cols-2 sm:p-5">
         {children}
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function ExpenseFieldCard({
+  id,
+  label,
+  description,
+  error,
+  register,
+  className,
+}: FieldControlProps & { description: string }) {
+  return (
+    <div
+      className={cn(
+        "grid h-full grid-rows-[auto_auto_1fr] gap-3 rounded-2xl border border-border bg-muted/10 p-4",
+        className,
+      )}
+    >
+      <div className="grid gap-1">
+        <Label htmlFor={id} className="text-sm font-semibold text-foreground">
+          {label}
+        </Label>
+        <p className="min-h-[2.5rem] text-xs leading-5 text-muted-foreground">
+          {description}
+        </p>
+      </div>
+      <CurrencyInput
+        id={id}
+        aria-invalid={Boolean(error)}
+        registration={register}
+        emptyValue={0}
+      />
+      {error ? (
+        <span id={`${id}-error`} className="text-sm leading-5 text-destructive">
+          {error}
+        </span>
+      ) : null}
+    </div>
   );
 }
 
@@ -1705,8 +1855,9 @@ function MilestoneSummary({
       rows: [
         [
           "Loan purpose",
-          loanPurposeCategoryLabels[portfolio.loanPurposeCategory] ??
-            "Not provided",
+          portfolio.loanPurposeCategory
+            ? loanPurposeCategoryLabels[portfolio.loanPurposeCategory]
+            : portfolio.loanPurposeContext?.trim() || "Not provided",
         ],
         [
           "Details",
@@ -1953,11 +2104,18 @@ function MoneyField({
   label,
   error,
   register,
+  className,
   emptyValue = 0,
   description,
 }: FieldControlProps & { emptyValue?: number; description?: string }) {
   return (
-    <Field label={label} error={error} id={id} description={description}>
+    <Field
+      label={label}
+      error={error}
+      id={id}
+      className={className}
+      description={description}
+    >
       <CurrencyInput
         id={id}
         aria-invalid={Boolean(error)}

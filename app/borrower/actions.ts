@@ -1099,11 +1099,13 @@ function buildBorrowerPortfolioStepPayload(
   }
 
   if (step === "loanUse") {
+    const loanPurposeContext = formatLoanPurposeContext(portfolio, {
+      preferSelectedCategory: true,
+    }).trim();
+
     return {
       ...base,
-      loan_purpose_context: formatLoanPurposeContext(portfolio, {
-        preferSelectedCategory: true,
-      }),
+      loan_purpose_context: loanPurposeContext || null,
     };
   }
 
@@ -1238,11 +1240,13 @@ function buildBorrowerBusinessProfileSectionPayload(
     };
   }
 
+  const loanPurposeContext = formatLoanPurposeContext(portfolio, {
+    preferSelectedCategory: true,
+  }).trim();
+
   return {
     ...base,
-    loan_purpose_context: formatLoanPurposeContext(portfolio, {
-      preferSelectedCategory: true,
-    }),
+    loan_purpose_context: loanPurposeContext || null,
   };
 }
 
