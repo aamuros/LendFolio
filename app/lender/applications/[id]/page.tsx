@@ -73,9 +73,10 @@ export default async function LenderApplicationDetailPage({
 
   const { application } = result;
   const hasAcceptedOffer = application.hasAcceptedOffer;
-  const pendingOffer = application.offers.find(
-    (offer) => offer.status === "pending",
-  );
+  const pendingOffer =
+    application.currentLenderOffer?.status === "pending"
+      ? application.currentLenderOffer
+      : undefined;
   const isOpenForOffers = isApplicationActionableForOffer(application);
   const hasAcceptedApplication =
     application.status === "accepted" || hasAcceptedOffer;
@@ -101,6 +102,7 @@ export default async function LenderApplicationDetailPage({
             <OfferActionSection
               application={application}
               offers={application.offers}
+              currentLenderOffer={application.currentLenderOffer}
               hasAcceptedApplication={hasAcceptedApplication}
               isOpenForOffers={isOpenForOffers}
               pendingOffer={pendingOffer}
@@ -353,6 +355,7 @@ function ReviewCreditSection({
 function OfferActionSection({
   application,
   offers,
+  currentLenderOffer,
   hasAcceptedApplication,
   isOpenForOffers,
   pendingOffer,
@@ -365,15 +368,14 @@ function OfferActionSection({
     | "preferredTerm"
   >;
   offers: LoanOfferSummary[];
+  currentLenderOffer: LoanOfferSummary | null;
   hasAcceptedApplication: boolean;
   isOpenForOffers: boolean;
   pendingOffer: LoanOfferSummary | undefined;
 }) {
   const currentOffer =
     pendingOffer ??
-    offers.find((offer) => offer.status === "accepted") ??
-    offers.find((offer) => offer.status === "declined") ??
-    offers.find((offer) => offer.status === "expired");
+    currentLenderOffer;
   const title = getActionTitle({
     hasAcceptedApplication,
     isOpenForOffers,
@@ -423,7 +425,11 @@ function OfferActionSection({
             <OfferSummary offer={currentOffer} />
           </div>
         ) : null}
-        <LenderOfferHistory offers={offers} compact />
+        <LenderOfferHistory
+          offers={offers}
+          compact
+          currentLenderOfferId={currentLenderOffer?.id}
+        />
       </div>
     </ReviewCard>
   );

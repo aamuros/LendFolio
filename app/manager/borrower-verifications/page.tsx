@@ -75,6 +75,7 @@ type PageProps = {
     review?: string;
     documentReview?: string;
     selected?: string;
+    scrollY?: string;
   }>;
 };
 
@@ -1058,4 +1059,3 @@ function ManagerDecisionPanel({
     </Card>
   );
 }
-

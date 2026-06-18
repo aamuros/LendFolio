@@ -81,9 +81,12 @@ import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 type PageProps = {
   searchParams: Promise<{
     review?: string;
+    documentReview?: string;
+    changeRequestReview?: string;
     status?: string;
     q?: string;
     selected?: string;
+    scrollY?: string;
   }>;
 };
 

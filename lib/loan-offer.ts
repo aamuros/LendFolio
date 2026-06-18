@@ -108,6 +108,7 @@ export type LoanOfferStatus = Database["public"]["Enums"]["offer_status"];
 export type LoanOfferSummary = {
   id: string;
   applicationId: string;
+  lenderId: string;
   lenderName: string;
   approvedAmount: number;
   principalAmount: number;
@@ -147,6 +148,7 @@ export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
   return {
     id: row.id,
     applicationId: row.loan_application_id,
+    lenderId: row.lender_id,
     lenderName: row.lender_name,
     approvedAmount: row.approved_amount,
     principalAmount: row.approved_amount,

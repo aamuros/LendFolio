@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { reviewBorrowerVerificationDocumentAction } from "@/app/manager/actions";
+import { getCurrentScrollY } from "@/app/manager/scroll-position";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -50,8 +51,13 @@ export function DocumentActionsCell({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const acceptFormRef = useRef<HTMLFormElement>(null);
+  const acceptScrollYRef = useRef<HTMLInputElement>(null);
+  const rejectScrollYRef = useRef<HTMLInputElement>(null);
 
   function handleAccept() {
+    if (acceptScrollYRef.current) {
+      acceptScrollYRef.current.value = getCurrentScrollY();
+    }
     acceptFormRef.current?.requestSubmit();
   }
 
@@ -101,6 +107,7 @@ export function DocumentActionsCell({
         <input type="hidden" name="documentId" value={documentId} />
         <input type="hidden" name="decision" value="accept" />
         <input type="hidden" name="reviewNotes" value="" />
+        <input ref={acceptScrollYRef} type="hidden" name="scrollY" />
         {selected ? (
           <input type="hidden" name="selected" value={selected} />
         ) : null}
@@ -116,10 +123,16 @@ export function DocumentActionsCell({
           <form
             action={reviewBorrowerVerificationDocumentAction}
             className="grid gap-3"
-            onSubmit={() => setDialogOpen(false)}
+            onSubmit={() => {
+              if (rejectScrollYRef.current) {
+                rejectScrollYRef.current.value = getCurrentScrollY();
+              }
+              setDialogOpen(false);
+            }}
           >
             <input type="hidden" name="documentId" value={documentId} />
             <input type="hidden" name="decision" value="reject" />
+            <input ref={rejectScrollYRef} type="hidden" name="scrollY" />
             {selected ? (
               <input type="hidden" name="selected" value={selected} />
             ) : null}

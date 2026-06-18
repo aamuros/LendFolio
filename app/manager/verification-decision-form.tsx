@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { reviewBorrowerVerificationAction } from "@/app/manager/actions";
+import { getCurrentScrollY } from "@/app/manager/scroll-position";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,10 +18,20 @@ export function VerificationDecisionForm({
   selected?: string;
 }) {
   const [rejectionReason, setRejectionReason] = useState("");
+  const scrollYRef = useRef<HTMLInputElement>(null);
 
   return (
-    <form action={reviewBorrowerVerificationAction} className="grid gap-3">
+    <form
+      action={reviewBorrowerVerificationAction}
+      className="grid gap-3"
+      onSubmit={() => {
+        if (scrollYRef.current) {
+          scrollYRef.current.value = getCurrentScrollY();
+        }
+      }}
+    >
       <input type="hidden" name="borrowerId" value={borrowerId} />
+      <input ref={scrollYRef} type="hidden" name="scrollY" />
       {selected ? <input type="hidden" name="selected" value={selected} /> : null}
       <div className="grid gap-1.5">
         <Label

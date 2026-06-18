@@ -12,12 +12,21 @@ export function LenderToast() {
 
   const review = searchParams.get("review");
   const documentReview = searchParams.get("documentReview");
+  const changeRequestReview = searchParams.get("changeRequestReview");
+  const scrollY = searchParams.get("scrollY");
 
   useEffect(() => {
     if (firedRef.current) return;
-    if (!review && !documentReview) return;
+    if (!review && !documentReview && !changeRequestReview && !scrollY) return;
 
     firedRef.current = true;
+
+    if (scrollY) {
+      const nextScrollY = Number(scrollY);
+      if (Number.isFinite(nextScrollY)) {
+        window.scrollTo(0, nextScrollY);
+      }
+    }
 
     if (review === "approved") {
       toast.success("Lender approved.");
@@ -45,12 +54,30 @@ export function LenderToast() {
       toast.error("Could not update document.");
     }
 
+    if (changeRequestReview === "approved") {
+      toast.success("Profile change request approved.");
+    } else if (changeRequestReview === "rejected") {
+      toast.error("Profile change request rejected.");
+    } else if (changeRequestReview === "error") {
+      toast.error("Could not update profile change request.");
+    }
+
     const params = new URLSearchParams(searchParams.toString());
     params.delete("review");
     params.delete("documentReview");
+    params.delete("changeRequestReview");
+    params.delete("scrollY");
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [review, documentReview, searchParams, router, pathname]);
+  }, [
+    review,
+    documentReview,
+    changeRequestReview,
+    scrollY,
+    searchParams,
+    router,
+    pathname,
+  ]);
 
   return null;
 }

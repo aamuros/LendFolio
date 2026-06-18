@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { reviewLenderVerificationDocumentAction } from "@/app/manager/actions";
+import { getCurrentScrollY } from "@/app/manager/scroll-position";
 import { lenderVerificationDocumentTypeLabels } from "@/lib/lender-verification";
 import type { LenderVerificationDocumentType } from "@/lib/lender-verification";
 import { Button } from "@/components/ui/button";
@@ -52,9 +53,14 @@ export function LenderDocumentActionsCell({
   const [dialogOpen, setDialogOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const acceptFormRef = useRef<HTMLFormElement>(null);
+  const acceptScrollYRef = useRef<HTMLInputElement>(null);
+  const rejectScrollYRef = useRef<HTMLInputElement>(null);
   const documentLabel = lenderVerificationDocumentTypeLabels[documentType];
 
   function handleAccept() {
+    if (acceptScrollYRef.current) {
+      acceptScrollYRef.current.value = getCurrentScrollY();
+    }
     acceptFormRef.current?.requestSubmit();
   }
 
@@ -104,6 +110,7 @@ export function LenderDocumentActionsCell({
         <input type="hidden" name="documentId" value={documentId} />
         <input type="hidden" name="decision" value="accept" />
         <input type="hidden" name="reviewNotes" value="" />
+        <input ref={acceptScrollYRef} type="hidden" name="scrollY" />
         {selected ? (
           <input type="hidden" name="selected" value={selected} />
         ) : null}
@@ -119,10 +126,16 @@ export function LenderDocumentActionsCell({
           <form
             action={reviewLenderVerificationDocumentAction}
             className="grid gap-3"
-            onSubmit={() => setDialogOpen(false)}
+            onSubmit={() => {
+              if (rejectScrollYRef.current) {
+                rejectScrollYRef.current.value = getCurrentScrollY();
+              }
+              setDialogOpen(false);
+            }}
           >
             <input type="hidden" name="documentId" value={documentId} />
             <input type="hidden" name="decision" value="reject" />
+            <input ref={rejectScrollYRef} type="hidden" name="scrollY" />
             {selected ? (
               <input type="hidden" name="selected" value={selected} />
             ) : null}

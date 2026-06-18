@@ -100,19 +100,6 @@ const preferredTermLabels: Record<
 const fallbackTermMonths = [1, 2, 3, 4, 6, 9, 12];
 const actionableApplicationStatuses = ["submitted", "open"] as const;
 
-function applicationStatusTone(status: string) {
-  switch (status) {
-    case "submitted":
-      return "attention" as const;
-    case "approved":
-      return "success" as const;
-    case "rejected":
-      return "danger" as const;
-    default:
-      return "neutral" as const;
-  }
-}
-
 function offerStateTone(
   state: LenderApplicationReview["currentLenderOfferState"],
 ) {
@@ -378,15 +365,12 @@ export function LenderApplicationsList({
               <div className="grid min-w-0 gap-2">
                 <div className="flex min-w-0 flex-wrap items-center gap-2">
                   <h2 className="min-w-0 truncate text-base font-semibold sm:text-lg">
-                  {application.portfolio.businessTypeLabel}
-                </h2>
-                <ToneBadge tone={applicationStatusTone(application.status)}>
-                  {application.status}
-                </ToneBadge>
-                <ToneBadge tone={offerStateTone(application.currentLenderOfferState)}>
-                  {offerStateLabels[application.currentLenderOfferState]}
-                </ToneBadge>
-              </div>
+                    {application.portfolio.businessTypeLabel}
+                  </h2>
+                  <ToneBadge tone={offerStateTone(application.currentLenderOfferState)}>
+                    {offerStateLabels[application.currentLenderOfferState]}
+                  </ToneBadge>
+                </div>
                 <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
                   {application.purpose ?? "No purpose stated"}
                 </p>
@@ -427,7 +411,7 @@ export function LenderApplicationsList({
                 icon={<WalletCards className="size-3.5" />}
               />
               <SummaryItem
-                label="Submitted"
+                label="Application date"
                 value={formatDate(application.submittedAt)}
                 icon={<CalendarDays className="size-3.5" />}
               />

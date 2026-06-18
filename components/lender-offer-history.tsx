@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils";
 type LenderOfferHistoryProps = {
   offers: LoanOfferSummary[];
   compact?: boolean;
+  currentLenderOfferId?: string | null;
   emptyDescription?: string;
   emptyTitle?: string;
 };
@@ -25,6 +26,7 @@ type LenderOfferHistoryProps = {
 export function LenderOfferHistory({
   offers,
   compact = false,
+  currentLenderOfferId = null,
   emptyDescription = "Sent offers for this application will appear here.",
   emptyTitle = "No previous offers yet.",
 }: LenderOfferHistoryProps) {
@@ -35,7 +37,11 @@ export function LenderOfferHistory({
         {offers.length > 0 ? (
           <div className="grid gap-2">
             {offers.map((offer) => (
-              <OfferHistoryRow key={offer.id} offer={offer} />
+              <OfferHistoryRow
+                key={offer.id}
+                offer={offer}
+                isCurrentLenderOffer={offer.id === currentLenderOfferId}
+              />
             ))}
           </div>
         ) : (
@@ -124,7 +130,15 @@ export function LenderOfferHistory({
   );
 }
 
-function OfferHistoryRow({ offer }: { offer: LoanOfferSummary }) {
+function OfferHistoryRow({
+  offer,
+  isCurrentLenderOffer,
+}: {
+  offer: LoanOfferSummary;
+  isCurrentLenderOffer: boolean;
+}) {
+  const lenderLabel = isCurrentLenderOffer ? "You" : "Another lender";
+
   return (
     <Dialog>
       <DialogTrigger asChild>
@@ -136,6 +150,7 @@ function OfferHistoryRow({ offer }: { offer: LoanOfferSummary }) {
           )}
         >
           <span className="flex min-w-0 items-center gap-2">
+            <span className="truncate text-sm font-semibold">{lenderLabel}</span>
             <OfferHistoryBadge status={offer.status} />
           </span>
           <span className="min-w-0 text-sm">
@@ -167,8 +182,18 @@ function OfferHistoryRow({ offer }: { offer: LoanOfferSummary }) {
         </DialogHeader>
         <div className="grid gap-4">
           <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-muted/30 p-3">
-            <span className="text-sm font-semibold">Status</span>
-            <OfferHistoryBadge status={offer.status} />
+            <div className="grid gap-1">
+              <span className="text-xs font-semibold text-muted-foreground">
+                Lender
+              </span>
+              <span className="text-sm font-semibold">{lenderLabel}</span>
+            </div>
+            <div className="grid justify-items-end gap-1">
+              <span className="text-xs font-semibold text-muted-foreground">
+                Status
+              </span>
+              <OfferHistoryBadge status={offer.status} />
+            </div>
           </div>
           <dl className="grid gap-3 text-sm sm:grid-cols-2">
             <ReviewItem

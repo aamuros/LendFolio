@@ -55,10 +55,11 @@ export async function reviewLenderAction(formData: FormData) {
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !lenderProfileId) {
-    const qs = buildReturnQuery({ review: "error", selected });
+    const qs = buildReturnQuery({ review: "error", selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -80,7 +81,7 @@ export async function reviewLenderAction(formData: FormData) {
         : result?.code === "profile_details_required"
           ? "profile-details-required"
           : "error";
-    const qs = buildReturnQuery({ review: reviewCode, selected });
+    const qs = buildReturnQuery({ review: reviewCode, selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -95,7 +96,7 @@ export async function reviewLenderAction(formData: FormData) {
         ? "pending"
         : "rejected";
 
-  const qs = buildReturnQuery({ review, selected });
+  const qs = buildReturnQuery({ review, selected, scrollY });
   redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }
 
@@ -105,10 +106,11 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !borrowerId) {
-    const qs = buildReturnQuery({ review: "error", selected });
+    const qs = buildReturnQuery({ review: "error", selected, scrollY });
     redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
@@ -126,7 +128,7 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   if (error || !result?.ok) {
     const reviewCode =
       result?.code === "documents_required" ? "documents-required" : "error";
-    const qs = buildReturnQuery({ review: reviewCode, selected });
+    const qs = buildReturnQuery({ review: reviewCode, selected, scrollY });
     redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
@@ -143,7 +145,7 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
         ? "pending"
         : "rejected";
 
-  const qs = buildReturnQuery({ review, selected });
+  const qs = buildReturnQuery({ review, selected, scrollY });
   redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
 }
 
@@ -154,10 +156,11 @@ export async function reviewBorrowerVerificationDocumentAction(
   const decision = String(formData.get("decision") ?? "");
   const reviewNotes = String(formData.get("reviewNotes") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !documentId) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
     redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
@@ -172,7 +175,7 @@ export async function reviewBorrowerVerificationDocumentAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
     redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
@@ -181,7 +184,7 @@ export async function reviewBorrowerVerificationDocumentAction(
   revalidatePath("/borrower");
 
   const review = decision === "accept" ? "accepted" : "rejected";
-  const qs = buildReturnQuery({ documentReview: review, selected });
+  const qs = buildReturnQuery({ documentReview: review, selected, scrollY });
   redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
 }
 
@@ -192,10 +195,11 @@ export async function reviewLenderVerificationDocumentAction(
   const decision = String(formData.get("decision") ?? "");
   const reviewNotes = String(formData.get("reviewNotes") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !documentId) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -210,7 +214,7 @@ export async function reviewLenderVerificationDocumentAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -219,7 +223,7 @@ export async function reviewLenderVerificationDocumentAction(
   revalidatePath("/lender");
 
   const review = decision === "accept" ? "accepted" : "rejected";
-  const qs = buildReturnQuery({ documentReview: review, selected });
+  const qs = buildReturnQuery({ documentReview: review, selected, scrollY });
   redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }
 
@@ -231,10 +235,11 @@ export async function reviewLenderProfileChangeRequestAction(
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !requestId) {
-    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -250,7 +255,7 @@ export async function reviewLenderProfileChangeRequestAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
@@ -259,6 +264,6 @@ export async function reviewLenderProfileChangeRequestAction(
   revalidatePath("/lender");
 
   const review = decision === "approve" ? "approved" : "rejected";
-  const qs = buildReturnQuery({ changeRequestReview: review, selected });
+  const qs = buildReturnQuery({ changeRequestReview: review, selected, scrollY });
   redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }

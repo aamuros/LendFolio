@@ -33,6 +33,7 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     | "offer_declined"
     | "offer_expired";
   hasAcceptedOffer: boolean;
+  currentLenderOffer: LoanOfferSummary | null;
   portfolio: {
     businessType: BorrowerPortfolioRow["business_type"];
     businessTypeLabel: string;
@@ -230,6 +231,7 @@ export async function loadOpenLenderApplications(
       applications,
       portfolios,
       lenderOffers,
+      access.profile.id,
       offerFlagsResult.flags,
     ).filter(
       (application) => application.currentLenderOfferState === "not_offered",
@@ -321,7 +323,6 @@ export async function loadLenderApplicationDetail(
     const { data: offers, error: offersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
-      .eq("lender_id", access.profile.id)
       .eq("loan_application_id", application.id)
       .order("sent_at", { ascending: false });
 
@@ -355,6 +356,7 @@ export async function loadLenderApplicationDetail(
         application,
         portfolio,
         offers,
+        access.profile.id,
         offerFlagsResult.flags.get(application.id) ?? false,
         creditProfileHistory,
       ),
@@ -505,6 +507,7 @@ function combineApplicationsWithPortfolios(
   applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
   portfolios: BorrowerPortfolioRow[],
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  currentLenderId = "",
   acceptedOfferFlags = new Map<string, boolean>(),
 ) {
   const portfoliosById = new Map(
@@ -524,6 +527,7 @@ function combineApplicationsWithPortfolios(
         application,
         portfolio,
         offersByApplicationId.get(application.id) ?? [],
+        currentLenderId,
         acceptedOfferFlags.get(application.id) ?? false,
       ),
     ];
@@ -534,6 +538,7 @@ function toLenderApplicationReview(
   application: Database["public"]["Tables"]["loan_applications"]["Row"],
   portfolio: BorrowerPortfolioRow,
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  currentLenderId = "",
   hasAcceptedOffer = offers.some((offer) => offer.status === "accepted"),
   creditProfileHistory: BorrowerCreditProfileHistorySummary = buildBorrowerCreditProfileHistorySummary(
     [],
@@ -550,12 +555,19 @@ function toLenderApplicationReview(
   const yearsInOperation = reviewPortfolio.years_in_operation ?? 0;
   const estimatedNetMonthlyRevenue =
     monthlyGrossRevenue - monthlyExpenses;
+  const currentLenderOffers = offers.filter(
+    (offer) => offer.lender_id === currentLenderId,
+  );
+  const currentLenderOffer = getCurrentLenderOffer(currentLenderOffers);
 
   return {
     ...mappedApplication,
     borrowerId: application.borrower_id,
-    currentLenderOfferState: getCurrentLenderOfferState(offers),
+    currentLenderOfferState: getCurrentLenderOfferState(currentLenderOffers),
     hasAcceptedOffer,
+    currentLenderOffer: currentLenderOffer
+      ? mapLoanOfferRow(currentLenderOffer)
+      : null,
     portfolio: {
       businessType,
       businessTypeLabel: businessTypeLabels[businessType],
@@ -882,4 +894,17 @@ function getCurrentLenderOfferState(
   }
 
   return "not_offered";
+}
+
+function getCurrentLenderOffer(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+) {
+  return (
+    offers.find((offer) => offer.status === "pending") ??
+    offers.find((offer) => offer.status === "accepted") ??
+    offers.find((offer) => offer.status === "declined") ??
+    offers.find((offer) => offer.status === "expired") ??
+    offers[0] ??
+    null
+  );
 }
