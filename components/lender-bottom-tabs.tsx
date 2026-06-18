@@ -3,7 +3,13 @@
 import { AppBottomTabs, type AppBottomTab } from "@/components/app-bottom-tabs";
 import { AppHeader, type AppHeaderNavItem } from "@/components/app-header";
 
-export type LenderTab = "home" | "applications" | "offers" | "profile" | "account";
+export type LenderTab =
+  | "home"
+  | "applications"
+  | "offers"
+  | "loans"
+  | "profile"
+  | "account";
 
 const tabs: AppBottomTab<LenderTab>[] = [
   { id: "home", label: "Home", icon: "home", href: "/lender" },
@@ -14,12 +20,14 @@ const tabs: AppBottomTab<LenderTab>[] = [
     href: "/lender?tab=applications",
   },
   { id: "offers", label: "Offers", icon: "offers", href: "/lender?tab=offers" },
+  { id: "loans", label: "Loans", icon: "loans", href: "/lender?tab=loans" },
 ];
 
 const desktopTabs: AppHeaderNavItem[] = [
   { id: "home", label: "Home", href: "/lender" },
   { id: "applications", label: "Applications", href: "/lender?tab=applications" },
   { id: "offers", label: "Offers", href: "/lender?tab=offers" },
+  { id: "loans", label: "Loans", href: "/lender?tab=loans" },
 ];
 
 export function LenderBottomTabs({ activeTab }: { activeTab: LenderTab }) {

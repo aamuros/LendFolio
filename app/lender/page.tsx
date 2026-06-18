@@ -20,9 +20,6 @@ import {
   buildConsentStatus,
 } from "@/lib/consents";
 import { loadUserConsents } from "@/lib/user-consents";
-import { LenderRepaymentProofActions } from "@/components/lender-repayment-proof-actions";
-import { ProofPreviewButton } from "@/app/lender/proof-preview-button";
-import { RepaymentChannelsManager } from "@/components/lender-repayment-channels";
 import { requirePrimaryRole } from "@/lib/access-control";
 import { LenderToast } from "@/app/lender/lender-toast";
 import {
@@ -43,19 +40,22 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import {
   BorrowerCard,
   PageHeader,
   borrowerPageBottomPadding,
 } from "@/components/borrower/ui";
-import { CollapsibleSection } from "@/components/lender-collapsible-section";
 import { cn } from "@/lib/utils";
 import { formatDateOnly } from "@/lib/manager-date-format";
 import { formatCurrency, formatDate } from "@/lib/lender-format";
 import { LenderAccountTabWrapper } from "@/components/lender/profile/lender-account-tab-wrapper";
 import { LenderOffersHighlighter } from "@/components/lender/lender-offers-highlighter";
+import {
+  getOfferContext,
+  LoanStatusBadge,
+  MiniMetric,
+} from "@/components/lender-loan-details";
 
 export const dynamic = "force-dynamic";
 
@@ -63,13 +63,16 @@ type LenderPageProps = {
   searchParams: Promise<{
     message?: string;
     tab?: string;
+    offerStatus?: string;
     offerId?: string;
     proofId?: string;
   }>;
 };
 
+type OfferStatusFilter = "pending" | "accepted" | "declined" | "expired" | "other";
+
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab, offerId, proofId } = await searchParams;
+  const { message, tab, offerStatus, offerId, proofId } = await searchParams;
 
   if (message === "signed-in") {
     redirect("/lender", RedirectType.replace);
@@ -80,9 +83,12 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
       ? "applications"
       : tab === "offers"
         ? "offers"
-        : tab === "account" || tab === "profile"
-          ? "profile"
-          : "home";
+        : tab === "loans"
+          ? "loans"
+          : tab === "account" || tab === "profile"
+            ? "profile"
+            : "home";
+  const selectedOfferStatus = parseOfferStatusFilter(offerStatus);
   const access = await requirePrimaryRole("lender");
 
   if (!access.ok) {
@@ -176,9 +182,14 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
               <OffersTab
                 offers={[]}
                 error=""
+                selectedStatus={selectedOfferStatus}
                 highlightOfferId={null}
                 highlightProofId={null}
               />
+            ) : null}
+
+            {activeTab === "loans" ? (
+              <LoansTab offers={[]} error="" />
             ) : null}
 
             {activeTab === "profile" ? (
@@ -238,7 +249,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
     const applicationsResult = await loadOpenLenderApplications(access);
     applications = applicationsResult.ok ? applicationsResult.applications : [];
     applicationsError = !applicationsResult.ok ? applicationsResult.message : "";
-  } else if (activeTab === "offers") {
+  } else if (activeTab === "offers" || activeTab === "loans") {
     const offersResult = await loadLenderOffers(access);
     offers = offersResult.ok ? offersResult.offers : [];
     offersError = !offersResult.ok ? offersResult.message : "";
@@ -304,9 +315,14 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             <OffersTab
               offers={offers}
               error={offersError}
+              selectedStatus={selectedOfferStatus}
               highlightOfferId={offerId ?? null}
               highlightProofId={proofId ?? null}
             />
+          ) : null}
+
+          {activeTab === "loans" ? (
+            <LoansTab offers={offers} error={offersError} />
           ) : null}
 
           {activeTab === "applications" ? (
@@ -399,7 +415,7 @@ function HomeTab({
       ? {
           title: "Review repayment proofs",
           description: `${repaymentProofsNeedingReview} submitted proof${repaymentProofsNeedingReview === 1 ? "" : "s"} awaiting your review.`,
-          href: "/lender?tab=offers" as const,
+            href: "/lender?tab=loans" as const,
           count: repaymentProofsNeedingReview,
         }
       : needsReviewCount > 0
@@ -420,7 +436,7 @@ function HomeTab({
             ? {
                 title: "Active loans",
                 description: "Accepted offers with active loans are ready to track.",
-                href: "/lender?tab=offers" as const,
+                href: "/lender?tab=loans" as const,
                 count: activeLoans,
               }
             : null;
@@ -487,7 +503,7 @@ function HomeTab({
               value={activeLoans}
               description="Accepted offers"
               icon={<Banknote className="size-4" />}
-              href="/lender?tab=offers"
+              href="/lender?tab=loans"
             />
           </div>
 
@@ -606,10 +622,10 @@ function HomeTab({
               </div>
               {offers.length > 0 ? (
                 <div className="grid min-w-0 gap-2">
-                  <OfferSummaryRow label="Pending" value={pendingOffers} />
-                  <OfferSummaryRow label="Accepted" value={acceptedOffers} />
-                  <OfferSummaryRow label="Declined" value={declinedOffers} />
-                  <OfferSummaryRow label="Expired" value={expiredOffers} />
+                  <OfferSummaryRow label="Pending" value={pendingOffers} href="/lender?tab=offers" />
+                  <OfferSummaryRow label="Accepted" value={acceptedOffers} href="/lender?tab=offers&offerStatus=accepted" />
+                  <OfferSummaryRow label="Declined" value={declinedOffers} href="/lender?tab=offers&offerStatus=declined" />
+                  <OfferSummaryRow label="Expired" value={expiredOffers} href="/lender?tab=offers&offerStatus=expired" />
                 </div>
               ) : (
                 <div className="grid gap-2 rounded-xl border border-dashed border-border/90 bg-muted/35 p-3">
@@ -715,11 +731,36 @@ function ApplicationReviewRow({
   );
 }
 
-function OfferSummaryRow({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-sm">
+function OfferSummaryRow({
+  href,
+  label,
+  value,
+}: {
+  href?: string;
+  label: string;
+  value: number;
+}) {
+  const content = (
+    <>
       <span className="text-muted-foreground">{label}</span>
       <span className="font-semibold">{value}</span>
+    </>
+  );
+
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-sm transition hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        {content}
+      </Link>
+    );
+  }
+
+  return (
+    <div className="flex items-center justify-between gap-3 rounded-xl border border-border/70 bg-background/60 px-3 py-2 text-sm">
+      {content}
     </div>
   );
 }
@@ -727,25 +768,74 @@ function OfferSummaryRow({ label, value }: { label: string; value: number }) {
 function OffersTab({
   offers,
   error,
+  selectedStatus,
   highlightOfferId,
   highlightProofId,
 }: {
   offers: LenderOfferReview[];
   error: string;
+  selectedStatus: OfferStatusFilter;
   highlightOfferId: string | null;
   highlightProofId: string | null;
 }) {
   const knownStatuses = new Set(["pending", "accepted", "declined", "expired"]);
-  const groups = [
-    { label: "Pending", offers: offers.filter((offer) => offer.status === "pending") },
-    { label: "Accepted", offers: offers.filter((offer) => offer.status === "accepted") },
-    { label: "Declined", offers: offers.filter((offer) => offer.status === "declined") },
-    { label: "Expired", offers: offers.filter((offer) => offer.status === "expired") },
+  const visibleOffers = offers.filter((offer) =>
+    selectedStatus === "other"
+      ? !knownStatuses.has(offer.status)
+      : offer.status === selectedStatus,
+  );
+  const hasOtherOffers = offers.some((offer) => !knownStatuses.has(offer.status));
+  const statusLinks: Array<{
+    status: OfferStatusFilter;
+    label: string;
+    href: string;
+    count: number;
+  }> = [
     {
-      label: "Other",
-      offers: offers.filter((offer) => !knownStatuses.has(offer.status)),
+      status: "pending",
+      label: "Pending",
+      href: "/lender?tab=offers",
+      count: offers.filter((offer) => offer.status === "pending").length,
     },
+    {
+      status: "accepted",
+      label: "Accepted offers",
+      href: "/lender?tab=offers&offerStatus=accepted",
+      count: offers.filter((offer) => offer.status === "accepted").length,
+    },
+    {
+      status: "declined",
+      label: "Declined offers",
+      href: "/lender?tab=offers&offerStatus=declined",
+      count: offers.filter((offer) => offer.status === "declined").length,
+    },
+    {
+      status: "expired",
+      label: "Expired",
+      href: "/lender?tab=offers&offerStatus=expired",
+      count: offers.filter((offer) => offer.status === "expired").length,
+    },
+    ...(hasOtherOffers
+      ? [
+          {
+            status: "other" as const,
+            label: "Other",
+            href: "/lender?tab=offers&offerStatus=other",
+            count: offers.filter((offer) => !knownStatuses.has(offer.status)).length,
+          },
+        ]
+      : []),
   ];
+  const subtitle =
+    selectedStatus === "accepted"
+      ? "Offers accepted by borrowers. Active loans are managed in Loans."
+      : selectedStatus === "declined"
+        ? "Offers declined by borrowers."
+        : selectedStatus === "expired"
+          ? "Expired offers."
+          : selectedStatus === "other"
+            ? "Offers with other statuses."
+            : "Offers awaiting borrower response.";
 
   let resolvedHighlightOfferId = highlightOfferId;
 
@@ -764,7 +854,7 @@ function OffersTab({
       <div className="grid gap-1">
         <h1 className="text-xl font-semibold sm:text-2xl">Offers</h1>
         <p className="text-sm text-muted-foreground">
-          Sent offers grouped by borrower response.
+          {subtitle}
         </p>
       </div>
 
@@ -781,23 +871,51 @@ function OffersTab({
         </Card>
       ) : null}
 
-      {groups.map((group) =>
-        group.offers.length > 0 ? (
-          <div key={group.label} className="grid gap-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              {group.label}
-            </h2>
-            {group.offers.map((offer) => (
-              <div key={offer.id} id={`offer-${offer.id}`}>
-                <OfferCard
-                  offer={offer}
-                  isHighlighted={offer.id === resolvedHighlightOfferId}
-                />
-              </div>
-            ))}
-          </div>
-        ) : null,
-      )}
+      {offers.length > 0 ? (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {statusLinks.map((item) => (
+            <Button
+              key={item.status}
+              asChild
+              variant={selectedStatus === item.status ? "default" : "outline"}
+              size="sm"
+              className="h-9 shrink-0 rounded-full px-3 text-xs font-semibold"
+            >
+              <Link href={item.href}>
+                {item.label}
+                <Badge
+                  variant={selectedStatus === item.status ? "secondary" : "outline"}
+                  className="ml-1.5 h-5 rounded-full px-1.5 text-[10px]"
+                >
+                  {item.count}
+                </Badge>
+              </Link>
+            </Button>
+          ))}
+        </div>
+      ) : null}
+
+      {visibleOffers.length > 0 ? (
+        <div className="grid gap-3">
+          {visibleOffers.map((offer) => (
+            <div key={offer.id} id={`offer-${offer.id}`}>
+              <OfferCard
+                offer={offer}
+                isHighlighted={offer.id === resolvedHighlightOfferId}
+              />
+            </div>
+          ))}
+        </div>
+      ) : offers.length > 0 && !error ? (
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="grid gap-2 p-5 text-center">
+            <p className="text-lg font-semibold">No offers in this view</p>
+            <p className="text-sm text-muted-foreground">
+              Choose another offer status to review more history.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {resolvedHighlightOfferId ? (
         <LenderOffersHighlighter highlightOfferId={resolvedHighlightOfferId} />
@@ -821,16 +939,121 @@ function offerStatusTone(status: string) {
   }
 }
 
+function LoansTab({
+  offers,
+  error,
+}: {
+  offers: LenderOfferReview[];
+  error: string;
+}) {
+  const activeLoanOffers = offers.filter((offer) => offer.activeLoan);
+
+  return (
+    <section className="grid gap-5">
+      <PageHeader
+        title="Loans"
+        description="Track active loans and review repayment activity."
+      />
+
+      {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
+
+      {activeLoanOffers.length > 0 ? (
+        <div className="grid gap-3">
+          {activeLoanOffers.map((offer) => (
+            <LoanListCard key={offer.id} offer={offer} />
+          ))}
+        </div>
+      ) : !error ? (
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="grid gap-2 p-5 text-center">
+            <p className="text-lg font-semibold">No active loans yet</p>
+            <p className="text-sm text-muted-foreground">
+              Accepted offers will appear here once they become active loans.
+            </p>
+          </CardContent>
+        </Card>
+      ) : null}
+    </section>
+  );
+}
+
+function LoanListCard({ offer }: { offer: LenderOfferReview }) {
+  const activeLoan = offer.activeLoan;
+
+  if (!activeLoan) {
+    return null;
+  }
+
+  const context = getOfferContext(offer);
+  const proofReviewCount = activeLoan.schedule.filter(
+    (repayment) => repayment.latestProof?.status === "submitted",
+  ).length;
+
+  return (
+    <Card className="rounded-2xl border-border/60 shadow-sm transition hover:border-primary/30 hover:bg-muted/20 hover:shadow-md">
+      <CardContent className="grid gap-3 p-4 sm:p-5">
+        <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="min-w-0 font-semibold">{context}</h3>
+              <LoanStatusBadge status={activeLoan.status} />
+              {proofReviewCount > 0 ? (
+                <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
+                  {proofReviewCount} proof{proofReviewCount === 1 ? "" : "s"} to review
+                </Badge>
+              ) : null}
+            </div>
+            <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
+              {offer.application?.purpose ?? "Active loan"}
+            </p>
+          </div>
+          <Button asChild className="h-10 rounded-xl font-semibold">
+            <Link href={`/lender/loans/${activeLoan.id}`}>
+              View
+              <ArrowRight className="size-4" />
+            </Link>
+          </Button>
+        </div>
+        <dl className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-sm sm:grid-cols-2 lg:grid-cols-5">
+          <MiniMetric
+            label="Principal"
+            value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
+            compact
+          />
+          <MiniMetric
+            label="Outstanding"
+            value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
+            compact
+          />
+          <MiniMetric
+            label="Due"
+            value={formatDateOnly(activeLoan.dueDate)}
+            compact
+          />
+          <MiniMetric
+            label="Total repayment"
+            value={`PHP ${formatCurrency(activeLoan.totalRepaymentAmount)}`}
+            compact
+          />
+          <MiniMetric
+            label="Proofs needing review"
+            value={String(proofReviewCount)}
+            compact
+          />
+        </dl>
+      </CardContent>
+    </Card>
+  );
+}
+
 function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview; isHighlighted?: boolean }) {
   const activeLoan = offer.activeLoan;
-  const hasActionableProofs = activeLoan?.schedule.some(
-    (r) => r.latestProof?.status === "submitted",
-  );
-  const isQuiet = offer.status !== "pending" && !isHighlighted && !hasActionableProofs;
-  const href = `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
-  const context = offer.application?.portfolio
-    ? `${offer.application.portfolio.businessTypeLabel} in ${offer.application.portfolio.location}`
-    : "Application context unavailable";
+  const isQuiet = offer.status !== "pending" && !isHighlighted;
+  const href =
+    offer.status === "accepted" && activeLoan
+      ? `/lender/loans/${activeLoan.id}`
+      : `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
+  const context = getOfferContext(offer);
 
   return (
     <Card
@@ -848,7 +1071,14 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
       <CardContent className="pointer-events-none relative z-20 grid gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
-            <h3 className="font-semibold">{context}</h3>
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="font-semibold">{context}</h3>
+              {offer.status === "accepted" && activeLoan ? (
+                <Badge variant="secondary" className="rounded-full text-[10px] font-semibold">
+                  Active loan created
+                </Badge>
+              ) : null}
+            </div>
             <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
               {offer.application?.purpose ?? "Offer sent"}
             </p>
@@ -900,249 +1130,20 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
             ) : null}
           </dl>
         </div>
-        {activeLoan ? (
-          <div className="pointer-events-auto relative z-30 grid gap-3">
-            <Separator />
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-sm font-semibold text-foreground">
-                Active loan
-              </p>
-              <LoanStatusBadge status={activeLoan.status} />
-            </div>
-            <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-              <MiniMetric
-                label="Principal"
-                value={`PHP ${formatCurrency(activeLoan.principalAmount)}`}
-              />
-              <MiniMetric
-                label="Interest/service charge"
-                value={`PHP ${formatCurrency(activeLoan.interestAmount)}`}
-              />
-              <MiniMetric
-                label="Borrower-paid fees"
-                value={`PHP ${formatCurrency(activeLoan.fees)}`}
-              />
-              <MiniMetric
-                label="Total repayment"
-                value={`PHP ${formatCurrency(activeLoan.totalRepaymentAmount)}`}
-              />
-              <MiniMetric
-                label="Outstanding"
-                value={`PHP ${formatCurrency(activeLoan.outstandingBalance)}`}
-              />
-              <MiniMetric label="Due" value={formatDateOnly(activeLoan.dueDate)} />
-            </dl>
-            {activeLoan.repaymentChannel || activeLoan.additionalRepaymentChannels.length > 0 ? (
-              <RepaymentChannelsManager
-                activeLoanId={activeLoan.id}
-                originalChannel={activeLoan.repaymentChannel}
-                originalAccountName={activeLoan.repaymentAccountName}
-                originalAccountNumber={activeLoan.repaymentAccountNumber}
-                originalInstructions={activeLoan.repaymentInstructions}
-                additionalChannels={activeLoan.additionalRepaymentChannels}
-                isLoanActive={activeLoan.status === "active" || activeLoan.status === "overdue"}
-              />
-            ) : null}
-            {activeLoan.schedule.length > 0 ? (
-              <CollapsibleSection
-                triggerLabel="Repayment schedule"
-                defaultOpen={activeLoan.schedule.some((r) => r.latestProof?.status === "submitted")}
-              >
-                <div className="divide-y divide-border/60">
-                  {activeLoan.schedule.map((repayment) => {
-                    const latestProof = repayment.latestProof;
-                    const needsReview = latestProof?.status === "submitted";
-
-                    return (
-                      <div
-                        key={repayment.id}
-                        className="py-2.5 first:pt-0 last:pb-0"
-                      >
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="text-sm font-medium">
-                            #{repayment.installmentNumber}
-                          </span>
-                          <span className="text-sm font-semibold tabular-nums">
-                            PHP {formatCurrency(repayment.amountDue)}
-                          </span>
-                        </div>
-                        <p className="mt-0.5 text-xs text-muted-foreground">
-                          Due {formatDateOnly(repayment.dueDate)}
-                          {needsReview ? (
-                            <span className="font-medium text-foreground">
-                              {" · "}Needs review
-                            </span>
-                          ) : latestProof ? (
-                            ` · ${formatRepaymentStatus(repayment.status)}`
-                          ) : (
-                            " · Awaiting borrower proof"
-                          )}
-                        </p>
-
-                        {needsReview && latestProof ? (
-                          <div className="mt-2">
-                            <LenderRepaymentProofActions
-                              proofId={latestProof.id}
-                              proofStatus={latestProof.status}
-                              proofUrl={latestProof.viewUrl}
-                              proofFileName={latestProof.fileName}
-                              proofFileSize={latestProof.fileSize}
-                              proofFileType={latestProof.fileType}
-                            />
-                          </div>
-                        ) : !needsReview && repayment.proofs.length > 0 ? (
-                          <div className="mt-1.5">
-                            <CollapsibleSection triggerLabel="Proof history">
-                              <LenderProofHistory
-                                currentSubmittedProofId={null}
-                                proofs={repayment.proofs}
-                              />
-                            </CollapsibleSection>
-                          </div>
-                        ) : null}
-                      </div>
-                    );
-                  })}
-                </div>
-              </CollapsibleSection>
-            ) : null}
-          </div>
-        ) : null}
       </CardContent>
     </Card>
   );
 }
 
-function LoanStatusBadge({ status }: { status: string }) {
-  const tone = status === "overdue" ? "danger" : "success";
-  return <ToneBadge tone={tone}>{status}</ToneBadge>;
-}
-
-function LenderProofHistory({
-  currentSubmittedProofId,
-  proofs,
-}: {
-  currentSubmittedProofId: string | null;
-  proofs: NonNullable<LenderOfferReview["activeLoan"]>["schedule"][number]["proofs"];
-}) {
-  return (
-    <div className="grid gap-2">
-      {proofs.map((proof) => (
-        <div
-          key={proof.id}
-          className="grid gap-2 border-t border-border pt-3 first:border-t-0 first:pt-0"
-        >
-          <div className="flex flex-wrap items-start justify-between gap-2">
-            <div className="grid gap-1">
-              <p className="break-words text-sm font-semibold">{proof.fileName}</p>
-              <p className="text-xs leading-5 text-muted-foreground">
-                Submitted {formatDate(proof.submittedAt)}
-                {proof.reviewedAt ? ` · Reviewed ${formatDate(proof.reviewedAt)}` : ""}
-              </p>
-            </div>
-            <ProofStatusBadge status={proof.status} />
-          </div>
-          {proof.reviewNotes ? (
-            <p className="text-xs text-muted-foreground">
-              Note: {proof.reviewNotes}
-            </p>
-          ) : null}
-          {proof.id === currentSubmittedProofId ? (
-            <LenderRepaymentProofActions
-              proofId={proof.id}
-              proofStatus={proof.status}
-              proofUrl={proof.viewUrl}
-              proofFileName={proof.fileName}
-              proofFileSize={proof.fileSize}
-              proofFileType={proof.fileType}
-            />
-          ) : proof.viewUrl ? (
-            <ProofPreviewButton
-              fileName={proof.fileName}
-              fileSize={proof.fileSize}
-              fileType={proof.fileType}
-              viewUrl={proof.viewUrl}
-            />
-          ) : null}
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ProofStatusBadge({ status }: { status: string }) {
-  const tone =
-    status === "rejected"
-      ? "danger"
-      : status === "verified"
-        ? "success"
-        : "neutral";
-
-  return <ToneBadge tone={tone}>{formatProofStatus(status)}</ToneBadge>;
-}
-
-function MiniMetric({
-  label,
-  value,
-  compact = false,
-}: {
-  label: string;
-  value: string;
-  compact?: boolean;
-}) {
-  return (
-    <div>
-      <dt className="text-xs font-semibold text-muted-foreground">
-        {label}
-      </dt>
-      <dd
-        className={cn(
-          "break-words font-semibold tabular-nums",
-          compact ? "mt-0.5 text-sm" : "mt-1",
-        )}
-      >
-        {value}
-      </dd>
-    </div>
-  );
-}
-
-function formatProofStatus(status: string) {
-  if (status === "submitted") {
-    return "Waiting for review";
+function parseOfferStatusFilter(status: string | undefined): OfferStatusFilter {
+  if (
+    status === "accepted" ||
+    status === "declined" ||
+    status === "expired" ||
+    status === "other"
+  ) {
+    return status;
   }
 
-  if (status === "verified") {
-    return "Verified";
-  }
-
-  if (status === "rejected") {
-    return "Rejected";
-  }
-
-  return status;
-}
-
-function formatRepaymentStatus(status: string) {
-  if (status === "due") {
-    return "Payment due";
-  }
-
-  if (status === "submitted") {
-    return "Proof under review";
-  }
-
-  if (status === "verified") {
-    return "Payment verified";
-  }
-
-  if (status === "rejected") {
-    return "Needs corrected proof";
-  }
-
-  if (status === "late") {
-    return "Payment overdue";
-  }
-
-  return status;
+  return "pending";
 }
