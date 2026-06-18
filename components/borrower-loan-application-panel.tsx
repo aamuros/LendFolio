@@ -125,7 +125,6 @@ const loanPurposeSelectPlaceholderValue = "__select_purpose__";
 
 const collapsedApplicationsStorageKey =
   "lendfolio.borrower.collapsedApplications";
-const collapsedOffersStorageKey = "lendfolio.borrower.collapsedOffers";
 const collapsedRepaymentsStorageKey = "lendfolio.borrower.collapsedRepayments";
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
@@ -200,19 +199,18 @@ export function BorrowerLoanApplicationPanel({
       readStoredIdSet(collapsedApplicationsStorageKey),
     ),
   );
-  const [expandedOfferIds, setExpandedOfferIds] = useState<Set<string>>(
-    () =>
-      getDefaultExpandedOfferIds(
-        initialLoadResult?.ok ? initialLoadResult.applications : [],
-        readStoredIdSet(collapsedOffersStorageKey),
-      ),
-  );
   const [expandedRepaymentIds, setExpandedRepaymentIds] = useState<Set<string>>(
     () =>
       getDefaultExpandedRepaymentIds(
         initialLoadResult?.ok ? initialLoadResult.applications : [],
         readStoredIdSet(collapsedRepaymentsStorageKey),
       ),
+  );
+  const [selectedOfferApplicationId, setSelectedOfferApplicationId] = useState<
+    string | null
+  >(null);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(
+    highlightOfferId,
   );
   const [editingApplicationId, setEditingApplicationId] = useState<
     string | null
@@ -254,12 +252,6 @@ export function BorrowerLoanApplicationPanel({
       getDefaultExpandedApplicationIds(
         nextApplications,
         readStoredIdSet(collapsedApplicationsStorageKey),
-      ),
-    );
-    setExpandedOfferIds(
-      getDefaultExpandedOfferIds(
-        nextApplications,
-        readStoredIdSet(collapsedOffersStorageKey),
       ),
     );
     setExpandedRepaymentIds(
@@ -346,6 +338,17 @@ export function BorrowerLoanApplicationPanel({
     let scrollTargetId: string | null = null;
 
     if (highlightOfferId && view === "offers") {
+      const parentApp = applications.find((application) =>
+        application.offers.some((offer) => offer.id === highlightOfferId),
+      );
+
+      if (
+        parentApp &&
+        selectedOfferApplicationId !== parentApp.id
+      ) {
+        return;
+      }
+
       scrollTargetId = `offer-${highlightOfferId}`;
     } else if (highlightApplicationId) {
       scrollTargetId = `application-${highlightApplicationId}`;
@@ -371,6 +374,7 @@ export function BorrowerLoanApplicationPanel({
     highlightLoanId,
     highlightRepaymentId,
     highlightProofId,
+    selectedOfferApplicationId,
   ]);
 
   useEffect(() => {
@@ -379,21 +383,13 @@ export function BorrowerLoanApplicationPanel({
     }
 
     if (highlightOfferId && view === "offers") {
-      startTransition(() => {
-        setExpandedOfferIds((current) => {
-          if (current.has(highlightOfferId)) return current;
-          const next = new Set(current);
-          next.add(highlightOfferId);
-          return next;
-        });
-      });
-      setStoredIdCollapsed(collapsedOffersStorageKey, highlightOfferId, false);
-
       const parentApp = applications.find((a) =>
         a.offers.some((o) => o.id === highlightOfferId),
       );
       if (parentApp) {
         startTransition(() => {
+          setSelectedOfferApplicationId(parentApp.id);
+          setSelectedOfferId(highlightOfferId);
           setExpandedApplicationIds((current) => {
             if (current.has(parentApp.id)) return current;
             const next = new Set(current);
@@ -733,9 +729,7 @@ export function BorrowerLoanApplicationPanel({
         );
       }
       setExpandedApplicationIds((current) => new Set([...current, applicationId]));
-      setExpandedOfferIds((current) => new Set([...current, offerId]));
       setStoredIdCollapsed(collapsedApplicationsStorageKey, applicationId, false);
-      setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
       setLoadState("ready");
       setMessage("");
       setSuccessMessage(result.message);
@@ -809,23 +803,6 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  function toggleOffer(offerId: string) {
-    setSuccessMessage("");
-    setExpandedOfferIds((current) => {
-      const next = new Set(current);
-
-      if (next.has(offerId)) {
-        next.delete(offerId);
-        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, true);
-      } else {
-        next.add(offerId);
-        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
-      }
-
-      return next;
-    });
-  }
-
   function toggleRepayment(repaymentId: string) {
     setSuccessMessage("");
     setExpandedRepaymentIds((current) => {
@@ -843,16 +820,6 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  const pendingOffers = applications.flatMap((application) =>
-    application.offers
-      .filter((offer) => offer.status === "pending")
-      .map((offer) => ({ application, offer })),
-  );
-  const closedOffers = applications.flatMap((application) =>
-    application.offers
-      .filter((offer) => offer.status !== "pending")
-      .map((offer) => ({ application, offer })),
-  );
   const hasNoAvailableCredit =
     readiness?.riskFlags.includes("no_available_credit") ||
     (creditSummary ? creditSummary.availableCredit <= 0 : false);
@@ -981,15 +948,30 @@ export function BorrowerLoanApplicationPanel({
               description="Compare lender offers and accept the one that fits."
             />
             <OfferList
-              closedOffers={closedOffers}
-              expandedOfferIds={expandedOfferIds}
+              applications={applications}
               isPending={isPending}
               onAcceptOffer={onAcceptOffer}
               onDeclineOffer={onDeclineOffer}
               onNavigate={onNavigate}
-              onToggleOffer={toggleOffer}
-              pendingOffers={pendingOffers}
               highlightOfferId={highlightOfferId}
+              selectedApplicationId={selectedOfferApplicationId}
+              selectedOfferId={selectedOfferId}
+              onSelectApplication={(applicationId) => {
+                setSuccessMessage("");
+                setSelectedOfferApplicationId(applicationId);
+                setSelectedOfferId(null);
+              }}
+              onBackToApplications={() => {
+                setSuccessMessage("");
+                setSelectedOfferApplicationId(null);
+                setSelectedOfferId(null);
+              }}
+              onSelectOffer={(offerId) => {
+                setSuccessMessage("");
+                setSelectedOfferId((current) =>
+                  current === offerId ? null : offerId,
+                );
+              }}
             />
           </>
         ) : null}
@@ -2855,27 +2837,49 @@ function ApplicationList({
 }
 
 function OfferList({
-  closedOffers,
-  expandedOfferIds,
+  applications,
   isPending,
   onAcceptOffer,
+  onBackToApplications,
   onDeclineOffer,
   onNavigate,
-  onToggleOffer,
-  pendingOffers,
+  onSelectApplication,
+  onSelectOffer,
   highlightOfferId,
+  selectedApplicationId,
+  selectedOfferId,
 }: {
-  closedOffers: OfferListItem[];
-  expandedOfferIds: Set<string>;
+  applications: BorrowerLoanApplicationSummary[];
   isPending: boolean;
   onAcceptOffer: (applicationId: string, offerId: string) => void;
+  onBackToApplications: () => void;
   onDeclineOffer: (applicationId: string, offerId: string) => void;
   onNavigate?: (tab: BorrowerTab) => void;
-  onToggleOffer: (offerId: string) => void;
-  pendingOffers: OfferListItem[];
+  onSelectApplication: (applicationId: string) => void;
+  onSelectOffer: (offerId: string) => void;
   highlightOfferId?: string | null;
+  selectedApplicationId: string | null;
+  selectedOfferId: string | null;
 }) {
-  if (pendingOffers.length === 0 && closedOffers.length === 0) {
+  const offerApplicationGroups = applications
+    .map((application) => {
+      const pendingOffers = application.offers.filter(
+        (offer) => offer.status === "pending",
+      );
+      const closedOffers = application.offers.filter(
+        (offer) => offer.status !== "pending",
+      );
+
+      return {
+        application,
+        pendingOffers,
+        closedOffers,
+        offers: application.offers,
+      };
+    })
+    .filter((group) => group.offers.length > 0);
+
+  if (offerApplicationGroups.length === 0) {
     return (
       <EmptyState
         message="Offers from lenders will appear after you submit an application."
@@ -2885,59 +2889,401 @@ function OfferList({
     );
   }
 
+  const selectedGroup =
+    offerApplicationGroups.find(
+      (group) => group.application.id === selectedApplicationId,
+    ) ?? null;
+
+  if (selectedGroup) {
+    return (
+      <SelectedApplicationOffers
+        group={selectedGroup}
+        highlightOfferId={highlightOfferId}
+        isPending={isPending}
+        onAcceptOffer={onAcceptOffer}
+        onBack={onBackToApplications}
+        onDeclineOffer={onDeclineOffer}
+        onNavigate={onNavigate}
+        onSelectOffer={onSelectOffer}
+        selectedOfferId={selectedOfferId}
+      />
+    );
+  }
+
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3">
-        <h3 className="text-lg font-semibold">Pending</h3>
-        {pendingOffers.length > 0 ? (
-          <div className="grid gap-3">
-            {pendingOffers.map((item) => (
-              <OfferCard
-                key={item.offer.id}
-                item={item}
-                isExpanded={expandedOfferIds.has(item.offer.id)}
-                isPending={isPending}
-                onAcceptOffer={onAcceptOffer}
-                onDeclineOffer={onDeclineOffer}
-                onNavigate={onNavigate}
-                onToggleOffer={onToggleOffer}
-                isHighlighted={item.offer.id === highlightOfferId}
-              />
-            ))}
+    <OfferApplicationList
+      groups={offerApplicationGroups}
+      onSelectApplication={onSelectApplication}
+    />
+  );
+}
+
+type OfferApplicationGroup = {
+  application: BorrowerLoanApplicationSummary;
+  pendingOffers: BorrowerLoanApplicationSummary["offers"];
+  closedOffers: BorrowerLoanApplicationSummary["offers"];
+  offers: BorrowerLoanApplicationSummary["offers"];
+};
+
+function OfferApplicationList({
+  groups,
+  onSelectApplication,
+}: {
+  groups: OfferApplicationGroup[];
+  onSelectApplication: (applicationId: string) => void;
+}) {
+  return (
+    <div className="grid gap-3">
+      {groups.map((group) => (
+        <OfferApplicationRow
+          key={group.application.id}
+          group={group}
+          onSelect={() => onSelectApplication(group.application.id)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function OfferApplicationRow({
+  group,
+  onSelect,
+}: {
+  group: OfferApplicationGroup;
+  onSelect: () => void;
+}) {
+  const { application, closedOffers, pendingOffers } = group;
+  const bestPendingRepayment =
+    pendingOffers.length > 0
+      ? Math.min(...pendingOffers.map((offer) => offer.totalRepaymentAmount))
+      : null;
+
+  return (
+    <Card className="rounded-2xl">
+      <CardContent className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
+        <div className="min-w-0 space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle className="text-base">
+              {getLoanPurposeLabel(application.purpose)}
+            </CardTitle>
+            <StatusBadge value={application.status} />
           </div>
-        ) : (
-          <EmptyState message="No pending offers right now." />
-        )}
+          <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+            <SummaryItem
+              label="Requested"
+              value={formatMoney(application.requestedAmount)}
+            />
+            <SummaryItem
+              label="Pending offers"
+              value={pendingOffers.length.toString()}
+            />
+            {closedOffers.length > 0 ? (
+              <SummaryItem
+                label="Closed offers"
+                value={closedOffers.length.toString()}
+              />
+            ) : null}
+            <SummaryItem
+              label="Lowest repayment"
+              value={
+                bestPendingRepayment !== null
+                  ? formatMoney(bestPendingRepayment)
+                  : "No pending offers"
+              }
+            />
+            <SummaryItem
+              label="Preferred term"
+              value={preferredTermLabels[application.preferredTerm]}
+            />
+            <SummaryItem
+              label="Submitted"
+              value={formatDate(application.submittedAt)}
+            />
+          </dl>
+        </div>
+        <Button
+          type="button"
+          onClick={onSelect}
+          className="h-11 w-full rounded-full font-semibold sm:w-fit"
+        >
+          View offers
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SelectedApplicationOffers({
+  group,
+  highlightOfferId,
+  isPending,
+  onAcceptOffer,
+  onBack,
+  onDeclineOffer,
+  onNavigate,
+  onSelectOffer,
+  selectedOfferId,
+}: {
+  group: OfferApplicationGroup;
+  highlightOfferId?: string | null;
+  isPending: boolean;
+  onAcceptOffer: (applicationId: string, offerId: string) => void;
+  onBack: () => void;
+  onDeclineOffer: (applicationId: string, offerId: string) => void;
+  onNavigate?: (tab: BorrowerTab) => void;
+  onSelectOffer: (offerId: string) => void;
+  selectedOfferId: string | null;
+}) {
+  const selectedOffer =
+    group.offers.find((offer) => offer.id === selectedOfferId) ?? null;
+
+  return (
+    <div className="grid gap-4">
+      <Card className="rounded-2xl">
+        <CardContent className="grid gap-4 p-4 sm:p-5">
+          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
+            <div className="min-w-0">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={onBack}
+                className="mb-2 h-9 px-0 font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
+              >
+                Back to applications
+              </Button>
+              <h3 className="text-lg font-semibold">
+                {getLoanPurposeLabel(group.application.purpose)}
+              </h3>
+              <p className="text-sm leading-6 text-muted-foreground">
+                Accepting an offer closes other pending offers for this
+                application.
+              </p>
+            </div>
+            <div className="grid gap-2 text-sm sm:text-right">
+              <span className="font-semibold">
+                {formatMoney(group.application.requestedAmount)}
+              </span>
+              <span className="text-muted-foreground">
+                {preferredTermLabels[group.application.preferredTerm]}
+              </span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-3">
+        {group.offers.map((offer) => (
+          <CompactOfferRow
+            key={offer.id}
+            offer={offer}
+            isHighlighted={offer.id === highlightOfferId}
+            isSelected={offer.id === selectedOfferId}
+            onSelect={() => onSelectOffer(offer.id)}
+          />
+        ))}
       </div>
 
-      {closedOffers.length > 0 ? (
-        <div className="grid gap-3">
-          <h3 className="text-lg font-semibold">Closed</h3>
-          <div className="grid gap-3">
-            {closedOffers.map((item) => (
-              <OfferCard
-                key={item.offer.id}
-                item={item}
-                isExpanded={expandedOfferIds.has(item.offer.id)}
-                isPending={isPending}
-                onAcceptOffer={onAcceptOffer}
-                onDeclineOffer={onDeclineOffer}
-                onNavigate={onNavigate}
-                onToggleOffer={onToggleOffer}
-                isHighlighted={item.offer.id === highlightOfferId}
-              />
-            ))}
-          </div>
-        </div>
+      {selectedOffer ? (
+        <OfferDetailsPanel
+          application={group.application}
+          isPending={isPending}
+          offer={selectedOffer}
+          onAcceptOffer={onAcceptOffer}
+          onDeclineOffer={onDeclineOffer}
+          onNavigate={onNavigate}
+        />
       ) : null}
     </div>
   );
 }
 
-type OfferListItem = {
-  application: BorrowerLoanApplicationSummary;
+function CompactOfferRow({
+  isHighlighted,
+  isSelected,
+  offer,
+  onSelect,
+}: {
+  isHighlighted?: boolean;
+  isSelected: boolean;
   offer: BorrowerLoanApplicationSummary["offers"][number];
-};
+  onSelect: () => void;
+}) {
+  return (
+    <Card
+      id={`offer-${offer.id}`}
+      className={cn(
+        "rounded-2xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+        isSelected && "border-primary/50 bg-primary/5",
+      )}
+    >
+      <CardContent className="grid gap-4 p-4 sm:grid-cols-[1fr_auto] sm:items-center sm:p-5">
+        <div className="min-w-0">
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <p className="font-semibold">{offer.lenderName}</p>
+            <StatusBadge value={offer.status} />
+          </div>
+          <dl className="grid gap-3 text-sm sm:grid-cols-3">
+            <SummaryItem
+              label="Approved principal"
+              value={formatMoney(offer.principalAmount)}
+            />
+            <SummaryItem
+              label="Total repayment"
+              value={formatMoney(offer.totalRepaymentAmount)}
+            />
+            <SummaryItem
+              label="Final repayment"
+              value={formatDateOnly(offer.dueDate)}
+            />
+          </dl>
+        </div>
+        <Button
+          type="button"
+          variant={isSelected ? "secondary" : "outline"}
+          onClick={onSelect}
+          className="h-11 w-full rounded-full font-semibold sm:w-fit"
+        >
+          {isSelected ? "Hide details" : "View details"}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function OfferDetailsPanel({
+  application,
+  isPending,
+  offer,
+  onAcceptOffer,
+  onDeclineOffer,
+  onNavigate,
+}: {
+  application: BorrowerLoanApplicationSummary;
+  isPending: boolean;
+  offer: BorrowerLoanApplicationSummary["offers"][number];
+  onAcceptOffer: (applicationId: string, offerId: string) => void;
+  onDeclineOffer: (applicationId: string, offerId: string) => void;
+  onNavigate?: (tab: BorrowerTab) => void;
+}) {
+  const isClosed = offer.status !== "pending";
+
+  return (
+    <Card id={`offer-${offer.id}-details`} className="rounded-2xl">
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-2">
+          <CardTitle className="text-lg">{offer.lenderName}</CardTitle>
+          <StatusBadge value={offer.status} />
+        </div>
+        <CardDescription>
+          Full offer terms and repayment destination.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4">
+        <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
+          <SummaryItem
+            label="Application"
+            value={getLoanPurposeLabel(application.purpose)}
+          />
+          <SummaryItem
+            label="You receive (principal)"
+            value={formatMoney(offer.principalAmount)}
+          />
+          {offer.interestServiceChargeRate !== null ? (
+            <SummaryItem
+              label="Interest/service charge rate"
+              value={formatPercent(offer.interestServiceChargeRate)}
+            />
+          ) : null}
+          <SummaryItem
+            label="Interest/service charge"
+            value={formatMoney(offer.interestAmount)}
+          />
+          <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
+          <SummaryItem
+            label="Total you repay"
+            value={formatMoney(offer.totalRepaymentAmount)}
+          />
+          <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
+          <SummaryItem label="Remarks" value={offer.remarks || "None"} />
+        </dl>
+        <p className="text-sm leading-6 text-muted-foreground">
+          Total repayment includes principal, interest/service charge, and other
+          fees. This is the full amount you will repay.
+        </p>
+
+        {offer.repaymentChannel ? (
+          <div className="grid gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
+            <p className="text-sm font-semibold">Repayment destination</p>
+            <dl className="grid gap-2 text-sm sm:grid-cols-2">
+              <SummaryItem label="Channel" value={offer.repaymentChannel} />
+              <SummaryItem
+                label="Account name"
+                value={offer.repaymentAccountName ?? ""}
+              />
+              <SummaryItem
+                label="Account number"
+                value={offer.repaymentAccountNumber ?? ""}
+              />
+              {offer.repaymentInstructions ? (
+                <SummaryItem
+                  label="Instructions"
+                  value={offer.repaymentInstructions}
+                />
+              ) : null}
+            </dl>
+          </div>
+        ) : null}
+
+        {offer.status === "accepted" && application.activeLoan ? (
+          <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+            <p className="text-sm leading-6 text-muted-foreground">
+              Linked to loan.
+            </p>
+            <Button
+              variant="outline"
+              onClick={() => onNavigate?.("loans")}
+              className="h-11 w-full rounded-full font-semibold sm:w-fit"
+            >
+              View loan
+            </Button>
+          </div>
+        ) : null}
+
+        <div className="grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
+          <p className="text-sm leading-6 text-muted-foreground">
+            {offer.status === "accepted" && application.activeLoan
+              ? "Use Loans to track repayments."
+              : "Accepting an offer closes other pending offers for this application."}
+          </p>
+          <div className="grid gap-2 sm:flex">
+            <Button
+              variant="outline"
+              disabled={isPending || isClosed}
+              onClick={() => onDeclineOffer(application.id, offer.id)}
+              className="h-11 rounded-full font-semibold"
+            >
+              Decline
+            </Button>
+            <Button
+              disabled={isPending || isClosed}
+              onClick={() => onAcceptOffer(application.id, offer.id)}
+              className="h-11 rounded-full font-semibold"
+            >
+              {offer.status === "accepted"
+                ? "Accepted"
+                : offer.status === "declined"
+                  ? "Closed"
+                  : isPending
+                    ? "Working..."
+                    : "Accept offer"}
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
 
 function BorrowerListCard({
   amount,
@@ -3017,139 +3363,6 @@ function BorrowerListCardHeader({
         </span>
       </span>
     </button>
-  );
-}
-
-function OfferCard({
-  isExpanded,
-  isPending,
-  item,
-  onAcceptOffer,
-  onDeclineOffer,
-  onNavigate,
-  onToggleOffer,
-  isHighlighted,
-}: {
-  isExpanded: boolean;
-  isPending: boolean;
-  item: OfferListItem;
-  onAcceptOffer: (applicationId: string, offerId: string) => void;
-  onDeclineOffer: (applicationId: string, offerId: string) => void;
-  onNavigate?: (tab: BorrowerTab) => void;
-  onToggleOffer: (offerId: string) => void;
-  isHighlighted?: boolean;
-}) {
-  const { application, offer } = item;
-  const offerDetailsId = `offer-${offer.id}-details`;
-  const isClosed = offer.status !== "pending";
-
-  return (
-    <Card
-      id={`offer-${offer.id}`}
-      className={cn(
-        "overflow-hidden rounded-2xl",
-        isHighlighted && "ring-2 ring-primary/30",
-      )}
-    >
-      <BorrowerListCardHeader
-        detailsId={offerDetailsId}
-        isExpanded={isExpanded}
-        label={offer.lenderName}
-        amount={offer.approvedAmount}
-        metadata={[
-          `Total repayment ${formatMoney(offer.totalRepaymentAmount)}`,
-          `Final repayment ${formatDateOnly(offer.dueDate)}`,
-        ]}
-        status={<StatusBadge value={offer.status} />}
-        onToggle={() => onToggleOffer(offer.id)}
-      />
-
-      {isExpanded ? (
-        <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
-          <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryItem
-              label="Application"
-              value={getLoanPurposeLabel(application.purpose)}
-            />
-            <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
-            {offer.interestServiceChargeRate !== null ? (
-              <SummaryItem
-                label="Interest/service charge rate"
-                value={formatPercent(offer.interestServiceChargeRate)}
-              />
-            ) : null}
-            <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
-            <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
-            <SummaryItem label="Total you repay" value={formatMoney(offer.totalRepaymentAmount)} />
-            <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
-            <SummaryItem label="Remarks" value={offer.remarks || "None"} />
-          </dl>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, and other fees. This is the full amount you will repay.
-          </p>
-
-          {offer.repaymentChannel ? (
-            <div className="mt-3 grid gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-              <p className="text-sm font-semibold">Repayment destination</p>
-              <dl className="grid grid-cols-2 gap-2 text-sm">
-                <SummaryItem label="Channel" value={offer.repaymentChannel} />
-                <SummaryItem label="Account name" value={offer.repaymentAccountName ?? ""} />
-                <SummaryItem label="Account number" value={offer.repaymentAccountNumber ?? ""} />
-                {offer.repaymentInstructions ? (
-                  <SummaryItem label="Instructions" value={offer.repaymentInstructions} />
-                ) : null}
-              </dl>
-            </div>
-          ) : null}
-
-          {offer.status === "accepted" && application.activeLoan ? (
-            <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <p className="text-sm leading-6 text-muted-foreground">
-                Linked to loan.
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => onNavigate?.("loans")}
-                className="h-11 w-full rounded-full font-semibold sm:w-fit"
-              >
-                View loan
-              </Button>
-            </div>
-          ) : null}
-
-          <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className="text-sm leading-6 text-muted-foreground">
-              {offer.status === "accepted" && application.activeLoan
-                ? "Use Loans to track repayments."
-                : "Accepting an offer closes other pending offers for this application."}
-            </p>
-            <div className="grid gap-2 sm:flex">
-              <Button
-                variant="outline"
-                disabled={isPending || isClosed}
-                onClick={() => onDeclineOffer(application.id, offer.id)}
-                className="h-11 rounded-full font-semibold"
-              >
-                Decline
-              </Button>
-              <Button
-                disabled={isPending || isClosed}
-                onClick={() => onAcceptOffer(application.id, offer.id)}
-                className="h-11 rounded-full font-semibold"
-              >
-                {offer.status === "accepted"
-                  ? "Accepted"
-                  : offer.status === "declined"
-                    ? "Closed"
-                    : isPending
-                      ? "Working..."
-                      : "Accept offer"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </Card>
   );
 }
 
@@ -4046,22 +4259,6 @@ function getDefaultExpandedApplicationIds(
   }
 
   return new Set<string>();
-}
-
-function getDefaultExpandedOfferIds(
-  applications: BorrowerLoanApplicationSummary[],
-  collapsedOfferIds = new Set<string>(),
-) {
-  return new Set(
-    applications.flatMap((application) =>
-      application.offers
-        .filter(
-          (offer) =>
-            offer.status === "pending" && !collapsedOfferIds.has(offer.id),
-        )
-        .map((offer) => offer.id),
-    ),
-  );
 }
 
 function getDefaultExpandedRepaymentIds(
