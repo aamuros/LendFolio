@@ -438,6 +438,7 @@ export type Database = {
           expense_breakdown: Json;
           debt_obligation_summary: Json;
           loan_purpose_context: string | null;
+          loan_request_completed?: boolean;
           has_overdue_loans?: boolean;
           missed_payments_last_12_months?: boolean;
           has_unpaid_lending_app_loans?: boolean;
@@ -557,6 +558,7 @@ export type Database = {
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
+          loan_request_completed?: boolean;
           has_overdue_loans?: boolean;
           missed_payments_last_12_months?: boolean;
           has_unpaid_lending_app_loans?: boolean;
@@ -676,6 +678,7 @@ export type Database = {
           expense_breakdown?: Json;
           debt_obligation_summary?: Json;
           loan_purpose_context?: string | null;
+          loan_request_completed?: boolean;
           has_overdue_loans?: boolean;
           missed_payments_last_12_months?: boolean;
           has_unpaid_lending_app_loans?: boolean;

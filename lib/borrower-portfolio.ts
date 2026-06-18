@@ -325,6 +325,7 @@ const borrowerPortfolioBaseSchema = z.object({
     .max(800, "Keep the loan purpose context under 800 characters.")
     .optional()
     .or(z.literal("")),
+  loanRequestCompleted: z.boolean().default(false),
   loanPurposeCategory: z
     .enum(loanPurposeCategoryOptions)
     .nullable()
@@ -635,6 +636,7 @@ export const borrowerPortfolioSchema = borrowerPortfolioValidatedSchema.transfor
       householdExpensesCompleted: true,
       existingDebtDeclarationCompleted: true,
       assetDeclarationCompleted: true,
+      loanRequestCompleted: true,
       loanPurposeContext: formatLoanPurposeContext(value),
     };
   },
@@ -1198,7 +1200,7 @@ function isBorrowerPortfolioStepComplete(
   }
 
   if (step === "loanUse") {
-    return borrowerPortfolioStepSchemas.loanUse.safeParse(portfolio).success;
+    return portfolio.loanRequestCompleted;
   }
 
   return true;
@@ -1523,6 +1525,7 @@ export function mapBorrowerPortfolioRow(
     vehicleValue,
     propertyLandValue,
     otherAssetsValue,
+    loanRequestCompleted: Boolean(row.loan_request_completed),
     estimatedCustomerCreditAmount: toNumber(row.estimated_customer_credit_amount),
     averageCollectionPeriod: mapNullableOption(
       row.average_collection_period,
