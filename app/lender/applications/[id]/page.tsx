@@ -84,7 +84,10 @@ export default async function LenderApplicationDetailPage({
       <LenderPageHeader activeTab="applications" />
       <div className="mx-auto max-w-7xl">
         <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
-          <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-start">
+          <div className="mx-auto grid max-w-7xl gap-5">
+            <DetailHeader />
+          </div>
+          <div className="mx-auto mt-5 grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-start">
             <BorrowerResumePage application={application} />
 
             <LenderReviewPage>
@@ -170,9 +173,7 @@ function BorrowerResumePage({
   return (
     <DocumentPage className="grid content-start gap-7">
       <div className="grid gap-5">
-        <DetailHeader />
-
-        <div className="flex flex-wrap items-start justify-between gap-3 border-t border-border pt-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="grid gap-2">
             <h1 className="text-2xl leading-tight font-semibold">
               Application review
@@ -523,26 +524,45 @@ function CreditProfileGradeSection({
 }) {
   const history = getLenderFacingCreditHistory(application);
   const tone = getCreditHistoryTone(history.status);
+  const guidance = getCreditReviewGuidance(history.status);
 
   return (
-    <ReviewCard title="Credit Profile Grade">
-      <div className="grid gap-3">
-        <ToneBadge tone={tone}>{history.label}</ToneBadge>
-        <dl className="grid grid-cols-3 gap-3 text-sm">
-          <Metric
-            label="Completed loan cycles"
-            value={String(history.completedLoanCycles)}
-          />
-          <Metric
-            label="On-time repayments"
-            value={
-              history.onTimeRepayments === null
-                ? "-"
-                : String(history.onTimeRepayments)
-            }
-          />
-          <Metric label="Active loans" value={String(history.activeLoanCount)} />
-        </dl>
+    <ReviewCard title="Credit Profile Grade" className="h-full">
+      <div className="grid gap-4">
+        <div className="flex flex-wrap items-center gap-2">
+          <ToneBadge tone={tone}>{history.label}</ToneBadge>
+        </div>
+        <p className="text-sm leading-6 text-muted-foreground">
+          {history.description}
+        </p>
+
+        <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/25 p-4">
+          <h3 className="text-sm font-semibold">Borrower history</h3>
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <Metric
+              label="Completed loan cycles"
+              value={String(history.completedLoanCycles)}
+            />
+            <Metric
+              label="On-time repayments"
+              value={formatHistoryCount(history.onTimeRepayments)}
+            />
+            <Metric label="Active loans" value={String(history.activeLoanCount)} />
+            <Metric
+              label="Late repayments"
+              value={formatHistoryCount(history.lateRepayments)}
+            />
+          </dl>
+        </div>
+
+        <div className="grid gap-2 rounded-xl border border-border/70 bg-background/70 p-4">
+          <h3 className="text-sm font-semibold">Review guidance</h3>
+          <ul className="grid gap-2 text-sm leading-6 text-muted-foreground">
+            {guidance.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+        </div>
       </div>
     </ReviewCard>
   );
@@ -599,4 +619,41 @@ function getCreditHistoryTone(
   }
 
   return "neutral";
+}
+
+function formatHistoryCount(value: number | null) {
+  return value === null ? "-" : String(value);
+}
+
+function getCreditReviewGuidance(
+  status: LenderApplicationReview["creditProfileHistory"]["status"],
+) {
+  if (status === "good_payer" || status === "strong_repeat_payer") {
+    return [
+      "Borrower has positive repayment history.",
+      "Review current cash flow before final offer terms.",
+    ];
+  }
+
+  if (status === "needs_review") {
+    return [
+      "Check repayment concerns and submitted documents before offering terms.",
+      "Keep terms conservative if repayment issues remain unresolved.",
+    ];
+  }
+
+  if (
+    status === "completed_one_cycle" ||
+    status === "completed_multiple_cycles"
+  ) {
+    return [
+      "Use completed loan cycles as repayment context.",
+      "Confirm current financials still support the repayment amount.",
+    ];
+  }
+
+  return [
+    "Verify submitted financials and documents before approving terms.",
+    "Keep the first offer conservative until repayment history is established.",
+  ];
 }

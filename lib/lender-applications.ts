@@ -66,6 +66,7 @@ export type BorrowerCreditProfileHistorySummary = {
   completedLoanCycles: number;
   onTimeRepayments: number | null;
   activeLoanCount: number;
+  lateRepayments: number | null;
 };
 
 export type LenderOfferReview = LoanOfferSummary & {
@@ -625,6 +626,12 @@ function buildBorrowerCreditProfileHistorySummary(
     repayments.length === 0
       ? null
       : repayments.filter((repayment) => repayment.status === "verified").length;
+  const lateRepayments =
+    repayments.length === 0
+      ? null
+      : repayments.filter((repayment) =>
+          repayment.status === "late" || repayment.status === "rejected"
+        ).length;
   const hasCleanCompletedHistory =
     completedLoanCycles > 0 &&
     repayments.length > 0 &&
@@ -640,6 +647,7 @@ function buildBorrowerCreditProfileHistorySummary(
       completedLoanCycles,
       onTimeRepayments,
       activeLoanCount,
+      lateRepayments,
     };
   }
 
@@ -652,6 +660,7 @@ function buildBorrowerCreditProfileHistorySummary(
       completedLoanCycles,
       onTimeRepayments,
       activeLoanCount,
+      lateRepayments,
     };
   }
 
@@ -664,6 +673,7 @@ function buildBorrowerCreditProfileHistorySummary(
       completedLoanCycles,
       onTimeRepayments,
       activeLoanCount,
+      lateRepayments,
     };
   }
 
@@ -676,6 +686,7 @@ function buildBorrowerCreditProfileHistorySummary(
       completedLoanCycles,
       onTimeRepayments,
       activeLoanCount,
+      lateRepayments,
     };
   }
 
@@ -688,6 +699,7 @@ function buildBorrowerCreditProfileHistorySummary(
       completedLoanCycles,
       onTimeRepayments,
       activeLoanCount,
+      lateRepayments,
     };
   }
 
@@ -699,6 +711,7 @@ function buildBorrowerCreditProfileHistorySummary(
     completedLoanCycles,
     onTimeRepayments,
     activeLoanCount,
+    lateRepayments,
   };
 }
 

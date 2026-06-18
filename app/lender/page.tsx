@@ -477,7 +477,7 @@ function HomeTab({
             />
             <DashboardMetric
               label="Offers sent"
-              value={offers.length}
+              value={pendingOffers}
               description={`${pendingOffers} pending response${pendingOffers === 1 ? "" : "s"}`}
               icon={<HandCoins className="size-4" />}
               href="/lender?tab=offers"
@@ -853,9 +853,15 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
               {offer.application?.purpose ?? "Offer sent"}
             </p>
           </div>
-          <ToneBadge tone={offerStatusTone(offer.status)}>
-            {offer.status}
-          </ToneBadge>
+          <div className="flex shrink-0 items-center gap-2">
+            <ToneBadge tone={offerStatusTone(offer.status)}>
+              {offer.status}
+            </ToneBadge>
+            <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition group-hover:bg-primary/90">
+              View
+              <ArrowRight className="size-4" />
+            </span>
+          </div>
         </div>
         <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,4fr)] sm:items-start">
           <div>
