@@ -122,6 +122,49 @@ describe("submitLoanApplication consent mapping", () => {
     });
   });
 
+  it("reports unapplied database migration if old RPC returns profile_needs_review", async () => {
+    const mockSupabase = {
+      rpc: vi.fn().mockResolvedValue({
+        data: {
+          ok: false,
+          code: "profile_needs_review",
+          message: "Update your flagged profile details before applying.",
+        },
+        error: null,
+      }),
+    };
+
+    mockedCreateSupabaseServerClient.mockResolvedValue(mockSupabase as never);
+    mockedRequireBorrower.mockResolvedValue({
+      ok: true,
+      supabase: mockSupabase as never,
+      profile: {
+        id: "borrower-1",
+        role: "borrower",
+        additional_roles: [],
+        display_name: "Borrower One",
+        status: "active",
+        created_at: "2026-05-26T00:00:00.000Z",
+        updated_at: "2026-05-26T00:00:00.000Z",
+        lenderProfile: null,
+      },
+    });
+
+    const result = await submitLoanApplication({
+      requestedAmount: 7000,
+      purpose: "Working capital",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      mode: "supabase",
+      message:
+        "Database readiness migration is not applied. Apply the latest Supabase migrations.",
+    });
+  });
+
   it("accepts successful needs_review application snapshots", async () => {
     const application = {
       id: "application-1",

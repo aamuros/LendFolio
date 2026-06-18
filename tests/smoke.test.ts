@@ -210,6 +210,17 @@ describe("borrower apply readiness gating", () => {
     expect(isBlockingApplicationReadinessStatus("eligible_to_apply")).toBe(false);
   });
 
+  it("keeps the needs_review warning visible above the application form", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain("shouldShowNeedsReviewApplicationWarning(readiness)");
+    expect(source).toContain("<NeedsReviewApplicationWarning />");
+    expect(source).toContain("isBlockingApplicationReadinessStatus(readiness.readinessStatus)");
+  });
+
   it("uses principal-only available credit copy", () => {
     const source = readFileSync(
       "components/borrower-loan-application-panel.tsx",
@@ -221,6 +232,54 @@ describe("borrower apply readiness gating", () => {
     );
     expect(source).not.toContain(
       "The total repayment (principal + interest + fees) must fit",
+    );
+  });
+});
+
+describe("borrower application readiness migration", () => {
+  const migrationPath =
+    "supabase/migrations/20260618110000_allow_needs_review_without_stale_blocker.sql";
+
+  it("allows needs_review profile readiness without appending profile_needs_review", () => {
+    const migration = readFileSync(migrationPath, "utf8");
+
+    expect(migration).toContain(
+      "create or replace function app_private.borrower_application_readiness",
+    );
+    expect(migration).toContain("v_profile_status = 'needs_review'");
+    expect(migration).toContain(
+      "then 'needs_review'::public.borrower_credit_readiness_status",
+    );
+    expect(migration).toContain("'ok', cardinality(v_codes) = 0");
+    expect(migration).toContain(
+      "'application_ready', cardinality(v_codes) = 0",
+    );
+    expect(migration).toContain("'profile_readiness', v_profile_readiness");
+    expect(migration).not.toContain("'profile_needs_review'");
+    expect(migration).not.toContain("'profile_stale'");
+  });
+
+  it("keeps incomplete and not_eligible profile readiness as hard blockers", () => {
+    const migration = readFileSync(migrationPath, "utf8");
+
+    expect(migration).toContain("if v_profile_status = 'incomplete' then");
+    expect(migration).toContain("v_codes := array_append(v_codes, 'profile_incomplete');");
+    expect(migration).toContain("elsif v_profile_status = 'not_eligible' then");
+    expect(migration).toContain("v_codes := array_append(v_codes, 'not_eligible');");
+  });
+
+  it("submits applications using the readiness application_ready flag and stores needs_review snapshots", () => {
+    const migration = readFileSync(migrationPath, "utf8");
+
+    expect(migration).toContain(
+      "create or replace function app_private.submit_loan_application",
+    );
+    expect(migration).toContain(
+      "if not coalesce((v_readiness->>'application_ready')::boolean, false) then",
+    );
+    expect(migration).toContain("borrower_readiness_snapshot");
+    expect(migration).toContain(
+      "coalesce(nullif(v_readiness->>'readiness_status', ''), 'eligible_to_apply')::public.borrower_credit_readiness_status",
     );
   });
 });

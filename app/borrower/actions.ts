@@ -1590,6 +1590,8 @@ export async function submitLoanApplication(
       const message =
         result?.code === "active_application"
           ? "You already have an open application. Withdraw it before submitting a new one."
+          : result?.code === "profile_needs_review"
+            ? "Database readiness migration is not applied. Apply the latest Supabase migrations."
           : result?.message ?? "Could not submit application.";
 
       return {
@@ -1611,10 +1613,11 @@ export async function submitLoanApplication(
               ? "credit-limit"
             : result?.code === "active_application"
               ? "active-application"
-            : result?.code === "profile_needs_review" ||
-                result?.code === "profile_stale" ||
+            : result?.code === "profile_stale" ||
                 result?.code === "not_eligible"
               ? "readiness"
+            : result?.code === "profile_needs_review"
+              ? "supabase"
               : "supabase",
         message,
       };
