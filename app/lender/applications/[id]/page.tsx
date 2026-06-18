@@ -85,24 +85,25 @@ export default async function LenderApplicationDetailPage({
       <div className="mx-auto max-w-7xl">
         <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-start">
-            <BorrowerResumePage application={application} />
+            <div className="grid gap-6">
+              <BorrowerResumePage application={application} />
+              <CreditProfileGradeSection application={application} />
+            </div>
 
-            <LenderReviewPage>
-              <ReviewFinancialsSection application={application} />
-              <ReviewCreditSection application={application} />
+            <div className="grid gap-6">
+              <LenderReviewPage>
+                <ReviewFinancialsSection application={application} />
+                <ReviewCreditSection application={application} />
+              </LenderReviewPage>
 
-              <div className="grid items-start gap-6 lg:grid-cols-2">
-                <CreditProfileGradeSection application={application} />
-
-                <OfferActionSection
-                  application={application}
-                  offers={application.offers}
-                  hasAcceptedApplication={hasAcceptedApplication}
-                  isOpenForOffers={isOpenForOffers}
-                  pendingOffer={pendingOffer}
-                />
-              </div>
-            </LenderReviewPage>
+              <OfferActionSection
+                application={application}
+                offers={application.offers}
+                hasAcceptedApplication={hasAcceptedApplication}
+                isOpenForOffers={isOpenForOffers}
+                pendingOffer={pendingOffer}
+              />
+            </div>
           </div>
         </div>
 
@@ -277,27 +278,27 @@ function ReviewFinancialsSection({
   return (
     <ReviewCard title="Financials">
       <dl className="grid grid-cols-2 gap-x-5 gap-y-4 text-sm">
-          <Metric
-            label="Gross revenue"
-            value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
-          />
-          <Metric
-            label="Expenses"
-            value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
-          />
-          <Metric
-            label="Existing loans"
-            value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
-          />
-          <Metric
-            label="Net revenue"
-            value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
-          />
-          <Metric
-            label="Cash after loans"
-            value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
-          />
-        </dl>
+        <Metric
+          label="Gross revenue"
+          value={`PHP ${formatCurrency(application.portfolio.monthlyGrossRevenue)}`}
+        />
+        <Metric
+          label="Expenses"
+          value={`PHP ${formatCurrency(application.portfolio.monthlyExpenses)}`}
+        />
+        <Metric
+          label="Existing loans"
+          value={`PHP ${formatCurrency(application.portfolio.existingLoanPayments)}`}
+        />
+        <Metric
+          label="Net revenue"
+          value={`PHP ${formatCurrency(application.financialIndicators.estimatedNetMonthlyRevenue)}`}
+        />
+        <Metric
+          label="Cash after loans"
+          value={`PHP ${formatCurrency(application.financialIndicators.monthlyCashAfterLoanPayments)}`}
+        />
+      </dl>
     </ReviewCard>
   );
 }
@@ -427,7 +428,7 @@ function OfferSummary({
   offer: LoanOfferSummary;
 }) {
   return (
-    <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
+    <dl className="grid gap-3 text-sm sm:grid-cols-2 xl:grid-cols-3">
       <ReviewItem
         label="Approved"
         value={`PHP ${formatCurrency(offer.approvedAmount)}`}
@@ -527,12 +528,9 @@ function CreditProfileGradeSection({
   const tone = getCreditHistoryTone(history.status);
 
   return (
-    <ReviewCard title="Credit Profile Grade" className="h-full">
+    <ReviewCard title="Credit Profile Grade">
       <div className="grid gap-3">
         <ToneBadge tone={tone}>{history.label}</ToneBadge>
-        <p className="text-sm leading-6 text-muted-foreground">
-          {history.description}
-        </p>
         <dl className="grid grid-cols-3 gap-3 text-sm">
           <Metric
             label="Completed loan cycles"
