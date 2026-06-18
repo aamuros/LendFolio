@@ -99,13 +99,16 @@ export function BorrowerAssistant({
     const trimmedPrompt = prompt.trim();
     if (!trimmedPrompt) return;
 
-    const answer = answerPrompt(trimmedPrompt, {
-      applications,
-      creditSummary,
-      readiness,
-      result,
-      selectedApplicationId: selectedApplicationForTab,
-    });
+    const localReply = answerGenericPrompt(trimmedPrompt);
+    const answer =
+      localReply ??
+      answerPrompt(trimmedPrompt, {
+        applications,
+        creditSummary,
+        readiness,
+        result,
+        selectedApplicationId: selectedApplicationForTab,
+      });
     const safeSummary = buildSafeSummary(trimmedPrompt, answer.content, {
       applications,
       creditSummary,
@@ -129,6 +132,21 @@ export function BorrowerAssistant({
     ]);
     setDraft("");
     setIsOpen(true);
+
+    if (localReply || !shouldPolishReply(trimmedPrompt, answer.content)) {
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantMessageId
+            ? {
+                ...message,
+                content: answer.content,
+                isPending: false,
+              }
+            : message,
+        ),
+      );
+      return;
+    }
 
     const polishedContent = await polishBorrowerAssistantReply(safeSummary);
 
@@ -305,20 +323,62 @@ function answerPrompt(
   },
 ): BorrowerAssistantReply {
   const normalizedPrompt = prompt.toLowerCase().replace(/[?!.]/g, "").trim();
+  const promptWords = normalizedPrompt.split(/\s+/).filter(Boolean);
 
-  if (
+  const mentionsOffers =
     normalizedPrompt.includes("best offer") ||
-    normalizedPrompt.includes("compare offer")
-  ) {
+    normalizedPrompt.includes("compare offer") ||
+    normalizedPrompt.includes("what are my options") ||
+    normalizedPrompt.includes("current options") ||
+    normalizedPrompt.includes("loan options") ||
+    normalizedPrompt.includes("offers available") ||
+    normalizedPrompt.includes("available offers") ||
+    normalizedPrompt.includes("which one should i choose") ||
+    normalizedPrompt.includes("which offer should i choose") ||
+    normalizedPrompt.includes("what should i choose") ||
+    normalizedPrompt.includes("choose offer") ||
+    promptWords.includes("offers");
+
+  if (mentionsOffers) {
     return answerOfferComparison({
       applications: context.applications,
       selectedApplicationId: context.selectedApplicationId,
     });
   }
 
+  const asksHowToApply =
+    normalizedPrompt.includes("how to apply") ||
+    normalizedPrompt.includes("how can i apply") ||
+    normalizedPrompt.includes("apply for loan") ||
+    normalizedPrompt.includes("submit application");
+
+  if (asksHowToApply) {
+    return answerApplyBlockers({
+      result: context.result,
+      readiness: context.readiness,
+      creditSummary: context.creditSummary,
+    });
+  }
+
+  const asksWorkflowHelp =
+    normalizedPrompt.includes("what should i do next") ||
+    normalizedPrompt.includes("next step") ||
+    normalizedPrompt === "help me" ||
+    normalizedPrompt.includes("help me ") ||
+    normalizedPrompt.includes("need help");
+
+  if (asksWorkflowHelp) {
+    return answerCompleteProfile({
+      result: context.result,
+      readiness: context.readiness,
+    });
+  }
+
   if (
     normalizedPrompt.includes("complete profile") ||
-    normalizedPrompt.includes("profile details")
+    normalizedPrompt.includes("profile details") ||
+    normalizedPrompt.includes("finish profile") ||
+    normalizedPrompt.includes("update profile")
   ) {
     return answerCompleteProfile({
       result: context.result,
@@ -348,8 +408,44 @@ function answerPrompt(
 
   return {
     content:
-      "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile.",
+      "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'",
   };
+}
+
+function answerGenericPrompt(prompt: string): BorrowerAssistantReply | null {
+  const normalizedPrompt = prompt.toLowerCase().replace(/[?!.]/g, "").trim();
+  const greetingPrompts = ["hello", "hi", "hey", "good morning", "good afternoon"];
+
+  if (greetingPrompts.includes(normalizedPrompt)) {
+    return {
+      content:
+        "Hi! I can help compare your offers, explain your credit limit, or guide you through completing your borrower profile.",
+    };
+  }
+
+  if (
+    normalizedPrompt.length <= 4 ||
+    !/[a-z]/.test(normalizedPrompt) ||
+    /^(asdf|test|random|none|n\/a|na)$/.test(normalizedPrompt)
+  ) {
+    return {
+      content:
+        "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'",
+    };
+  }
+
+  return null;
+}
+
+function shouldPolishReply(prompt: string, ruleBasedAnswer: string) {
+  const genericReply =
+    "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'";
+
+  return (
+    !answerGenericPrompt(prompt) &&
+    ruleBasedAnswer !== genericReply &&
+    ruleBasedAnswer.length >= 50
+  );
 }
 
 function buildSafeSummary(
