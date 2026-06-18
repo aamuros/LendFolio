@@ -15,6 +15,7 @@ export type CreditLimitRepaymentHistoryInput = {
 };
 
 export type CreditLimitLoanInput = {
+  principalAmount: number;
   outstandingBalance: number;
   status: ActiveLoanStatus;
 };
@@ -105,7 +106,7 @@ export function calculateBorrowerAvailableCredit(input: {
   const activeLoanCredit = input.activeLoans
     .filter((loan) => loanConsumesCredit(loan.status))
     .filter((loan) => loan.outstandingBalance > 0)
-    .reduce((total, loan) => total + loan.outstandingBalance, 0);
+    .reduce((total, loan) => total + loan.principalAmount, 0);
   const pendingApplicationCredit = (input.pendingApplicationAmounts ?? []).reduce(
     (total, amount) => total + amount,
     0,

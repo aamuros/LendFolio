@@ -1524,7 +1524,7 @@ async function loadBorrowerCreditSummary(
   ] = await Promise.all([
     supabase
       .from("active_loans")
-      .select("id, outstanding_balance, status")
+      .select("id, principal_amount, outstanding_balance, status")
       .eq("borrower_id", borrowerId),
     supabase
       .from("loan_applications")
@@ -1579,6 +1579,7 @@ async function loadBorrowerCreditSummary(
       ].reduce<number>((total, value) => total + (Number(value) || 0), 0),
     },
     activeLoans: (loans ?? []).map((loan) => ({
+      principalAmount: loan.principal_amount,
       outstandingBalance: loan.outstanding_balance,
       status: loan.status,
     })),

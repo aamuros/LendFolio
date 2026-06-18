@@ -26,7 +26,7 @@ set search_path = public, pg_temp
 as $$
   select
     coalesce((
-      select sum(outstanding_balance)
+      select sum(principal_amount)
       from public.active_loans
       where borrower_id = p_borrower_id
         and status in ('active', 'overdue')
@@ -53,7 +53,7 @@ set search_path = public, pg_temp
 as $$
   select
     coalesce((
-      select sum(outstanding_balance)
+      select sum(principal_amount)
       from public.active_loans
       where borrower_id = p_borrower_id
         and status in ('active', 'overdue')
@@ -942,55 +942,60 @@ begin
   where borrower_portfolios.id = v_offer.borrower_portfolio_id
     and borrower_portfolios.borrower_id = v_actor_id;
 
-  if found then
-    v_credit := app_private.calculate_borrower_credit_limit_details_for_application(
-      v_portfolio.monthly_gross_revenue,
-      v_portfolio.monthly_expenses,
-      v_portfolio.existing_loan_payments,
-      v_portfolio.years_in_operation,
-      v_actor_id,
-      v_offer.loan_application_id
+  if not found then
+    return jsonb_build_object(
+      'ok', false,
+      'message', 'Could not confirm your latest available credit. Review your business profile before accepting this offer.'
     );
+  end if;
 
-    v_available_credit := greatest(0, (v_credit->>'available_credit')::numeric);
+  v_credit := app_private.calculate_borrower_credit_limit_details_for_application(
+    v_portfolio.monthly_gross_revenue,
+    v_portfolio.monthly_expenses,
+    v_portfolio.existing_loan_payments,
+    v_portfolio.years_in_operation,
+    v_actor_id,
+    v_offer.loan_application_id
+  );
 
-    if v_offer.approved_amount > v_available_credit then
-      return jsonb_build_object(
-        'ok', false,
-        'code', 'credit_limit_exceeded',
-        'message', 'Accepting this offer would exceed your credit limit. The approved principal of PHP ' ||
-          to_char(v_offer.approved_amount, 'FM999,999,999') || ' exceeds your available credit of PHP ' ||
-          to_char(v_available_credit, 'FM999,999,999') || '.'
-      )
-      ||
-      case
-        when coalesce(current_setting('app.environment', true), '') in ('development', 'local', 'test') then
+  v_available_credit := greatest(0, (v_credit->>'available_credit')::numeric);
+
+  if v_offer.approved_amount > v_available_credit then
+    return jsonb_build_object(
+      'ok', false,
+      'code', 'credit_limit_exceeded',
+      'message', 'Accepting this offer would exceed your credit limit. The approved principal of PHP ' ||
+        to_char(v_offer.approved_amount, 'FM999,999,999') || ' exceeds your available credit of PHP ' ||
+        to_char(v_available_credit, 'FM999,999,999') || '.'
+    )
+    ||
+    case
+      when coalesce(current_setting('app.environment', true), '') in ('development', 'local', 'test') then
+        jsonb_build_object(
+          'debug',
           jsonb_build_object(
-            'debug',
-            jsonb_build_object(
-              'calculatedCreditLimit', (v_credit->>'calculated_credit_limit')::numeric,
-              'usedCredit', (v_credit->>'used_credit')::numeric,
-              'availableCredit', v_available_credit,
-              'cleanCompletedLoanCount', (v_credit->>'clean_completed_loan_count')::integer,
-              'activeLoanCredit', coalesce((
-                select sum(outstanding_balance)
-                from public.active_loans
-                where borrower_id = v_actor_id
-                  and status in ('active', 'overdue')
-                  and outstanding_balance > 0
-              ), 0),
-              'pendingApplicationCredit', coalesce((
-                select sum(requested_amount)
-                from public.loan_applications
-                where borrower_id = v_actor_id
-                  and status in ('submitted', 'open')
-                  and id <> v_offer.loan_application_id
-              ), 0)
-            )
+            'calculatedCreditLimit', (v_credit->>'calculated_credit_limit')::numeric,
+            'usedCredit', (v_credit->>'used_credit')::numeric,
+            'availableCredit', v_available_credit,
+            'cleanCompletedLoanCount', (v_credit->>'clean_completed_loan_count')::integer,
+            'activeLoanCredit', coalesce((
+              select sum(principal_amount)
+              from public.active_loans
+              where borrower_id = v_actor_id
+                and status in ('active', 'overdue')
+                and outstanding_balance > 0
+            ), 0),
+            'pendingApplicationCredit', coalesce((
+              select sum(requested_amount)
+              from public.loan_applications
+              where borrower_id = v_actor_id
+                and status in ('submitted', 'open')
+                and id <> v_offer.loan_application_id
+            ), 0)
           )
-        else '{}'::jsonb
-      end;
-    end if;
+        )
+      else '{}'::jsonb
+    end;
   end if;
 
   v_installment_count := case v_offer.preferred_term

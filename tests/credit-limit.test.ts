@@ -160,7 +160,9 @@ describe("borrower credit limit", () => {
         monthlyExpenses: 50_000,
         existingLoanPayments: 0,
       },
-      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      activeLoans: [
+        { principalAmount: 5_000, outstandingBalance: 5_500, status: "active" },
+      ],
       pendingApplicationAmounts: [],
     });
 
@@ -178,7 +180,9 @@ describe("borrower credit limit", () => {
         monthlyExpenses: 50_000,
         existingLoanPayments: 0,
       },
-      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      activeLoans: [
+        { principalAmount: 5_000, outstandingBalance: 5_500, status: "active" },
+      ],
       pendingApplicationAmounts: [3_000],
     });
 
@@ -244,7 +248,9 @@ describe("borrower credit limit", () => {
         monthlyExpenses: 50_000,
         existingLoanPayments: 0,
       },
-      activeLoans: [{ outstandingBalance: 5_000, status: "active" }],
+      activeLoans: [
+        { principalAmount: 5_000, outstandingBalance: 5_500, status: "active" },
+      ],
       pendingApplicationAmounts: [],
     });
 
@@ -261,9 +267,9 @@ describe("borrower credit limit", () => {
         existingLoanPayments: 0,
       },
       activeLoans: [
-        { outstandingBalance: 3_000, status: "paid" },
-        { outstandingBalance: 3_000, status: "defaulted" },
-        { outstandingBalance: 3_000, status: "closed" },
+        { principalAmount: 3_000, outstandingBalance: 3_000, status: "paid" },
+        { principalAmount: 3_000, outstandingBalance: 3_000, status: "defaulted" },
+        { principalAmount: 3_000, outstandingBalance: 3_000, status: "closed" },
       ],
       pendingApplicationAmounts: [],
     });
@@ -282,7 +288,7 @@ describe("borrower credit limit", () => {
         monthlyExpenses: 50_000,
         existingLoanPayments: 0,
       },
-      activeLoans: [{ outstandingBalance: 0, status: "paid" }],
+      activeLoans: [{ principalAmount: 10_000, outstandingBalance: 0, status: "paid" }],
       pendingApplicationAmounts: [],
       repaymentHistory: {
         cleanCompletedLoanCount: 1,
@@ -302,7 +308,7 @@ describe("borrower credit limit", () => {
         monthlyExpenses: 50_000,
         existingLoanPayments: 0,
       },
-      activeLoans: [{ outstandingBalance: 0, status: "closed" }],
+      activeLoans: [{ principalAmount: 10_000, outstandingBalance: 0, status: "closed" }],
       pendingApplicationAmounts: [],
       repaymentHistory: {
         cleanCompletedLoanCount: 1,
@@ -323,9 +329,9 @@ describe("borrower credit limit", () => {
         existingLoanPayments: 0,
       },
       activeLoans: [
-        { outstandingBalance: 4_000, status: "active" },
-        { outstandingBalance: 3_000, status: "overdue" },
-        { outstandingBalance: 2_000, status: "paid" },
+        { principalAmount: 4_000, outstandingBalance: 4_400, status: "active" },
+        { principalAmount: 3_000, outstandingBalance: 3_300, status: "overdue" },
+        { principalAmount: 2_000, outstandingBalance: 2_200, status: "paid" },
       ],
       pendingApplicationAmounts: [],
       repaymentHistory: {
