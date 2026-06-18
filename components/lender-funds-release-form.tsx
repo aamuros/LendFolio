@@ -32,8 +32,10 @@ const releaseMethods = ["Bank transfer", "GCash", "Cash", "Maya", "Other"] as co
 
 export function LenderFundsReleaseForm({
   activeLoanId,
+  submitLabel = "Mark funds released",
 }: {
   activeLoanId: string;
+  submitLabel?: string;
 }) {
   const [state, formAction, isPending] = useActionState(
     markLoanFundsReleased,
@@ -281,7 +283,7 @@ export function LenderFundsReleaseForm({
         disabled={isPending || state?.ok}
         className="h-10 w-fit rounded-full font-semibold"
       >
-        {isPending ? "Marking released..." : "Mark funds released"}
+        {isPending ? "Submitting..." : submitLabel}
       </Button>
     </form>
   );

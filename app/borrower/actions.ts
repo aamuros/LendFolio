@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireBorrower, type AccessResult } from "@/lib/access-control";
 import {
   loadBorrowerActiveLoans,
@@ -220,6 +221,19 @@ export type LoanOfferDeclineResult =
   | {
       ok: false;
       message: string;
+    };
+
+export type LoanDisbursementDestinationResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+      fieldErrors?: Partial<
+        Record<"method" | "accountName" | "accountNumber" | "notes", string[]>
+      >;
     };
 
 export type RepaymentProofSubmitResult =
@@ -1933,6 +1947,132 @@ export async function acceptLoanOffer(
     return {
       ok: false,
       message: "Could not accept offer.",
+    };
+  }
+}
+
+const disbursementDestinationMethods = new Set([
+  "GCash",
+  "Maya",
+  "Bank transfer",
+  "Cash pickup",
+  "Other",
+]);
+
+const loanDisbursementDestinationSchema = z
+  .object({
+    activeLoanId: z.string().uuid(),
+    method: z
+      .string()
+      .trim()
+      .min(1, "Choose where the funds should be sent.")
+      .refine((value) => disbursementDestinationMethods.has(value), {
+        message: "Choose where the funds should be sent.",
+      }),
+    accountName: z
+      .string()
+      .trim()
+      .max(120, "Keep the account name under 120 characters.")
+      .optional(),
+    accountNumber: z
+      .string()
+      .trim()
+      .max(120, "Keep the account number under 120 characters.")
+      .optional(),
+    notes: z.string().trim().max(500, "Keep notes under 500 characters.").optional(),
+  })
+  .superRefine((value, context) => {
+    if (value.method === "Cash pickup") {
+      return;
+    }
+
+    if (!value.accountName) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["accountName"],
+        message: "Enter the account name.",
+      });
+    }
+
+    if (!value.accountNumber) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["accountNumber"],
+        message: "Enter the account number or mobile number.",
+      });
+    }
+  });
+
+export async function submitLoanDisbursementDestination(
+  _previousState: LoanDisbursementDestinationResult | null,
+  formData: FormData,
+): Promise<LoanDisbursementDestinationResult> {
+  const parsed = loanDisbursementDestinationSchema.safeParse({
+    activeLoanId: formData.get("activeLoanId"),
+    method: String(formData.get("method") ?? ""),
+    accountName: String(formData.get("accountName") ?? ""),
+    accountNumber: String(formData.get("accountNumber") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+  });
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+
+    return {
+      ok: false,
+      message: "Check the payout details.",
+      fieldErrors: {
+        method: fieldErrors.method,
+        accountName: fieldErrors.accountName,
+        accountNumber: fieldErrors.accountNumber,
+        notes: fieldErrors.notes,
+      },
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireBorrower(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const { data, error } = await supabase.rpc(
+      "submit_loan_disbursement_destination",
+      {
+        p_active_loan_id: parsed.data.activeLoanId,
+        p_method: parsed.data.method,
+        p_account_name: parsed.data.accountName || null,
+        p_account_number: parsed.data.accountNumber || null,
+        p_notes: parsed.data.notes || null,
+      },
+    );
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not save payout details.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath(`/lender/loans/${parsed.data.activeLoanId}`);
+
+    return {
+      ok: true,
+      message: result.message ?? "Payout details saved.",
+    };
+  } catch {
+    return {
+      ok: false,
+      message: "Could not save payout details.",
     };
   }
 }

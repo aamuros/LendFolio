@@ -208,6 +208,11 @@ export type Database = {
           release_disputed_at: string | null;
           release_dispute_reason: string | null;
           release_disputed_by: string | null;
+          disbursement_destination_method: string | null;
+          disbursement_destination_account_name: string | null;
+          disbursement_destination_account_number: string | null;
+          disbursement_destination_notes: string | null;
+          disbursement_destination_submitted_at: string | null;
           borrower_received_at: string | null;
           started_at: string;
           due_date: string;
@@ -243,6 +248,11 @@ export type Database = {
           release_disputed_at?: string | null;
           release_dispute_reason?: string | null;
           release_disputed_by?: string | null;
+          disbursement_destination_method?: string | null;
+          disbursement_destination_account_name?: string | null;
+          disbursement_destination_account_number?: string | null;
+          disbursement_destination_notes?: string | null;
+          disbursement_destination_submitted_at?: string | null;
           borrower_received_at?: string | null;
           started_at?: string;
           due_date: string;
@@ -278,6 +288,11 @@ export type Database = {
           release_disputed_at?: string | null;
           release_dispute_reason?: string | null;
           release_disputed_by?: string | null;
+          disbursement_destination_method?: string | null;
+          disbursement_destination_account_name?: string | null;
+          disbursement_destination_account_number?: string | null;
+          disbursement_destination_notes?: string | null;
+          disbursement_destination_submitted_at?: string | null;
           borrower_received_at?: string | null;
           started_at?: string;
           due_date?: string;
@@ -1550,6 +1565,16 @@ export type Database = {
           p_release_proof_file_name?: string | null;
           p_release_proof_file_type?: string | null;
           p_release_proof_file_size?: number | null;
+        };
+        Returns: Json;
+      };
+      submit_loan_disbursement_destination: {
+        Args: {
+          p_active_loan_id: string;
+          p_method: string;
+          p_account_name?: string | null;
+          p_account_number?: string | null;
+          p_notes?: string | null;
         };
         Returns: Json;
       };

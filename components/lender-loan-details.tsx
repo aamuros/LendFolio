@@ -31,6 +31,10 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
   const isFundsReleased = activeLoan.disbursementStatus === "released_by_lender";
   const isReleaseDisputed = activeLoan.disbursementStatus === "release_disputed";
   const fundsReceived = activeLoan.disbursementStatus === "received_by_borrower";
+  const hasDisbursementDestination = Boolean(
+    activeLoan.disbursementDestinationSubmittedAt &&
+      activeLoan.disbursementDestinationMethod,
+  );
 
   return (
     <section className="grid gap-5">
@@ -112,12 +116,24 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
           ) : null}
 
           {!isReadOnly &&
-          isAwaitingRelease ? (
+          isAwaitingRelease &&
+          !hasDisbursementDestination ? (
+            <Alert>
+              <AlertDescription className="font-semibold">
+                Waiting for borrower payout details before releasing funds.
+              </AlertDescription>
+            </Alert>
+          ) : null}
+
+          {!isReadOnly &&
+          isAwaitingRelease &&
+          hasDisbursementDestination ? (
             <Alert>
               <AlertDescription className="grid gap-3">
                 <span className="font-semibold">
-                  Borrower accepted this offer. Release the funds, then mark this loan as released.
+                  Borrower accepted this offer. Use the payout details below, then mark this loan as released.
                 </span>
+                <DisbursementDestinationSummary loan={activeLoan} />
                 <LenderFundsReleaseForm activeLoanId={activeLoan.id} />
               </AlertDescription>
             </Alert>
@@ -133,7 +149,7 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
 
           {!isReadOnly && isReleaseDisputed ? (
             <Alert variant="destructive">
-              <AlertDescription className="grid gap-2">
+              <AlertDescription className="grid gap-3">
                 <span className="font-semibold">
                   Borrower reported funds not received.
                 </span>
@@ -143,9 +159,17 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
                 {activeLoan.releaseDisputeReason ? (
                   <span>Reason: {activeLoan.releaseDisputeReason}</span>
                 ) : null}
-                <span>
-                  Repayment management is paused until the release is reviewed.
-                </span>
+                <PreviousReleaseProofSummary loan={activeLoan} />
+                <DisbursementDestinationSummary loan={activeLoan} />
+                <div className="rounded-xl border border-destructive/20 bg-background/80 p-3">
+                  <p className="mb-3 text-sm font-semibold">
+                    Submit corrected release proof
+                  </p>
+                  <LenderFundsReleaseForm
+                    activeLoanId={activeLoan.id}
+                    submitLabel="Submit corrected release proof"
+                  />
+                </div>
               </AlertDescription>
             </Alert>
           ) : null}
@@ -192,6 +216,89 @@ export function LenderLoanDetail({ offer }: { offer: LenderOfferReview }) {
         </CardContent>
       </Card>
     </section>
+  );
+}
+
+function DisbursementDestinationSummary({ loan }: { loan: ActiveLoan }) {
+  if (!loan.disbursementDestinationSubmittedAt) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2 rounded-xl border border-border/70 bg-background/80 p-3">
+      <p className="text-sm font-semibold">Borrower payout destination</p>
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <MiniMetric label="Method" value={loan.disbursementDestinationMethod ?? ""} />
+        {loan.disbursementDestinationAccountName ? (
+          <MiniMetric
+            label="Account name"
+            value={loan.disbursementDestinationAccountName}
+          />
+        ) : null}
+        {loan.disbursementDestinationAccountNumber ? (
+          <MiniMetric
+            label="Account number / mobile"
+            value={loan.disbursementDestinationAccountNumber}
+          />
+        ) : null}
+        {loan.disbursementDestinationNotes ? (
+          <MiniMetric label="Notes" value={loan.disbursementDestinationNotes} />
+        ) : null}
+      </dl>
+    </div>
+  );
+}
+
+function PreviousReleaseProofSummary({ loan }: { loan: ActiveLoan }) {
+  if (
+    !loan.disbursementMethod &&
+    !loan.disbursementReference &&
+    !loan.disbursementNotes &&
+    !loan.releaseProofFileName
+  ) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2 rounded-xl border border-destructive/20 bg-background/80 p-3">
+      <p className="text-sm font-semibold">Previous release details</p>
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        {loan.disbursedAt ? (
+          <MiniMetric label="Released" value={formatDate(loan.disbursedAt)} />
+        ) : null}
+        {loan.disbursementMethod ? (
+          <MiniMetric label="Method" value={loan.disbursementMethod} />
+        ) : null}
+        {loan.disbursementReference ? (
+          <MiniMetric label="Reference" value={loan.disbursementReference} />
+        ) : null}
+        {loan.disbursementNotes ? (
+          <MiniMetric label="Notes" value={loan.disbursementNotes} />
+        ) : null}
+      </dl>
+      {loan.releaseProofFileName ? (
+        <div className="grid gap-2 rounded-lg border border-border/70 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+          <div className="grid min-w-0 gap-1">
+            <p className="text-xs font-semibold uppercase text-muted-foreground">
+              Proof
+            </p>
+            <p className="break-words font-medium">{loan.releaseProofFileName}</p>
+          </div>
+          {loan.releaseProofViewUrl &&
+          loan.releaseProofFileType &&
+          typeof loan.releaseProofFileSize === "number" ? (
+            <ProofPreviewButton
+              fileName={loan.releaseProofFileName}
+              fileSize={loan.releaseProofFileSize}
+              fileType={loan.releaseProofFileType}
+              title="Release Proof Preview"
+              viewUrl={loan.releaseProofViewUrl}
+              className="h-8 w-full rounded-full px-3 font-semibold sm:w-fit"
+            />
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
 }
 

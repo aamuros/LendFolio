@@ -95,6 +95,11 @@ export type ActiveLoanSummary = {
   releaseDisputedAt: string | null;
   releaseDisputeReason: string | null;
   releaseDisputedBy: string | null;
+  disbursementDestinationMethod: string | null;
+  disbursementDestinationAccountName: string | null;
+  disbursementDestinationAccountNumber: string | null;
+  disbursementDestinationNotes: string | null;
+  disbursementDestinationSubmittedAt: string | null;
   borrowerReceivedAt: string | null;
   startedAt: string;
   dueDate: string;
@@ -121,7 +126,7 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, release_disputed_at, release_dispute_reason, release_disputed_by, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, release_disputed_at, release_dispute_reason, release_disputed_by, disbursement_destination_method, disbursement_destination_account_name, disbursement_destination_account_number, disbursement_destination_notes, disbursement_destination_submitted_at, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
   "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
@@ -267,6 +272,11 @@ export function mapActiveLoanRow(
     releaseDisputedAt: row.release_disputed_at,
     releaseDisputeReason: row.release_dispute_reason,
     releaseDisputedBy: row.release_disputed_by,
+    disbursementDestinationMethod: row.disbursement_destination_method,
+    disbursementDestinationAccountName: row.disbursement_destination_account_name,
+    disbursementDestinationAccountNumber: row.disbursement_destination_account_number,
+    disbursementDestinationNotes: row.disbursement_destination_notes,
+    disbursementDestinationSubmittedAt: row.disbursement_destination_submitted_at,
     borrowerReceivedAt: row.borrower_received_at,
     startedAt: row.started_at,
     dueDate: row.due_date,

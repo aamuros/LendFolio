@@ -26,6 +26,7 @@ import {
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
   reportLoanReleaseNotReceived,
+  submitLoanDisbursementDestination,
   submitRepaymentProof,
   submitLoanApplication,
   updateLoanApplication,
@@ -85,6 +86,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -143,6 +145,13 @@ const repaymentProofAllowedTypes = new Set([
   "image/heif",
   "application/pdf",
 ]);
+const disbursementDestinationMethods = [
+  "GCash",
+  "Maya",
+  "Bank transfer",
+  "Cash pickup",
+  "Other",
+] as const;
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
 
@@ -3538,6 +3547,10 @@ function ActiveLoanCard({
   const isFundsReleased = loan.disbursementStatus === "released_by_lender";
   const isReleaseDisputed = loan.disbursementStatus === "release_disputed";
   const fundsReceived = loan.disbursementStatus === "received_by_borrower";
+  const hasDisbursementDestination = Boolean(
+    loan.disbursementDestinationSubmittedAt &&
+      loan.disbursementDestinationMethod,
+  );
   const canReportReleaseNotReceived =
     isFundsReleased && !loan.borrowerReceivedAt && !loanIsCompleted;
   const primaryAmount = loanIsCompleted ? paidAmount : loan.outstandingBalance;
@@ -3572,12 +3585,24 @@ function ActiveLoanCard({
             />
           </div>
 
-          {isAwaitingRelease ? (
-            <ActionBanner
-              tone="info"
-              title="Waiting for fund release"
-              message="You accepted this offer. Wait for the lender to release the funds."
+          {isAwaitingRelease && !hasDisbursementDestination ? (
+            <DisbursementDestinationForm
+              activeLoanId={loan.id}
+              onSuccess={onProofSubmitted}
             />
+          ) : null}
+
+          {isAwaitingRelease && hasDisbursementDestination ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-3 p-4">
+                <ActionBanner
+                  tone="info"
+                  title="Waiting for lender to release funds"
+                  message="Waiting for lender to release funds."
+                />
+                <DisbursementDestinationSummary loan={loan} />
+              </CardContent>
+            </Card>
           ) : null}
 
           {isFundsReleased ? (
@@ -3604,6 +3629,7 @@ function ActiveLoanCard({
                     <SummaryItem label="Notes" value={loan.disbursementNotes} />
                   ) : null}
                 </dl>
+                <DisbursementDestinationSummary loan={loan} />
                 <ReleaseProofSummary loan={loan} />
                 <div className="grid gap-2 sm:grid-cols-2">
                   <ConfirmMoneyReceivedButton
@@ -3644,6 +3670,7 @@ function ActiveLoanCard({
                     <SummaryItem label="Reference" value={loan.disbursementReference} />
                   ) : null}
                 </dl>
+                <DisbursementDestinationSummary loan={loan} />
                 <ReleaseProofSummary loan={loan} />
               </CardContent>
             </Card>
@@ -4008,6 +4035,168 @@ function ProofHistory({
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function DisbursementDestinationForm({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    submitLoanDisbursementDestination,
+    null,
+  );
+  const [method, setMethod] = useState("");
+  const isCashPickup = method === "Cash pickup";
+  const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+
+  useEffect(() => {
+    if (state?.ok) {
+      onSuccess();
+    }
+  }, [onSuccess, state]);
+
+  return (
+    <Card className="rounded-xl border-primary/20 bg-primary/5">
+      <CardContent className="grid gap-3 p-4">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold">Where should the lender send the funds?</p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Add your payout details before the lender releases the money.
+          </p>
+        </div>
+        <form action={formAction} className="grid gap-3">
+          <input type="hidden" name="activeLoanId" value={activeLoanId} />
+          {state ? (
+            <Alert variant={state.ok ? "default" : "destructive"} role="status">
+              <AlertDescription>{state.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-method-${activeLoanId}`}>Method</Label>
+              <Select
+                name="method"
+                value={method}
+                onValueChange={setMethod}
+                required
+              >
+                <SelectTrigger id={`destination-method-${activeLoanId}`}>
+                  <SelectValue placeholder="Choose method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {disbursementDestinationMethods.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors?.method ? (
+                <p className="text-sm text-destructive">{fieldErrors.method[0]}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-name-${activeLoanId}`}>
+                Account name{isCashPickup ? " (optional)" : ""}
+              </Label>
+              <Input
+                id={`destination-name-${activeLoanId}`}
+                name="accountName"
+                maxLength={120}
+                required={!isCashPickup}
+              />
+              {fieldErrors?.accountName ? (
+                <p className="text-sm text-destructive">
+                  {fieldErrors.accountName[0]}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-number-${activeLoanId}`}>
+                Account number / mobile number{isCashPickup ? " (optional)" : ""}
+              </Label>
+              <Input
+                id={`destination-number-${activeLoanId}`}
+                name="accountNumber"
+                maxLength={120}
+                required={!isCashPickup}
+              />
+              {fieldErrors?.accountNumber ? (
+                <p className="text-sm text-destructive">
+                  {fieldErrors.accountNumber[0]}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-notes-${activeLoanId}`}>
+                Notes or instructions
+              </Label>
+              <Textarea
+                id={`destination-notes-${activeLoanId}`}
+                name="notes"
+                maxLength={500}
+                placeholder="Optional"
+              />
+              {fieldErrors?.notes ? (
+                <p className="text-sm text-destructive">{fieldErrors.notes[0]}</p>
+              ) : null}
+            </div>
+          </div>
+          <Button
+            type="submit"
+            disabled={isPending || state?.ok}
+            className="h-10 w-fit rounded-full font-semibold"
+          >
+            {isPending ? "Saving..." : "Submit payout details"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DisbursementDestinationSummary({
+  loan,
+}: {
+  loan: Pick<
+    NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>,
+    | "disbursementDestinationMethod"
+    | "disbursementDestinationAccountName"
+    | "disbursementDestinationAccountNumber"
+    | "disbursementDestinationNotes"
+    | "disbursementDestinationSubmittedAt"
+  >;
+}) {
+  if (!loan.disbursementDestinationSubmittedAt) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3">
+      <p className="text-sm font-semibold">Payout destination</p>
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <SummaryItem label="Method" value={loan.disbursementDestinationMethod ?? ""} />
+        {loan.disbursementDestinationAccountName ? (
+          <SummaryItem
+            label="Account name"
+            value={loan.disbursementDestinationAccountName}
+          />
+        ) : null}
+        {loan.disbursementDestinationAccountNumber ? (
+          <SummaryItem
+            label="Account number"
+            value={loan.disbursementDestinationAccountNumber}
+          />
+        ) : null}
+        {loan.disbursementDestinationNotes ? (
+          <SummaryItem label="Notes" value={loan.disbursementDestinationNotes} />
+        ) : null}
+      </dl>
+    </div>
   );
 }
 

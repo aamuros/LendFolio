@@ -554,6 +554,15 @@ async function createAcceptedLoanWithSchedule(
   );
 
   if (confirmFunds) {
+    const destination = await submitDisbursementDestination(
+      borrowerClient,
+      activeLoanId,
+    );
+    expect(destination).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
     const release = await lenderClient.rpc("mark_loan_funds_released", {
       p_active_loan_id: activeLoanId,
       p_disbursement_method: "Bank transfer",
@@ -625,6 +634,15 @@ async function createAcceptedLoanWithTerm(
     applicationId,
   );
 
+  const destination = await submitDisbursementDestination(
+    borrowerClient,
+    activeLoanId,
+  );
+  expect(destination).toMatchObject({
+    ok: true,
+    active_loan_id: activeLoanId,
+  });
+
   const release = await lenderClient.rpc("mark_loan_funds_released", {
     p_active_loan_id: activeLoanId,
     p_disbursement_method: "Bank transfer",
@@ -673,6 +691,29 @@ async function submitProofForSchedule(
   expect(result.error).toBeNull();
 
   return result.data as Json as RepaymentProofResult;
+}
+
+async function submitDisbursementDestination(
+  client: TestClient,
+  activeLoanId: string,
+  options: {
+    method?: string;
+    accountName?: string | null;
+    accountNumber?: string | null;
+    notes?: string | null;
+  } = {},
+) {
+  const result = await client.rpc("submit_loan_disbursement_destination", {
+    p_active_loan_id: activeLoanId,
+    p_method: options.method ?? "GCash",
+    p_account_name: options.accountName ?? "Juan Borrower",
+    p_account_number: options.accountNumber ?? "09171234567",
+    p_notes: options.notes ?? "Use this wallet for loan disbursement.",
+  });
+
+  expect(result.error).toBeNull();
+
+  return result.data as Json as DisbursementResult;
 }
 
 describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () => {
@@ -1368,6 +1409,34 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       .single();
     const activeLoanId = activeLoan?.id as string;
 
+    const blockedRelease = await approvedLender.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "GCash",
+      p_disbursement_reference: "GCASH-BLOCKED",
+      p_disbursement_notes: "Should wait for borrower details.",
+    });
+    expect(blockedRelease.error).toBeNull();
+    expect(blockedRelease.data as Json as DisbursementResult).toMatchObject({
+      ok: false,
+      message: "Wait for borrower payout details before releasing funds.",
+    });
+
+    const destination = await submitDisbursementDestination(borrower, activeLoanId);
+    expect(destination).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: destinationLoan } = await borrower
+      .from("active_loans")
+      .select("disbursement_destination_method, disbursement_destination_account_name, disbursement_destination_account_number, disbursement_destination_submitted_at")
+      .eq("id", activeLoanId)
+      .single();
+    expect(destinationLoan?.disbursement_destination_method).toBe("GCash");
+    expect(destinationLoan?.disbursement_destination_account_name).toBe("Juan Borrower");
+    expect(destinationLoan?.disbursement_destination_account_number).toBe("09171234567");
+    expect(destinationLoan?.disbursement_destination_submitted_at).toBeTruthy();
+
     const release = await approvedLender.rpc("mark_loan_funds_released", {
       p_active_loan_id: activeLoanId,
       p_disbursement_method: "GCash",
@@ -1427,6 +1496,17 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       .eq("active_loan_id", activeLoanId)
       .single();
     const repaymentScheduleId = schedule?.id as string;
+
+    const destination = await submitDisbursementDestination(borrower, activeLoanId, {
+      method: "Bank transfer",
+      accountName: "Juan Borrower",
+      accountNumber: "1234567890",
+      notes: "Savings account.",
+    });
+    expect(destination).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
 
     const release = await approvedLender.rpc("mark_loan_funds_released", {
       p_active_loan_id: activeLoanId,
@@ -1492,6 +1572,38 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       ok: false,
       message: "Confirm money received before uploading repayment proof.",
     });
+
+    const retryRelease = await approvedLender.rpc("mark_loan_funds_released", {
+      p_active_loan_id: activeLoanId,
+      p_disbursement_method: "Bank transfer",
+      p_disbursement_reference: "BANK-456",
+      p_disbursement_notes: "Corrected transfer details.",
+    });
+    expect(retryRelease.error).toBeNull();
+    expect(retryRelease.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
+
+    const { data: retriedLoan } = await approvedLender
+      .from("active_loans")
+      .select("disbursement_status, release_disputed_at, release_dispute_reason, release_disputed_by, disbursement_reference")
+      .eq("id", activeLoanId)
+      .single();
+    expect(retriedLoan?.disbursement_status).toBe("released_by_lender");
+    expect(retriedLoan?.release_disputed_at).toBeNull();
+    expect(retriedLoan?.release_dispute_reason).toBeNull();
+    expect(retriedLoan?.release_disputed_by).toBeNull();
+    expect(retriedLoan?.disbursement_reference).toBe("BANK-456");
+
+    const receivedAfterRetry = await borrower.rpc("confirm_loan_funds_received", {
+      p_active_loan_id: activeLoanId,
+    });
+    expect(receivedAfterRetry.error).toBeNull();
+    expect(receivedAfterRetry.data as Json as DisbursementResult).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
   });
 
   it("prevents borrower from reporting funds not received after confirming receipt", async () => {
@@ -1507,6 +1619,12 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
       .eq("loan_application_id", applicationId)
       .single();
     const activeLoanId = activeLoan?.id as string;
+
+    const destination = await submitDisbursementDestination(borrower, activeLoanId);
+    expect(destination).toMatchObject({
+      ok: true,
+      active_loan_id: activeLoanId,
+    });
 
     const release = await approvedLender.rpc("mark_loan_funds_released", {
       p_active_loan_id: activeLoanId,
