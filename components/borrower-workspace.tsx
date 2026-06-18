@@ -10,6 +10,7 @@ import {
   BorrowerBottomTabs,
   type BorrowerTab,
 } from "@/components/borrower-bottom-tabs";
+import { BorrowerAssistant } from "@/components/borrower/assistant/borrower-assistant";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { BorrowerProfileHub } from "./borrower/profile/borrower-profile-hub";
@@ -349,6 +350,17 @@ export function BorrowerWorkspace({
       <div className="sm:hidden">
         <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
       </div>
+
+      {!showProfile ? (
+        <BorrowerAssistant
+          activeTab={workspaceTab}
+          applications={initialLoanApplications?.applications ?? []}
+          creditSummary={creditSummary}
+          readiness={readiness}
+          result={initialLoanApplications}
+          selectedApplicationId={highlightApplicationId}
+        />
+      ) : null}
     </div>
   );
 }
