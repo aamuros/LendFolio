@@ -92,13 +92,12 @@ export default async function LenderApplicationDetailPage({
             <BorrowerResumePage application={application} />
 
             <LenderReviewPage>
-              <OfferHistorySection offers={application.offers} />
-
               <ReviewFinancialsSection application={application} />
               <ReviewCreditSection application={application} />
 
               <OfferActionSection
                 application={application}
+                offers={application.offers}
                 hasAcceptedApplication={hasAcceptedApplication}
                 isOpenForOffers={isOpenForOffers}
                 pendingOffer={pendingOffer}
@@ -231,72 +230,17 @@ function BorrowerResumePage({
 
 function LenderReviewPage({ children }: { children: ReactNode }) {
   return (
-    <DocumentPage className="grid content-start gap-7">{children}</DocumentPage>
-  );
-}
-
-function OfferHistorySection({ offers }: { offers: LoanOfferSummary[] }) {
-  return (
-    <section className="grid gap-3">
-      <h2 className="text-lg font-semibold">Offer history</h2>
-      {offers.length > 0 ? (
-        <div className="grid gap-3">
-          {offers.map((offer) => (
-            <Card
-              key={offer.id}
-              className={cn(
-                "rounded-xl border-border/60 shadow-none",
-                offer.status !== "pending" && "opacity-75",
-              )}
-            >
-              <CardContent className="grid gap-4 p-4">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <p className="text-xs font-semibold text-muted-foreground">
-                      Approved
-                    </p>
-                    <p className="mt-1 text-2xl font-semibold">
-                      PHP {formatCurrency(offer.approvedAmount)}
-                    </p>
-                  </div>
-                  <OfferHistoryBadge status={offer.status} />
-                </div>
-                <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4">
-                  <ReviewItem
-                    label="Interest/service charge"
-                    value={`PHP ${formatCurrency(offer.interestAmount)}`}
-                  />
-                  <ReviewItem
-                    label="Other borrower-paid fees"
-                    value={`PHP ${formatCurrency(offer.fees)}`}
-                  />
-                  <ReviewItem
-                    label="Total repayment"
-                    value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
-                  />
-                  <ReviewItem
-                    label="Final repayment"
-                    value={formatDateOnly(offer.dueDate)}
-                  />
-                  <ReviewItem label="Sent" value={formatDate(offer.sentAt)} />
-                </dl>
-                {offer.remarks ? (
-                  <p className="text-sm leading-6 text-muted-foreground">
-                    {offer.remarks}
-                  </p>
-                ) : null}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : (
-        <Card className="rounded-xl border-dashed border-border/60 shadow-none">
-          <CardContent className="p-4 text-sm leading-6 text-muted-foreground">
-            No offers have been sent for this application yet.
-          </CardContent>
-        </Card>
-      )}
-    </section>
+    <DocumentPage className="grid content-start gap-7">
+      <div className="grid gap-2 border-b border-border pb-5">
+        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+          Review summary
+        </p>
+        <h2 className="text-2xl font-semibold leading-tight">
+          Borrower financial review
+        </h2>
+      </div>
+      {children}
+    </DocumentPage>
   );
 }
 
@@ -409,6 +353,7 @@ function ReviewCreditSection({
 
 function OfferActionSection({
   application,
+  offers,
   hasAcceptedApplication,
   isOpenForOffers,
   pendingOffer,
@@ -420,6 +365,7 @@ function OfferActionSection({
     | "availableCreditAtSubmission"
     | "preferredTerm"
   >;
+  offers: LoanOfferSummary[];
   hasAcceptedApplication: boolean;
   isOpenForOffers: boolean;
   pendingOffer: LoanOfferSummary | undefined;
@@ -453,6 +399,7 @@ function OfferActionSection({
             defaultDueDate={getDefaultDueDate()}
             preferredTerm={application.preferredTerm}
             preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
+            offers={offers}
           />
         ) : null}
       </div>
@@ -472,19 +419,6 @@ function ApplicationStatusBadge({ status }: { status: string }) {
       : status === "accepted"
         ? "success"
         : status === "rejected"
-          ? "danger"
-          : "neutral";
-
-  return <ToneBadge tone={tone}>{status}</ToneBadge>;
-}
-
-function OfferHistoryBadge({ status }: { status: string }) {
-  const tone =
-    status === "pending"
-      ? "attention"
-      : status === "accepted"
-        ? "success"
-        : status === "declined"
           ? "danger"
           : "neutral";
 
@@ -601,6 +535,7 @@ function CreditProfileGradeSection({
     creditReadinessStatus: string | null;
     availableCreditAtSubmission: number | null;
     monthlyNetCashFlowAtSubmission: number | null;
+    creditProfileAssessmentSource: "stored" | "derived" | null;
   };
   compact?: boolean;
 }) {
@@ -614,7 +549,7 @@ function CreditProfileGradeSection({
           Credit profile grade
         </p>
         <p className="text-sm leading-6 text-muted-foreground">
-          Not recorded for this application.
+          Credit profile snapshot is incomplete.
         </p>
       </div>
     ) : (
@@ -623,7 +558,7 @@ function CreditProfileGradeSection({
         <Card className="rounded-2xl border-border/50 shadow-sm">
           <CardContent className="p-4">
             <p className="text-sm leading-6 text-muted-foreground">
-              Not recorded for this application.
+              Credit profile snapshot is incomplete.
             </p>
           </CardContent>
         </Card>
@@ -657,6 +592,12 @@ function CreditProfileGradeSection({
       {assessment?.summary ? (
         <p className="text-sm leading-6 text-muted-foreground">
           {assessment.summary}
+        </p>
+      ) : null}
+
+      {application.creditProfileAssessmentSource === "derived" ? (
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Generated from submitted profile snapshot.
         </p>
       ) : null}
 

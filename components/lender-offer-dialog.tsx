@@ -9,6 +9,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import type { LoanOfferSummary } from "@/lib/loan-offer";
 
 type LenderOfferDialogProps = {
   applicationId: string;
@@ -17,6 +18,7 @@ type LenderOfferDialogProps = {
   defaultDueDate: string;
   preferredTerm: string;
   preferredTermLabel: string;
+  offers?: LoanOfferSummary[];
 };
 
 export function LenderOfferDialog({
@@ -26,13 +28,14 @@ export function LenderOfferDialog({
   defaultDueDate,
   preferredTerm,
   preferredTermLabel,
+  offers = [],
 }: LenderOfferDialogProps) {
   return (
     <Dialog>
       <DialogTrigger asChild>
         <Button className="w-full rounded-xl sm:w-auto">Give offer</Button>
       </DialogTrigger>
-      <DialogContent className="grid max-h-[min(92svh,900px)] gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
+      <DialogContent className="flex max-h-[min(92dvh,900px)] flex-col gap-0 overflow-hidden p-0 sm:max-w-4xl lg:max-w-5xl">
         <DialogHeader className="shrink-0 border-b border-border px-4 py-4 pr-12 sm:px-5">
           <DialogTitle>Offer details and specifications</DialogTitle>
         </DialogHeader>
@@ -43,6 +46,7 @@ export function LenderOfferDialog({
           defaultDueDate={defaultDueDate}
           preferredTerm={preferredTerm}
           preferredTermLabel={preferredTermLabel}
+          offers={offers}
         />
       </DialogContent>
     </Dialog>

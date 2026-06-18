@@ -8,6 +8,7 @@ import {
   type CreateLoanOfferState,
 } from "@/app/lender/applications/[id]/actions";
 import { CurrencyInput } from "@/components/currency-input";
+import { LenderOfferHistory } from "@/components/lender-offer-history";
 import { StatusToast } from "@/components/status-toast";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -20,6 +21,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import type { LoanOfferSummary } from "@/lib/loan-offer";
+import { cn } from "@/lib/utils";
 
 type LenderOfferFormProps = {
   applicationId: string;
@@ -28,6 +31,7 @@ type LenderOfferFormProps = {
   defaultDueDate: string;
   preferredTerm: string;
   preferredTermLabel: string;
+  offers?: LoanOfferSummary[];
 };
 
 export function LenderOfferForm({
@@ -36,6 +40,7 @@ export function LenderOfferForm({
   availableCreditAtSubmission,
   defaultDueDate,
   preferredTermLabel,
+  offers = [],
 }: LenderOfferFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -88,7 +93,11 @@ export function LenderOfferForm({
   }
 
   return (
-    <form ref={formRef} action={onSubmit} className="flex min-h-0 flex-col">
+    <form
+      ref={formRef}
+      action={onSubmit}
+      className="flex min-h-0 flex-1 flex-col"
+    >
       <StatusToast message={toastMessage} onDismiss={dismissToast} />
 
       <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">
@@ -176,7 +185,11 @@ export function LenderOfferForm({
             </Section>
 
             <Section title="Remarks">
-              <Field label="Remarks" error={state.fieldErrors?.remarks?.[0]}>
+              <Field
+                label="Offer note"
+                error={state.fieldErrors?.remarks?.[0]}
+                visuallyHideLabel
+              >
                 <Textarea
                   name="remarks"
                   rows={3}
@@ -260,13 +273,16 @@ export function LenderOfferForm({
             </Section>
           </div>
 
-          <RepaymentSummary
-            approvedAmount={parsedApprovedAmount}
-            interestRate={parsedInterestRate}
-            interestServiceCharge={interestServiceCharge}
-            fees={parseCurrencyValue(fees)}
-            totalRepaymentAmount={totalRepaymentAmount}
-          />
+          <aside className="grid gap-4 self-start">
+            <RepaymentSummary
+              approvedAmount={parsedApprovedAmount}
+              interestRate={parsedInterestRate}
+              interestServiceCharge={interestServiceCharge}
+              fees={parseCurrencyValue(fees)}
+              totalRepaymentAmount={totalRepaymentAmount}
+            />
+            <LenderOfferHistory offers={offers} compact />
+          </aside>
         </div>
 
         <div className="mt-4 grid gap-2">
@@ -301,7 +317,7 @@ export function LenderOfferForm({
         </div>
       </div>
 
-      <div className="sticky bottom-0 z-10 grid gap-2 border-t border-border bg-popover px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] sm:flex sm:items-center sm:justify-between sm:px-5">
+      <div className="grid shrink-0 gap-2 border-t border-border bg-popover px-4 py-3 shadow-[0_-8px_20px_rgba(15,23,42,0.06)] sm:flex sm:items-center sm:justify-between sm:px-5">
         <div className="flex items-baseline justify-between gap-3 sm:grid sm:justify-start sm:gap-0.5">
           <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
             Total repayment
@@ -389,7 +405,7 @@ function RepaymentSummary({
   totalRepaymentAmount: number;
 }) {
   return (
-    <aside className="rounded-lg border border-border bg-muted/30 px-3 py-3 lg:sticky lg:top-0">
+    <section className="rounded-lg border border-border bg-muted/30 px-3 py-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm font-semibold">Total repayment summary</p>
         <p className="text-lg font-semibold">
@@ -419,22 +435,26 @@ function RepaymentSummary({
           <dd className="font-semibold">PHP {formatCurrency(fees)}</dd>
         </div>
       </dl>
-    </aside>
+    </section>
   );
 }
 
 function Field({
   label,
   error,
+  visuallyHideLabel = false,
   children,
 }: {
   label: string;
   error?: string;
+  visuallyHideLabel?: boolean;
   children: ReactNode;
 }) {
   return (
     <Label className="grid gap-1.5">
-      <span className="text-sm font-semibold">{label}</span>
+      <span className={cn("text-sm font-semibold", visuallyHideLabel && "sr-only")}>
+        {label}
+      </span>
       {children}
       {error ? (
         <span className="text-sm leading-5 text-destructive">{error}</span>

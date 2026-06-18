@@ -3,6 +3,8 @@ import type {
   BorrowerCreditProfileAssessment,
   BorrowerCreditProfileGrade,
 } from "@/lib/borrower-credit-profile-grade";
+import { evaluateBorrowerCreditProfileGrade } from "@/lib/borrower-credit-profile-grade";
+import type { BorrowerReadinessStatus } from "@/lib/borrower-readiness";
 import type { Database } from "@/lib/supabase/types";
 
 export const preferredTermOptions = [
@@ -105,6 +107,7 @@ export type LoanApplicationSummary = {
   borrowerReadinessSnapshot: Database["public"]["Tables"]["loan_applications"]["Row"]["borrower_readiness_snapshot"];
   creditProfileGrade: BorrowerCreditProfileGrade | null;
   creditProfileAssessment: BorrowerCreditProfileAssessment | null;
+  creditProfileAssessmentSource: "stored" | "derived" | null;
   purpose: string;
   preferredTerm: (typeof preferredTermOptions)[number];
   remarks: string | null;
@@ -146,6 +149,13 @@ type LoanApplicationRow =
 export function mapLoanApplicationRow(
   row: LoanApplicationRow,
 ): LoanApplicationSummary {
+  const storedGrade = parseCreditProfileGrade(row.borrower_credit_profile_grade);
+  const storedAssessment = parseCreditProfileAssessment(
+    row.borrower_credit_profile_assessment,
+  );
+  const fallbackAssessment =
+    storedAssessment ?? deriveCreditProfileAssessment(row);
+
   return {
     id: row.id,
     requestedAmount: row.requested_amount,
@@ -157,10 +167,14 @@ export function mapLoanApplicationRow(
     creditReadinessStatus: row.credit_readiness_status ?? null,
     borrowerProfileSnapshot: row.borrower_profile_snapshot ?? null,
     borrowerReadinessSnapshot: row.borrower_readiness_snapshot ?? null,
-    creditProfileGrade: parseCreditProfileGrade(row.borrower_credit_profile_grade),
-    creditProfileAssessment: parseCreditProfileAssessment(
-      row.borrower_credit_profile_assessment,
-    ),
+    creditProfileGrade:
+      storedGrade ?? storedAssessment?.grade ?? fallbackAssessment?.grade ?? null,
+    creditProfileAssessment: storedAssessment ?? fallbackAssessment,
+    creditProfileAssessmentSource: storedAssessment
+      ? "stored"
+      : fallbackAssessment
+        ? "derived"
+        : null,
     purpose: row.purpose,
     preferredTerm: row.preferred_term,
     remarks: row.remarks,
@@ -168,6 +182,147 @@ export function mapLoanApplicationRow(
     submittedAt: row.submitted_at,
     borrowerRemovedAt: row.borrower_removed_at ?? null,
   };
+}
+
+function deriveCreditProfileAssessment(
+  row: LoanApplicationRow,
+): BorrowerCreditProfileAssessment | null {
+  const profileSnapshot = getJsonRecord(row.borrower_profile_snapshot);
+  const readinessSnapshot = getJsonRecord(row.borrower_readiness_snapshot);
+  const readinessStatus = parseReadinessStatus(
+    row.credit_readiness_status ?? getString(readinessSnapshot?.readiness_status),
+  );
+  const calculatedCreditLimit =
+    row.credit_limit_at_submission ??
+    getNumber(readinessSnapshot?.calculated_credit_limit) ??
+    getNumber(readinessSnapshot?.calculatedCreditLimit);
+  const usedCredit =
+    row.used_credit_at_submission ??
+    getNumber(readinessSnapshot?.used_credit) ??
+    getNumber(readinessSnapshot?.usedCredit) ??
+    0;
+  const availableCredit =
+    row.available_credit_at_submission ??
+    getNumber(readinessSnapshot?.available_credit) ??
+    getNumber(readinessSnapshot?.availableCredit) ??
+    (calculatedCreditLimit === undefined
+      ? undefined
+      : calculatedCreditLimit - usedCredit);
+
+  if (
+    !readinessStatus ||
+    availableCredit === undefined ||
+    calculatedCreditLimit === undefined
+  ) {
+    return null;
+  }
+
+  const riskFlags = getStringArray(
+    readinessSnapshot?.risk_flags ??
+      getJsonRecord(readinessSnapshot?.profile_readiness)?.risk_flags,
+  );
+  const nextActions = getStringArray(
+    readinessSnapshot?.next_actions ?? readinessSnapshot?.nextActions,
+  );
+  const monthlyNetCashFlow =
+    row.monthly_net_cash_flow_at_submission ??
+    getNumber(profileSnapshot?.monthly_net_cash_flow) ??
+    calculateSnapshotNetCashFlow(profileSnapshot);
+  const monthlyGrossRevenue = getNumber(profileSnapshot?.monthly_gross_revenue);
+  const existingLoanPayments = getNumber(profileSnapshot?.existing_loan_payments);
+  const debtBurdenRatio =
+    monthlyGrossRevenue && monthlyGrossRevenue > 0
+      ? (existingLoanPayments ?? 0) / monthlyGrossRevenue
+      : null;
+
+  return evaluateBorrowerCreditProfileGrade({
+    readiness: {
+      readinessStatus,
+      missingFields: getStringArray(
+        readinessSnapshot?.missing_fields ?? readinessSnapshot?.missingFields,
+      ),
+      riskFlags,
+      monthlyNetCashFlow,
+      debtBurdenRatio,
+      profileIsStale: Boolean(
+        readinessSnapshot?.profile_is_stale ??
+          readinessSnapshot?.profileIsStale,
+      ),
+      nextActions:
+        nextActions.length > 0
+          ? nextActions
+          : buildFallbackNextActions(readinessStatus),
+    },
+    availableCredit,
+    calculatedCreditLimit,
+    usedCredit,
+    yearsInOperation: getNumber(profileSnapshot?.years_in_operation),
+    revenueConfidence: getString(profileSnapshot?.revenue_confidence),
+    verificationStatus: getString(profileSnapshot?.profile_review_status),
+  });
+}
+
+function parseReadinessStatus(
+  value: string | null | undefined,
+): BorrowerReadinessStatus | null {
+  if (
+    value === "incomplete" ||
+    value === "complete" ||
+    value === "needs_review" ||
+    value === "not_eligible" ||
+    value === "eligible_to_apply"
+  ) {
+    return value;
+  }
+
+  return null;
+}
+
+function getJsonRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getString(value: unknown): string | null {
+  return typeof value === "string" ? value : null;
+}
+
+function getNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function getStringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function calculateSnapshotNetCashFlow(
+  profileSnapshot: Record<string, unknown> | null,
+) {
+  const grossRevenue = getNumber(profileSnapshot?.monthly_gross_revenue) ?? 0;
+  const expenses = getNumber(profileSnapshot?.monthly_expenses) ?? 0;
+  const existingLoanPayments =
+    getNumber(profileSnapshot?.existing_loan_payments) ?? 0;
+
+  return grossRevenue - expenses - existingLoanPayments;
+}
+
+function buildFallbackNextActions(status: BorrowerReadinessStatus) {
+  if (status === "incomplete") {
+    return ["Complete the missing profile or verification requirements."];
+  }
+
+  if (status === "not_eligible") {
+    return ["Resolve blocking credit or account issues before applying."];
+  }
+
+  if (status === "needs_review" || status === "complete") {
+    return ["Review the submitted profile snapshot before making an offer."];
+  }
+
+  return [];
 }
 
 function parseCreditProfileGrade(

@@ -19,6 +19,7 @@ import {
 import {
   loanApplicationSchema,
   loanPurposeOptions,
+  mapLoanApplicationRow,
 } from "../lib/loan-application";
 import { isApplicationActionableForOffer } from "../lib/lender-applications";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
@@ -185,6 +186,81 @@ describe("loan application schema", () => {
         "Enter the requested loan amount.",
       );
     }
+  });
+});
+
+describe("loan application mapping", () => {
+  const baseApplicationRow = {
+    id: "application-1",
+    borrower_id: "borrower-1",
+    borrower_portfolio_id: "portfolio-1",
+    requested_amount: 25000,
+    credit_limit_at_submission: 50000,
+    used_credit_at_submission: 0,
+    available_credit_at_submission: 50000,
+    monthly_net_cash_flow_at_submission: 18000,
+    credit_readiness_status: "eligible_to_apply" as const,
+    borrower_profile_snapshot: {
+      monthly_gross_revenue: 60000,
+      monthly_expenses: 32000,
+      existing_loan_payments: 10000,
+      years_in_operation: 3,
+      revenue_confidence: "document_supported",
+      profile_review_status: "approved",
+    },
+    borrower_readiness_snapshot: {
+      readiness_status: "eligible_to_apply",
+      profile_readiness: {
+        risk_flags: [],
+      },
+    },
+    borrower_credit_profile_grade: null,
+    borrower_credit_profile_assessment: null,
+    purpose: "Inventory purchase",
+    preferred_term: "3_months" as const,
+    remarks: null,
+    status: "submitted" as const,
+    submitted_at: "2026-06-18T00:00:00.000Z",
+    borrower_removed_at: null,
+    created_at: "2026-06-18T00:00:00.000Z",
+    updated_at: "2026-06-18T00:00:00.000Z",
+  };
+
+  it("derives a credit profile grade for older application rows", () => {
+    const application = mapLoanApplicationRow(baseApplicationRow);
+
+    expect(application.creditProfileGrade).toBe("A");
+    expect(application.creditProfileAssessment?.grade).toBe("A");
+    expect(application.creditProfileAssessmentSource).toBe("derived");
+  });
+
+  it("preserves stored credit profile assessments", () => {
+    const application = mapLoanApplicationRow({
+      ...baseApplicationRow,
+      borrower_credit_profile_grade: "B",
+      borrower_credit_profile_assessment: {
+        grade: "B",
+        label: "Acceptable profile",
+        summary: "Stored assessment.",
+        positiveFactors: [],
+        riskFactors: [],
+        improvementActions: [],
+        inputs: {
+          readinessStatus: "eligible_to_apply",
+          monthlyNetCashFlow: 18000,
+          debtBurdenRatio: 0.1,
+          availableCredit: 50000,
+          calculatedCreditLimit: 50000,
+          usedCredit: 0,
+        },
+      },
+    });
+
+    expect(application.creditProfileGrade).toBe("B");
+    expect(application.creditProfileAssessment?.summary).toBe(
+      "Stored assessment.",
+    );
+    expect(application.creditProfileAssessmentSource).toBe("stored");
   });
 });
 
