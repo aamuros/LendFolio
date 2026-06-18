@@ -480,13 +480,18 @@ export function BorrowerLoanApplicationPanel({
     highlightRepaymentId,
   ]);
 
+  const visibleApplyApplications = useMemo(
+    () => getVisibleApplyApplications(applications),
+    [applications],
+  );
+
   const applicationCountLabel = useMemo(() => {
-    if (applications.length === 1) {
+    if (visibleApplyApplications.length === 1) {
       return "1 application";
     }
 
-    return `${applications.length} applications`;
-  }, [applications.length]);
+    return `${visibleApplyApplications.length} applications`;
+  }, [visibleApplyApplications.length]);
   const watchedRequestedAmount = parseMoneyInput(
     useWatch({ control, name: "requestedAmount" }),
   );
@@ -785,11 +790,7 @@ export function BorrowerLoanApplicationPanel({
   const hasNoAvailableCredit =
     readiness?.riskFlags.includes("no_available_credit") ||
     (creditSummary ? creditSummary.availableCredit <= 0 : false);
-  const hasOpenApplication = applications.some((application) =>
-    openApplicationStatuses.includes(
-      application.status as (typeof openApplicationStatuses)[number],
-    ),
-  );
+  const hasOpenApplication = visibleApplyApplications.length > 0;
   const displayedMessage =
     view === "apply" &&
     hasOpenApplication &&
@@ -886,7 +887,7 @@ export function BorrowerLoanApplicationPanel({
             )}
 
             <ApplicationList
-              applications={applications}
+              applications={visibleApplyApplications}
               editingApplicationId={editingApplicationId}
               expandedApplicationIds={expandedApplicationIds}
               isPending={isPending}
@@ -1009,6 +1010,16 @@ export function BorrowerLoanApplicationPanel({
         </AlertDialogContent>
       </AlertDialog>
     </>
+  );
+}
+
+export function getVisibleApplyApplications(
+  applications: BorrowerLoanApplicationSummary[],
+) {
+  return applications.filter((application) =>
+    openApplicationStatuses.includes(
+      application.status as (typeof openApplicationStatuses)[number],
+    ),
   );
 }
 
@@ -2705,7 +2716,11 @@ function ApplicationList({
   onRemoveWithdrawnApplication: (applicationId: string) => void;
 }) {
   if (applications.length === 0) {
-    return <EmptyState message="Your applications will appear here." />;
+    return (
+      <EmptyState
+        message="No active applications. Accepted applications move to Loans."
+      />
+    );
   }
 
   return (
