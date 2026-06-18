@@ -2,7 +2,10 @@
 
 import { FormEvent, useMemo, useRef, useState } from "react";
 import { Bot, MessageCircle, Send, X } from "lucide-react";
-import { polishBorrowerAssistantReply } from "@/app/borrower/assistant/actions";
+import {
+  getBorrowerAssistantFallbackReply,
+  polishBorrowerAssistantReply,
+} from "@/app/borrower/assistant/actions";
 import type {
   BorrowerLoanApplicationSummary,
   LoanApplicationsLoadResult,
@@ -59,6 +62,8 @@ const quickPrompts = [
   "Why can't I apply?",
   "Explain my credit limit",
 ];
+const OUT_OF_SCOPE_REPLY =
+  "I can only help with LendFolio borrower questions, such as comparing offers, checking your credit limit, completing your profile, or submitting a loan application. Try asking 'How do I apply?' or 'Best offer'.";
 
 export function BorrowerAssistant({
   activeTab,
@@ -133,7 +138,7 @@ export function BorrowerAssistant({
     setDraft("");
     setIsOpen(true);
 
-    if (localReply || !shouldPolishReply(trimmedPrompt, answer.content)) {
+    if (localReply) {
       setMessages((current) =>
         current.map((message) =>
           message.id === assistantMessageId
@@ -148,14 +153,22 @@ export function BorrowerAssistant({
       return;
     }
 
-    const polishedContent = await polishBorrowerAssistantReply(safeSummary);
+    const finalContent =
+      answer.content === OUT_OF_SCOPE_REPLY
+        ? await getBorrowerAssistantFallbackReply({
+            prompt: trimmedPrompt,
+            fallback: OUT_OF_SCOPE_REPLY,
+          })
+        : shouldPolishReply(trimmedPrompt, answer.content)
+          ? await polishBorrowerAssistantReply(safeSummary)
+          : answer.content;
 
     setMessages((current) =>
       current.map((message) =>
         message.id === assistantMessageId
           ? {
               ...message,
-              content: polishedContent,
+              content: finalContent,
               isPending: false,
             }
           : message,
@@ -349,7 +362,16 @@ function answerPrompt(
   const asksHowToApply =
     normalizedPrompt.includes("how to apply") ||
     normalizedPrompt.includes("how can i apply") ||
+    normalizedPrompt.includes("how do i apply") ||
+    normalizedPrompt.includes("how to make a loan application") ||
+    normalizedPrompt.includes("make a loan application") ||
+    normalizedPrompt.includes("create a loan application") ||
+    normalizedPrompt.includes("start a loan application") ||
+    normalizedPrompt.includes("loan application") ||
     normalizedPrompt.includes("apply for loan") ||
+    normalizedPrompt.includes("apply for a loan") ||
+    normalizedPrompt.includes("borrow money") ||
+    normalizedPrompt.includes("get a loan") ||
     normalizedPrompt.includes("submit application");
 
   if (asksHowToApply) {
@@ -407,8 +429,7 @@ function answerPrompt(
   }
 
   return {
-    content:
-      "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'",
+    content: OUT_OF_SCOPE_REPLY,
   };
 }
 
@@ -424,13 +445,11 @@ function answerGenericPrompt(prompt: string): BorrowerAssistantReply | null {
   }
 
   if (
-    normalizedPrompt.length <= 4 ||
     !/[a-z]/.test(normalizedPrompt) ||
-    /^(asdf|test|random|none|n\/a|na)$/.test(normalizedPrompt)
+    /^(test|none|n\/a|na)$/.test(normalizedPrompt)
   ) {
     return {
-      content:
-        "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'",
+      content: OUT_OF_SCOPE_REPLY,
     };
   }
 
@@ -438,12 +457,9 @@ function answerGenericPrompt(prompt: string): BorrowerAssistantReply | null {
 }
 
 function shouldPolishReply(prompt: string, ruleBasedAnswer: string) {
-  const genericReply =
-    "I can help compare offers, explain your credit limit, or guide you through completing your borrower profile. Try asking 'Best offer' or 'Why can't I apply?'";
-
   return (
     !answerGenericPrompt(prompt) &&
-    ruleBasedAnswer !== genericReply &&
+    ruleBasedAnswer !== OUT_OF_SCOPE_REPLY &&
     ruleBasedAnswer.length >= 50
   );
 }

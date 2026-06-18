@@ -43,6 +43,43 @@ export async function polishBorrowerAssistantReply(
   }
 }
 
+export async function getBorrowerAssistantFallbackReply(input: {
+  prompt: string;
+  fallback: string;
+}) {
+  const apiKey = process.env.GEMINI_API_KEY;
+
+  if (!apiKey) return input.fallback;
+
+  try {
+    const ai = new GoogleGenAI({ apiKey });
+    const response = await ai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [
+        {
+          role: "user",
+          parts: [
+            {
+              text: buildFallbackPrompt(input.prompt, input.fallback),
+            },
+          ],
+        },
+      ],
+      config: {
+        temperature: 0.2,
+        maxOutputTokens: 260,
+      },
+    });
+    const reply = response.text?.trim();
+
+    return reply && isUsableFallbackReply(reply, input.fallback)
+      ? reply
+      : input.fallback;
+  } catch {
+    return input.fallback;
+  }
+}
+
 function isUsablePolishedReply(
   polished: string,
   summary: BorrowerAssistantSafeSummary,
@@ -59,6 +96,28 @@ function isUsablePolishedReply(
   if (!preservesImportantContext(normalizedPolished, summary)) return false;
 
   return true;
+}
+
+function isUsableFallbackReply(reply: string, fallback: string) {
+  const normalizedReply = normalizeAssistantText(reply);
+
+  if (!normalizedReply) return false;
+  if (normalizedReply === normalizeAssistantText(fallback)) return true;
+  if (normalizedReply.length < MIN_POLISHED_REPLY_LENGTH) return false;
+  if (reply.trim().endsWith(",")) return false;
+  if (looksLikeFragment(reply)) return false;
+  if (mentionsUnsupportedAdvice(normalizedReply)) return false;
+
+  return [
+    "lendfolio",
+    "borrower",
+    "loan application",
+    "application",
+    "offer",
+    "profile",
+    "credit limit",
+    "verification",
+  ].some((term) => normalizedReply.includes(term));
 }
 
 function normalizeAssistantText(value: string) {
@@ -165,6 +224,20 @@ function collectImportantTerms(
   return [...terms];
 }
 
+function mentionsUnsupportedAdvice(normalizedReply: string) {
+  return [
+    "outside lendfolio",
+    "bank account",
+    "credit card",
+    "stock",
+    "investment",
+    "crypto",
+    "legal advice",
+    "medical",
+    "tax advice",
+  ].some((term) => normalizedReply.includes(term));
+}
+
 function buildGeminiPrompt(summary: BorrowerAssistantSafeSummary) {
   return `You are a borrower support assistant for LendFolio.
 Use only the provided summary.
@@ -184,4 +257,19 @@ Rewrite the already-calculated rule-based answer in clearer borrower-friendly la
 
 Provided summary:
 ${JSON.stringify(summary, null, 2)}`;
+}
+
+function buildFallbackPrompt(prompt: string, fallback: string) {
+  return `You are the borrower support assistant inside LendFolio.
+Answer only questions related to LendFolio borrower workflows: borrower profile, borrower verification, loan applications, credit limits, lender offers, accepted offers, active loans, and repayment proofs.
+Do not answer unrelated questions.
+Do not invent user-specific application, offer, lender, loan, amount, status, or date details.
+Do not provide legal, tax, investment, or financial guarantees.
+Return one complete helpful answer only.
+Do not output sentence fragments or unfinished sentences.
+If the question is not clearly about LendFolio borrower workflows, return this fallback exactly:
+${fallback}
+
+User question:
+${prompt}`;
 }
