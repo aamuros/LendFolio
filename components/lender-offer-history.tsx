@@ -13,12 +13,14 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type LenderOfferHistoryProps = {
   offers: LoanOfferSummary[];
   compact?: boolean;
   currentLenderOfferId?: string | null;
+  currentLenderId?: string | null;
   emptyDescription?: string;
   emptyTitle?: string;
 };
@@ -27,6 +29,7 @@ export function LenderOfferHistory({
   offers,
   compact = false,
   currentLenderOfferId = null,
+  currentLenderId = null,
   emptyDescription = "Sent offers for this application will appear here.",
   emptyTitle = "No previous offers yet.",
 }: LenderOfferHistoryProps) {
@@ -40,7 +43,11 @@ export function LenderOfferHistory({
               <OfferHistoryRow
                 key={offer.id}
                 offer={offer}
-                isCurrentLenderOffer={offer.id === currentLenderOfferId}
+                isCurrentLenderOffer={
+                  currentLenderId
+                    ? offer.lenderId === currentLenderId
+                    : offer.id === currentLenderOfferId
+                }
               />
             ))}
           </div>
@@ -137,44 +144,61 @@ function OfferHistoryRow({
   offer: LoanOfferSummary;
   isCurrentLenderOffer: boolean;
 }) {
-  const lenderLabel = isCurrentLenderOffer ? "You" : "Another lender";
+  const lenderName = offer.lenderName?.trim() || "Another lender";
+  const lenderLabel = isCurrentLenderOffer ? `You · ${lenderName}` : lenderName;
 
   return (
     <Dialog>
       <DialogTrigger asChild>
-        <button
+        <Button
           type="button"
+          variant="ghost"
           className={cn(
-            "grid w-full gap-2 rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-left transition hover:border-primary/30 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 sm:grid-cols-[auto_minmax(0,1fr)_minmax(0,1fr)_auto] sm:items-center",
+            "grid h-auto w-full whitespace-normal rounded-xl border border-border/70 bg-background/70 px-4 py-3 text-left transition hover:border-primary/30 hover:bg-background sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center",
             offer.status !== "pending" && "opacity-80",
           )}
         >
-          <span className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-semibold">{lenderLabel}</span>
-            <OfferHistoryBadge status={offer.status} />
-          </span>
-          <span className="min-w-0 text-sm">
-            <span className="font-semibold tabular-nums">
-              PHP {formatCurrency(offer.approvedAmount)}
-            </span>{" "}
-            <span className="text-muted-foreground">approved</span>
-          </span>
-          <span className="min-w-0 text-sm">
-            <span className="font-semibold tabular-nums">
-              PHP {formatCurrency(offer.totalRepaymentAmount)}
-            </span>{" "}
-            <span className="text-muted-foreground">total</span>
-          </span>
-          <span className="flex items-center justify-between gap-3 text-sm font-semibold text-accent-foreground sm:justify-end">
-            <span className="text-xs font-medium text-muted-foreground">
-              {formatDate(offer.sentAt)}
+          <span className="grid min-w-0 gap-2">
+            <span className="flex min-w-0 flex-wrap items-center gap-2">
+              <span className="min-w-0 truncate text-sm font-semibold">
+                {lenderLabel}
+              </span>
+              <OfferHistoryBadge status={offer.status} />
             </span>
-            <span className="inline-flex items-center gap-1">
-              View
-              <ArrowRight className="size-3.5" />
+
+            <span className="mt-1 grid min-w-0 gap-2 text-sm sm:grid-cols-3">
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  Approved
+                </span>
+                <span className="block truncate font-semibold tabular-nums">
+                  PHP {formatCurrency(offer.approvedAmount)}
+                </span>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  Total
+                </span>
+                <span className="block truncate font-semibold tabular-nums">
+                  PHP {formatCurrency(offer.totalRepaymentAmount)}
+                </span>
+              </span>
+              <span className="min-w-0">
+                <span className="block text-xs font-semibold text-muted-foreground">
+                  Sent
+                </span>
+                <span className="block truncate font-semibold">
+                  {formatDate(offer.sentAt)}
+                </span>
+              </span>
             </span>
           </span>
-        </button>
+
+          <span className="mt-3 inline-flex items-center justify-between gap-2 text-sm font-semibold text-accent-foreground sm:mt-0 sm:justify-self-end">
+            <span>View</span>
+            <ArrowRight className="size-3.5" />
+          </span>
+        </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>

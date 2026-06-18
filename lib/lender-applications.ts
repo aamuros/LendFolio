@@ -26,6 +26,7 @@ type SupabaseServerClient = ApprovedLenderAccess["supabase"];
 
 export type LenderApplicationReview = LoanApplicationSummary & {
   borrowerId: string;
+  currentLenderId: string;
   currentLenderOfferState:
     | "not_offered"
     | "offer_pending"
@@ -185,11 +186,11 @@ export async function loadOpenLenderApplications(
     const profileIds = [
       ...new Set(applications.map((application) => application.borrower_portfolio_id)),
     ];
-    const { data: lenderOffers, error: lenderOffersError } = await supabase
+    const { data: allApplicationOffers, error: lenderOffersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
-      .eq("lender_id", access.profile.id)
-      .in("loan_application_id", applicationIds);
+      .in("loan_application_id", applicationIds)
+      .order("sent_at", { ascending: false });
 
     if (lenderOffersError) {
       return {
@@ -230,7 +231,7 @@ export async function loadOpenLenderApplications(
     const openApplications = combineApplicationsWithPortfolios(
       applications,
       portfolios,
-      lenderOffers,
+      allApplicationOffers,
       access.profile.id,
       offerFlagsResult.flags,
     ).filter(
@@ -320,7 +321,7 @@ export async function loadLenderApplicationDetail(
       };
     }
 
-    const { data: offers, error: offersError } = await supabase
+    const { data: allApplicationOffers, error: offersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
       .eq("loan_application_id", application.id)
@@ -355,7 +356,7 @@ export async function loadLenderApplicationDetail(
       application: toLenderApplicationReview(
         application,
         portfolio,
-        offers,
+        allApplicationOffers,
         access.profile.id,
         offerFlagsResult.flags.get(application.id) ?? false,
         creditProfileHistory,
@@ -537,9 +538,11 @@ function combineApplicationsWithPortfolios(
 function toLenderApplicationReview(
   application: Database["public"]["Tables"]["loan_applications"]["Row"],
   portfolio: BorrowerPortfolioRow,
-  offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  allApplicationOffers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
   currentLenderId = "",
-  hasAcceptedOffer = offers.some((offer) => offer.status === "accepted"),
+  hasAcceptedOffer = allApplicationOffers.some(
+    (offer) => offer.status === "accepted",
+  ),
   creditProfileHistory: BorrowerCreditProfileHistorySummary = buildBorrowerCreditProfileHistorySummary(
     [],
     [],
@@ -555,14 +558,16 @@ function toLenderApplicationReview(
   const yearsInOperation = reviewPortfolio.years_in_operation ?? 0;
   const estimatedNetMonthlyRevenue =
     monthlyGrossRevenue - monthlyExpenses;
-  const currentLenderOffers = offers.filter(
-    (offer) => offer.lender_id === currentLenderId,
+  const currentLenderOffers = getCurrentLenderOffers(
+    allApplicationOffers,
+    currentLenderId,
   );
   const currentLenderOffer = getCurrentLenderOffer(currentLenderOffers);
 
   return {
     ...mappedApplication,
     borrowerId: application.borrower_id,
+    currentLenderId,
     currentLenderOfferState: getCurrentLenderOfferState(currentLenderOffers),
     hasAcceptedOffer,
     currentLenderOffer: currentLenderOffer
@@ -584,7 +589,7 @@ function toLenderApplicationReview(
         estimatedNetMonthlyRevenue - existingLoanPayments,
     },
     creditProfileHistory,
-    offers: offers.map(mapLoanOfferRow),
+    offers: allApplicationOffers.map(mapLoanOfferRow),
   };
 }
 
@@ -894,6 +899,13 @@ function getCurrentLenderOfferState(
   }
 
   return "not_offered";
+}
+
+function getCurrentLenderOffers(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+  currentLenderId: string,
+) {
+  return offers.filter((offer) => offer.lender_id === currentLenderId);
 }
 
 function getCurrentLenderOffer(

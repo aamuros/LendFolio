@@ -29,7 +29,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { BorrowerCard } from "@/components/borrower/ui";
-import { ToneBadge } from "@/components/borrower-status-badge";
 import { formatCurrency, formatDate, formatYears } from "@/lib/lender-format";
 import { cn } from "@/lib/utils";
 
@@ -100,21 +99,12 @@ const preferredTermLabels: Record<
 const fallbackTermMonths = [1, 2, 3, 4, 6, 9, 12];
 const actionableApplicationStatuses = ["submitted", "open"] as const;
 
-function offerStateTone(
-  state: LenderApplicationReview["currentLenderOfferState"],
-) {
-  switch (state) {
-    case "offer_accepted":
-      return "success" as const;
-    case "offer_declined":
-      return "danger" as const;
-    case "offer_pending":
-      return "attention" as const;
-    case "offer_expired":
-      return "neutral" as const;
-    default:
-      return "neutral" as const;
+function offerCountLabel(count: number) {
+  if (count === 0) {
+    return "No offer yet";
   }
+
+  return `${count} offer${count === 1 ? "" : "s"}`;
 }
 
 export function LenderApplicationsList({
@@ -367,9 +357,9 @@ export function LenderApplicationsList({
                   <h2 className="min-w-0 truncate text-base font-semibold sm:text-lg">
                     {application.portfolio.businessTypeLabel}
                   </h2>
-                  <ToneBadge tone={offerStateTone(application.currentLenderOfferState)}>
-                    {offerStateLabels[application.currentLenderOfferState]}
-                  </ToneBadge>
+                  <Badge variant="secondary" className="text-[10px] font-semibold">
+                    {offerCountLabel(application.offers.length)}
+                  </Badge>
                 </div>
                 <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">
                   {application.purpose ?? "No purpose stated"}
@@ -654,17 +644,6 @@ function serializeSearchParams(params: URLSearchParams) {
     )
     .join("&");
 }
-
-const offerStateLabels: Record<
-  LenderApplicationReview["currentLenderOfferState"],
-  string
-> = {
-  not_offered: "No offer yet",
-  offer_pending: "Offer pending",
-  offer_accepted: "Offer accepted",
-  offer_declined: "Offer declined",
-  offer_expired: "Offer expired",
-};
 
 export function LenderApplicationsStatus({
   message,

@@ -19,6 +19,7 @@ type LenderOfferDialogProps = {
   preferredTerm: string;
   preferredTermLabel: string;
   offers?: LoanOfferSummary[];
+  currentLenderId?: string | null;
 };
 
 export function LenderOfferDialog({
@@ -29,6 +30,7 @@ export function LenderOfferDialog({
   preferredTerm,
   preferredTermLabel,
   offers = [],
+  currentLenderId = null,
 }: LenderOfferDialogProps) {
   return (
     <Dialog>
@@ -47,6 +49,7 @@ export function LenderOfferDialog({
           preferredTerm={preferredTerm}
           preferredTermLabel={preferredTermLabel}
           offers={offers}
+          currentLenderId={currentLenderId}
         />
       </DialogContent>
     </Dialog>

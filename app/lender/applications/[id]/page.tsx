@@ -72,10 +72,12 @@ export default async function LenderApplicationDetailPage({
   }
 
   const { application } = result;
+  const allApplicationOffers = application.offers;
+  const currentLenderOffer = application.currentLenderOffer;
   const hasAcceptedOffer = application.hasAcceptedOffer;
   const pendingOffer =
-    application.currentLenderOffer?.status === "pending"
-      ? application.currentLenderOffer
+    currentLenderOffer?.status === "pending"
+      ? currentLenderOffer
       : undefined;
   const isOpenForOffers = isApplicationActionableForOffer(application);
   const hasAcceptedApplication =
@@ -101,8 +103,8 @@ export default async function LenderApplicationDetailPage({
 
             <OfferActionSection
               application={application}
-              offers={application.offers}
-              currentLenderOffer={application.currentLenderOffer}
+              allApplicationOffers={allApplicationOffers}
+              currentLenderOffer={currentLenderOffer}
               hasAcceptedApplication={hasAcceptedApplication}
               isOpenForOffers={isOpenForOffers}
               pendingOffer={pendingOffer}
@@ -354,7 +356,7 @@ function ReviewCreditSection({
 
 function OfferActionSection({
   application,
-  offers,
+  allApplicationOffers,
   currentLenderOffer,
   hasAcceptedApplication,
   isOpenForOffers,
@@ -366,8 +368,9 @@ function OfferActionSection({
     | "requestedAmount"
     | "availableCreditAtSubmission"
     | "preferredTerm"
+    | "currentLenderId"
   >;
-  offers: LoanOfferSummary[];
+  allApplicationOffers: LoanOfferSummary[];
   currentLenderOffer: LoanOfferSummary | null;
   hasAcceptedApplication: boolean;
   isOpenForOffers: boolean;
@@ -410,7 +413,8 @@ function OfferActionSection({
               defaultDueDate={getDefaultDueDate()}
               preferredTerm={application.preferredTerm}
               preferredTermLabel={formatPreferredTerm(application.preferredTerm)}
-              offers={offers}
+              offers={allApplicationOffers}
+              currentLenderId={application.currentLenderId}
             />
           ) : null}
         </div>
@@ -426,8 +430,9 @@ function OfferActionSection({
           </div>
         ) : null}
         <LenderOfferHistory
-          offers={offers}
+          offers={allApplicationOffers}
           compact
+          currentLenderId={application.currentLenderId}
           currentLenderOfferId={currentLenderOffer?.id}
         />
       </div>

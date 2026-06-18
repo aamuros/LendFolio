@@ -32,6 +32,7 @@ type LenderOfferFormProps = {
   preferredTerm: string;
   preferredTermLabel: string;
   offers?: LoanOfferSummary[];
+  currentLenderId?: string | null;
 };
 
 export function LenderOfferForm({
@@ -41,6 +42,7 @@ export function LenderOfferForm({
   defaultDueDate,
   preferredTermLabel,
   offers = [],
+  currentLenderId = null,
 }: LenderOfferFormProps) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
@@ -278,7 +280,11 @@ export function LenderOfferForm({
               fees={parseCurrencyValue(fees)}
               totalRepaymentAmount={totalRepaymentAmount}
             />
-            <LenderOfferHistory offers={offers} compact />
+            <LenderOfferHistory
+              offers={offers}
+              compact
+              currentLenderId={currentLenderId}
+            />
           </aside>
         </div>
 
