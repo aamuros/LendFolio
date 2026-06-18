@@ -85,25 +85,22 @@ export default async function LenderApplicationDetailPage({
       <div className="mx-auto max-w-7xl">
         <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6 lg:px-8">
           <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-2 lg:items-start">
-            <div className="grid gap-6">
-              <BorrowerResumePage application={application} />
-              <CreditProfileGradeSection application={application} />
-            </div>
+            <BorrowerResumePage application={application} />
 
-            <div className="grid gap-6">
-              <LenderReviewPage>
-                <ReviewFinancialsSection application={application} />
-                <ReviewCreditSection application={application} />
-              </LenderReviewPage>
+            <LenderReviewPage>
+              <ReviewFinancialsSection application={application} />
+              <ReviewCreditSection application={application} />
+            </LenderReviewPage>
 
-              <OfferActionSection
-                application={application}
-                offers={application.offers}
-                hasAcceptedApplication={hasAcceptedApplication}
-                isOpenForOffers={isOpenForOffers}
-                pendingOffer={pendingOffer}
-              />
-            </div>
+            <CreditProfileGradeSection application={application} />
+
+            <OfferActionSection
+              application={application}
+              offers={application.offers}
+              hasAcceptedApplication={hasAcceptedApplication}
+              isOpenForOffers={isOpenForOffers}
+              pendingOffer={pendingOffer}
+            />
           </div>
         </div>
 
