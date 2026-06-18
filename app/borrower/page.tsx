@@ -46,6 +46,10 @@ export default async function BorrowerPage({
   const initialTab: BorrowerTab =
     tab && validBorrowerTabs.has(tab as BorrowerTab) ? (tab as BorrowerTab) : "home";
 
+  if (initialTab === "offers" && offerId) {
+    redirect(`/borrower/offers/${offerId}`, RedirectType.replace);
+  }
+
   const access = await getBorrowerAccess();
   const user = access.ok
     ? (await access.supabase.auth.getSession()).data.session?.user ?? null
