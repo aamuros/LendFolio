@@ -1,6 +1,7 @@
 import type { ManagerDashboardOverview } from "@/lib/manager-dashboard";
 import { PlatformSnapshot } from "./platform-snapshot";
 import { ActivityChart } from "./activity-chart";
+import { RevenueChart } from "./revenue-chart";
 import { TodaysActions } from "./todays-actions";
 
 export function ManagerDashboard({
@@ -18,7 +19,10 @@ export function ManagerDashboard({
           revenue={dashboard.revenue}
         />
       </div>
-      <ActivityChart data={dashboard.monthlyActivity} />
+      <div className="grid gap-4 xl:grid-cols-2">
+        <RevenueChart data={dashboard.monthlyRevenue} />
+        <ActivityChart data={dashboard.monthlyActivity} />
+      </div>
     </div>
   );
 }

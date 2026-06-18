@@ -84,6 +84,13 @@ export type ManagerMonthlyActivityRow = {
   loans: number;
 };
 
+export type ManagerMonthlyRevenueRow = {
+  month: string;
+  label: string;
+  revenue: number;
+  fundedLoans: number;
+};
+
 export type ManagerDashboardOverview = {
   kpis: ManagerDashboardKpi[];
   revenue: {
@@ -94,6 +101,7 @@ export type ManagerDashboardOverview = {
   pendingActions: ManagerPendingActionCounts;
   monthlyHeadcount: ManagerMonthlyUserHeadcount[];
   monthlyActivity: ManagerMonthlyActivityRow[];
+  monthlyRevenue: ManagerMonthlyRevenueRow[];
   statusDistribution: ManagerUserStatusDistribution[];
   lenderPerformance: ManagerLenderPerformanceRow[];
   borrowerPerformance: ManagerBorrowerPerformanceRow[];
@@ -199,6 +207,7 @@ export async function loadManagerDashboardOverview(
       loans: Number(row?.loans ?? 0),
     };
   });
+  const monthlyRevenue = await loadMonthlyRevenue(supabase, months);
 
   const pendingActions: ManagerPendingActionCounts = {
     pendingBorrowerVerifications: Number(
@@ -255,11 +264,96 @@ export async function loadManagerDashboardOverview(
       pendingActions,
       monthlyHeadcount,
       monthlyActivity,
+      monthlyRevenue,
       statusDistribution,
       lenderPerformance,
       borrowerPerformance,
     },
   };
+}
+
+async function loadMonthlyRevenue(
+  supabase: SupabaseServerClient,
+  months: ReturnType<typeof getDashboardMonths>,
+): Promise<ManagerMonthlyRevenueRow[]> {
+  const monthKeys = new Set(months.map((month) => month.key));
+  const firstMonth = months[0]?.key;
+  const lastMonth = months[months.length - 1]?.key;
+  const monthlyTotals = new Map<
+    string,
+    {
+      revenue: number;
+      fundedLoans: number;
+    }
+  >();
+
+  if (!firstMonth || !lastMonth) {
+    return [];
+  }
+
+  const endExclusive = new Date(`${lastMonth}-01T00:00:00.000Z`);
+  endExclusive.setUTCMonth(endExclusive.getUTCMonth() + 1);
+
+  const { data, error } = await supabase
+    .from("active_loans")
+    .select("processing_fee_amount, started_at, created_at")
+    .or(
+      [
+        `started_at.gte.${firstMonth}-01T00:00:00.000Z`,
+        `created_at.gte.${firstMonth}-01T00:00:00.000Z`,
+      ].join(","),
+    );
+
+  if (error) {
+    return months.map((month) => ({
+      month: month.key,
+      label: month.label,
+      revenue: 0,
+      fundedLoans: 0,
+    }));
+  }
+
+  for (const loan of data ?? []) {
+    const revenue = Number(loan.processing_fee_amount ?? 0);
+
+    if (!Number.isFinite(revenue) || revenue <= 0) {
+      continue;
+    }
+
+    const timestamp = loan.started_at ?? loan.created_at;
+    const date = timestamp ? new Date(timestamp) : null;
+
+    if (!date || Number.isNaN(date.getTime()) || date >= endExclusive) {
+      continue;
+    }
+
+    const monthKey = toMonthKey(date);
+
+    if (!monthKeys.has(monthKey)) {
+      continue;
+    }
+
+    const current = monthlyTotals.get(monthKey) ?? {
+      revenue: 0,
+      fundedLoans: 0,
+    };
+
+    monthlyTotals.set(monthKey, {
+      revenue: current.revenue + revenue,
+      fundedLoans: current.fundedLoans + 1,
+    });
+  }
+
+  return months.map((month) => {
+    const total = monthlyTotals.get(month.key);
+
+    return {
+      month: month.key,
+      label: month.label,
+      revenue: total?.revenue ?? 0,
+      fundedLoans: total?.fundedLoans ?? 0,
+    };
+  });
 }
 
 async function loadPlatformRevenue(supabase: SupabaseServerClient) {
