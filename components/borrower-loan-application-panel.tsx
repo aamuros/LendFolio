@@ -102,7 +102,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
@@ -2896,37 +2896,38 @@ function SelectedApplicationOffers({
   highlightOfferId?: string | null;
   onBack: () => void;
 }) {
+  const offerCount = group.offers.length;
+
   return (
     <div className="grid gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onBack}
+        className="h-10 w-fit rounded-full px-4 font-semibold"
+      >
+        <ArrowLeft className="size-4" />
+        Back to applications
+      </Button>
+
       <Card className="rounded-xl">
-        <CardContent className="grid gap-3 p-3 sm:p-4">
-          <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-start">
-            <div className="min-w-0">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={onBack}
-                className="mb-2 h-9 px-0 font-semibold text-muted-foreground hover:bg-transparent hover:text-foreground"
-              >
-                Back to applications
-              </Button>
-              <h3 className="text-base font-semibold">
-                {getLoanPurposeLabel(group.application.purpose)}
-              </h3>
-            </div>
-            <div className="grid gap-2 text-sm sm:text-right">
-              <span className="font-semibold">
-                {formatMoney(group.application.requestedAmount)}
-              </span>
-              <span className="text-muted-foreground">
-                {preferredTermLabels[group.application.preferredTerm]}
-              </span>
-            </div>
-          </div>
+        <CardContent className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center sm:gap-4">
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {getLoanPurposeLabel(group.application.purpose)}
+          </p>
+          <CompactRowText label="Requested">
+            Requested {formatMoney(group.application.requestedAmount)}
+          </CompactRowText>
+          <CompactRowText label="Offers">
+            {offerCount} {offerCount === 1 ? "offer" : "offers"}
+          </CompactRowText>
+          <CompactRowText label="Term">
+            {preferredTermLabels[group.application.preferredTerm]}
+          </CompactRowText>
         </CardContent>
       </Card>
 
-      <div className="grid gap-3">
+      <div className="grid gap-2">
         {group.offers.map((offer) => (
           <CompactOfferRow
             key={offer.id}
@@ -2954,15 +2955,15 @@ function CompactOfferRow({
         isHighlighted && "ring-2 ring-primary/30",
       )}
     >
-      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(9rem,1.2fr)_repeat(4,auto)_auto] sm:items-center sm:gap-4">
+      <CardContent className="grid gap-2 px-4 py-2.5 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-3">
         <p className="min-w-0 truncate text-sm font-semibold">
           {offer.lenderName}
         </p>
         <CompactRowText label="Principal">
-          {formatMoney(offer.principalAmount)} principal
+          {formatMoney(offer.principalAmount)}
         </CompactRowText>
         <CompactRowText label="Total">
-          {formatMoney(offer.totalRepaymentAmount)} total
+          {formatMoney(offer.totalRepaymentAmount)}
         </CompactRowText>
         <CompactRowText label="Final">
           {formatDateOnly(offer.dueDate)}
@@ -2973,7 +2974,7 @@ function CompactOfferRow({
           type="button"
           variant="outline"
           size="sm"
-          className="h-9 w-full rounded-full font-semibold sm:w-fit"
+          className="h-8 w-full rounded-full px-3 text-xs font-semibold sm:w-fit"
         >
           <Link href={`/borrower/offers/${offer.id}`}>View details</Link>
         </Button>
