@@ -1817,6 +1817,51 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     expect(paidLoanError).toBeNull();
     expect(toCents(paidLoan?.outstanding_balance ?? 0)).toBe(0);
     expect(paidLoan).toMatchObject({ status: "paid" });
+
+    const nextSubmission = await borrower.rpc("submit_loan_application", {
+      p_requested_amount: 15000,
+      p_purpose: "Inventory financing after completed repayment cycle",
+      p_preferred_term: "3_months",
+      p_remarks: "Second clean cycle request.",
+    });
+    const nextSubmissionResult =
+      nextSubmission.data as Json as SubmitApplicationRpcResult;
+
+    expect(nextSubmission.error).toBeNull();
+    expect(nextSubmissionResult).toMatchObject({
+      ok: true,
+      credit_limit: 15000,
+      used_credit: 0,
+      available_credit: 15000,
+    });
+    expect(nextSubmissionResult.application?.id).toBeTruthy();
+
+    const nextOffer = await approvedLender.rpc("create_loan_offer", {
+      p_loan_application_id: nextSubmissionResult.application?.id ?? "",
+      p_approved_amount: 15000,
+      p_repayment_amount: 16500,
+      p_interest_service_charge_rate: 10,
+      p_fees: 0,
+      p_due_date: "2026-08-24",
+      p_remarks: "Offer after clean repayment history.",
+    });
+    const nextOfferResult = nextOffer.data as Json as OfferRpcResult;
+
+    expect(nextOffer.error).toBeNull();
+    expect(nextOfferResult).toMatchObject({ ok: true });
+    expect(nextOfferResult.offer_id).toBeTruthy();
+
+    const nextAcceptance = await borrower.rpc("accept_loan_offer", {
+      p_offer_id: nextOfferResult.offer_id ?? "",
+    });
+    const nextAcceptanceResult =
+      nextAcceptance.data as Json as AcceptanceResult;
+
+    expect(nextAcceptance.error).toBeNull();
+    expect(nextAcceptanceResult).toMatchObject({
+      ok: true,
+      loan_application_id: nextSubmissionResult.application?.id,
+    });
   });
 
   it("lets a borrower submit repayment proof for their own active loan repayment", async () => {

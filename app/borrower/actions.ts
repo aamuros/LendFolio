@@ -6,6 +6,7 @@ import {
   loadBorrowerActiveLoans,
   type ActiveLoanSummary,
 } from "@/lib/active-loans";
+import { isCompletedLoan } from "@/lib/active-loan-status";
 import {
   calculateTotalBusinessExpenses,
   calculateTotalExistingDebtPayments,
@@ -1532,9 +1533,9 @@ async function loadBorrowerCreditSummary(
       .in("status", [...creditConsumingApplicationStatuses]),
     supabase
       .from("loan_repayment_schedules")
-      .select("active_loan_id")
+      .select("active_loan_id, was_late")
       .eq("borrower_id", borrowerId)
-      .eq("status", "late"),
+      .eq("was_late", true),
   ]);
 
   if (loansError || lateRepaymentsError) {
@@ -1545,7 +1546,13 @@ async function loadBorrowerCreditSummary(
     (lateRepayments ?? []).map((repayment) => repayment.active_loan_id),
   );
   const cleanCompletedLoanCount = (loans ?? []).filter(
-    (loan) => loan.status === "paid" && !lateLoanIds.has(loan.id),
+    (loan) =>
+      isCompletedLoan({
+        status: loan.status,
+        outstandingBalance: Number(loan.outstanding_balance),
+      }) &&
+      loan.status !== "defaulted" &&
+      !lateLoanIds.has(loan.id),
   ).length;
   const defaultedLoanCount = (loans ?? []).filter(
     (loan) => loan.status === "defaulted",
@@ -1890,6 +1897,7 @@ export async function acceptLoanOffer(
     }
 
     revalidatePath("/borrower");
+    revalidatePath(`/borrower/offers/${offerId}`);
     if (result.loan_application_id) {
       revalidatePath(`/lender/applications/${result.loan_application_id}`);
     }

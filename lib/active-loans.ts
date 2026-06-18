@@ -103,7 +103,7 @@ const activeLoanSelect =
   "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
-  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, created_at, updated_at";
+  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentChannelSelect =

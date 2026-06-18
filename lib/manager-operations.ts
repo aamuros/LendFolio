@@ -346,7 +346,7 @@ const profileSelect = "id, role, additional_roles, display_name, status, created
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
 const repaymentScheduleSelect =
-  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, created_at, updated_at";
+  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
 const lenderProfileFullSelect =
   "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, address_region, address_city_or_municipality, address_barangay, address_zip_code, created_at, updated_at";
 const borrowerVerificationSelect =

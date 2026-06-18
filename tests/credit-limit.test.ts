@@ -62,6 +62,11 @@ describe("borrower credit limit", () => {
     ).toBe(15_000);
     expect(
       explainBorrowerCreditLimit(basePortfolio, {
+        cleanCompletedLoanCount: 2,
+      }).repaymentHistoryCap,
+    ).toBe(25_000);
+    expect(
+      explainBorrowerCreditLimit(basePortfolio, {
         cleanCompletedLoanCount: 3,
       }).repaymentHistoryCap,
     ).toBe(40_000);
@@ -267,5 +272,69 @@ describe("borrower credit limit", () => {
     expect(summary.availableCredit).toBe(10_000);
     expect(applicationConsumesCredit("declined")).toBe(false);
     expect(applicationConsumesCredit("withdrawn")).toBe(false);
+  });
+
+  it("does not consume used credit for fully paid loan cycles", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [{ outstandingBalance: 0, status: "paid" }],
+      pendingApplicationAmounts: [],
+      repaymentHistory: {
+        cleanCompletedLoanCount: 1,
+      },
+    });
+
+    expect(summary.calculatedCreditLimit).toBe(15_000);
+    expect(summary.usedCredit).toBe(0);
+    expect(summary.availableCredit).toBe(15_000);
+  });
+
+  it("treats closed fully paid loan cycles as clean completed history", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [{ outstandingBalance: 0, status: "closed" }],
+      pendingApplicationAmounts: [],
+      repaymentHistory: {
+        cleanCompletedLoanCount: 1,
+      },
+    });
+
+    expect(summary.repaymentHistoryCap).toBe(15_000);
+    expect(summary.usedCredit).toBe(0);
+    expect(summary.availableCredit).toBe(15_000);
+  });
+
+  it("consumes used credit for active and overdue loan exposure", () => {
+    const summary = calculateBorrowerAvailableCredit({
+      portfolio: {
+        ...basePortfolio,
+        monthlyGrossRevenue: 150_000,
+        monthlyExpenses: 50_000,
+        existingLoanPayments: 0,
+      },
+      activeLoans: [
+        { outstandingBalance: 4_000, status: "active" },
+        { outstandingBalance: 3_000, status: "overdue" },
+        { outstandingBalance: 2_000, status: "paid" },
+      ],
+      pendingApplicationAmounts: [],
+      repaymentHistory: {
+        cleanCompletedLoanCount: 1,
+      },
+    });
+
+    expect(summary.calculatedCreditLimit).toBe(15_000);
+    expect(summary.usedCredit).toBe(7_000);
+    expect(summary.availableCredit).toBe(8_000);
   });
 });

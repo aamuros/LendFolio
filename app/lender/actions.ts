@@ -103,6 +103,7 @@ async function reviewRepaymentProof(
     }
 
     revalidatePath("/borrower");
+    revalidatePath("/borrower/offers/[offerId]", "page");
     revalidatePath("/lender");
     revalidatePath("/lender/applications");
 

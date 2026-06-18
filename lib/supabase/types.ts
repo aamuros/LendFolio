@@ -940,6 +940,7 @@ export type Database = {
           amount_due: number;
           due_date: string;
           status: RepaymentStatus;
+          was_late: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -952,6 +953,7 @@ export type Database = {
           amount_due: number;
           due_date: string;
           status?: RepaymentStatus;
+          was_late?: boolean;
           created_at?: string;
           updated_at?: string;
         };
@@ -964,6 +966,7 @@ export type Database = {
           amount_due?: number;
           due_date?: string;
           status?: RepaymentStatus;
+          was_late?: boolean;
           created_at?: string;
           updated_at?: string;
         };
