@@ -12,12 +12,20 @@ export function VerificationToast() {
 
   const review = searchParams.get("review");
   const documentReview = searchParams.get("documentReview");
+  const scrollY = searchParams.get("scrollY");
 
   useEffect(() => {
     if (firedRef.current) return;
-    if (!review && !documentReview) return;
+    if (!review && !documentReview && !scrollY) return;
 
     firedRef.current = true;
+
+    if (scrollY) {
+      const nextScrollY = Number(scrollY);
+      if (Number.isFinite(nextScrollY)) {
+        window.scrollTo(0, nextScrollY);
+      }
+    }
 
     if (review === "approved") {
       toast.success("Borrower verification approved.");
@@ -46,9 +54,10 @@ export function VerificationToast() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete("review");
     params.delete("documentReview");
+    params.delete("scrollY");
     const next = params.toString();
     router.replace(next ? `${pathname}?${next}` : pathname, { scroll: false });
-  }, [review, documentReview, searchParams, router, pathname]);
+  }, [review, documentReview, scrollY, searchParams, router, pathname]);
 
   return null;
 }

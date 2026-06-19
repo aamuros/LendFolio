@@ -1,15 +1,44 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { z } from "zod";
 import { requireApprovedLender } from "@/lib/access-control";
+import {
+  lenderProfileDetailsSchema,
+  resolveLenderOnboardingAddress,
+} from "@/lib/lender-onboarding";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
-  lenderVerificationDocumentAllowedTypes,
-  lenderVerificationDocumentBucket,
-  lenderVerificationDocumentMaxFileSize,
-  createSafeUploadFileName,
-  isLenderVerificationDocumentType,
-} from "@/lib/lender-verification";
+  uploadLenderVerificationDocument,
+  type LenderVerificationDocumentSubmitResult,
+} from "@/lib/lender-verification-upload";
+
+const lenderDetailsSchema = lenderProfileDetailsSchema;
+
+export type LenderDetailsSaveState = {
+  status: "idle" | "success" | "error";
+  message: string;
+  fieldErrors?: Partial<
+    Record<
+      | "contactPerson"
+      | "phoneNumber"
+      | "streetAddress"
+      | "addressRegion"
+      | "addressCity"
+      | "addressBarangay"
+      | "addressZipCode"
+      | "businessRegistrationNumber"
+      | "operatingArea"
+      | "minLoanAmount"
+      | "maxLoanAmount"
+      | "organizationName"
+      | "typicalRepaymentTerms"
+      | "lenderDescription",
+      string[]
+    >
+  >;
+  values?: Record<string, string>;
+};
 
 export type RepaymentProofReviewResult =
   | {
@@ -20,6 +49,220 @@ export type RepaymentProofReviewResult =
       ok: false;
       message: string;
     };
+
+export type LoanFundsReleaseResult =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+      fieldErrors?: Partial<
+        Record<"method" | "customMethod" | "reference" | "notes" | "proofFile", string[]>
+      >;
+    };
+
+const releaseProofBucket = "repayment-proofs";
+const releaseProofMaxFileSize = 5 * 1024 * 1024;
+const releaseProofAllowedTypes = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/webp",
+  "application/pdf",
+]);
+const releaseMethodOptions = new Set([
+  "Bank transfer",
+  "GCash",
+  "Cash",
+  "Maya",
+  "Other",
+]);
+
+const loanFundsReleaseSchema = z.object({
+  activeLoanId: z.string().uuid(),
+  method: z
+    .string()
+    .trim()
+    .min(1, "Choose a release method.")
+    .refine((value) => releaseMethodOptions.has(value), "Choose a release method."),
+  customMethod: z
+    .string()
+    .trim()
+    .max(80, "Keep the method under 80 characters.")
+    .optional(),
+  reference: z.string().trim().max(120, "Keep the reference under 120 characters.").optional(),
+  notes: z.string().trim().max(500, "Keep notes under 500 characters.").optional(),
+}).superRefine((value, context) => {
+  if (value.method === "Other" && !value.customMethod) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["customMethod"],
+      message: "Enter the release method.",
+    });
+  }
+});
+
+export async function markLoanFundsReleased(
+  _previousState: LoanFundsReleaseResult | null,
+  formData: FormData,
+): Promise<LoanFundsReleaseResult> {
+  const parsed = loanFundsReleaseSchema.safeParse({
+    activeLoanId: formData.get("activeLoanId"),
+    method: String(formData.get("method") ?? ""),
+    customMethod: String(formData.get("customMethod") ?? ""),
+    reference: String(formData.get("reference") ?? ""),
+    notes: String(formData.get("notes") ?? ""),
+  });
+
+  if (!parsed.success) {
+    const fieldErrors = parsed.error.flatten().fieldErrors;
+
+    return {
+      ok: false,
+      message: "Check the disbursement details.",
+      fieldErrors: {
+        method: fieldErrors.method,
+        customMethod: fieldErrors.customMethod,
+        reference: fieldErrors.reference,
+        notes: fieldErrors.notes,
+      },
+    };
+  }
+
+  const proofFile = formData.get("proofFile");
+  const hasProofFile = proofFile instanceof File && proofFile.size > 0;
+
+  if (hasProofFile && !releaseProofAllowedTypes.has(proofFile.type)) {
+    return {
+      ok: false,
+      message: "Upload a PNG, JPG, WEBP, or PDF file.",
+      fieldErrors: {
+        proofFile: ["Upload a PNG, JPG, WEBP, or PDF file."],
+      },
+    };
+  }
+
+  if (hasProofFile && proofFile.size > releaseProofMaxFileSize) {
+    return {
+      ok: false,
+      message: "Release proof must be 5MB or smaller.",
+      fieldErrors: {
+        proofFile: ["Release proof must be 5MB or smaller."],
+      },
+    };
+  }
+
+  let storagePath: string | null = null;
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return {
+        ok: false,
+        message: access.message,
+      };
+    }
+
+    const releaseMethod =
+      parsed.data.method === "Other"
+        ? (parsed.data.customMethod ?? "").trim()
+        : parsed.data.method;
+
+    if (hasProofFile) {
+      const safeFileName = createSafeReleaseProofFileName(proofFile.name);
+      storagePath = [
+        "lenders",
+        access.profile.id,
+        "loans",
+        parsed.data.activeLoanId,
+        "release",
+        `${Date.now()}-${safeFileName}`,
+      ].join("/");
+
+      const { error: uploadError } = await supabase.storage
+        .from(releaseProofBucket)
+        .upload(storagePath, proofFile, {
+          contentType: proofFile.type,
+          upsert: false,
+        });
+
+      if (uploadError) {
+        return {
+          ok: false,
+          message: "Could not upload release proof.",
+          fieldErrors: {
+            proofFile: ["Could not upload release proof."],
+          },
+        };
+      }
+    }
+
+    const { data, error } = await supabase.rpc("mark_loan_funds_released", {
+      p_active_loan_id: parsed.data.activeLoanId,
+      p_disbursement_method: releaseMethod,
+      p_disbursement_reference: parsed.data.reference || null,
+      p_disbursement_notes: parsed.data.notes || null,
+      p_release_proof_path: storagePath,
+      p_release_proof_file_name: hasProofFile ? proofFile.name : null,
+      p_release_proof_file_type: hasProofFile ? proofFile.type : null,
+      p_release_proof_file_size: hasProofFile ? proofFile.size : null,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      if (storagePath) {
+        await supabase.storage.from(releaseProofBucket).remove([storagePath]);
+      }
+
+      return {
+        ok: false,
+        message: result?.message ?? "Could not mark funds released.",
+      };
+    }
+
+    revalidatePath("/borrower");
+    revalidatePath("/lender");
+    revalidatePath(`/lender/loans/${parsed.data.activeLoanId}`);
+    revalidatePath("/lender/applications");
+
+    return {
+      ok: true,
+      message: result.message ?? "Funds marked as released.",
+    };
+  } catch {
+    if (storagePath) {
+      try {
+        const supabase = await createSupabaseServerClient();
+        await supabase.storage.from(releaseProofBucket).remove([storagePath]);
+      } catch {
+        // The release remains unreleased; cleanup failure should not expose internals.
+      }
+    }
+
+    return {
+      ok: false,
+      message: "Could not mark funds released.",
+    };
+  }
+}
+
+function createSafeReleaseProofFileName(fileName: string) {
+  const extension = fileName.includes(".")
+    ? fileName.slice(fileName.lastIndexOf(".")).toLowerCase()
+    : "";
+  const baseName = fileName.replace(/\.[^/.]+$/, "");
+  const safeBaseName = baseName
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 80);
+
+  return `${safeBaseName || "release-proof"}${extension}`;
+}
 
 export async function verifyRepaymentProof(
   proofId: string,
@@ -75,6 +318,7 @@ async function reviewRepaymentProof(
     }
 
     revalidatePath("/borrower");
+    revalidatePath("/borrower/offers/[offerId]", "page");
     revalidatePath("/lender");
     revalidatePath("/lender/applications");
 
@@ -95,143 +339,248 @@ async function reviewRepaymentProof(
   }
 }
 
-export type LenderVerificationDocumentSubmitResult =
-  | {
-      ok: true;
-      message: string;
-      documentId: string;
-    }
-  | {
-      ok: false;
-      code?: "consent_required";
-      message: string;
-    };
-
 export async function submitLenderVerificationDocument(
   _previousState: LenderVerificationDocumentSubmitResult | null,
   formData: FormData,
 ): Promise<LenderVerificationDocumentSubmitResult> {
+  return uploadLenderVerificationDocument(formData);
+}
+
+export async function saveLenderDetailsAction(
+  _previousState: LenderDetailsSaveState,
+  formData: FormData,
+): Promise<LenderDetailsSaveState> {
+  const addressSelection = {
+    regionCode: String(formData.get("addressRegionCode") ?? ""),
+    regionName: String(formData.get("addressRegionName") ?? ""),
+    cityOrMunicipality: String(formData.get("addressCity") ?? ""),
+    barangay: String(formData.get("addressBarangay") ?? ""),
+    zipCode: String(formData.get("addressZipCode") ?? ""),
+  };
+  const streetAddress = String(formData.get("streetAddress") ?? "");
+  const parsed = lenderDetailsSchema.safeParse({
+    organizationName: formData.get("organizationName"),
+    contactPerson: formData.get("contactPerson"),
+    phoneNumber: formData.get("phoneNumber"),
+    streetAddress,
+    address: addressSelection,
+    businessRegistrationNumber: formData.get("businessRegistrationNumber"),
+    minLoanAmount: formData.get("minLoanAmount"),
+    maxLoanAmount: formData.get("maxLoanAmount"),
+    typicalRepaymentTerms: formData.get("typicalRepaymentTerms"),
+    lenderDescription: formData.get("lenderDescription"),
+  });
+
+  if (!parsed.success) {
+    const fieldErrors = getLenderDetailsValidationFieldErrors(parsed.error.issues);
+    return {
+      status: "error",
+      message: "Check the highlighted fields.",
+      fieldErrors,
+      values: readLenderDetailsFormValues(formData),
+    };
+  }
+
   try {
     const supabase = await createSupabaseServerClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      return { ok: false, message: "Sign in to continue." };
-    }
-
-    const documentType = formData.get("documentType");
-    const documentFile =
-      formData.get("documentFile") ?? formData.get("proofFile");
-    const lenderProfileId = String(formData.get("lenderProfileId") ?? "");
-
-    if (!isLenderVerificationDocumentType(documentType)) {
-      return { ok: false, message: "Choose a verification document type." };
-    }
-
-    if (!(documentFile instanceof File) || documentFile.size === 0) {
-      return { ok: false, message: "Choose a verification document to upload." };
-    }
-
-    if (!lenderVerificationDocumentAllowedTypes.has(documentFile.type)) {
-      return { ok: false, message: "Upload a JPG, PNG, WebP, or PDF file." };
-    }
-
-    if (documentFile.size > lenderVerificationDocumentMaxFileSize) {
-      return { ok: false, message: "Upload a file up to 5 MB." };
-    }
-
-    const { data: profile, error: profileError } = await supabase
-      .from("lender_profiles")
-      .select("id, user_id, verification_status")
-      .eq("id", lenderProfileId)
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    if (profileError || !profile) {
-      return { ok: false, message: "Lender profile is unavailable." };
-    }
-
-    if (profile.verification_status === "approved") {
-      return { ok: false, message: "This lender verification is already approved." };
-    }
-
-    if (
-      !["incomplete", "pending", "rejected"].includes(
-        profile.verification_status,
-      )
-    ) {
-      return { ok: false, message: "Could not upload verification document." };
-    }
-
-    const safeFileName = createSafeUploadFileName(
-      documentFile.name,
-      "verification-document",
+    const resolvedAddress = resolveLenderOnboardingAddress(
+      parsed.data.address,
+      parsed.data.streetAddress || undefined,
     );
-    const storagePath = [
-      "lenders",
-      user.id,
-      "verification",
-      profile.id,
-      `${Date.now()}-${safeFileName}`,
-    ].join("/");
-
-    const { error: uploadError } = await supabase.storage
-      .from(lenderVerificationDocumentBucket)
-      .upload(storagePath, documentFile, {
-        contentType: documentFile.type,
-        upsert: false,
-      });
-
-    if (uploadError) {
-      return { ok: false, message: "Could not upload verification document." };
-    }
-
-    const { data, error } = await supabase.rpc(
-      "submit_lender_verification_document",
-      {
-        p_lender_profile_id: profile.id,
-        p_storage_path: storagePath,
-        p_document_type: documentType,
-        p_file_name: documentFile.name,
-        p_file_type: documentFile.type,
-        p_file_size: documentFile.size,
-      },
+    const lenderDetailsPayload = {
+      p_organization_name: parsed.data.organizationName,
+      p_contact_person: parsed.data.contactPerson.trim(),
+      p_phone_number: parsed.data.phoneNumber,
+      p_business_address: resolvedAddress.businessAddress,
+      p_operating_area: resolvedAddress.operatingArea,
+      p_business_registration_number:
+        parsed.data.businessRegistrationNumber || null,
+      p_min_loan_amount: parsed.data.minLoanAmount,
+      p_max_loan_amount: parsed.data.maxLoanAmount,
+      p_typical_repayment_terms: parsed.data.typicalRepaymentTerms,
+      p_lender_description: parsed.data.lenderDescription?.trim() || null,
+      p_address_region: resolvedAddress.addressRegion,
+      p_address_city: resolvedAddress.addressCity,
+      p_address_barangay: resolvedAddress.addressBarangay,
+      p_address_zip_code: resolvedAddress.addressZipCode,
+    };
+    let { data, error } = await supabase.rpc(
+      "complete_lender_profile_details",
+      lenderDetailsPayload,
     );
 
-    const result = data as
-      | {
-          ok?: boolean;
-          code?: string;
-          message?: string;
-          document_id?: string;
-        }
-      | null;
+    if (error && isStaleLenderDetailsRpcError(error.message)) {
+      console.error(
+        "complete_lender_profile_details RPC is missing the extended signature; falling back to submit_lender_onboarding.",
+        error.message,
+      );
 
-    if (error || !result?.ok || !result.document_id) {
-      await supabase.storage
-        .from(lenderVerificationDocumentBucket)
-        .remove([storagePath]);
+      const fallback = await supabase.rpc(
+        "submit_lender_onboarding",
+        lenderDetailsPayload,
+      );
+
+      data = fallback.data;
+      error = fallback.error;
+    }
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      const message =
+        result?.message ??
+        formatLenderDetailsSaveError(error?.message) ??
+        "We could not save your lender details. Please try again.";
+
+      if (error) {
+        console.error("Could not save lender details.", error.message);
+      }
 
       return {
-        ok: false,
-        message: result?.message ?? "Could not save verification document.",
+        status: "error",
+        message,
+        fieldErrors: mapLenderDetailsSaveMessageToFieldErrors(message),
+        values: readLenderDetailsFormValues(formData),
       };
     }
 
     revalidatePath("/lender");
-    revalidatePath("/manager");
     revalidatePath("/manager/lenders");
 
     return {
-      ok: true,
-      message: result.message ?? "Verification document uploaded.",
-      documentId: result.document_id,
+      status: "success",
+      message: result.message ?? "Lender details submitted.",
     };
-  } catch {
-    return { ok: false, message: "Could not upload verification document." };
+  } catch (error) {
+    console.error("Unexpected lender details save failure.", error);
+
+    return {
+      status: "error",
+      message: "We could not save your lender details. Please try again.",
+      values: readLenderDetailsFormValues(formData),
+    };
   }
+}
+
+function readLenderDetailsFormValues(formData: FormData) {
+  return {
+    organizationName: String(formData.get("organizationName") ?? ""),
+    contactPerson: String(formData.get("contactPerson") ?? ""),
+    phoneNumber: String(formData.get("phoneNumber") ?? ""),
+    streetAddress: String(formData.get("streetAddress") ?? ""),
+    businessRegistrationNumber: String(
+      formData.get("businessRegistrationNumber") ?? "",
+    ),
+    minLoanAmount: String(formData.get("minLoanAmount") ?? ""),
+    maxLoanAmount: String(formData.get("maxLoanAmount") ?? ""),
+    typicalRepaymentTerms: String(formData.get("typicalRepaymentTerms") ?? ""),
+    lenderDescription: String(formData.get("lenderDescription") ?? ""),
+  };
+}
+
+function getLenderDetailsValidationFieldErrors(
+  issues: Array<{ path: PropertyKey[]; message: string }>,
+): LenderDetailsSaveState["fieldErrors"] {
+  const fieldErrors: LenderDetailsSaveState["fieldErrors"] = {};
+  const fieldMap: Record<string, keyof NonNullable<LenderDetailsSaveState["fieldErrors"]>> = {
+    organizationName: "organizationName",
+    contactPerson: "contactPerson",
+    phoneNumber: "phoneNumber",
+    streetAddress: "streetAddress",
+    "address.regionCode": "addressRegion",
+    "address.regionName": "addressRegion",
+    "address.cityOrMunicipality": "addressCity",
+    "address.barangay": "addressBarangay",
+    "address.zipCode": "addressZipCode",
+    address: "addressRegion",
+    businessRegistrationNumber: "businessRegistrationNumber",
+    minLoanAmount: "minLoanAmount",
+    maxLoanAmount: "maxLoanAmount",
+    typicalRepaymentTerms: "typicalRepaymentTerms",
+    lenderDescription: "lenderDescription",
+  };
+
+  for (const issue of issues) {
+    const field = fieldMap[issue.path.join(".")];
+
+    if (!field) {
+      continue;
+    }
+
+    fieldErrors[field] = [...(fieldErrors[field] ?? []), issue.message];
+  }
+
+  return fieldErrors;
+}
+
+function isStaleLenderDetailsRpcError(message?: string) {
+  if (!message) {
+    return false;
+  }
+
+  return (
+    message.includes("Could not find the function") ||
+    message.includes("complete_lender_profile_details") ||
+    message.includes("PGRST202")
+  );
+}
+
+function formatLenderDetailsSaveError(message?: string) {
+  if (!message) {
+    return null;
+  }
+
+  if (isStaleLenderDetailsRpcError(message)) {
+    return "We could not save your lender details because the lender profile update is not available. Run the latest database migrations and try again.";
+  }
+
+  if (message.includes("JWT") || message.includes("Auth session missing")) {
+    return "Sign in again before saving lender details.";
+  }
+
+  return message;
+}
+
+function mapLenderDetailsSaveMessageToFieldErrors(message: string) {
+  const normalized = message.toLowerCase();
+
+  if (normalized.includes("organization")) {
+    return { organizationName: [message] };
+  }
+
+  if (normalized.includes("contact person")) {
+    return { contactPerson: [message] };
+  }
+
+  if (normalized.includes("phone")) {
+    return { phoneNumber: [message] };
+  }
+
+  if (normalized.includes("address")) {
+    return { addressRegion: [message] };
+  }
+
+  if (normalized.includes("area")) {
+    return { addressRegion: [message] };
+  }
+
+  if (normalized.includes("registration")) {
+    return { businessRegistrationNumber: [message] };
+  }
+
+  if (normalized.includes("loan amount") || normalized.includes("loan range")) {
+    return { maxLoanAmount: [message] };
+  }
+
+  if (normalized.includes("repayment")) {
+    return { typicalRepaymentTerms: [message] };
+  }
+
+  if (normalized.includes("description")) {
+    return { lenderDescription: [message] };
+  }
+
+  return undefined;
 }
 
 export type LenderProfileChangeRequestSubmitResult =
@@ -285,6 +634,14 @@ export async function submitLenderProfileChangeRequest(
           String(formData.get("typicalRepaymentTerms") ?? "") || null,
         p_proposed_lender_description:
           String(formData.get("lenderDescription") ?? "") || null,
+        p_proposed_address_region:
+          String(formData.get("addressRegionCode") ?? "") || null,
+        p_proposed_address_city:
+          String(formData.get("addressCity") ?? "") || null,
+        p_proposed_address_barangay:
+          String(formData.get("addressBarangay") ?? "") || null,
+        p_proposed_address_zip_code:
+          String(formData.get("addressZipCode") ?? "") || null,
       },
     );
 
@@ -345,5 +702,92 @@ export async function cancelLenderProfileChangeRequest(
     return { ok: true, message: result.message ?? "Change request cancelled." };
   } catch {
     return { ok: false, message: "Could not cancel change request." };
+  }
+}
+
+export type RepaymentChannelResult =
+  | { ok: true; message: string; channelId?: string }
+  | { ok: false; message: string };
+
+export async function addRepaymentChannel(
+  activeLoanId: string,
+  channel: string,
+  accountName: string,
+  accountNumber: string,
+  instructions: string,
+): Promise<RepaymentChannelResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return { ok: false, message: access.message };
+    }
+
+    const { data, error } = await supabase.rpc("add_repayment_channel", {
+      p_active_loan_id: activeLoanId,
+      p_channel: channel,
+      p_account_name: accountName,
+      p_account_number: accountNumber,
+      p_instructions: instructions || null,
+    });
+
+    const result = data as
+      | { ok?: boolean; message?: string; channel_id?: string }
+      | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not add repayment channel.",
+      };
+    }
+
+    revalidatePath("/lender");
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      message: result.message ?? "Repayment channel added.",
+      channelId: result.channel_id,
+    };
+  } catch {
+    return { ok: false, message: "Could not add repayment channel." };
+  }
+}
+
+export async function removeRepaymentChannel(
+  channelId: string,
+): Promise<RepaymentChannelResult> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const access = await requireApprovedLender(supabase);
+
+    if (!access.ok) {
+      return { ok: false, message: access.message };
+    }
+
+    const { data, error } = await supabase.rpc("remove_repayment_channel", {
+      p_channel_id: channelId,
+    });
+
+    const result = data as { ok?: boolean; message?: string } | null;
+
+    if (error || !result?.ok) {
+      return {
+        ok: false,
+        message: result?.message ?? "Could not remove repayment channel.",
+      };
+    }
+
+    revalidatePath("/lender");
+    revalidatePath("/borrower");
+
+    return {
+      ok: true,
+      message: result.message ?? "Repayment channel removed.",
+    };
+  } catch {
+    return { ok: false, message: "Could not remove repayment channel." };
   }
 }

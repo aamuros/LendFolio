@@ -76,13 +76,17 @@ import {
   AlertDescription,
 } from "@/components/ui/alert";
 import { LenderEvidenceDocumentRow } from "@/app/manager/lenders/lender-evidence-document-row";
+import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 
 type PageProps = {
   searchParams: Promise<{
     review?: string;
+    documentReview?: string;
+    changeRequestReview?: string;
     status?: string;
     q?: string;
     selected?: string;
+    scrollY?: string;
   }>;
 };
 
@@ -503,7 +507,9 @@ function SelectedLenderDetail({
   const blocked = !profileComplete || !documentsComplete || !disclosuresCurrent;
   const blockerReason = blocked
     ? [
-        !profileComplete ? `Needs profile: ${missingFields.join(", ")}` : null,
+        !profileComplete
+          ? `Waiting for lender to complete profile details: ${missingFields.join(", ")}`
+          : null,
         !documentsComplete ? `Needs documents: ${missingDocuments.map((dt: LenderVerificationDocumentType) => lenderVerificationDocumentTypeLabels[dt]).join(", ")}` : null,
         !disclosuresCurrent ? "Needs disclosures" : null,
       ]
@@ -676,12 +682,7 @@ function MetaField({ label, value }: { label: string; value: string }) {
 }
 
 function getMissingProfileFields(lender: ManagerLenderRow): string[] {
-  const fields: string[] = [];
-  if (!lender.contactPerson) fields.push("contact");
-  if (!lender.operatingArea) fields.push("area");
-  if (lender.minLoanAmount === 0 && lender.maxLoanAmount === 0)
-    fields.push("loan range");
-  return fields;
+  return getLenderProfileCompletion(lender).missingFields;
 }
 
 function ReviewReadinessSummary({
@@ -792,28 +793,29 @@ function LenderDetailsSection({ lender }: { lender: ManagerLenderRow }) {
       ? null
       : `${formatCurrency(lender.minLoanAmount)} \u2013 ${formatCurrency(lender.maxLoanAmount)}`;
 
-  if (!loanRange && !lender.typicalRepaymentTerms) {
-    return null;
-  }
-
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <BanknoteIcon className="size-4 text-muted-foreground" />
-        <h3 className="text-sm font-semibold">Lending details</h3>
+        <h3 className="text-sm font-semibold">Submitted lender details</h3>
       </div>
-      <div className="flex flex-wrap gap-x-6 gap-y-2 text-xs">
-        {loanRange ? (
-          <div>
-            <span className="text-muted-foreground">Loan range: </span>
-            <span className="font-medium">{loanRange}</span>
-          </div>
-        ) : null}
+      <div className="grid gap-2 sm:grid-cols-3">
+        <MetaCard
+          label="Contact"
+          value={lender.phoneNumber || lender.contactPerson || null}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Lending area"
+          value={lender.operatingArea || null}
+          fallback="Missing"
+        />
+        <MetaCard label="Loan range" value={loanRange} fallback="Missing" />
         {lender.typicalRepaymentTerms ? (
-          <div>
-            <span className="text-muted-foreground">Repayment terms: </span>
-            <span className="font-medium">{lender.typicalRepaymentTerms}</span>
-          </div>
+          <MetaCard
+            label="Repayment terms"
+            value={lender.typicalRepaymentTerms}
+          />
         ) : null}
       </div>
     </div>

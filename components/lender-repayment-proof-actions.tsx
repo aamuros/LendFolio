@@ -94,7 +94,7 @@ export function LenderRepaymentProofActions({
           ) : reviewedStatus === "verified" ? (
             "Verified"
           ) : (
-            "Verify repayment"
+            "Accept Proof"
           )}
         </Button>
         {proofUrl ? (

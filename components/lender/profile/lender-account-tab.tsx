@@ -5,15 +5,20 @@ import {
   LenderProfileHub,
   type LenderProfileView,
 } from "./lender-profile-hub";
+import type { ConsentStatus } from "@/lib/consents";
 
 export function LenderAccountTab({
   email,
+  consentStatus,
   lenderProfile,
+  onEditProfile,
   onNavigateHome,
 }: {
   email: string;
+  consentStatus?: ConsentStatus;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   lenderProfile: any;
+  onEditProfile?: () => void;
   onNavigateHome?: () => void;
 }) {
   const [activeView, setActiveView] = useState<LenderProfileView>("index");
@@ -22,7 +27,9 @@ export function LenderAccountTab({
     <LenderProfileHub
       accountEmail={email}
       activeView={activeView}
+      consentStatus={consentStatus}
       lenderProfile={lenderProfile}
+      onEditProfile={onEditProfile ?? (() => {})}
       onNavigateHome={onNavigateHome ?? (() => {})}
       onViewChange={setActiveView}
     />

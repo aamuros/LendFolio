@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { requireManager } from "@/lib/access-control";
 import type { Json } from "@/lib/supabase/types";
 
@@ -28,7 +28,7 @@ export async function refreshOverdueStatusesAction(formData?: FormData) {
   const access = await requireManager();
 
   if (!access.ok) {
-    redirect(`${safeReturnPath}?overdueRefresh=error`);
+    redirect(`${safeReturnPath}?overdueRefresh=error`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -37,7 +37,7 @@ export async function refreshOverdueStatusesAction(formData?: FormData) {
   const result = data as { ok?: boolean } | null;
 
   if (error || !result?.ok) {
-    redirect(`${safeReturnPath}?overdueRefresh=error`);
+    redirect(`${safeReturnPath}?overdueRefresh=error`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -46,7 +46,7 @@ export async function refreshOverdueStatusesAction(formData?: FormData) {
   revalidatePath("/borrower");
   revalidatePath("/lender");
 
-  redirect(`${safeReturnPath}?overdueRefresh=success`);
+  redirect(`${safeReturnPath}?overdueRefresh=success`, RedirectType.replace);
 }
 
 export async function reviewLenderAction(formData: FormData) {
@@ -55,11 +55,12 @@ export async function reviewLenderAction(formData: FormData) {
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !lenderProfileId) {
-    const qs = buildReturnQuery({ review: "error", selected });
-    redirect(`/manager/lenders?${qs}`);
+    const qs = buildReturnQuery({ review: "error", selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -75,9 +76,13 @@ export async function reviewLenderAction(formData: FormData) {
 
   if (error || !result?.ok) {
     const reviewCode =
-      result?.code === "consent_required" ? "consent-required" : "error";
-    const qs = buildReturnQuery({ review: reviewCode, selected });
-    redirect(`/manager/lenders?${qs}`);
+      result?.code === "consent_required"
+        ? "consent-required"
+        : result?.code === "profile_details_required"
+          ? "profile-details-required"
+          : "error";
+    const qs = buildReturnQuery({ review: reviewCode, selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -91,8 +96,8 @@ export async function reviewLenderAction(formData: FormData) {
         ? "pending"
         : "rejected";
 
-  const qs = buildReturnQuery({ review, selected });
-  redirect(`/manager/lenders?${qs}`);
+  const qs = buildReturnQuery({ review, selected, scrollY });
+  redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }
 
 export async function reviewBorrowerVerificationAction(formData: FormData) {
@@ -101,11 +106,12 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !borrowerId) {
-    const qs = buildReturnQuery({ review: "error", selected });
-    redirect(`/manager/borrower-verifications?${qs}`);
+    const qs = buildReturnQuery({ review: "error", selected, scrollY });
+    redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -122,8 +128,8 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
   if (error || !result?.ok) {
     const reviewCode =
       result?.code === "documents_required" ? "documents-required" : "error";
-    const qs = buildReturnQuery({ review: reviewCode, selected });
-    redirect(`/manager/borrower-verifications?${qs}`);
+    const qs = buildReturnQuery({ review: reviewCode, selected, scrollY });
+    redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -139,8 +145,8 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
         ? "pending"
         : "rejected";
 
-  const qs = buildReturnQuery({ review, selected });
-  redirect(`/manager/borrower-verifications?${qs}`);
+  const qs = buildReturnQuery({ review, selected, scrollY });
+  redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
 }
 
 export async function reviewBorrowerVerificationDocumentAction(
@@ -150,11 +156,12 @@ export async function reviewBorrowerVerificationDocumentAction(
   const decision = String(formData.get("decision") ?? "");
   const reviewNotes = String(formData.get("reviewNotes") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !documentId) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
-    redirect(`/manager/borrower-verifications?${qs}`);
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
+    redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -168,8 +175,8 @@ export async function reviewBorrowerVerificationDocumentAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
-    redirect(`/manager/borrower-verifications?${qs}`);
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
+    redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -177,8 +184,8 @@ export async function reviewBorrowerVerificationDocumentAction(
   revalidatePath("/borrower");
 
   const review = decision === "accept" ? "accepted" : "rejected";
-  const qs = buildReturnQuery({ documentReview: review, selected });
-  redirect(`/manager/borrower-verifications?${qs}`);
+  const qs = buildReturnQuery({ documentReview: review, selected, scrollY });
+  redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
 }
 
 export async function reviewLenderVerificationDocumentAction(
@@ -188,11 +195,12 @@ export async function reviewLenderVerificationDocumentAction(
   const decision = String(formData.get("decision") ?? "");
   const reviewNotes = String(formData.get("reviewNotes") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !documentId) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
-    redirect(`/manager/lenders?${qs}`);
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -206,8 +214,8 @@ export async function reviewLenderVerificationDocumentAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ documentReview: "error", selected });
-    redirect(`/manager/lenders?${qs}`);
+    const qs = buildReturnQuery({ documentReview: "error", selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -215,8 +223,8 @@ export async function reviewLenderVerificationDocumentAction(
   revalidatePath("/lender");
 
   const review = decision === "accept" ? "accepted" : "rejected";
-  const qs = buildReturnQuery({ documentReview: review, selected });
-  redirect(`/manager/lenders?${qs}`);
+  const qs = buildReturnQuery({ documentReview: review, selected, scrollY });
+  redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }
 
 export async function reviewLenderProfileChangeRequestAction(
@@ -227,11 +235,12 @@ export async function reviewLenderProfileChangeRequestAction(
   const managerReviewNotes = String(formData.get("managerReviewNotes") ?? "");
   const rejectionReason = String(formData.get("rejectionReason") ?? "");
   const selected = String(formData.get("selected") ?? "");
+  const scrollY = String(formData.get("scrollY") ?? "");
   const access = await requireManager();
 
   if (!access.ok || !requestId) {
-    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
-    redirect(`/manager/lenders?${qs}`);
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   const { data, error } = await access.supabase.rpc(
@@ -246,8 +255,8 @@ export async function reviewLenderProfileChangeRequestAction(
   const result = data as Json as LenderReviewResult | null;
 
   if (error || !result?.ok) {
-    const qs = buildReturnQuery({ changeRequestReview: "error", selected });
-    redirect(`/manager/lenders?${qs}`);
+    const qs = buildReturnQuery({ changeRequestReview: "error", selected, scrollY });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
   revalidatePath("/manager");
@@ -255,6 +264,6 @@ export async function reviewLenderProfileChangeRequestAction(
   revalidatePath("/lender");
 
   const review = decision === "approve" ? "approved" : "rejected";
-  const qs = buildReturnQuery({ changeRequestReview: review, selected });
-  redirect(`/manager/lenders?${qs}`);
+  const qs = buildReturnQuery({ changeRequestReview: review, selected, scrollY });
+  redirect(`/manager/lenders?${qs}`, RedirectType.replace);
 }

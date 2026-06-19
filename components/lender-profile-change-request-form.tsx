@@ -11,13 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
@@ -28,7 +21,12 @@ import {
   XIcon,
 } from "lucide-react";
 import { formatDateTime } from "@/lib/manager-date-format";
-import { philippineOperatingAreas } from "@/lib/lender-onboarding";
+import {
+  AddressSelect,
+  createEmptyAddressSelection,
+} from "@/components/address/address-select";
+import type { AddressSelectValue } from "@/components/address/address-select";
+import { formatPhilippineAddress, getRegionNameByCode } from "@/lib/philippine-addresses";
 
 type LenderProfileChangeRequest = {
   id: string;
@@ -41,6 +39,10 @@ type LenderProfileChangeRequest = {
   proposedMaxLoanAmount: number | null;
   proposedTypicalRepaymentTerms: string | null;
   proposedLenderDescription: string | null;
+  proposedAddressRegion: string | null;
+  proposedAddressCity: string | null;
+  proposedAddressBarangay: string | null;
+  proposedAddressZipCode: string | null;
   status: LenderProfileChangeRequestStatus;
   submittedAt: string;
   reviewedAt: string | null;
@@ -72,7 +74,10 @@ export function LenderProfileChangeRequestForm({
   const [message, setMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCancelling, setIsCancelling] = useState<string | null>(null);
-  const [operatingArea, setOperatingArea] = useState("");
+  const [address, setAddress] = useState<AddressSelectValue>(
+    createEmptyAddressSelection(),
+  );
+  const [streetAddress, setStreetAddress] = useState("");
 
   const pendingRequest = changeRequests.find((r) => r.status === "pending");
 
@@ -80,15 +85,39 @@ export function LenderProfileChangeRequestForm({
     setIsSubmitting(true);
     setMessage("");
 
-    if (formData.get("operatingArea") === "__keep__") {
+    const hasAddress = address.regionCode && address.cityOrMunicipality && address.barangay && address.zipCode;
+
+    if (hasAddress) {
+      const regionName = address.regionName || getRegionNameByCode(address.regionCode);
+      const formatted = formatPhilippineAddress(
+        { ...address, regionName },
+        streetAddress,
+      );
+      formData.set("businessAddress", formatted);
+      formData.set("operatingArea", regionName);
+      formData.set("addressRegionCode", address.regionCode);
+      formData.set("addressRegionName", regionName);
+      formData.set("addressCity", address.cityOrMunicipality);
+      formData.set("addressBarangay", address.barangay);
+      formData.set("addressZipCode", address.zipCode);
+      formData.set("streetAddress", streetAddress);
+    } else {
+      formData.set("businessAddress", "");
       formData.set("operatingArea", "");
+      formData.set("addressRegionCode", "");
+      formData.set("addressRegionName", "");
+      formData.set("addressCity", "");
+      formData.set("addressBarangay", "");
+      formData.set("addressZipCode", "");
+      formData.set("streetAddress", "");
     }
 
     const result = await submitLenderProfileChangeRequest(formData);
     setMessage(result.message);
 
     if (result.ok) {
-      setOperatingArea("");
+      setAddress(createEmptyAddressSelection());
+      setStreetAddress("");
     }
 
     setIsSubmitting(false);
@@ -208,53 +237,28 @@ export function LenderProfileChangeRequestForm({
               </div>
 
               <div className="grid gap-1.5">
-                <Label htmlFor="cr-address" className="text-xs font-medium">
-                  Business address
-                </Label>
-                <Input
-                  id="cr-address"
-                  name="businessAddress"
-                  placeholder={currentProfile.business_address ?? ""}
-                  maxLength={240}
+                <Label className="text-xs font-medium">Business address</Label>
+                <input type="hidden" name="businessAddress" value="" />
+                <input type="hidden" name="operatingArea" value="" />
+                <input type="hidden" name="addressRegionCode" value="" />
+                <input type="hidden" name="addressRegionName" value="" />
+                <input type="hidden" name="addressCity" value="" />
+                <input type="hidden" name="addressBarangay" value="" />
+                <input type="hidden" name="addressZipCode" value="" />
+                <input type="hidden" name="streetAddress" value="" />
+                <AddressSelect
+                  value={address}
+                  onChange={setAddress}
+                  idPrefix="cr-address"
+                  triggerClassName="h-9 bg-background"
+                  streetAddress={streetAddress}
+                  onStreetAddressChange={setStreetAddress}
+                  legacyAddress={
+                    currentProfile.business_address
+                      ? `${currentProfile.business_address}${currentProfile.operating_area ? ` (${currentProfile.operating_area})` : ""}`
+                      : null
+                  }
                 />
-              </div>
-
-              <div className="grid gap-1.5">
-                <Label htmlFor="cr-area" className="text-xs font-medium">
-                  Operating area
-                </Label>
-                <input
-                  type="hidden"
-                  name="operatingArea"
-                  value={operatingArea}
-                />
-                <Select
-                  value={operatingArea}
-                  onValueChange={setOperatingArea}
-                >
-                  <SelectTrigger
-                    id="cr-area"
-                    className="h-9 bg-background"
-                  >
-                    <SelectValue
-                      placeholder={
-                        currentProfile.operating_area
-                          ? `Current: ${currentProfile.operating_area}`
-                          : "Select operating area"
-                      }
-                    />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="__keep__">
-                      Keep current value
-                    </SelectItem>
-                    {philippineOperatingAreas.map((area) => (
-                      <SelectItem key={area} value={area}>
-                        {area}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
 
               <div className="grid gap-1.5">
@@ -384,16 +388,41 @@ function ChangeRequestDiff({
       current: currentProfile.contact_person,
       proposed: request.proposedContactPerson,
     },
-    {
-      label: "Business address",
-      current: currentProfile.business_address,
-      proposed: request.proposedBusinessAddress,
-    },
-    {
-      label: "Operating area",
-      current: currentProfile.operating_area,
-      proposed: request.proposedOperatingArea,
-    },
+    ...(request.proposedAddressRegion
+      ? [
+          {
+            label: "Business address (Region)",
+            current: currentProfile.operating_area,
+            proposed: request.proposedAddressRegion,
+          },
+          {
+            label: "Business address (City)",
+            current: null,
+            proposed: request.proposedAddressCity,
+          },
+          {
+            label: "Business address (Barangay)",
+            current: null,
+            proposed: request.proposedAddressBarangay,
+          },
+          {
+            label: "Business address (ZIP Code)",
+            current: null,
+            proposed: request.proposedAddressZipCode,
+          },
+        ]
+      : [
+          {
+            label: "Business address",
+            current: currentProfile.business_address,
+            proposed: request.proposedBusinessAddress,
+          },
+          {
+            label: "Operating area",
+            current: currentProfile.operating_area,
+            proposed: request.proposedOperatingArea,
+          },
+        ]),
     {
       label: "Registration number",
       current: currentProfile.business_registration_number,

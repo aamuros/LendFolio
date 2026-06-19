@@ -13,9 +13,12 @@ import {
   type BorrowerVerificationDocumentSubmitResult,
 } from "@/app/borrower/actions";
 import { acceptUserConsentsAction } from "@/app/consents/actions";
+import { borrowerVerificationUpdatedEvent } from "@/lib/borrower-workflow-events";
 import {
   borrowerFacingVerificationStateDescriptions,
   borrowerFacingVerificationStateLabels,
+  borrowerVerificationDocumentAllowedTypes,
+  borrowerVerificationDocumentMaxFileSize,
   borrowerVerificationDocumentTypeDescriptions,
   borrowerVerificationDocumentTypeLabels,
   getBorrowerFacingVerificationState,
@@ -30,7 +33,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
 import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
@@ -155,6 +158,7 @@ function HeaderCard({
 }) {
   const tone = getFacingStateTone(facingState);
   const isWaiting = facingState === "waiting_review" || facingState === "under_review";
+  const needsUpdate = facingState === "needs_update";
 
   return (
     <div className="grid gap-3">
@@ -167,20 +171,30 @@ function HeaderCard({
       <p className="text-sm text-muted-foreground">
         {borrowerFacingVerificationStateDescriptions[facingState]}
       </p>
+      {needsUpdate ? (
+        <Alert>
+          <AlertCircle className="size-4" />
+          <AlertTitle>Verification update required</AlertTitle>
+          <AlertDescription>
+            Some profile details changed after approval. Please replace your
+            verification documents so we can review the updated information.
+          </AlertDescription>
+        </Alert>
+      ) : null}
       {isWaiting ? (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-700">
+        <div className="flex items-center gap-2 rounded-lg border border-[#E2DAC6] bg-[#F8F1DD] px-3.5 py-2.5 text-xs text-[#6A4B17]">
           <Clock className="size-3.5 shrink-0" />
           No action needed right now.
         </div>
       ) : null}
-      {verification.rejectionReason ? (
+      {verification.rejectionReason && !needsUpdate ? (
         <Alert variant="destructive">
           <AlertDescription>
             {verification.rejectionReason}
           </AlertDescription>
         </Alert>
       ) : null}
-      {verification.managerReviewNotes ? (
+      {verification.managerReviewNotes && !needsUpdate ? (
         <Alert>
           <AlertDescription>
             {verification.managerReviewNotes}
@@ -284,6 +298,7 @@ function RequiredDocumentsSection({
     documentType: BorrowerVerificationDocumentType;
     doc: NonNullable<ReturnType<typeof getLatestDocumentForType>>;
   } | null>(null);
+  const replacementRequired = verification.status === "needs_resubmission";
 
   return (
     <>
@@ -291,7 +306,9 @@ function RequiredDocumentsSection({
         <CardHeader>
           <CardTitle className="text-sm font-semibold">Required documents</CardTitle>
           <CardDescription className="text-xs">
-            Upload both required documents to proceed with verification.
+            {replacementRequired
+              ? "Replace both required documents to resubmit verification."
+              : "Upload both required documents to proceed with verification."}
           </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
@@ -345,6 +362,7 @@ function RequiredDocumentRow({
   );
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [fileValidationError, setFileValidationError] = useState("");
   const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
   const previewUrlRef = useRef<string | null>(null);
 
@@ -362,6 +380,7 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
+    window.dispatchEvent(new Event(borrowerVerificationUpdatedEvent));
     router.refresh();
   }, [router, state]);
 
@@ -378,19 +397,50 @@ function RequiredDocumentRow({
       }
       setSelectedFile(null);
       setPreviewUrl(null);
+      setFileValidationError("");
     }
 
     form.addEventListener("reset", handleFormReset);
     return () => form.removeEventListener("reset", handleFormReset);
   }, []);
 
+  function clearSelectedFile(input: HTMLInputElement) {
+    input.value = "";
+    setSelectedFile(null);
+    setPreviewUrl(null);
+    setLocalPreviewOpen(false);
+  }
+
   function handleFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0] ?? null;
     if (previewUrlRef.current) {
       URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
     }
+
+    setFileValidationError("");
+
+    if (!file) {
+      clearSelectedFile(event.currentTarget);
+      return;
+    }
+
+    if (!borrowerVerificationDocumentAllowedTypes.has(file.type)) {
+      clearSelectedFile(event.currentTarget);
+      setFileValidationError("Upload a JPG, PNG, WebP, or PDF file.");
+      return;
+    }
+
+    if (file.size > borrowerVerificationDocumentMaxFileSize) {
+      clearSelectedFile(event.currentTarget);
+      setFileValidationError(
+        `This file is ${formatFileSize(file.size)}. Upload a file up to 5 MB.`,
+      );
+      return;
+    }
+
     setSelectedFile(file);
-    const url = file ? URL.createObjectURL(file) : null;
+    const url = URL.createObjectURL(file);
     previewUrlRef.current = url;
     setPreviewUrl(url);
   }
@@ -399,10 +449,15 @@ function RequiredDocumentRow({
     verification,
     documentType,
   );
-  const latestDoc = getLatestDocumentForType(verification, documentType);
-  const showUpload =
-    (canUpload || docStatus.state === "submitted") &&
-    docStatus.state !== "accepted";
+  const replacementRequired = verification.status === "needs_resubmission";
+  const latestDoc = replacementRequired
+    ? getLatestReplacementCandidateForType(verification, documentType)
+    : getLatestDocumentForType(verification, documentType);
+  const showUpload = canUpload && docStatus.state !== "accepted";
+  const previousFileLabel =
+    replacementRequired && latestDoc?.status !== "submitted"
+      ? "Previously accepted file"
+      : "Uploaded file";
 
   return (
     <div>
@@ -423,6 +478,9 @@ function RequiredDocumentRow({
           <div className="flex items-center gap-3 rounded-lg bg-muted/40 px-3 py-2">
             <FileText className="size-4 shrink-0 text-muted-foreground" />
             <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-medium uppercase tracking-normal text-muted-foreground">
+                {previousFileLabel}
+              </p>
               <button
                 type="button"
                 className="text-sm font-medium truncate text-left hover:underline w-full"
@@ -490,20 +548,27 @@ function RequiredDocumentRow({
                 ) : null}
               </div>
             ) : null}
+            {fileValidationError ? (
+              <p className="text-xs text-destructive" role="alert">
+                {fileValidationError}
+              </p>
+            ) : null}
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || Boolean(fileValidationError)}
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
                 <UploadIcon className="size-3" />
                 {isPending
                   ? "Uploading..."
-                  : docStatus.state === "rejected"
-                    ? "Replace"
-                    : latestDoc
+                  : replacementRequired
+                    ? `Replace ${borrowerVerificationDocumentTypeLabels[documentType]}`
+                    : docStatus.state === "rejected"
                       ? "Replace"
-                      : "Upload"}
+                      : latestDoc
+                        ? "Replace"
+                        : "Upload"}
               </Button>
               <p className="text-xs text-muted-foreground">
                 JPG, PNG, WebP, or PDF. Max 5 MB.
@@ -558,8 +623,8 @@ function ApplicationReadinessBanner({
     <div
       className={`flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm ${
         verificationApproved && !profileBlocksApply
-          ? "bg-emerald-50 text-emerald-800"
-          : "bg-muted/50 text-muted-foreground"
+          ? "border border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]"
+          : "border border-border/80 bg-muted/70 text-muted-foreground"
       }`}
     >
       {verificationApproved && !profileBlocksApply ? (
@@ -603,6 +668,22 @@ function getRequiredDocumentDisplayStatus(
 } {
   const policy = verification.documentPolicy;
 
+  if (verification.status === "needs_resubmission") {
+    if (policy.submittedDocumentTypes.includes(documentType)) {
+      return {
+        state: "submitted",
+        label: "Replacement uploaded",
+        tone: "neutral",
+      };
+    }
+
+    return {
+      state: "rejected",
+      label: "Replacement required",
+      tone: "danger",
+    };
+  }
+
   if (policy.acceptedDocumentTypes.includes(documentType)) {
     return { state: "accepted", label: "Accepted", tone: "success" };
   }
@@ -631,6 +712,21 @@ function getLatestDocumentForType(
       (doc) =>
         doc.documentType === documentType &&
         doc.status !== "superseded",
+    ) ?? null
+  );
+}
+
+function getLatestReplacementCandidateForType(
+  verification: BorrowerVerificationSummary,
+  documentType: BorrowerVerificationDocumentType,
+) {
+  return (
+    verification.documents.find(
+      (doc) =>
+        doc.documentType === documentType &&
+        (doc.status === "submitted" ||
+          doc.status === "accepted" ||
+          doc.status === "superseded"),
     ) ?? null
   );
 }

@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { signupSchema } from "@/lib/signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -23,6 +23,13 @@ export type SignupState = {
   message: string;
   status: "idle" | "error" | "success";
   fieldErrors?: SignupFieldErrors;
+  values?: {
+    displayName?: string;
+    email?: string;
+    role?: string;
+    termsAccepted?: boolean;
+    privacyAccepted?: boolean;
+  };
 };
 
 export async function signupAction(
@@ -44,6 +51,13 @@ export async function signupAction(
       status: "error",
       message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        role: String(formData.get("role") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
+      },
     };
   }
 
@@ -76,6 +90,13 @@ export async function signupAction(
       return {
         status: "error",
         message: "Could not create the account. Try another email or password.",
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          role: input.role,
+          termsAccepted: true,
+          privacyAccepted: true,
+        },
       };
     }
 
@@ -104,25 +125,51 @@ export async function signupAction(
       };
     }
 
-    // Verify the provisioned profile role matches the signup role.
-    // If provisioning created a different role, redirect to the correct
-    // workspace rather than silently sending the user to the wrong one.
     if (profile && profile.role !== input.role) {
-      redirectTo =
-        profile.role === "borrower"
-          ? "/borrower?message=account-created"
-          : profile.role === "lender"
-            ? "/lender/onboarding"
-            : destination;
-    } else {
-      redirectTo = destination;
+      await supabase.auth.signOut();
+
+      return {
+        status: "error",
+        message: getRoleMismatchMessage(profile.role, input.role),
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          role: input.role,
+          termsAccepted: true,
+          privacyAccepted: true,
+        },
+      };
     }
+
+    redirectTo = destination;
   } catch {
     return {
       status: "error",
       message: "Account signup is temporarily unavailable.",
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        role: String(formData.get("role") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
+      },
     };
   }
 
-  redirect(redirectTo);
+  redirect(redirectTo, RedirectType.replace);
+}
+
+export async function signOutForSignupAction() {
+  try {
+    const supabase = await createSupabaseServerClient();
+    await supabase.auth.signOut();
+  } catch {
+    // Missing auth configuration still lands the user back on signup.
+  }
+
+  redirect("/signup", RedirectType.replace);
+}
+
+function getRoleMismatchMessage(profileRole: string, selectedRole: string) {
+  return `This account is registered as a ${profileRole}. Sign out and use another email to create a ${selectedRole} account.`;
 }

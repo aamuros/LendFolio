@@ -14,7 +14,15 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 import {
+  borrowerRoleLabels,
+  businessProfileSectionLabels,
+  type BusinessProfileSection,
   businessTypeLabels,
+  operatingModelLabels,
+  ownershipTypeLabels,
+  primarySalesChannelLabels,
+  revenueConfidenceLabels,
+  revenuePeriodLabels,
   type BorrowerPortfolioInput,
 } from "@/lib/borrower-portfolio";
 import {
@@ -38,6 +46,15 @@ type ProfileMode =
   | "account"
   | "support";
 type PortfolioLoadState = "loading" | "ready" | "empty" | "error";
+type ProfileStatusAction = "edit" | "borrowingPower" | null;
+type ProfileStatus = {
+  tone: "neutral" | "attention" | "ready";
+  label: string;
+  title: string;
+  description: string;
+  action: ProfileStatusAction;
+  actionLabel: string | null;
+};
 
 export function BorrowerProfileHub({
   accountEmail,
@@ -46,6 +63,7 @@ export function BorrowerProfileHub({
   loadState,
   message,
   onEditProfile,
+  onCompleteProfile,
   onNavigateHome,
   onProfileViewChange,
   portfolio,
@@ -58,7 +76,11 @@ export function BorrowerProfileHub({
   creditSummary: BorrowerCreditSummary | null;
   loadState: PortfolioLoadState;
   message: string;
-  onEditProfile: (returnMode?: ProfileMode) => void;
+  onEditProfile: (
+    returnMode?: ProfileMode,
+    businessSection?: BusinessProfileSection,
+  ) => void;
+  onCompleteProfile: () => void;
   onNavigateHome: () => void;
   onProfileViewChange: (view: ProfileMode) => void;
   portfolio: BorrowerPortfolioInput | null;
@@ -71,6 +93,7 @@ export function BorrowerProfileHub({
     loadState,
     portfolio,
     readiness,
+    creditSummary,
     verification?.status ?? null,
   );
   const verificationLabel =
@@ -79,7 +102,8 @@ export function BorrowerProfileHub({
       : "Not started";
   const isLoadingProfile = loadState === "loading";
   const displayName =
-    portfolio?.businessName.trim() || (isLoadingProfile ? "" : "Borrower profile");
+    portfolio?.businessName?.trim() ||
+    (isLoadingProfile ? "" : "Borrower profile");
 
   if (activeView === "business") {
     const businessHeaderSubtitle = portfolio
@@ -97,9 +121,9 @@ export function BorrowerProfileHub({
         <ProfileDetailCard
           actionLabel={portfolio ? "Edit" : "Add details"}
           headerLabel="Business profile"
-          headerTitle={portfolio?.businessName || undefined}
+          headerTitle={businessProfileSectionLabels.basic}
           headerSubtitle={businessHeaderSubtitle}
-          onAction={() => onEditProfile("business")}
+          onAction={() => onEditProfile("business", "basic")}
         >
           <SummaryRow
             label="Business name"
@@ -112,9 +136,41 @@ export function BorrowerProfileHub({
             }
           />
           <SummaryRow
+            label="Ownership type"
+            value={
+              portfolio
+                ? ownershipTypeLabels[portfolio.ownershipType]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Role"
+            value={
+              portfolio
+                ? borrowerRoleLabels[portfolio.borrowerRole]
+                : "Not provided"
+            }
+          />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.address}
+          onAction={() => onEditProfile("business", "address")}
+        >
+          <SummaryRow
             label="Business location"
             value={portfolio?.location || "Not provided"}
           />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.operations}
+          onAction={() => onEditProfile("business", "operations")}
+        >
           <SummaryRow
             label="Years in operation"
             value={
@@ -123,6 +179,62 @@ export function BorrowerProfileHub({
                 : "Not provided"
             }
           />
+          <SummaryRow
+            label="Operating model"
+            value={
+              portfolio
+                ? operatingModelLabels[portfolio.operatingModel]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Sales channel"
+            value={
+              portfolio
+                ? primarySalesChannelLabels[portfolio.primarySalesChannel]
+                : "Not provided"
+            }
+          />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.products}
+          onAction={() => onEditProfile("business", "products")}
+        >
+          <SummaryRow
+            label="Products or services"
+            value={portfolio?.mainProductsOrServices || "Not provided"}
+          />
+          <SummaryRow
+            label="Suppliers"
+            value={portfolio?.mainSuppliers || "Not provided"}
+          />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.records}
+          onAction={() => onEditProfile("business", "records")}
+        >
+          <SummaryRow
+            label="Sales records"
+            value={portfolio ? yesNo(portfolio.keepsSalesRecords) : "Not provided"}
+          />
+          <SummaryRow
+            label="Bank or e-wallet"
+            value={portfolio ? yesNo(portfolio.usesBankOrEwallet) : "Not provided"}
+          />
+        </ProfileDetailCard>
+
+        <ProfileDetailCard
+          actionLabel={portfolio ? "Edit" : "Add details"}
+          headerLabel="Business profile"
+          headerTitle={businessProfileSectionLabels.loanUse}
+          onAction={() => onEditProfile("business", "loanUse")}
+        >
           <SummaryRow
             label="Loan use"
             value={portfolio?.loanPurposeContext || "Not provided"}
@@ -159,6 +271,38 @@ export function BorrowerProfileHub({
             value={
               portfolio
                 ? formatCreditAmount(portfolio.monthlyGrossRevenue)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Average daily sales"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.averageDailySales)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Average weekly sales"
+            value={
+              portfolio
+                ? formatCreditAmount(portfolio.averageWeeklySales)
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Revenue period"
+            value={
+              portfolio
+                ? revenuePeriodLabels[portfolio.revenuePeriod]
+                : "Not provided"
+            }
+          />
+          <SummaryRow
+            label="Revenue basis"
+            value={
+              portfolio
+                ? revenueConfidenceLabels[portfolio.revenueConfidence]
                 : "Not provided"
             }
           />
@@ -277,7 +421,12 @@ export function BorrowerProfileHub({
             <ProfileStatusBanner
               status={profileStatus}
               onAction={() => {
-                onEditProfile("index");
+                if (profileStatus.action === "borrowingPower") {
+                  onProfileViewChange("borrowingPower");
+                  return;
+                }
+
+                onCompleteProfile();
               }}
             />
           ) : null}
@@ -293,7 +442,7 @@ export function BorrowerProfileHub({
 
           {postSaveVerification ? (
             <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#33423C]" />
               <div className="flex min-w-0 flex-1 flex-col gap-2">
                 <p className="text-sm font-medium text-foreground">
                   Profile saved. Next, upload your verification documents.
@@ -309,7 +458,7 @@ export function BorrowerProfileHub({
             </div>
           ) : null}
 
-          <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+          <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
             <ProfileMenuRow
               icon={Briefcase}
               label="Business Profile"
@@ -358,11 +507,15 @@ export function BorrowerProfileHub({
   );
 }
 
+function yesNo(value: boolean) {
+  return value ? "Yes" : "No";
+}
+
 function ProfileHubSkeleton() {
   return (
     <div className="grid gap-6">
       <Skeleton className="h-24 w-full rounded-2xl" />
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10">
+      <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm">
         {Array.from({ length: 6 }).map((_, i) => (
           <Skeleton key={i} className="h-[4.25rem] w-full rounded-none" />
         ))}
@@ -371,12 +524,13 @@ function ProfileHubSkeleton() {
   );
 }
 
-function getProfileStatus(
+export function getProfileStatus(
   loadState: PortfolioLoadState,
   portfolio: BorrowerPortfolioInput | null,
   readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
   verificationStatus: BorrowerVerificationSummary["status"] | null,
-) {
+): ProfileStatus {
   if (loadState === "loading") {
     return {
       tone: "neutral" as const,
@@ -410,30 +564,6 @@ function getProfileStatus(
     };
   }
 
-  if (
-    readiness?.readinessStatus === "needs_review" ||
-    readiness?.readinessStatus === "not_eligible"
-  ) {
-    const hasVagueLoanPurpose =
-      readiness.riskFlags.includes("vague_loan_purpose");
-
-    return {
-      tone: "attention" as const,
-      label: hasVagueLoanPurpose ? "Update needed" : "Profile needs update",
-      title: hasVagueLoanPurpose
-        ? "Add more detail to your loan purpose"
-        : "Review your profile",
-      description: hasVagueLoanPurpose
-        ? "Add more detail to your loan purpose before applying."
-        : readiness.nextActions[0] ??
-          "Some profile details may affect loan application readiness.",
-      action: "edit" as const,
-      actionLabel: hasVagueLoanPurpose
-        ? "Edit loan purpose"
-        : "Update profile details",
-    };
-  }
-
   if (readiness?.readinessStatus === "incomplete") {
     return {
       tone: "attention" as const,
@@ -441,6 +571,21 @@ function getProfileStatus(
       title: "Finish your profile",
       description:
         readiness.nextActions[0] ?? "A few required details are still missing.",
+      action: "edit" as const,
+      actionLabel: "Update profile details",
+    };
+  }
+
+  const hasProfileReadinessIssue = hasActualProfileReadinessIssue(readiness);
+
+  if (hasProfileReadinessIssue) {
+    return {
+      tone: "attention" as const,
+      label: "Profile needs update",
+      title: "Review your profile",
+      description:
+        readiness?.nextActions[0] ??
+        "Some profile details may affect loan application readiness.",
       action: "edit" as const,
       actionLabel: "Update profile details",
     };
@@ -457,6 +602,31 @@ function getProfileStatus(
     };
   }
 
+  if (hasOnlyNoAvailableCreditIssue(readiness, creditSummary)) {
+    return {
+      tone: "attention" as const,
+      label: "Credit limit reached",
+      title: "No available credit remaining",
+      description:
+        "You have used your available credit. Repay an active loan or wait for credit to become available before applying again.",
+      action: "borrowingPower" as const,
+      actionLabel: "View borrowing power",
+    };
+  }
+
+  if (readiness?.readinessStatus === "not_eligible") {
+    return {
+      tone: "attention" as const,
+      label: "Not eligible",
+      title: "Applications are not available",
+      description:
+        readiness.nextActions[0] ??
+        "A current account or credit requirement must be resolved before applying.",
+      action: null,
+      actionLabel: null,
+    };
+  }
+
   return {
     tone: "ready" as const,
     label: "Ready to apply",
@@ -465,6 +635,61 @@ function getProfileStatus(
     action: null,
     actionLabel: null,
   };
+}
+
+function hasOnlyNoAvailableCreditIssue(
+  readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
+) {
+  if (!readiness || readiness.readinessStatus !== "not_eligible") {
+    return false;
+  }
+
+  const hasNoAvailableCredit =
+    readiness.riskFlags.includes("no_available_credit") ||
+    (creditSummary !== null && creditSummary.availableCredit <= 0);
+
+  return (
+    hasNoAvailableCredit &&
+    readiness.missingFields.length === 0 &&
+    !readiness.profileIsStale &&
+    !readiness.riskFlags.some((flag) =>
+      [
+        "zero_revenue",
+        "non_positive_cash_flow",
+        "suspended",
+        "account_not_active",
+      ].includes(flag),
+    )
+  );
+}
+
+function hasActualProfileReadinessIssue(
+  readiness: BorrowerReadinessResult | null,
+) {
+  if (!readiness) {
+    return false;
+  }
+
+  if (readiness.missingFields.length > 0 || readiness.profileIsStale) {
+    return true;
+  }
+
+  if (
+    readiness.readinessStatus !== "needs_review" &&
+    readiness.readinessStatus !== "not_eligible"
+  ) {
+    return false;
+  }
+
+  return readiness.riskFlags.some((flag) =>
+    [
+      "zero_revenue",
+      "non_positive_cash_flow",
+      "suspended",
+      "account_not_active",
+    ].includes(flag),
+  );
 }
 
 function formatYearsInOperation(value: number) {

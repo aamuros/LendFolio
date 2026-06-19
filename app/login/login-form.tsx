@@ -1,7 +1,6 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/login/actions";
@@ -10,58 +9,34 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 
 const initialState: LoginState = {
   message: "",
 };
 
-type LoginFormProps = {
-  signedOut?: boolean;
-};
-
-export function LoginForm({ signedOut = false }: LoginFormProps) {
+export function LoginForm() {
   const [state, formAction] = useActionState(loginAction, initialState);
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [showSignedOut, setShowSignedOut] = useState(signedOut);
-
-  useEffect(() => {
-    if (!signedOut) {
-      return;
-    }
-
-    router.replace("/login", { scroll: false });
-    const timeout = window.setTimeout(() => setShowSignedOut(false), 3000);
-
-    return () => window.clearTimeout(timeout);
-  }, [router, signedOut]);
-
-  function markEdited() {
-    setShowSignedOut(false);
-  }
 
   return (
-    <Card className="rounded-2xl p-6">
+    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md">
       <CardHeader className="p-0 text-center">
-        <CardTitle className="text-xl">Sign in</CardTitle>
-        <CardDescription>
+        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
+          Sign in
+        </CardTitle>
+        <CardDescription className="text-[#55534F]">
           Enter your credentials to continue
         </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <form action={formAction}>
           <FieldGroup className="gap-4">
-            {showSignedOut ? (
-              <Alert>
-                <CheckCircle2 />
-                <AlertDescription>Signed out successfully</AlertDescription>
-              </Alert>
-            ) : null}
-
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email" className="text-[#33423C]">
+                Email
+              </FieldLabel>
               <Input
                 id="email"
                 name="email"
@@ -69,21 +44,22 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 value={email}
                 onChange={(event) => {
                   setEmail(event.target.value);
-                  markEdited();
                 }}
                 autoComplete="email"
                 placeholder="you@example.com"
-                className="h-12 rounded-xl bg-background"
+                className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
               />
             </Field>
 
             <Field>
               <div className="flex items-center justify-between">
-                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <FieldLabel htmlFor="password" className="text-[#33423C]">
+                  Password
+                </FieldLabel>
                 <Link
                   href="/forgot-password"
-                  className="text-xs text-muted-foreground hover:text-primary"
+                  className="text-xs font-medium text-[#55534F] transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
                 >
                   Forgot password?
                 </Link>
@@ -95,11 +71,10 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
                 value={password}
                 onChange={(event) => {
                   setPassword(event.target.value);
-                  markEdited();
                 }}
                 autoComplete="current-password"
                 placeholder="Enter your password"
-                className="h-12 rounded-xl bg-background"
+                className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
               />
             </Field>
@@ -112,12 +87,12 @@ export function LoginForm({ signedOut = false }: LoginFormProps) {
           </FieldGroup>
         </form>
 
-        <div className="mt-3 text-center text-sm text-muted-foreground">
+        <div className="mt-3 text-center text-sm text-[#55534F]">
           <p>
             Don&apos;t have an account?{" "}
             <Link
               href="/signup"
-              className="underline underline-offset-4 hover:text-primary"
+              className="font-semibold text-[#33423C] underline underline-offset-4 transition-colors hover:text-[#161616] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
             >
               Sign up
             </Link>
@@ -147,7 +122,11 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl">
+    <Button
+      type="submit"
+      disabled={pending}
+      className="h-12 w-full rounded-xl border border-[#161616] bg-[#161616] font-semibold !text-white shadow-[0_18px_35px_rgba(14,26,18,0.16)] transition-all hover:bg-[#0E1A12] hover:shadow-[0_20px_40px_rgba(14,26,18,0.2)] focus-visible:outline-[#161616]"
+    >
       {pending ? "Signing in..." : "Sign in"}
     </Button>
   );

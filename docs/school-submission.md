@@ -135,7 +135,7 @@ Lender registers ──> Completes onboarding profile ──> Uploads 5 required
 
 - Business profile storage with 20+ fields covering identity, operations, finances, and risk factors
 - Credit readiness evaluation returning structured statuses (incomplete, complete, needs_review, not_eligible, eligible_to_apply)
-- Credit limit calculation: `min(net_cash_flow × 3 × years_multiplier, gross_revenue × 2, 1,000,000)`
+- Credit limit calculation: `min((monthly_net_cash_flow × 0.30) × 3, repayment_history_cap, 100,000)`
 - Explainable credit profile grade (A/B/C/review_needed/not_eligible/incomplete) for lender and manager review
 - Profile snapshots captured at loan application submission time for immutability
 
@@ -234,7 +234,7 @@ Every table has RLS enabled. Policies enforce:
 
 ### Consent Management
 
-- Five consent types: Terms of Service, Privacy Notice, Credit Review Authorization, Document Processing Consent, Lender Review Consent.
+- Five consent types: Terms of Service, Privacy Notice, Credit Review Authorization, Document Processing Consent, Authorization for Lender Verification.
 - Four consent scopes: signup baseline, borrower document upload, borrower loan application, lender review.
 - Versioned consent records with IP address and user agent metadata.
 - Current consent versions are enforced before any gated workflow action.

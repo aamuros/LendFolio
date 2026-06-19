@@ -136,6 +136,24 @@ The TypeScript helper in `lib/borrower-readiness.ts` mirrors readiness behavior
 for UI guidance. The SQL functions remain the source of truth for application
 submission.
 
+## Credit Capacity and Total Repayment
+
+A borrower's **available credit** represents the maximum approved principal they
+can take on. The total repayment for a loan includes the principal, interest or
+service charges, lender fees, and the borrower-paid system processing fee.
+
+When a borrower submits an application, the `requested_amount` is the desired
+principal. The `available_credit_at_submission` is snapshotted and used to cap
+the approved principal of any lender offer for that application.
+
+Lender offers are validated so that `approved_amount <= available_credit_at_submission`.
+Interest, lender fees, and the system processing fee are added only to the
+borrower's repayment obligation and do not consume credit capacity.
+
+When a borrower accepts an offer, the `accept_loan_offer` RPC re-checks that
+the offer's approved principal fits within the borrower's current available
+credit.
+
 ## Scope
 
 This is not credit scoring. It does not approve or reject a loan. It only checks

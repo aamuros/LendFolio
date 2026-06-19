@@ -56,10 +56,9 @@ export default async function ManagerLoansPage({ searchParams }: PageProps) {
           hasActiveFilters={hasActiveFilters}
         />
 
-        <StatusMessage
-          message={result.message}
-          tone={result.ok ? "neutral" : "error"}
-        />
+        {!result.ok ? (
+          <StatusMessage message={result.message} tone="error" />
+        ) : null}
 
         <LoansTable
           loans={result.loans}

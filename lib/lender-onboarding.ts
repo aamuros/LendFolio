@@ -1,4 +1,10 @@
 import { z } from "zod";
+import {
+  isValidPhilippineAddressSelection,
+  formatPhilippineAddress,
+  getRegionNameByCode,
+} from "@/lib/philippine-addresses";
+import type { PhilippineAddressSelection } from "@/lib/philippine-addresses";
 
 export const philippineOperatingAreas = [
   "NCR - National Capital Region",
@@ -36,7 +42,26 @@ const requiredConsentCheckbox = (message: string) =>
     z.literal(true, { error: message }),
   );
 
-export const lenderOnboardingSchema = z.object({
+const addressSelectionSchema = z
+  .object({
+    regionCode: z.string().min(1, "Select your region."),
+    regionName: z.string().min(1),
+    cityOrMunicipality: z.string().min(1, "Select your city or municipality."),
+    barangay: z.string().min(1, "Select your barangay."),
+    zipCode: z.string().min(1, "ZIP code is required."),
+  })
+  .superRefine((value, context) => {
+    if (!isValidPhilippineAddressSelection(value)) {
+      context.addIssue({
+        code: "custom",
+        path: ["regionCode"],
+        message:
+          "The selected region, city, barangay, and ZIP code combination is not valid.",
+      });
+    }
+  });
+
+const lenderProfileDetailsBaseSchema = z.object({
   organizationName: z
     .string()
     .trim()
@@ -52,14 +77,13 @@ export const lenderOnboardingSchema = z.object({
     .trim()
     .min(7, "Phone number must be at least 7 characters.")
     .max(30, "Phone number must be 30 characters or fewer."),
-  businessAddress: z
+  streetAddress: z
     .string()
     .trim()
-    .min(5, "Business address must be at least 5 characters.")
-    .max(240, "Business address must be 240 characters or fewer."),
-  operatingArea: z.enum(philippineOperatingAreas, {
-    error: "Select your operating area.",
-  }),
+    .max(240, "Street address must be 240 characters or fewer.")
+    .optional()
+    .or(z.literal("")),
+  address: addressSelectionSchema,
   businessRegistrationNumber: z
     .string()
     .trim()
@@ -98,12 +122,15 @@ export const lenderOnboardingSchema = z.object({
   lenderDescription: z
     .string()
     .trim()
-    .min(20, "Lender description must be at least 20 characters.")
-    .max(800, "Lender description must be 800 characters or fewer."),
-  lenderReviewConsentAccepted: requiredConsentCheckbox(
-    "Accept the required lender-review disclosures before submitting.",
-  ),
-}).superRefine((value, context) => {
+    .max(800, "Lender description must be 800 characters or fewer.")
+    .optional()
+    .or(z.literal("")),
+});
+
+function validateLoanRange(
+  value: { minLoanAmount: number; maxLoanAmount: number },
+  context: z.RefinementCtx,
+) {
   if (value.maxLoanAmount < value.minLoanAmount) {
     context.addIssue({
       code: "custom",
@@ -111,6 +138,41 @@ export const lenderOnboardingSchema = z.object({
       message: "Maximum loan amount must be greater than or equal to minimum.",
     });
   }
-});
+}
+
+export const lenderProfileDetailsSchema =
+  lenderProfileDetailsBaseSchema.superRefine(validateLoanRange);
+
+export const lenderOnboardingSchema = lenderProfileDetailsBaseSchema.extend({
+  lenderReviewConsentAccepted: requiredConsentCheckbox(
+    "Accept the Authorization for Verification before submitting.",
+  ),
+}).superRefine(validateLoanRange);
 
 export type LenderOnboardingInput = z.infer<typeof lenderOnboardingSchema>;
+
+export type LenderOnboardingAddressFields = {
+  businessAddress: string;
+  operatingArea: string;
+  addressRegion: string;
+  addressCity: string;
+  addressBarangay: string;
+  addressZipCode: string;
+};
+
+export function resolveLenderOnboardingAddress(
+  address: PhilippineAddressSelection,
+  streetAddress?: string,
+): LenderOnboardingAddressFields {
+  const formatted = formatPhilippineAddress(address, streetAddress);
+  const regionName = getRegionNameByCode(address.regionCode);
+
+  return {
+    businessAddress: formatted,
+    operatingArea: regionName,
+    addressRegion: address.regionCode,
+    addressCity: address.cityOrMunicipality,
+    addressBarangay: address.barangay,
+    addressZipCode: address.zipCode,
+  };
+}

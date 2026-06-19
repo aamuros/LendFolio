@@ -9,10 +9,13 @@ type BorrowerCardProps = ComponentProps<"div"> & {
 };
 
 const variantClassName: Record<BorrowerCardVariant, string> = {
-  default: "",
-  dashboard: "border-border/50 shadow-sm",
-  accent: "bg-muted/30",
-  dashed: "border-dashed",
+  default:
+    "border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]",
+  dashboard:
+    "border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]",
+  accent:
+    "border-border/80 bg-muted/70 shadow-[0_18px_50px_rgba(14,26,18,0.06)]",
+  dashed: "border-dashed border-border/90 bg-card/70",
 };
 
 export function BorrowerCard({
@@ -22,7 +25,7 @@ export function BorrowerCard({
 }: BorrowerCardProps) {
   return (
     <Card
-      className={cn("rounded-2xl", variantClassName[variant], className)}
+      className={cn("box-border w-full min-w-0 rounded-2xl", variantClassName[variant], className)}
       {...props}
     />
   );

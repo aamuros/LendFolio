@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Landmark } from "lucide-react";
 import type { AppRole } from "@/lib/supabase/types";
+import type { WorkspaceConfig } from "@/lib/app-roles";
+import { Logo } from "@/components/brand/logo";
 import {
   Sidebar,
   SidebarContent,
@@ -19,6 +20,7 @@ import {
 import { UserMenu } from "@/components/layout/user-menu";
 import { NotificationUnreadBadge } from "@/components/layout/notification-unread-badge";
 import { getNavConfigForRole, isActiveHref } from "@/components/layout/dashboard-nav-data";
+import { cn } from "@/lib/utils";
 
 export function AppSidebar({
   role,
@@ -27,6 +29,7 @@ export function AppSidebar({
   dashboardHref,
   userEmail,
   signOutAction,
+  alternateWorkspaces,
 }: {
   role: AppRole;
   brandLabel: string;
@@ -34,28 +37,43 @@ export function AppSidebar({
   dashboardHref: string;
   userEmail: string | null;
   signOutAction: () => void;
+  alternateWorkspaces: WorkspaceConfig[];
 }) {
   const pathname = usePathname();
   const navConfig = getNavConfigForRole(role);
   const navGroups = navConfig?.groups ?? [];
+  const isManager = role === "manager";
 
   return (
-    <Sidebar collapsible="icon">
-      <SidebarHeader>
-        <SidebarMenu>
+    <Sidebar
+      collapsible="icon"
+      className={cn(
+        isManager &&
+          "border-sidebar-border/80 bg-sidebar/95 [--sidebar-accent:#eff3ea] [--sidebar-accent-foreground:#33423c]",
+      )}
+    >
+      <SidebarHeader
+        className={cn(
+          isManager &&
+            "border-b border-sidebar-border/70 p-3 group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:py-3",
+        )}
+      >
+        <SidebarMenu className={cn(isManager && "group-data-[collapsible=icon]:items-center")}>
           <SidebarMenuItem>
             <SidebarMenuButton
               size="lg"
               asChild
-              className="data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground"
+              className={cn(
+                "data-[state=open]:bg-sidebar-accent data-[state=open]:text-sidebar-accent-foreground",
+                isManager &&
+                  "h-14 rounded-xl px-3 hover:bg-sidebar-accent/80 data-[state=open]:bg-sidebar-accent group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-10! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0!",
+              )}
             >
               <Link href={dashboardHref}>
-                <div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-                  <Landmark className="size-4" />
-                </div>
-                <div className="grid flex-1 text-left text-sm leading-tight">
+                <Logo variant="icon" size="md" className="object-contain" priority={isManager} />
+                <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden">
                   <span className="truncate font-semibold">LendFolio</span>
-                  <span className="truncate text-xs text-muted-foreground">
+                  <span className="truncate text-xs text-sidebar-foreground/65">
                     {brandLabel}
                   </span>
                 </div>
@@ -76,10 +94,14 @@ export function AppSidebar({
                       asChild
                       isActive={isActiveHref(pathname, item.href)}
                       tooltip={item.title}
+                      className={cn(
+                        isManager &&
+                          "rounded-lg text-sidebar-foreground/75 hover:bg-sidebar-accent/80 hover:text-sidebar-accent-foreground data-active:bg-sidebar-accent data-active:text-sidebar-accent-foreground data-active:shadow-[inset_3px_0_0_#33423c] group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-9! group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:data-active:shadow-none",
+                      )}
                     >
                       <Link href={item.href}>
                         <item.icon />
-                        <span>{item.title}</span>
+                        <span className="group-data-[collapsible=icon]:hidden">{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
                     {item.showUnreadBadge ? <NotificationUnreadBadge /> : null}
@@ -95,6 +117,7 @@ export function AppSidebar({
           userEmail={userEmail}
           roleLabel={roleLabel}
           signOutAction={signOutAction}
+          alternateWorkspaces={alternateWorkspaces}
         />
       </SidebarFooter>
     </Sidebar>

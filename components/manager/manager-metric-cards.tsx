@@ -87,13 +87,13 @@ export function ManagerMetricCards({
     >
       {cards.map((card) => (
         <Link key={card.label} href={card.href} className="group block rounded-xl outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-          <Card className="transition-colors group-hover:bg-muted/50 group-focus-visible:ring-0">
+          <Card className="border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)] transition-colors group-hover:bg-muted/45 group-focus-visible:ring-0">
             <CardHeader>
               <CardDescription className="text-xs font-medium">
                 {card.label}
               </CardDescription>
               <CardAction>
-                <div className="flex size-8 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                <div className="flex size-8 items-center justify-center rounded-lg border border-border/70 bg-secondary text-secondary-foreground">
                   <card.icon className="size-4" />
                 </div>
               </CardAction>
@@ -108,7 +108,7 @@ export function ManagerMetricCards({
                     Action needed
                   </Badge>
                 ) : (
-                  <Badge variant="secondary" className="text-[10px]">
+                  <Badge variant="secondary" className="border border-border/70 text-[10px]">
                     Clear
                   </Badge>
                 )}

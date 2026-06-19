@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,6 +21,11 @@ export type LenderRegisterState = {
   message: string;
   status: "idle" | "error" | "success";
   fieldErrors?: LenderRegisterFieldErrors;
+  values?: {
+    displayName?: string;
+    email?: string;
+    organizationName?: string;
+  };
 };
 
 export async function lenderRegisterAction(
@@ -40,6 +45,11 @@ export async function lenderRegisterAction(
       status: "error",
       message: "Check the highlighted fields.",
       fieldErrors: parsed.error.flatten().fieldErrors,
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        organizationName: String(formData.get("organizationName") ?? ""),
+      },
     };
   }
 
@@ -73,6 +83,11 @@ export async function lenderRegisterAction(
         status: "error",
         message:
           "Could not create the account. Try another email or password.",
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          organizationName: input.organizationName,
+        },
       };
     }
 
@@ -102,8 +117,13 @@ export async function lenderRegisterAction(
     return {
       status: "error",
       message: "Account signup is temporarily unavailable.",
+      values: {
+        displayName: String(formData.get("displayName") ?? ""),
+        email: String(formData.get("email") ?? ""),
+        organizationName: String(formData.get("organizationName") ?? ""),
+      },
     };
   }
 
-  redirect(redirectTo);
+  redirect(redirectTo, RedirectType.replace);
 }

@@ -16,13 +16,18 @@ import {
   getManagerSubmittedDateRange,
   resolveSubmittedDateRangeFilters,
 } from "../lib/date-ranges";
-import { loanApplicationSchema } from "../lib/loan-application";
+import {
+  loanApplicationSchema,
+  loanPurposeOptions,
+  mapLoanApplicationRow,
+} from "../lib/loan-application";
 import { isApplicationActionableForOffer } from "../lib/lender-applications";
 import { loanOfferSchema, mapLoanOfferRow } from "../lib/loan-offer";
 import {
   buildDueItemsByDate,
   getRepaymentActionSummary,
   getRepaymentCalendarDateTone,
+  isBlockingApplicationReadinessStatus,
 } from "../components/borrower-loan-application-panel";
 import {
   createMetadataPreview,
@@ -31,7 +36,7 @@ import {
 } from "../lib/manager-operations";
 import { formatDateOnly, formatDateTime } from "../lib/manager-date-format";
 import { parseMoneyInput } from "../lib/money-input";
-import { canAccessRole, isApprovedLender } from "../lib/role-rules";
+import { canAccessRole, hasPrimaryRole, isApprovedLender } from "../lib/role-rules";
 import { isUuid } from "../lib/validation/uuid";
 import {
   applyAcceptedOfferInvariant,
@@ -54,10 +59,19 @@ describe("borrower portfolio schema", () => {
       businessName: "Aling Nena Store",
       businessType: "sari_sari_store",
       location: "Quezon City",
+      address: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Quezon City",
+        barangay: "Diliman",
+        zipCode: "1100",
+      },
       monthlyGrossRevenue: 45_000,
       monthlyExpenses: 28_000,
       existingLoanPayments: 3_500,
       yearsInOperation: 2,
+      mainProductsOrServicesCategory: "groceries_household_items",
+      hasBusinessRegistration: false,
       loanPurposeContext:
         "Additional working capital for inventory before the holiday season.",
     });
@@ -65,19 +79,28 @@ describe("borrower portfolio schema", () => {
     expect(result.success).toBe(true);
   });
 
-  it("rejects incomplete loan purpose context", () => {
+  it("accepts short loan purpose context when optional", () => {
     const result = borrowerPortfolioSchema.safeParse({
       businessName: "Nena Food Stall",
       businessType: "food_stall",
       location: "Cebu City",
+      address: {
+        regionCode: "Region VII",
+        regionName: "Region VII - Central Visayas",
+        cityOrMunicipality: "Cebu City",
+        barangay: "Lahug",
+        zipCode: "6000",
+      },
       monthlyGrossRevenue: 20_000,
       monthlyExpenses: 15_000,
       existingLoanPayments: 0,
       yearsInOperation: 1,
+      mainProductsOrServicesCategory: "food_beverages",
+      hasBusinessRegistration: false,
       loanPurposeContext: "Inventory",
     });
 
-    expect(result.success).toBe(false);
+    expect(result.success).toBe(true);
   });
 });
 
@@ -85,7 +108,7 @@ describe("loan application schema", () => {
   it("accepts the loan application fields", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: 25_000,
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "Best reviewed after the saved portfolio cash-flow fields.",
     });
@@ -93,10 +116,54 @@ describe("loan application schema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("accepts empty remarks", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: loanPurposeOptions[0],
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("rejects an empty purpose", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects arbitrary purpose text", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "Inventory restock",
+      preferredTerm: "3_months",
+      remarks: "",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it("rejects remarks over 500 characters", () => {
+    const result = loanApplicationSchema.safeParse({
+      requestedAmount: 25_000,
+      purpose: "Inventory purchase",
+      preferredTerm: "3_months",
+      remarks: "x".repeat(501),
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("rejects an invalid requested amount", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: 500,
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "",
     });
@@ -107,7 +174,7 @@ describe("loan application schema", () => {
   it("shows friendly validation for empty numeric inputs", () => {
     const result = loanApplicationSchema.safeParse({
       requestedAmount: "",
-      purpose: "Inventory restock",
+      purpose: "Inventory purchase",
       preferredTerm: "3_months",
       remarks: "",
     });
@@ -118,6 +185,202 @@ describe("loan application schema", () => {
         "Enter the requested loan amount.",
       );
     }
+  });
+});
+
+describe("loan application mapping", () => {
+  const baseApplicationRow = {
+    id: "application-1",
+    borrower_id: "borrower-1",
+    borrower_portfolio_id: "portfolio-1",
+    requested_amount: 25000,
+    credit_limit_at_submission: 50000,
+    used_credit_at_submission: 0,
+    available_credit_at_submission: 50000,
+    monthly_net_cash_flow_at_submission: 18000,
+    credit_readiness_status: "eligible_to_apply" as const,
+    borrower_profile_snapshot: {
+      monthly_gross_revenue: 60000,
+      monthly_expenses: 32000,
+      existing_loan_payments: 10000,
+      years_in_operation: 3,
+      revenue_confidence: "document_supported",
+      profile_review_status: "approved",
+    },
+    borrower_readiness_snapshot: {
+      readiness_status: "eligible_to_apply",
+      profile_readiness: {
+        risk_flags: [],
+      },
+    },
+    borrower_credit_profile_grade: null,
+    borrower_credit_profile_assessment: null,
+    purpose: "Inventory purchase",
+    preferred_term: "3_months" as const,
+    remarks: null,
+    status: "submitted" as const,
+    submitted_at: "2026-06-18T00:00:00.000Z",
+    borrower_removed_at: null,
+    created_at: "2026-06-18T00:00:00.000Z",
+    updated_at: "2026-06-18T00:00:00.000Z",
+  };
+
+  it("derives a credit profile grade for older application rows", () => {
+    const application = mapLoanApplicationRow(baseApplicationRow);
+
+    expect(application.creditProfileGrade).toBe("A");
+    expect(application.creditProfileAssessment?.grade).toBe("A");
+    expect(application.creditProfileAssessmentSource).toBe("derived");
+  });
+
+  it("preserves stored credit profile assessments", () => {
+    const application = mapLoanApplicationRow({
+      ...baseApplicationRow,
+      borrower_credit_profile_grade: "B",
+      borrower_credit_profile_assessment: {
+        grade: "B",
+        label: "Acceptable profile",
+        summary: "Stored assessment.",
+        positiveFactors: [],
+        riskFactors: [],
+        improvementActions: [],
+        inputs: {
+          readinessStatus: "eligible_to_apply",
+          monthlyNetCashFlow: 18000,
+          debtBurdenRatio: 0.1,
+          availableCredit: 50000,
+          calculatedCreditLimit: 50000,
+          usedCredit: 0,
+        },
+      },
+    });
+
+    expect(application.creditProfileGrade).toBe("B");
+    expect(application.creditProfileAssessment?.summary).toBe(
+      "Stored assessment.",
+    );
+    expect(application.creditProfileAssessmentSource).toBe("stored");
+  });
+});
+
+describe("borrower apply readiness gating", () => {
+  it("does not block advisory needs_review borrowers from the apply form", () => {
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
+  });
+
+  it("keeps incomplete and not_eligible borrowers blocked", () => {
+    expect(isBlockingApplicationReadinessStatus("incomplete")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("needs_review")).toBe(false);
+    expect(isBlockingApplicationReadinessStatus("not_eligible")).toBe(true);
+    expect(isBlockingApplicationReadinessStatus("complete")).toBe(false);
+    expect(isBlockingApplicationReadinessStatus("eligible_to_apply")).toBe(false);
+  });
+
+  it("renders a non-blocking advisory notice before the application form", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain("isBlockingApplicationReadiness(readiness)");
+    expect(source).toContain("<ProfileReadinessBlocker");
+    expect(source).toContain("<AdvisoryReadinessNotice");
+    expect(source).toContain("you can still submit an");
+  });
+
+  it("passes borrower verification into the portfolio readiness panel", () => {
+    const workspaceSource = readFileSync(
+      "components/borrower-workspace.tsx",
+      "utf8",
+    );
+    const formSource = readFileSync(
+      "components/borrower-portfolio-form.tsx",
+      "utf8",
+    );
+
+    expect(workspaceSource).toContain(
+      "borrowerVerification={borrowerVerification}",
+    );
+    expect(formSource).toContain("borrowerVerification?: BorrowerVerificationSummary | null");
+    expect(formSource).toContain("evaluateBorrowerReadiness(currentPortfolio, {");
+    expect(formSource).toContain("borrowerVerification,");
+  });
+
+  it("keeps missing business proof on the verification gate instead of the profile blocker", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source.indexOf("!canSubmitApplication")).toBeLessThan(
+      source.indexOf("isBlockingApplicationReadiness(readiness)"),
+    );
+    expect(source).toContain("<VerificationGateCard");
+    expect(source).toContain("onNavigateVerification={onNavigateVerification}");
+    expect(source).toContain("<ProfileReadinessBlocker");
+    expect(source).toContain("onEditProfile={() => onNavigate?.(\"profile\")}");
+  });
+
+  it("uses principal-only available credit copy", () => {
+    const source = readFileSync(
+      "components/borrower-loan-application-panel.tsx",
+      "utf8",
+    );
+
+    expect(source).toContain(
+      "This is the maximum principal you can request. Interest and",
+    );
+    expect(source).not.toContain(
+      "The total repayment (principal + interest + fees) must fit",
+    );
+  });
+});
+
+describe("borrower application readiness migration", () => {
+  const migrationPath =
+    "supabase/migrations/20260618200000_allow_advisory_readiness_application_submission.sql";
+
+  it("allows advisory needs_review profile readiness without profile_needs_review", () => {
+    const migration = readFileSync(migrationPath, "utf8");
+
+    expect(migration).toContain(
+      "create or replace function app_private.borrower_application_readiness",
+    );
+    expect(migration).not.toContain("profile_needs_review");
+    expect(migration).toContain("'ok', cardinality(v_codes) = 0");
+    expect(migration).toContain(
+      "'application_ready', cardinality(v_codes) = 0",
+    );
+    expect(migration).toContain("'profile_readiness', v_profile_readiness");
+    expect(migration).toContain(
+      "when cardinality(v_codes) = 0 and v_profile_status = 'needs_review' then 'Application ready. Lenders may review some profile details.'",
+    );
+    expect(migration).toContain(
+      "when cardinality(v_codes) = 0 and v_profile_status = 'needs_review'",
+    );
+  });
+
+  it("keeps incomplete and not_eligible profile readiness as hard blockers", () => {
+    const migration = readFileSync(migrationPath, "utf8");
+
+    expect(migration).toContain("if v_profile_status = 'incomplete' then");
+    expect(migration).toContain("v_codes := array_append(v_codes, 'profile_incomplete');");
+    expect(migration).toContain("elsif v_profile_status = 'not_eligible' then");
+    expect(migration).toContain("v_codes := array_append(v_codes, 'not_eligible');");
+  });
+
+  it("keeps submit_loan_application gated by application_ready", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618174000_use_current_credit_snapshot_for_applications.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "create or replace function app_private.submit_loan_application",
+    );
+    expect(migration).toContain(
+      "if not coalesce((v_readiness->>'application_ready')::boolean, false) then",
+    );
   });
 });
 
@@ -198,6 +461,76 @@ describe("manager operations helpers", () => {
     expect(userDetailPage).not.toContain("notFound()");
     expect(proofDetailPage).toContain("getManagerAccess");
     expect(proofDetailPage).toContain("notFound()");
+  });
+
+  it("loads lender verification documents with signed preview URLs", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+
+    expect(lenderPage).toContain("includeSignedUrls: true");
+  });
+
+  it("keeps signup from silently redirecting active sessions into a workspace", () => {
+    const signupPage = readFileSync("app/signup/page.tsx", "utf8");
+
+    expect(signupPage).toContain("Account already signed in");
+    expect(signupPage).toContain("Continue to workspace");
+    expect(signupPage).toContain("Sign out and create account");
+    expect(signupPage).not.toContain(
+      "redirect(getRouteForRole(access.profile.role)",
+    );
+  });
+
+  it("keeps signup role mismatch from redirecting to the provisioned profile workspace", () => {
+    const signupActions = readFileSync("app/signup/actions.ts", "utf8");
+
+    expect(signupActions).toContain("profile.role !== input.role");
+    expect(signupActions).toContain("await supabase.auth.signOut()");
+    expect(signupActions).toContain("getRoleMismatchMessage(profile.role, input.role)");
+    expect(signupActions).not.toContain("profile.role === \"lender\"");
+    expect(signupActions).not.toContain("? \"/lender/onboarding\"");
+  });
+
+  it("restores signup form role state after validation errors", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+
+    expect(signupForm).toContain("isSignupRole(state.values?.role)");
+    expect(signupForm).toContain("key={formKey}");
+    expect(signupForm).toContain('<input type="hidden" name="role" value={role} />');
+    expect(signupForm).toContain("submittedRole !== role");
+  });
+
+  it("keeps lender workspace pages behind primary lender access", () => {
+    const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
+    const applicationsPage = readFileSync(
+      "app/lender/applications/page.tsx",
+      "utf8",
+    );
+
+    expect(lenderPage).toContain('requirePrimaryRole("lender")');
+    expect(applicationsPage).toContain('requirePrimaryRole("lender")');
+    expect(lenderPage).not.toContain("getCurrentUserProfile()");
+  });
+
+  it("keeps document previews useful for PDFs, images, and failed renders", () => {
+    const previewDialog = readFileSync(
+      "components/document-preview-dialog.tsx",
+      "utf8",
+    );
+    const lenderDocumentsPanel = readFileSync(
+      "components/lender-verification-documents-panel.tsx",
+      "utf8",
+    );
+
+    expect(previewDialog).toContain('fileType === "application/pdf"');
+    expect(previewDialog).toContain('fileType === "image/jpeg"');
+    expect(previewDialog).toContain('fileType === "image/png"');
+    expect(previewDialog).toContain("Loading preview...");
+    expect(previewDialog).toContain(
+      "Preview unavailable, download file instead.",
+    );
+    expect(previewDialog).toContain("Invalid or missing file URL.");
+    expect(previewDialog).toContain("Open file");
+    expect(lenderDocumentsPanel).toContain("URL.createObjectURL(file)");
   });
 
   it("keeps manager lookup and proof lists link-based instead of expandable", () => {
@@ -508,7 +841,7 @@ describe("loan offer schema", () => {
   it("accepts pending offer fields", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      interestServiceCharge: 1_500,
+      interestServiceChargeRate: 7.5,
       fees: 500,
       dueDate: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
@@ -522,16 +855,21 @@ describe("loan offer schema", () => {
     if (!result.success) {
       throw new Error("Expected offer schema to accept valid fields.");
     }
-    expect(result.data.repaymentAmount).toBe(22_000);
+    expect(result.data.repaymentAmount).toBe(22_400);
+    expect(result.data.processingFee).toBe(400);
   });
 
-  it("rejects negative interest or service charge", () => {
+  it("rejects negative interest or service charge rate", () => {
     const result = loanOfferSchema.safeParse({
       approvedAmount: 20_000,
-      interestServiceCharge: -1_000,
+      interestServiceChargeRate: -1,
       fees: 0,
       dueDate: "2026-07-24",
       remarks: "",
+      repaymentChannel: "GCash",
+      repaymentAccountName: "Partner Capital",
+      repaymentAccountNumber: "09171234567",
+      repaymentInstructions: "",
     });
 
     expect(result.success).toBe(false);
@@ -680,8 +1018,11 @@ describe("borrower offer acceptance", () => {
       lender_id: "lender-1",
       lender_name: "Partner Capital",
       approved_amount: 20_000,
+      interest_service_charge_rate: 7.5,
       repayment_amount: 22_000,
       fees: 500,
+      processing_fee_rate: 0.02,
+      processing_fee_amount: 0,
       due_date: "2026-07-24",
       remarks: "Offer is based on submitted portfolio cash flow.",
       sent_at: "2026-05-24T08:00:00.000Z",
@@ -765,6 +1106,7 @@ describe("role helper logic", () => {
       canAccessRole(
         {
           role: "borrower",
+          additional_roles: [],
           status: "active",
         },
         "borrower",
@@ -774,7 +1116,29 @@ describe("role helper logic", () => {
       canAccessRole(
         {
           role: "borrower",
+          additional_roles: [],
           status: "suspended",
+        },
+        "borrower",
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps borrower access primary-role-only", () => {
+    expect(
+      hasPrimaryRole(
+        {
+          role: "borrower",
+          status: "active",
+        },
+        "borrower",
+      ),
+    ).toBe(true);
+    expect(
+      hasPrimaryRole(
+        {
+          role: "lender",
+          status: "active",
         },
         "borrower",
       ),
@@ -785,6 +1149,7 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "approved",
@@ -794,6 +1159,7 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "pending",
@@ -803,9 +1169,20 @@ describe("role helper logic", () => {
     expect(
       isApprovedLender({
         role: "lender",
+        additional_roles: [],
         status: "active",
         lenderProfile: {
           verification_status: "incomplete",
+        },
+      }),
+    ).toBe(false);
+    expect(
+      isApprovedLender({
+        role: "borrower",
+        additional_roles: ["lender"],
+        status: "active",
+        lenderProfile: {
+          verification_status: "approved",
         },
       }),
     ).toBe(false);
@@ -874,6 +1251,28 @@ describe("database workflow safeguards", () => {
     expect(migration).toContain("function app_private.submit_repayment_proof");
     expect(migration).toContain("function app_private.review_repayment_proof");
     expect(migration).toContain("loan_balance_updated");
+  });
+
+  it("allows borrowers to preview only their own lender release proofs", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260619130000_allow_borrower_release_proof_preview.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      'create policy "storage_repayment_proofs_borrower_release_select"',
+    );
+    expect(migration).toContain("active_loans.borrower_id = (select auth.uid())");
+    expect(migration).toContain(
+      "active_loans.release_proof_url = storage.objects.name",
+    );
+    expect(migration).toContain(
+      "active_loans.id::text = split_part(storage.objects.name, '/', 4)",
+    );
+    expect(migration).toContain(
+      'create policy "storage_repayment_proofs_lender_release_select"',
+    );
+    expect(migration).toContain("active_loans.lender_id = (select auth.uid())");
   });
 
   it("hardens repayment proof re-upload lifecycle", () => {
@@ -964,10 +1363,34 @@ describe("borrower readiness gates", () => {
   const completePortfolio = {
     businessName: "Aling Nena Store",
     businessType: "sari_sari_store" as const,
-    location: "Quezon City",
+    location: "Diliman, Quezon City, NCR - National Capital Region, 1100",
+    address: {
+      regionCode: "NCR",
+      regionName: "NCR - National Capital Region",
+      cityOrMunicipality: "Quezon City",
+      barangay: "Diliman",
+      zipCode: "1100",
+    },
+    streetAddress: "",
     monthlyGrossRevenue: 45_000,
     monthlyExpenses: 28_000,
+    monthlyInventoryCost: 28_000,
+    businessExpensesCompleted: true,
     existingLoanPayments: 3_500,
+    hasExistingDebts: true,
+    personalLoanPayments: 3_500,
+    householdExpensesCompleted: true,
+    existingDebtDeclarationCompleted: true,
+    hasBusinessRegistration: true,
+    businessRegistrationType: "barangay_permit" as const,
+    registrationNumber: "BRGY-2026-001",
+    registrationDate: "2026-01-15",
+    revenueConfidence: "sales_records" as const,
+    mainProductsOrServicesCategory: "groceries_household_items" as const,
+    confirmsInformationTrue: true,
+    consentsToDataProcessing: true,
+    consentsToCreditCheck: true,
+    confirmsBusinessOperating: true,
     yearsInOperation: 2,
     loanPurposeContext:
       "Additional working capital for inventory before the holiday season.",
@@ -1016,7 +1439,21 @@ describe("borrower readiness gates", () => {
         rejectionReason: null,
         submittedAt: null,
         reviewedAt: null,
-        documents: [],
+        documents: [
+          {
+            id: "doc-1",
+            borrowerVerificationId: "v-1",
+            documentType: "business_proof",
+            status: "accepted",
+            fileName: "business-proof.pdf",
+            fileType: "application/pdf",
+            fileSize: 1000,
+            uploadedAt: "2026-06-01T00:00:00Z",
+            reviewedAt: null,
+            reviewNotes: null,
+            viewUrl: null,
+          },
+        ],
         documentPolicy: {
           requiredDocumentTypes: ["valid_id", "business_proof"],
           missingRequiredDocumentTypes: [],
@@ -1049,7 +1486,21 @@ describe("borrower readiness gates", () => {
         rejectionReason: null,
         submittedAt: null,
         reviewedAt: null,
-        documents: [],
+        documents: [
+          {
+            id: "doc-1",
+            borrowerVerificationId: "v-1",
+            documentType: "business_proof",
+            status: "accepted",
+            fileName: "business-proof.pdf",
+            fileType: "application/pdf",
+            fileSize: 1000,
+            uploadedAt: "2026-06-01T00:00:00Z",
+            reviewedAt: null,
+            reviewNotes: null,
+            viewUrl: null,
+          },
+        ],
         documentPolicy: {
           requiredDocumentTypes: ["valid_id", "business_proof"],
           missingRequiredDocumentTypes: [],
@@ -1366,6 +1817,19 @@ describe("manager lender review page", () => {
     expect(lendersPage).toContain("consentStatus.isCurrent");
   });
 
+  it("keeps lender disclosure acceptance visible in approval progress", () => {
+    const pendingPanel = readFileSync(
+      "components/lender/lender-pending-review-panel.tsx",
+      "utf8",
+    );
+
+    expect(pendingPanel).toContain("acceptedInSession");
+    expect(pendingPanel).toContain("onConsentAccepted={() => setAcceptedInSession(true)}");
+    expect(pendingPanel).toContain("Required disclosures accepted");
+    expect(pendingPanel).toContain("You have already approved the lender disclosures.");
+    expect(pendingPanel).toContain("documentPolicy.readyForManagerReview");
+  });
+
   it("keeps review action wiring intact", () => {
     const lendersPage = readFileSync(
       "app/manager/lenders/page.tsx",
@@ -1431,5 +1895,81 @@ describe("manager lender review page", () => {
     );
 
     expect(lendersPage).toContain("buildQueueHref");
+  });
+
+  it("allows multiple borrower applications through credit-line migration safeguards", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618123000_allow_open_applications_with_available_credit.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "calculate_borrower_credit_limit_details_for_application",
+    );
+    expect(migration).toContain(
+      "perform pg_advisory_xact_lock(hashtext(v_actor_id::text));",
+    );
+    expect(migration).toContain("'code', 'credit_limit_exceeded'");
+    expect(migration).not.toContain("'code', 'active_application'");
+    expect(migration).not.toContain("You already have an open application");
+  });
+
+  it("uses the current borrower credit snapshot for application validation", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618174000_use_current_credit_snapshot_for_applications.sql",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "create or replace function app_private.get_borrower_credit_snapshot",
+    );
+    expect(migration).toContain(
+      "create or replace function app_private.enforce_loan_application_credit_limit",
+    );
+    expect(migration).toContain(
+      "v_credit := app_private.get_borrower_credit_snapshot(v_actor_id, null);",
+    );
+    expect(migration).toContain(
+      "v_credit := app_private.get_borrower_credit_snapshot(new.borrower_id, new.id);",
+    );
+    expect(migration).toContain("and status in ('active', 'overdue')");
+    expect(migration).toContain("sum(principal_amount)");
+    expect(migration).toContain(
+      "Unable to verify your latest credit limit. Please refresh and try again.",
+    );
+    expect(migration).not.toContain("credit_limit_at_submission >");
+  });
+
+  it("exposes and uses the current borrower credit snapshot for offer detail checks", () => {
+    const migration = readFileSync(
+      "supabase/migrations/20260618180000_expose_my_borrower_credit_snapshot.sql",
+      "utf8",
+    );
+    const offerPage = readFileSync(
+      "app/borrower/offers/[offerId]/page.tsx",
+      "utf8",
+    );
+
+    expect(migration).toContain(
+      "create or replace function public.get_my_borrower_credit_snapshot",
+    );
+    expect(migration).toContain("v_actor_id uuid := auth.uid();");
+    expect(migration).toContain("if not app_private.is_borrower(v_actor_id)");
+    expect(migration).toContain(
+      "app_private.get_borrower_credit_snapshot(",
+    );
+    expect(migration).toContain(
+      "'active_principal_used', (v_credit->>'active_principal_used')::numeric",
+    );
+    expect(migration).toContain(
+      "'available_credit', (v_credit->>'available_credit')::numeric",
+    );
+    expect(offerPage).toContain("get_my_borrower_credit_snapshot");
+    expect(offerPage).toContain("p_excluded_application_id: applicationId");
+    expect(offerPage).toContain(
+      "offer.principalAmount > creditSnapshot.availableCredit",
+    );
+    expect(offerPage).not.toContain("creditLimitAtSubmission");
+    expect(offerPage).not.toContain("availableCreditAtSubmission");
   });
 });

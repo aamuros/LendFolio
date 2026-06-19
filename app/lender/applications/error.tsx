@@ -6,9 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 export default function LenderApplicationsError() {
   return (
     <main className="min-h-svh bg-background">
+      <LenderHeader activeTab="applications" showNotifications={false} />
       <div className="mx-auto max-w-7xl">
-        <LenderHeader activeTab="applications" showNotifications={false} />
-        <div className="px-4 pt-6 pb-32 sm:px-6 sm:pt-8">
+        <div className="px-4 pt-4 pb-32 sm:px-6 sm:pt-6">
           <div className="mx-auto grid max-w-4xl gap-5">
             <Card className="rounded-2xl border-border/50 shadow-sm">
               <CardContent className="grid gap-2 p-5">

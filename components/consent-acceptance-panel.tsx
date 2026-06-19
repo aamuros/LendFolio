@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { CheckCircle2, FileCheck2 } from "lucide-react";
 import { acceptUserConsentsAction } from "@/app/consents/actions";
 import {
+  consentTypeDescriptions,
+  consentTypeDetailText,
+  consentTypeLabels,
   type ConsentScope,
   type ConsentStatus,
 } from "@/lib/consents";
@@ -29,6 +32,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { LegalDialog } from "@/components/legal/legal-dialog";
+import { lenderVerificationAuthorizationContent } from "@/components/legal/legal-content";
 
 type ConsentAcceptancePanelProps = {
   status: ConsentStatus;
@@ -47,7 +52,19 @@ const scopeDescriptions: Record<ConsentScope, string> = {
   borrower_loan_application:
     "To submit a loan application, you must accept the Credit Review Authorization. This allows LendFolio to review your profile and financial details for credit assessment purposes.",
   lender_review:
-    "To access borrower applications, you must accept the Lender Review Consent.",
+    "To continue lender verification, accept the Authorization for Verification.",
+};
+
+const scopeTitles: Partial<Record<ConsentScope, string>> = {
+  borrower_loan_application: "Credit Review Authorization",
+  lender_review: "Authorization for Verification",
+};
+
+const scopeAcceptanceLabels: Partial<Record<ConsentScope, string>> = {
+  borrower_loan_application:
+    "I authorize LendFolio to review my information for credit assessment.",
+  lender_review:
+    "I authorize LendFolio to review my lender profile and submitted documents for lender verification.",
 };
 
 export function ConsentAcceptancePanel({
@@ -134,11 +151,17 @@ function DialogConsentPanel({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Credit Review Authorization</DialogTitle>
+          <DialogTitle>{scopeTitles[scope] ?? "Required disclosures"}</DialogTitle>
           <DialogDescription>
             {scopeDescriptions[scope]}
           </DialogDescription>
         </DialogHeader>
+
+        {scope === "lender_review" ? (
+          <p className="text-sm leading-6 text-muted-foreground">
+            {consentTypeDetailText.lender_review_consent}
+          </p>
+        ) : null}
 
         <div className="flex items-start gap-3">
           <Checkbox
@@ -151,8 +174,8 @@ function DialogConsentPanel({
             htmlFor={`consent-dialog-${scope}`}
             className="text-sm font-semibold leading-snug cursor-pointer"
           >
-            I authorize LendFolio to review my information for credit
-            assessment.
+            {scopeAcceptanceLabels[scope] ??
+              "I accept the required disclosures for this step."}
           </Label>
         </div>
         {message ? (
@@ -227,7 +250,7 @@ function OnboardingConsentPanel({
           </Badge>
         </div>
         <CardDescription className="text-xs leading-5">
-          Accept the required disclosures so a manager can complete your approval.
+          Accept the required disclosures so a manager can review your lender profile and documents.
         </CardDescription>
       </CardHeader>
 
@@ -256,20 +279,41 @@ function OnboardingConsentPanel({
                   className="mt-0.5"
                 />
               )}
-              <div className="grid gap-0.5 min-w-0">
-                <Label
-                  htmlFor={
-                    accepted
-                      ? undefined
-                      : `consent-${scope}-${consent.consentType}`
-                  }
-                  className="text-sm font-medium leading-snug cursor-pointer"
-                >
-                  {consent.consentType
-                    .split("_")
-                    .map((w) => w[0]?.toUpperCase() + w.slice(1))
-                    .join(" ")}
-                </Label>
+              <div className="grid min-w-0 gap-0.5">
+                {consent.consentType === "lender_review_consent" ? (
+                  <div className="grid gap-1">
+                    <p className="text-sm font-semibold leading-snug text-foreground">
+                      {consentTypeLabels[consent.consentType]}
+                    </p>
+                    <LegalDialog
+                      trigger={
+                        <button
+                          type="button"
+                          className="w-fit text-xs font-medium text-muted-foreground underline underline-offset-4 transition-colors hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[#33423C]"
+                        >
+                          View details
+                        </button>
+                      }
+                      content={lenderVerificationAuthorizationContent}
+                    />
+                  </div>
+                ) : (
+                  <Label
+                    htmlFor={
+                      accepted
+                        ? undefined
+                        : `consent-${scope}-${consent.consentType}`
+                    }
+                    className="cursor-pointer text-sm font-medium leading-snug"
+                  >
+                    {consentTypeLabels[consent.consentType]}
+                  </Label>
+                )}
+                {consentTypeDescriptions[consent.consentType] ? (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    {consentTypeDescriptions[consent.consentType]}
+                  </p>
+                ) : null}
                 {accepted ? (
                   <p className="text-xs text-muted-foreground">
                     Accepted {formatDateTime(accepted.acceptedAt)}
@@ -369,12 +413,15 @@ function DefaultConsentPanel({
                 className="grid gap-1 border-t border-border pt-2 first:border-t-0 first:pt-0"
               >
                 <dt className="font-semibold">
-                  {consent.consentType
-                    .split("_")
-                    .map((w) => w[0]?.toUpperCase() + w.slice(1))
-                    .join(" ")}
+                  {consentTypeLabels[consent.consentType]}
                 </dt>
                 <dd className="text-xs leading-5 text-muted-foreground">
+                  {consentTypeDescriptions[consent.consentType] ? (
+                    <>
+                      {consentTypeDescriptions[consent.consentType]}
+                      <br />
+                    </>
+                  ) : null}
                   {consent.version}
                   {accepted ? ` · Accepted ${formatDateTime(accepted.acceptedAt)}` : ""}
                 </dd>

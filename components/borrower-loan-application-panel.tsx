@@ -1,6 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
+import Link from "next/link";
 import type { FormEventHandler, ReactNode } from "react";
 import {
   useEffect,
@@ -19,11 +20,13 @@ import {
   type UseFormRegister,
 } from "react-hook-form";
 import {
-  acceptLoanOffer,
   type BorrowerLoanApplicationSummary,
-  declineLoanOffer,
+  confirmLoanFundsReceived,
+  dismissWithdrawnLoanApplication,
   loadBorrowerLoanApplications,
   type LoanApplicationsLoadResult,
+  reportLoanReleaseNotReceived,
+  submitLoanDisbursementDestination,
   submitRepaymentProof,
   submitLoanApplication,
   updateLoanApplication,
@@ -31,28 +34,49 @@ import {
 } from "@/app/borrower/actions";
 import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { CurrencyInput } from "@/components/currency-input";
+import { ProofPreviewButton } from "@/components/proof-preview-button";
 import type { BorrowerTab } from "@/components/borrower-bottom-tabs";
 import {
   canSubmitLoanApplicationForVerification,
   getBorrowerVerificationMessage,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
-import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import {
+  borrowerPortfolioSavedEvent,
+  borrowerVerificationUpdatedEvent,
+} from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import {
+  exceedsAvailableCredit,
   formatCreditAmount,
+  normalizeCreditComparisonAmount,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
+import {
+  borrowerPortfolioStepIds,
+  type BorrowerPortfolioStep,
+} from "@/lib/borrower-portfolio";
+import {
+  isCompletedLoan,
+  isOngoingLoanStatus,
+} from "@/lib/active-loan-status";
 import type { ConsentStatus } from "@/lib/consents";
 import {
+  getLoanPurposeLabel,
+  isLoanPurposeOption,
   loanApplicationSchema,
+  loanPurposeLabels,
+  loanPurposeOptions,
   preferredTermLabels,
   preferredTermOptions,
   type LoanApplicationFormInput,
   type LoanApplicationInput,
 } from "@/lib/loan-application";
 import { parseMoneyInput } from "@/lib/money-input";
-import { canEditApplication } from "@/lib/workflow-rules";
+import {
+  canEditApplication,
+  openApplicationStatuses,
+} from "@/lib/workflow-rules";
 
 import {
   Card,
@@ -89,7 +113,7 @@ import { Progress } from "@/components/ui/progress";
 import { Calendar } from "@/components/ui/calendar";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { AlertCircle, ArrowRight } from "lucide-react";
+import { AlertCircle, ArrowLeft, ArrowRight } from "lucide-react";
 import { toneBadgeClassName } from "@/components/borrower-status-badge";
 import {
   ActionBanner,
@@ -101,17 +125,33 @@ import {
   borrowerPageBottomPadding,
 } from "@/components/borrower/ui";
 
-const defaultValues: LoanApplicationInput = {
+const defaultValues: LoanApplicationFormInput = {
   requestedAmount: 0,
   purpose: "",
   preferredTerm: "3_months",
   remarks: "",
 };
+const loanPurposeSelectPlaceholderValue = "__select_purpose__";
 
 const collapsedApplicationsStorageKey =
   "lendfolio.borrower.collapsedApplications";
-const collapsedOffersStorageKey = "lendfolio.borrower.collapsedOffers";
 const collapsedRepaymentsStorageKey = "lendfolio.borrower.collapsedRepayments";
+const repaymentProofMaxFileSize = 5 * 1024 * 1024;
+const repaymentProofAllowedTypes = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
+const disbursementDestinationMethods = [
+  "GCash",
+  "Maya",
+  "Bank transfer",
+  "Cash pickup",
+  "Other",
+] as const;
 
 type LoadState = "loading" | "ready" | "blocked" | "error";
 
@@ -125,6 +165,7 @@ type BorrowerLoanApplicationPanelProps = {
   highlightLoanId?: string | null;
   highlightRepaymentId?: string | null;
   highlightProofId?: string | null;
+  initialSuccessMessage?: string;
 };
 
 export function BorrowerLoanApplicationPanel({
@@ -137,6 +178,7 @@ export function BorrowerLoanApplicationPanel({
   highlightLoanId = null,
   highlightRepaymentId = null,
   highlightProofId = null,
+  initialSuccessMessage = "",
 }: BorrowerLoanApplicationPanelProps) {
   const [isPending, startTransition] = useTransition();
   const [loadState, setLoadState] = useState<LoadState>(
@@ -149,6 +191,9 @@ export function BorrowerLoanApplicationPanel({
   const [hasPortfolio, setHasPortfolio] = useState(
     initialLoadResult?.hasPortfolio ?? false,
   );
+  const [completedPortfolioSteps, setCompletedPortfolioSteps] = useState<
+    BorrowerPortfolioStep[]
+  >(initialLoadResult?.completedPortfolioSteps ?? []);
   const [borrowerVerification, setBorrowerVerification] =
     useState<BorrowerVerificationSummary | null>(
       initialLoadResult?.borrowerVerification ?? null,
@@ -159,7 +204,7 @@ export function BorrowerLoanApplicationPanel({
   const [message, setMessage] = useState(
     initialLoadResult ? (initialLoadResult.ok ? "" : initialLoadResult.message) : "",
   );
-  const [successMessage, setSuccessMessage] = useState("");
+  const [successMessage, setSuccessMessage] = useState(initialSuccessMessage);
   const [applications, setApplications] = useState<
     BorrowerLoanApplicationSummary[]
   >(initialLoadResult?.ok ? initialLoadResult.applications : []);
@@ -182,13 +227,6 @@ export function BorrowerLoanApplicationPanel({
       readStoredIdSet(collapsedApplicationsStorageKey),
     ),
   );
-  const [expandedOfferIds, setExpandedOfferIds] = useState<Set<string>>(
-    () =>
-      getDefaultExpandedOfferIds(
-        initialLoadResult?.ok ? initialLoadResult.applications : [],
-        readStoredIdSet(collapsedOffersStorageKey),
-      ),
-  );
   const [expandedRepaymentIds, setExpandedRepaymentIds] = useState<Set<string>>(
     () =>
       getDefaultExpandedRepaymentIds(
@@ -196,11 +234,18 @@ export function BorrowerLoanApplicationPanel({
         readStoredIdSet(collapsedRepaymentsStorageKey),
       ),
   );
+  const [selectedOfferApplicationId, setSelectedOfferApplicationId] = useState<
+    string | null
+  >(null);
   const [editingApplicationId, setEditingApplicationId] = useState<
     string | null
   >(null);
   const [pendingWithdrawId, setPendingWithdrawId] = useState<string | null>(
     null,
+  );
+  const [pendingRemoveId, setPendingRemoveId] = useState<string | null>(null);
+  const [selectedLoanId, setSelectedLoanId] = useState<string | null>(
+    highlightLoanId ?? null,
   );
 
   const {
@@ -215,6 +260,55 @@ export function BorrowerLoanApplicationPanel({
     mode: "onBlur",
   });
 
+  function applyLoadResult(result: LoanApplicationsLoadResult, options?: {
+    preserveFeedback?: boolean;
+  }) {
+    const nextHasPortfolio = result.hasPortfolio;
+    const nextApplications = result.ok ? result.applications : [];
+
+    setHasPortfolio(nextHasPortfolio);
+    setCompletedPortfolioSteps(result.completedPortfolioSteps);
+    setBorrowerVerification(result.borrowerVerification);
+    setReadiness(result.readiness);
+    setConsentStatuses(result.consentStatuses);
+    setLoanConsentStatus(
+      result.consentStatuses?.borrowerLoanApplication ?? null,
+    );
+    setApplications(nextApplications);
+    setCreditSummary(result.creditSummary);
+    setExpandedApplicationIds(
+      getDefaultExpandedApplicationIds(
+        nextApplications,
+        readStoredIdSet(collapsedApplicationsStorageKey),
+      ),
+    );
+    setExpandedRepaymentIds(
+      getDefaultExpandedRepaymentIds(
+        nextApplications,
+        readStoredIdSet(collapsedRepaymentsStorageKey),
+      ),
+    );
+    setLoadState(nextHasPortfolio ? "ready" : "blocked");
+
+    if (!options?.preserveFeedback) {
+      setMessage(result.ok ? "" : result.message);
+      setSuccessMessage("");
+    }
+  }
+
+  async function refreshLoanApplications(options?: {
+    preserveFeedback?: boolean;
+  }) {
+    const refreshed = await loadBorrowerLoanApplications();
+
+    if (refreshed.ok) {
+      applyLoadResult(refreshed, options);
+      return true;
+    }
+
+    return false;
+  }
+
   useEffect(() => {
     let isActive = true;
 
@@ -225,39 +319,7 @@ export function BorrowerLoanApplicationPanel({
             return;
           }
 
-          const nextHasPortfolio = result.hasPortfolio;
-          const nextApplications = result.ok ? result.applications : [];
-
-          setHasPortfolio(nextHasPortfolio);
-          setBorrowerVerification(result.borrowerVerification);
-          setReadiness(result.readiness);
-          setConsentStatuses(result.consentStatuses);
-          setLoanConsentStatus(
-            result.consentStatuses?.borrowerLoanApplication ?? null,
-          );
-          setApplications(nextApplications);
-          setCreditSummary(result.creditSummary);
-          setExpandedApplicationIds(
-            getDefaultExpandedApplicationIds(
-              nextApplications,
-              readStoredIdSet(collapsedApplicationsStorageKey),
-            ),
-          );
-          setExpandedOfferIds(
-            getDefaultExpandedOfferIds(
-              nextApplications,
-              readStoredIdSet(collapsedOffersStorageKey),
-            ),
-          );
-          setExpandedRepaymentIds(
-            getDefaultExpandedRepaymentIds(
-              nextApplications,
-              readStoredIdSet(collapsedRepaymentsStorageKey),
-            ),
-          );
-          setLoadState(nextHasPortfolio ? "ready" : "blocked");
-          setMessage(result.ok ? "" : result.message);
-          setSuccessMessage("");
+          applyLoadResult(result);
         });
       });
     }
@@ -266,10 +328,12 @@ export function BorrowerLoanApplicationPanel({
       load();
     }
     window.addEventListener(borrowerPortfolioSavedEvent, load);
+    window.addEventListener(borrowerVerificationUpdatedEvent, load);
 
     return () => {
       isActive = false;
       window.removeEventListener(borrowerPortfolioSavedEvent, load);
+      window.removeEventListener(borrowerVerificationUpdatedEvent, load);
     };
   }, [initialLoadResult, startTransition]);
 
@@ -302,12 +366,38 @@ export function BorrowerLoanApplicationPanel({
     let scrollTargetId: string | null = null;
 
     if (highlightOfferId && view === "offers") {
+      const parentApp = applications.find((application) =>
+        application.offers.some((offer) => offer.id === highlightOfferId),
+      );
+
+      if (
+        parentApp &&
+        selectedOfferApplicationId !== parentApp.id
+      ) {
+        return;
+      }
+
       scrollTargetId = `offer-${highlightOfferId}`;
     } else if (highlightApplicationId) {
       scrollTargetId = `application-${highlightApplicationId}`;
     } else if (highlightRepaymentId && view === "loans") {
+      const parentLoan = applications
+        .flatMap((application) =>
+          application.activeLoan ? [application.activeLoan] : [],
+        )
+        .find((loan) =>
+          loan.schedule.some((repayment) => repayment.id === highlightRepaymentId),
+        );
+      if (parentLoan && selectedLoanId !== parentLoan.id) {
+        return;
+      }
+
       scrollTargetId = `repayment-${highlightRepaymentId}`;
     } else if (highlightLoanId && view === "loans") {
+      if (selectedLoanId !== highlightLoanId) {
+        return;
+      }
+
       scrollTargetId = `loan-${highlightLoanId}`;
     }
 
@@ -327,6 +417,8 @@ export function BorrowerLoanApplicationPanel({
     highlightLoanId,
     highlightRepaymentId,
     highlightProofId,
+    selectedOfferApplicationId,
+    selectedLoanId,
   ]);
 
   useEffect(() => {
@@ -335,21 +427,12 @@ export function BorrowerLoanApplicationPanel({
     }
 
     if (highlightOfferId && view === "offers") {
-      startTransition(() => {
-        setExpandedOfferIds((current) => {
-          if (current.has(highlightOfferId)) return current;
-          const next = new Set(current);
-          next.add(highlightOfferId);
-          return next;
-        });
-      });
-      setStoredIdCollapsed(collapsedOffersStorageKey, highlightOfferId, false);
-
       const parentApp = applications.find((a) =>
         a.offers.some((o) => o.id === highlightOfferId),
       );
       if (parentApp) {
         startTransition(() => {
+          setSelectedOfferApplicationId(parentApp.id);
           setExpandedApplicationIds((current) => {
             if (current.has(parentApp.id)) return current;
             const next = new Set(current);
@@ -374,7 +457,19 @@ export function BorrowerLoanApplicationPanel({
         false,
       );
     } else if (highlightRepaymentId && view === "loans") {
+      const parentLoan = applications
+        .flatMap((application) =>
+          application.activeLoan ? [application.activeLoan] : [],
+        )
+        .find((loan) =>
+          loan.schedule.some((repayment) => repayment.id === highlightRepaymentId),
+        );
+
       startTransition(() => {
+        if (parentLoan) {
+          setSelectedLoanId(parentLoan.id);
+        }
+
         setExpandedRepaymentIds((current) => {
           if (current.has(highlightRepaymentId)) return current;
           const next = new Set(current);
@@ -387,48 +482,49 @@ export function BorrowerLoanApplicationPanel({
         highlightRepaymentId,
         false,
       );
+    } else if (highlightLoanId && view === "loans") {
+      startTransition(() => {
+        setSelectedLoanId(highlightLoanId);
+      });
     }
   }, [
     applications,
     view,
     highlightOfferId,
     highlightApplicationId,
+    highlightLoanId,
     highlightRepaymentId,
   ]);
 
+  const visibleApplyApplications = useMemo(
+    () => getVisibleApplyApplications(applications),
+    [applications],
+  );
+
   const applicationCountLabel = useMemo(() => {
-    if (applications.length === 1) {
+    if (visibleApplyApplications.length === 1) {
       return "1 application";
     }
 
-    return `${applications.length} applications`;
-  }, [applications.length]);
+    return `${visibleApplyApplications.length} applications`;
+  }, [visibleApplyApplications.length]);
   const watchedRequestedAmount = parseMoneyInput(
     useWatch({ control, name: "requestedAmount" }),
   );
   const requestedAmount =
-    typeof watchedRequestedAmount === "number" ? watchedRequestedAmount : 0;
+    typeof watchedRequestedAmount === "number"
+      ? normalizeCreditComparisonAmount(watchedRequestedAmount)
+      : 0;
   const canSubmitApplication = canSubmitLoanApplicationForVerification(
     borrowerVerification,
   );
   const borrowerVerificationMessage =
     getBorrowerVerificationMessage(borrowerVerification);
-  const hasOpenApplication = applications.some(
-    (app) => app.status === "submitted" || app.status === "open",
-  );
 
   function onSubmit(values: LoanApplicationInput) {
     if (!hasPortfolio) {
       setLoadState("blocked");
       setMessage("Save your business profile before applying.");
-      return;
-    }
-
-    if (hasOpenApplication) {
-      setLoadState("ready");
-      setMessage(
-        "You already have an open application. Withdraw it before submitting a new one.",
-      );
       return;
     }
 
@@ -440,9 +536,7 @@ export function BorrowerLoanApplicationPanel({
 
     if (
       readiness &&
-      (readiness.readinessStatus === "needs_review" ||
-        readiness.readinessStatus === "not_eligible" ||
-        readiness.readinessStatus === "incomplete")
+      isBlockingApplicationReadiness(readiness)
     ) {
       setLoadState("ready");
       setMessage(
@@ -453,11 +547,11 @@ export function BorrowerLoanApplicationPanel({
 
     if (
       creditSummary &&
-      values.requestedAmount > creditSummary.availableCredit
+      exceedsAvailableCredit(values.requestedAmount, creditSummary.availableCredit)
     ) {
       setLoadState("ready");
       setMessage(
-        "Requested amount exceeds your available credit. Please reduce the amount or update your profile.",
+        `Requested amount exceeds your available credit. Maximum request: ${formatCreditAmount(normalizeCreditComparisonAmount(creditSummary.availableCredit))}.`,
       );
       return;
     }
@@ -466,13 +560,42 @@ export function BorrowerLoanApplicationPanel({
     setSuccessMessage("");
 
     startTransition(async () => {
+      const beforeSubmit = await loadBorrowerLoanApplications();
+
+      if (!beforeSubmit.ok) {
+        applyLoadResult(beforeSubmit);
+        return;
+      }
+
+      applyLoadResult(beforeSubmit, { preserveFeedback: true });
+
+      const currentAvailableCredit = normalizeCreditComparisonAmount(
+        beforeSubmit.creditSummary?.availableCredit,
+      );
+
+      if (currentAvailableCredit <= 0) {
+        setLoadState("ready");
+        setMessage(
+          "You have used your available credit. Repay an active loan, withdraw a pending application, or wait for an application decision before applying again.",
+        );
+        return;
+      }
+
+      if (exceedsAvailableCredit(values.requestedAmount, currentAvailableCredit)) {
+        setLoadState("ready");
+        setMessage(
+          `Requested amount exceeds your available credit. Maximum request: ${formatCreditAmount(currentAvailableCredit)}.`,
+        );
+        return;
+      }
+
       const result = await submitLoanApplication(values);
+      const refreshed = await loadBorrowerLoanApplications();
 
       if (result.ok) {
-        setApplications((current) => [
-          { ...result.application, offers: [], activeLoan: null },
-          ...current,
-        ]);
+        if (refreshed.ok) {
+          applyLoadResult(refreshed, { preserveFeedback: true });
+        }
         setExpandedApplicationIds(
           (current) => new Set([...current, result.application.id]),
         );
@@ -483,13 +606,17 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
+      if (refreshed.ok) {
+        applyLoadResult(refreshed, { preserveFeedback: true });
+      }
+
       setLoadState(
         result.mode === "missing-portfolio"
           ? "blocked"
           : result.mode === "borrower-verification" ||
             result.mode === "consent-required" ||
             result.mode === "readiness" ||
-            result.mode === "active-application"
+            result.mode === "credit-limit"
             ? "ready"
             : "error",
       );
@@ -508,18 +635,22 @@ export function BorrowerLoanApplicationPanel({
       const result = await updateLoanApplication(applicationId, values);
 
       if (!result.ok) {
-        setLoadState("error");
+        setLoadState(result.mode === "credit-limit" ? "ready" : "error");
         setMessage(result.message);
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? { ...application, ...result.application }
-            : application,
-        ),
-      );
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === applicationId
+              ? { ...application, ...result.application }
+              : application,
+          ),
+        );
+      }
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -535,6 +666,10 @@ export function BorrowerLoanApplicationPanel({
 
   function onWithdrawApplication(applicationId: string) {
     setPendingWithdrawId(applicationId);
+  }
+
+  function onRemoveWithdrawnApplication(applicationId: string) {
+    setPendingRemoveId(applicationId);
   }
 
   function confirmWithdraw() {
@@ -557,21 +692,25 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? {
-              ...application,
-              ...result.application,
-              offers: application.offers.map((offer) =>
-                offer.status === "pending"
-                  ? { ...offer, status: "declined" }
-                  : offer,
-              ),
-            }
-            : application,
-        ),
-      );
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
+        setApplications((current) =>
+          current.map((application) =>
+            application.id === applicationId
+              ? {
+                ...application,
+                ...result.application,
+                offers: application.offers.map((offer) =>
+                  offer.status === "pending"
+                    ? { ...offer, status: "declined" }
+                    : offer,
+                ),
+              }
+              : application,
+          ),
+        );
+      }
       setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
@@ -579,12 +718,19 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  function onAcceptOffer(applicationId: string, offerId: string) {
-    setMessage("Accepting offer...");
+  function confirmRemoveWithdrawnApplication() {
+    const applicationId = pendingRemoveId;
+
+    if (!applicationId) {
+      return;
+    }
+
+    setPendingRemoveId(null);
+    setMessage("Removing withdrawn application...");
     setSuccessMessage("");
 
     startTransition(async () => {
-      const result = await acceptLoanOffer(offerId);
+      const result = await dismissWithdrawnLoanApplication(applicationId);
 
       if (!result.ok) {
         setLoadState("error");
@@ -592,70 +738,19 @@ export function BorrowerLoanApplicationPanel({
         return;
       }
 
-      const refreshed = await loadBorrowerLoanApplications();
-      if (refreshed.ok) {
-        setApplications(refreshed.applications);
-        setCreditSummary(refreshed.creditSummary);
-      } else {
+      const didRefresh = await refreshLoanApplications({ preserveFeedback: true });
+
+      if (!didRefresh) {
         setApplications((current) =>
-          current.map((application) => {
-            if (application.id !== applicationId) {
-              return application;
-            }
-
-            return {
-              ...application,
-              status: "accepted",
-              offers: application.offers.map((offer) => {
-                if (offer.id === offerId) {
-                  return { ...offer, status: "accepted" };
-                }
-
-                if (offer.status === "pending") {
-                  return { ...offer, status: "declined" };
-                }
-
-                return offer;
-              }),
-            };
-          }),
+          current.filter((application) => application.id !== applicationId),
         );
+        setExpandedApplicationIds((current) => {
+          const next = new Set(current);
+          next.delete(applicationId);
+          return next;
+        });
       }
-      setExpandedApplicationIds((current) => new Set([...current, applicationId]));
-      setExpandedOfferIds((current) => new Set([...current, offerId]));
-      setStoredIdCollapsed(collapsedApplicationsStorageKey, applicationId, false);
-      setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
-      setLoadState("ready");
-      setMessage("");
-      setSuccessMessage(result.message);
-    });
-  }
-
-  function onDeclineOffer(applicationId: string, offerId: string) {
-    setMessage("Declining offer...");
-    setSuccessMessage("");
-
-    startTransition(async () => {
-      const result = await declineLoanOffer(offerId);
-
-      if (!result.ok) {
-        setLoadState("error");
-        setMessage(result.message);
-        return;
-      }
-
-      setApplications((current) =>
-        current.map((application) =>
-          application.id === applicationId
-            ? {
-              ...application,
-              offers: application.offers.map((offer) =>
-                offer.id === offerId ? { ...offer, status: "declined" } : offer,
-              ),
-            }
-            : application,
-        ),
-      );
+      setEditingApplicationId(null);
       setLoadState("ready");
       setMessage("");
       setSuccessMessage(result.message);
@@ -694,23 +789,6 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  function toggleOffer(offerId: string) {
-    setSuccessMessage("");
-    setExpandedOfferIds((current) => {
-      const next = new Set(current);
-
-      if (next.has(offerId)) {
-        next.delete(offerId);
-        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, true);
-      } else {
-        next.add(offerId);
-        setStoredIdCollapsed(collapsedOffersStorageKey, offerId, false);
-      }
-
-      return next;
-    });
-  }
-
   function toggleRepayment(repaymentId: string) {
     setSuccessMessage("");
     setExpandedRepaymentIds((current) => {
@@ -728,23 +806,23 @@ export function BorrowerLoanApplicationPanel({
     });
   }
 
-  const pendingOffers = applications.flatMap((application) =>
-    application.offers
-      .filter((offer) => offer.status === "pending")
-      .map((offer) => ({ application, offer })),
-  );
-  const closedOffers = applications.flatMap((application) =>
-    application.offers
-      .filter((offer) => offer.status !== "pending")
-      .map((offer) => ({ application, offer })),
-  );
+  const hasNoAvailableCredit =
+    readiness?.riskFlags.includes("no_available_credit") ||
+    (creditSummary ? creditSummary.availableCredit <= 0 : false);
+  const hasOpenApplication = visibleApplyApplications.length > 0;
+  const displayedMessage =
+    view === "apply" &&
+    hasOpenApplication &&
+    isProfileReadinessFeedbackMessage(message, readiness)
+      ? ""
+      : message;
 
   return (
     <>
       <section className="grid gap-5">
         <InlineFeedback
           loadState={loadState}
-          message={message}
+          message={displayedMessage}
           successMessage={successMessage}
         />
 
@@ -754,6 +832,7 @@ export function BorrowerLoanApplicationPanel({
             borrowerVerification={borrowerVerification}
             consentStatuses={consentStatuses}
             creditSummary={creditSummary}
+            completedPortfolioSteps={completedPortfolioSteps}
             hasPortfolio={hasPortfolio}
             loadState={loadState}
             onNavigate={onNavigate}
@@ -797,41 +876,35 @@ export function BorrowerLoanApplicationPanel({
                   )
                 }
               />
-            ) : readiness &&
-              (readiness.readinessStatus === "needs_review" ||
-                readiness.readinessStatus === "not_eligible" ||
-                readiness.readinessStatus === "incomplete") ? (
+            ) : hasNoAvailableCredit ? (
+              <CreditLimitBlocker />
+            ) : readiness && isBlockingApplicationReadiness(readiness) ? (
               <ProfileReadinessBlocker
                 readiness={readiness}
                 onEditProfile={() => onNavigate?.("profile")}
               />
-            ) : hasOpenApplication ? (
-              <Card className="rounded-2xl">
-                <CardContent className="flex flex-col items-center gap-2 px-4 py-8 text-center sm:px-5">
-                  <AlertCircle className="size-5 text-muted-foreground" />
-                  <p className="text-sm font-semibold">
-                    You already have an open application
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Withdraw your current application before submitting a new
-                    one.
-                  </p>
-                </CardContent>
-              </Card>
             ) : (
-              <ApplicationForm
-                control={control}
-                creditSummary={creditSummary}
-                errors={errors}
-                isPending={isPending}
-                requestedAmount={requestedAmount}
-                register={register}
-                onSubmit={handleSubmit(onSubmit)}
-              />
+              <>
+                {readiness && hasAdvisoryReadinessFlags(readiness) ? (
+                  <AdvisoryReadinessNotice />
+                ) : null}
+                {hasOpenApplication ? <OpenApplicationNotice /> : null}
+                <ApplicationForm
+                  control={control}
+                  creditSummary={creditSummary}
+                  errors={errors}
+                  feedbackMessage={message}
+                  feedbackTone={loadState === "error" ? "error" : "success"}
+                  isPending={isPending}
+                  requestedAmount={requestedAmount}
+                  register={register}
+                  onSubmit={handleSubmit(onSubmit)}
+                />
+              </>
             )}
 
             <ApplicationList
-              applications={applications}
+              applications={visibleApplyApplications}
               editingApplicationId={editingApplicationId}
               expandedApplicationIds={expandedApplicationIds}
               isPending={isPending}
@@ -843,6 +916,7 @@ export function BorrowerLoanApplicationPanel({
               onSaveApplication={onSaveApplication}
               onToggleApplication={toggleApplication}
               onWithdrawApplication={onWithdrawApplication}
+              onRemoveWithdrawnApplication={onRemoveWithdrawnApplication}
             />
           </div>
         ) : null}
@@ -851,18 +925,21 @@ export function BorrowerLoanApplicationPanel({
           <>
             <PageHeader
               title="Offers"
-              description="Compare lender offers and accept the one that fits."
+              description="Review pending lender offers only. Accepted offers continue as active loans."
             />
             <OfferList
-              closedOffers={closedOffers}
-              expandedOfferIds={expandedOfferIds}
-              isPending={isPending}
-              onAcceptOffer={onAcceptOffer}
-              onDeclineOffer={onDeclineOffer}
+              applications={applications}
               onNavigate={onNavigate}
-              onToggleOffer={toggleOffer}
-              pendingOffers={pendingOffers}
               highlightOfferId={highlightOfferId}
+              selectedApplicationId={selectedOfferApplicationId}
+              onSelectApplication={(applicationId) => {
+                setSuccessMessage("");
+                setSelectedOfferApplicationId(applicationId);
+              }}
+              onBackToApplications={() => {
+                setSuccessMessage("");
+                setSelectedOfferApplicationId(null);
+              }}
             />
           </>
         ) : null}
@@ -871,16 +948,25 @@ export function BorrowerLoanApplicationPanel({
           <>
             <PageHeader
               title="Loans"
-              description="Track active loans, repayment schedules, and payment proof."
+              description="Track ongoing loans and review completed loan history."
             />
             <BorrowerLoansPanel
               applications={applications}
               expandedRepaymentIds={expandedRepaymentIds}
               onNavigate={onNavigate}
               onProofSubmitted={loadApplications}
+              onSelectLoan={(loanId) => {
+                setSuccessMessage("");
+                setSelectedLoanId(loanId);
+              }}
+              onBackToLoans={() => {
+                setSuccessMessage("");
+                setSelectedLoanId(null);
+              }}
               onToggleRepayment={toggleRepayment}
               highlightRepaymentId={highlightRepaymentId}
               highlightLoanId={highlightLoanId}
+              selectedLoanId={selectedLoanId}
             />
           </>
         ) : null}
@@ -913,8 +999,97 @@ export function BorrowerLoanApplicationPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog
+        open={pendingRemoveId !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setPendingRemoveId(null);
+          }
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove withdrawn application?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Remove this withdrawn application from your list?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmRemoveWithdrawnApplication}
+            >
+              Remove
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
+}
+
+export function getVisibleApplyApplications(
+  applications: BorrowerLoanApplicationSummary[],
+) {
+  return applications.filter((application) =>
+    openApplicationStatuses.includes(
+      application.status as (typeof openApplicationStatuses)[number],
+    ),
+  );
+}
+
+export function isBlockingApplicationReadinessStatus(
+  status: BorrowerReadinessResult["readinessStatus"],
+) {
+  return status === "incomplete" || status === "not_eligible";
+}
+
+export function isBlockingApplicationReadiness(
+  readiness: BorrowerReadinessResult,
+) {
+  return (
+    isBlockingApplicationReadinessStatus(readiness.readinessStatus) ||
+    readiness.missingFields.length > 0 ||
+    readiness.profileIsStale ||
+    readiness.riskFlags.some(isHardApplicationBlockerFlag)
+  );
+}
+
+function isHardApplicationBlockerFlag(flag: string) {
+  return [
+    "zero_revenue",
+    "non_positive_cash_flow",
+    "no_available_credit",
+    "suspended",
+    "account_not_active",
+  ].includes(flag);
+}
+
+function hasAdvisoryReadinessFlags(readiness: BorrowerReadinessResult) {
+  return (
+    readiness.riskFlags.length > 0 &&
+    !readiness.riskFlags.some(isHardApplicationBlockerFlag)
+  );
+}
+
+function isProfileReadinessFeedbackMessage(
+  message: string,
+  readiness: BorrowerReadinessResult | null,
+) {
+  if (!message) {
+    return false;
+  }
+
+  if (readiness?.nextActions.includes(message)) {
+    return true;
+  }
+
+  return [
+    "Update your flagged profile details before applying.",
+    "Update your profile before applying.",
+  ].includes(message);
 }
 
 function VerificationGateCard({
@@ -969,31 +1144,113 @@ function ProfileReadinessBlocker({
   readiness: BorrowerReadinessResult;
   onEditProfile?: () => void;
 }) {
-  const hasVagueLoanPurpose =
-    readiness.riskFlags.includes("vague_loan_purpose");
-  const message = hasVagueLoanPurpose
-    ? "Add more detail to your loan purpose before applying."
-    : readiness.nextActions[0] ?? "Update your profile before applying.";
+  const message = getReadinessBlockerMessage(readiness);
+  const canEditProfile = hasEditableProfileIssue(readiness);
 
   return (
     <Card className="rounded-2xl" role="status" aria-live="polite">
       <CardContent className="grid gap-3 p-5">
         <div className="grid gap-1">
           <p className="text-sm font-semibold text-foreground">
-            Profile update needed
+            Profile update required
           </p>
           <p className="text-sm text-muted-foreground">{message}</p>
         </div>
-        {onEditProfile ? (
+        {onEditProfile && canEditProfile ? (
           <Button
             onClick={onEditProfile}
             className="w-fit rounded-full h-10 px-5 font-semibold"
           >
-            Edit profile
+            Update profile
           </Button>
         ) : null}
       </CardContent>
     </Card>
+  );
+}
+
+function OpenApplicationNotice() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Open application in progress
+        </p>
+        <p className="text-sm text-muted-foreground">
+          You already have an open application. You may still request up to your
+          remaining available credit.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function AdvisoryReadinessNotice() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Lender review details
+        </p>
+        <p className="text-sm text-muted-foreground">
+          Some details may be reviewed by lenders, but you can still submit an
+          application.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CreditLimitBlocker() {
+  return (
+    <Card className="rounded-2xl" role="status" aria-live="polite">
+      <CardContent className="grid gap-1 p-5">
+        <p className="text-sm font-semibold text-foreground">
+          Credit limit reached
+        </p>
+        <p className="text-sm text-muted-foreground">
+          You have no available credit remaining. Repay an active loan, withdraw
+          a pending application, or wait for an application decision before
+          applying again.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
+  if (readiness.readinessStatus === "needs_review") {
+    return "Resolve flagged profile details before applying.";
+  }
+  if (readiness.missingFields.length > 0) {
+    return `Complete ${readiness.missingFields[0]} before applying.`;
+  }
+  if (readiness.riskFlags.includes("no_available_credit")) {
+    return "You have no available credit remaining. Repay an active loan, withdraw a pending application, or wait for an application decision before applying again.";
+  }
+  if (readiness.riskFlags.includes("no_business_proof")) {
+    return (
+      readiness.nextActions[0] ??
+      "Next, upload your business proof so your profile can be reviewed."
+    );
+  }
+
+  return readiness.nextActions[0] ?? "Update your profile before applying.";
+}
+
+function hasEditableProfileIssue(readiness: BorrowerReadinessResult) {
+  return (
+    readiness.readinessStatus === "needs_review" ||
+    readiness.missingFields.length > 0 ||
+    readiness.riskFlags.some((flag) =>
+      [
+        "self_declared_income_only",
+        "high_debt_burden",
+        "zero_revenue",
+        "non_positive_cash_flow",
+        "expenses_exceed_revenue",
+      ].includes(flag),
+    )
   );
 }
 
@@ -1002,6 +1259,7 @@ type BorrowerDashboardState =
   | "needs-update"
   | "verification-needed"
   | "verification-pending"
+  | "credit-limit-reached"
   | "ready-to-apply"
   | "active-loan";
 
@@ -1010,14 +1268,15 @@ function getBorrowerDashboardState({
   profileNeedsUpdate,
   borrowerVerification,
   hasActiveLoans,
+  hasNoAvailableCredit,
 }: {
   hasPortfolio: boolean;
   profileNeedsUpdate: boolean;
   borrowerVerification: BorrowerVerificationSummary | null;
   hasActiveLoans: boolean;
+  hasNoAvailableCredit: boolean;
 }): BorrowerDashboardState {
   if (!hasPortfolio) return "no-profile";
-  if (profileNeedsUpdate) return "needs-update";
 
   const verificationStatus = borrowerVerification?.status ?? "missing";
   if (verificationStatus !== "approved") {
@@ -1031,6 +1290,8 @@ function getBorrowerDashboardState({
   }
 
   if (hasActiveLoans) return "active-loan";
+  if (profileNeedsUpdate) return "needs-update";
+  if (hasNoAvailableCredit) return "credit-limit-reached";
   return "ready-to-apply";
 }
 
@@ -1039,6 +1300,7 @@ function HomeSummary({
   borrowerVerification,
   consentStatuses,
   creditSummary,
+  completedPortfolioSteps,
   hasPortfolio,
   loadState,
   onNavigate,
@@ -1049,6 +1311,7 @@ function HomeSummary({
   borrowerVerification: BorrowerVerificationSummary | null;
   consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
   creditSummary: BorrowerCreditSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   hasPortfolio: boolean;
   loadState: LoadState;
   onNavigate?: (tab: BorrowerTab) => void;
@@ -1061,13 +1324,21 @@ function HomeSummary({
     borrowerVerification,
     consentStatuses,
     creditSummary,
+    completedPortfolioSteps,
     hasPortfolio,
     readiness,
   });
-  const usedCreditRatio = creditSummary
+  const showBorrowingPower = canShowBorrowingPower(
+    borrowerVerification,
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
+  const displayCreditSummary = showBorrowingPower ? creditSummary : null;
+  const usedCreditRatio = displayCreditSummary
     ? getProgressRatio(
-      creditSummary.usedCredit,
-      creditSummary.calculatedCreditLimit,
+      displayCreditSummary.usedCredit,
+      displayCreditSummary.calculatedCreditLimit,
     )
     : 0;
   const hasActiveLoans = activeLoans.length > 0;
@@ -1078,12 +1349,17 @@ function HomeSummary({
     0,
   );
   const hasPendingOffers = pendingOfferCount > 0;
+  const hasNoAvailableCredit =
+    showBorrowingPower &&
+    (readiness?.riskFlags.includes("no_available_credit") ||
+      (displayCreditSummary ? displayCreditSummary.availableCredit <= 0 : false));
 
   const borrowerState = getBorrowerDashboardState({
     hasPortfolio,
     profileNeedsUpdate: profileCompletion.profileNeedsUpdate,
     borrowerVerification,
     hasActiveLoans,
+    hasNoAvailableCredit,
   });
 
   return (
@@ -1110,13 +1386,16 @@ function HomeSummary({
 
           <FinancingSummaryCard
             className="col-span-12 lg:col-span-5"
-            creditSummary={creditSummary}
+            borrowerVerification={borrowerVerification}
+            creditSummary={displayCreditSummary}
+            completedPortfolioSteps={completedPortfolioSteps}
             hasPortfolio={hasPortfolio}
             usedCreditRatio={usedCreditRatio}
             debtProgress={debtProgress}
             hasDebt={hasDebt}
             readiness={readiness}
             onNavigate={onNavigate}
+            onNavigateVerification={onNavigateVerification}
           />
 
           <RepaymentCalendarCard
@@ -1190,6 +1469,14 @@ function PrimaryActionCard({
       showProgress = true;
       handleAction = () => onNavigateVerification?.();
       break;
+    case "credit-limit-reached":
+      title = "Credit limit reached";
+      description =
+        "You have no available credit remaining. Wait for an application decision, withdraw a pending application, or repay an active loan before applying again.";
+      cta = "View applications";
+      showProgress = false;
+      handleAction = () => onNavigate?.("apply");
+      break;
     case "ready-to-apply":
       title = "Ready to request financing";
       description = "Your profile and verification are ready.";
@@ -1262,9 +1549,9 @@ function UtilizationRing({ ratio }: { ratio: number }) {
     clampedRatio === 0
       ? "text-muted-foreground/40"
       : clampedRatio <= 0.5
-        ? "text-emerald-500"
+        ? "text-[#33423C]"
         : clampedRatio <= 0.75
-          ? "text-amber-500"
+          ? "text-[#9A6B1D]"
           : "text-destructive";
 
   return (
@@ -1307,16 +1594,21 @@ function UtilizationRing({ ratio }: { ratio: number }) {
 
 function FinancingSummaryCard({
   className,
+  borrowerVerification,
   creditSummary,
+  completedPortfolioSteps,
   hasPortfolio,
   usedCreditRatio,
   debtProgress,
   hasDebt,
   readiness,
   onNavigate,
+  onNavigateVerification,
 }: {
   className?: string;
+  borrowerVerification: BorrowerVerificationSummary | null;
   creditSummary: BorrowerCreditSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   hasPortfolio: boolean;
   usedCreditRatio: number;
   debtProgress: {
@@ -1328,14 +1620,21 @@ function FinancingSummaryCard({
   hasDebt: boolean;
   readiness: BorrowerReadinessResult | null;
   onNavigate?: (tab: BorrowerTab) => void;
+  onNavigateVerification?: () => void;
 }) {
+  const showBorrowingPower = canShowBorrowingPower(
+    borrowerVerification,
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
   const readinessLabel = !readiness
     ? "Pending"
     : readiness.readinessStatus === "complete" ||
         readiness.readinessStatus === "eligible_to_apply"
       ? "Complete"
       : readiness.readinessStatus === "needs_review"
-        ? "Needs review"
+        ? "Ready with review notes"
         : readiness.readinessStatus === "not_eligible"
           ? "Not eligible"
           : "In progress";
@@ -1348,7 +1647,7 @@ function FinancingSummaryCard({
       : readiness.readinessStatus === "not_eligible"
         ? "danger"
         : readiness.readinessStatus === "needs_review"
-          ? "warning"
+          ? "success"
           : "neutral";
 
   return (
@@ -1363,11 +1662,15 @@ function FinancingSummaryCard({
           Financing overview
         </CardDescription>
         <CardTitle className="text-lg leading-tight sm:text-xl">
-          {creditSummary ? "Available to request" : "Financing summary"}
+          {showBorrowingPower
+            ? "Available to request"
+            : hasPortfolio
+              ? "Borrowing power locked"
+              : "Borrowing power pending"}
         </CardTitle>
       </CardHeader>
       <CardContent className="flex flex-1 flex-col gap-4 px-4 pb-4 sm:px-5 sm:pb-5">
-        {creditSummary ? (
+        {showBorrowingPower && creditSummary ? (
           <>
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
@@ -1376,8 +1679,8 @@ function FinancingSummaryCard({
                   className="text-3xl font-semibold sm:text-4xl"
                 />
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  {formatMoney(creditSummary.availableCredit)} of{" "}
-                  {formatMoney(creditSummary.calculatedCreditLimit)} limit
+                  You may apply for another loan up to{" "}
+                  {formatMoney(creditSummary.availableCredit)}.
                 </p>
               </div>
               <div className="flex flex-col items-center gap-0.5">
@@ -1411,10 +1714,18 @@ function FinancingSummaryCard({
               </div>
               <div className="grid gap-0.5">
                 <p className="text-xs text-muted-foreground">
-                  Monthly cash flow
+                  Available credit
                 </p>
                 <p className="text-sm font-semibold tabular-nums">
-                  {formatMoney(creditSummary.monthlyNetCashFlow)}
+                  {formatMoney(creditSummary.availableCredit)}
+                </p>
+              </div>
+              <div className="grid gap-0.5">
+                <p className="text-xs text-muted-foreground">
+                  Safe monthly repayment
+                </p>
+                <p className="text-sm font-semibold tabular-nums">
+                  {formatMoney(creditSummary.safeMonthlyRepaymentCapacity)}
                 </p>
               </div>
               <div className="grid gap-0.5">
@@ -1424,12 +1735,10 @@ function FinancingSummaryCard({
                     className={cn(
                       "inline-block size-1.5 rounded-full",
                       readinessTone === "success"
-                        ? "bg-emerald-500"
+                        ? "bg-[#33423C]"
                         : readinessTone === "danger"
                           ? "bg-destructive"
-                          : readinessTone === "warning"
-                            ? "bg-amber-500"
-                            : "bg-muted-foreground",
+                          : "bg-muted-foreground",
                     )}
                     aria-hidden="true"
                   />
@@ -1437,6 +1746,11 @@ function FinancingSummaryCard({
                 </div>
               </div>
             </div>
+
+            <p className="text-xs leading-relaxed text-muted-foreground">
+              Active loan balances and submitted applications reduce available
+              credit until they are paid, accepted, or closed.
+            </p>
 
             {hasDebt ? (
               <>
@@ -1467,10 +1781,21 @@ function FinancingSummaryCard({
             </div>
           </>
         ) : hasPortfolio ? (
-          <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
-            <p className="text-xs text-muted-foreground">
-              Your credit limit will appear after your profile is evaluated.
+          <div className="flex flex-1 flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
+            <p className="text-sm font-semibold text-foreground">
+              Borrowing power locked
             </p>
+            <p className="text-xs leading-5 text-muted-foreground">
+              Complete borrower verification before your request limit becomes
+              available.
+            </p>
+            <Button
+              className="rounded-full"
+              size="sm"
+              onClick={() => onNavigateVerification?.()}
+            >
+              Go to verification
+            </Button>
           </div>
         ) : (
           <div className="flex flex-1 items-center justify-center rounded-xl border border-dashed border-border/60 px-4 py-6 text-center">
@@ -1680,13 +2005,13 @@ function RepaymentCalendarCard({
           </CardDescription>
         ) : null}
       </CardHeader>
-        <CardContent
-          className={cn(
-            "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
-            "xl:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] xl:items-start",
-          )}
-        >
-          <div className="mx-auto w-full min-w-0 max-w-[22rem] xl:mx-0 xl:min-h-[26rem]">
+      <CardContent
+        className={cn(
+          "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
+          "lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start",
+        )}
+      >
+        <div className="mx-auto w-full min-w-0 max-w-[22rem] lg:mx-0 lg:min-h-[26rem]">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -1720,8 +2045,8 @@ function RepaymentCalendarCard({
                                     : tone === "neutral"
                                       ? "bg-muted-foreground"
                                       : tone === "success"
-                                        ? "bg-emerald-500"
-                                        : "bg-amber-500",
+                                        ? "bg-[#33423C]"
+                                        : "bg-[#9A6B1D]",
                                 )}
                                 aria-hidden="true"
                               />
@@ -1737,7 +2062,7 @@ function RepaymentCalendarCard({
         </div>
 
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center gap-1 text-center xl:min-h-[26rem]">
+          <div className="flex flex-col items-center justify-center gap-1 text-center lg:min-h-[26rem]">
             <p className="text-sm text-muted-foreground">
               No repayment dates yet
             </p>
@@ -1874,9 +2199,23 @@ export type RepaymentActionSummary = {
 };
 
 function getActiveLoans(applications: BorrowerLoanApplicationSummary[]) {
-  return applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
+  return applications
+    .flatMap((application) =>
+      application.activeLoan ? [application.activeLoan] : [],
+    )
+    .filter(isLoanActiveForBorrowerList);
+}
+
+function isLoanActiveForBorrowerList(
+  loan: BorrowerLoanApplicationSummary["activeLoan"],
+): loan is ActiveLoan {
+  return isLoanOngoingForList(loan);
+}
+
+function isLoanOngoingForList(
+  loan: BorrowerLoanApplicationSummary["activeLoan"],
+): loan is ActiveLoan {
+  return Boolean(loan && isOngoingLoanStatus(loan.status));
 }
 
 export function getRepaymentActionSummary(
@@ -1942,12 +2281,14 @@ function getDebtProgress(activeLoans: ActiveLoan[]) {
 
 function getProfileCompletion({
   borrowerVerification,
+  completedPortfolioSteps,
   consentStatuses,
   creditSummary,
   hasPortfolio,
   readiness,
 }: {
   borrowerVerification: BorrowerVerificationSummary | null;
+  completedPortfolioSteps: BorrowerPortfolioStep[];
   consentStatuses: LoanApplicationsLoadResult["consentStatuses"];
   creditSummary: BorrowerCreditSummary | null;
   hasPortfolio: boolean;
@@ -1958,37 +2299,50 @@ function getProfileCompletion({
     borrowerVerification.documentPolicy.documentsAccepted;
   const loanConsentCurrent =
     consentStatuses?.borrowerLoanApplication.isCurrent ?? false;
-  const profileNeedsUpdate =
-    readiness?.readinessStatus === "needs_review" ||
-    readiness?.readinessStatus === "not_eligible";
-  const profileHasVagueLoanPurpose =
-    readiness?.riskFlags.includes("vague_loan_purpose") ?? false;
+  const profileNeedsUpdate = hasProfileReadinessIssue(readiness);
+  const completedProfileStepCount = new Set(completedPortfolioSteps).size;
+  const profileStepPercentage = hasPortfolio
+    ? Math.round(
+        (completedProfileStepCount / borrowerPortfolioStepIds.length) * 50,
+      )
+    : 0;
+  const creditEvaluationComplete = canShowBorrowingPower(
+    borrowerVerification,
+    readiness,
+    creditSummary,
+    completedPortfolioSteps,
+  );
   const percentage =
-    (hasPortfolio && !profileNeedsUpdate ? 50 : hasPortfolio ? 40 : 0) +
+    profileStepPercentage +
     (verificationComplete ? 30 : 0) +
     (loanConsentCurrent ? 10 : 0) +
-    (creditSummary ? 10 : 0);
+    (creditEvaluationComplete ? 10 : 0);
 
   const readinessNextStep = readiness?.nextActions[0];
   const nextStep = !hasPortfolio
     ? "Save your business profile to unlock financing."
+    : !verificationComplete
+      ? "Complete borrower verification before applying."
     : profileNeedsUpdate
-      ? profileHasVagueLoanPurpose
-        ? "Add more detail to your loan purpose before applying."
-        : readinessNextStep ?? "Update your profile before applying."
-      : !verificationComplete
-        ? "Complete borrower verification before applying."
-        : !loanConsentCurrent
-          ? "Accept the current loan application consent."
-          : !creditSummary
-            ? "Update your business profile to calculate your request limit."
-            : readinessNextStep ?? "Your profile is ready for financing requests.";
+      ? readinessNextStep ?? "Update your profile before applying."
+      : !loanConsentCurrent
+        ? "Accept the current loan application consent."
+        : !creditEvaluationComplete
+          ? "Update your business profile to calculate your request limit."
+          : readinessNextStep ??
+            "Your profile is ready for financing requests.";
 
   const steps = [
-    { label: "Business profile", done: hasPortfolio && !profileNeedsUpdate },
+    {
+      label: "Business profile",
+      done:
+        hasPortfolio &&
+        !profileNeedsUpdate &&
+        completedProfileStepCount === borrowerPortfolioStepIds.length,
+    },
     { label: "Verification", done: verificationComplete },
     { label: "Loan consent", done: loanConsentCurrent },
-    { label: "Credit evaluation", done: Boolean(creditSummary) },
+    { label: "Credit evaluation", done: creditEvaluationComplete },
   ];
 
   return {
@@ -1997,6 +2351,80 @@ function getProfileCompletion({
     steps,
     profileNeedsUpdate,
   };
+}
+
+const borrowingPowerRequiredSteps = [
+  "homeAddress",
+  "householdExpenses",
+  "businessBasics",
+  "businessAddress",
+  "businessOperations",
+  "financials",
+  "businessExpenses",
+  "existingDebts",
+  "assets",
+  "customerCredit",
+  "repaymentHistory",
+  "businessStatus",
+] as const satisfies readonly BorrowerPortfolioStep[];
+
+function canShowBorrowingPower(
+  borrowerVerification: BorrowerVerificationSummary | null,
+  readiness: BorrowerReadinessResult | null,
+  creditSummary: BorrowerCreditSummary | null,
+  completedPortfolioSteps: BorrowerPortfolioStep[],
+) {
+  const verificationApproved = canSubmitLoanApplicationForVerification(
+    borrowerVerification,
+  );
+
+  if (!verificationApproved) {
+    return false;
+  }
+
+  if (!readiness || !creditSummary) {
+    return false;
+  }
+
+  const completed = new Set(completedPortfolioSteps);
+  const hasRequiredProfileInputs = borrowingPowerRequiredSteps.every((step) =>
+    completed.has(step),
+  );
+
+  if (!hasRequiredProfileInputs || readiness.missingFields.length > 0) {
+    return false;
+  }
+
+  return readiness.readinessStatus !== "incomplete";
+}
+
+export function hasProfileReadinessIssue(
+  readiness: BorrowerReadinessResult | null,
+) {
+  if (!readiness) {
+    return false;
+  }
+
+  if (readiness.missingFields.length > 0 || readiness.profileIsStale) {
+    return true;
+  }
+
+  if (readiness.readinessStatus === "incomplete") {
+    return true;
+  }
+
+  if (readiness.readinessStatus !== "not_eligible") {
+    return false;
+  }
+
+  return readiness.riskFlags.some((flag) =>
+    [
+      "zero_revenue",
+      "non_positive_cash_flow",
+      "suspended",
+      "account_not_active",
+    ].includes(flag),
+  );
 }
 
 
@@ -2112,6 +2540,8 @@ function ApplicationForm({
   control,
   creditSummary,
   errors,
+  feedbackMessage,
+  feedbackTone,
   isPending,
   onSubmit,
   requestedAmount,
@@ -2120,13 +2550,33 @@ function ApplicationForm({
   control: Control<LoanApplicationFormInput>;
   creditSummary: BorrowerCreditSummary | null;
   errors: FieldErrors<LoanApplicationFormInput>;
+  feedbackMessage: string;
+  feedbackTone: "error" | "success";
   isPending: boolean;
   onSubmit: FormEventHandler<HTMLFormElement>;
   requestedAmount: number;
   register: UseFormRegister<LoanApplicationFormInput>;
 }) {
+  if (creditSummary && creditSummary.availableCredit <= 0) {
+    return (
+      <Card className="rounded-2xl" role="status" aria-live="polite">
+        <CardContent className="grid gap-2 p-5">
+          <p className="text-sm font-semibold text-foreground">
+            No available credit remaining
+          </p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            You have used your available credit. Repay an active loan, withdraw
+            a pending application, or wait for an application decision before
+            applying again.
+          </p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   const isOverAvailableCredit =
-    creditSummary !== null && requestedAmount > creditSummary.availableCredit;
+    creditSummary !== null &&
+    exceedsAvailableCredit(requestedAmount, creditSummary.availableCredit);
   const requestedAmountError = isOverAvailableCredit
     ? "Requested amount exceeds your available credit."
     : errors.requestedAmount?.message;
@@ -2137,7 +2587,7 @@ function ApplicationForm({
         <form
           onSubmit={onSubmit}
           className="grid gap-5"
-          aria-describedby="loan-application-state"
+          aria-describedby={feedbackMessage ? "loan-application-state" : undefined}
         >
           {creditSummary ? (
             <div
@@ -2150,13 +2600,14 @@ function ApplicationForm({
             >
               <div className="grid gap-1">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                  Available to request
+                  Available credit
                 </p>
                 <p className="text-xl font-semibold tabular-nums sm:text-2xl">
                   {formatCreditAmount(creditSummary.availableCredit)}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  Based on your verified profile and active credit usage.
+                  This is the maximum principal you can request. Interest and
+                  fees are added later in lender offers.
                 </p>
               </div>
               {isOverAvailableCredit ? (
@@ -2170,7 +2621,7 @@ function ApplicationForm({
             </div>
           ) : null}
 
-          <Field label="Requested amount" error={requestedAmountError} id="requestedAmount">
+          <Field label="Requested principal amount" error={requestedAmountError} id="requestedAmount">
             <CurrencyInput
               className="h-12 rounded-xl"
               aria-invalid={isOverAvailableCredit || Boolean(errors.requestedAmount)}
@@ -2189,6 +2640,10 @@ function ApplicationForm({
                 Maximum request: {formatCreditAmount(creditSummary.availableCredit)}
               </span>
             ) : null}
+            <span className="text-xs text-muted-foreground">
+              This is the principal you want to borrow. Lenders will add interest
+              and fees to determine your total repayment.
+            </span>
           </Field>
 
           <Field label="Preferred term" error={errors.preferredTerm?.message} id="preferredTerm">
@@ -2218,16 +2673,41 @@ function ApplicationForm({
           </Field>
 
           <Field label="Purpose" error={errors.purpose?.message} id="purpose">
-            <Input
-              id="purpose"
-              className="h-12 rounded-xl"
-              aria-invalid={Boolean(errors.purpose)}
-              {...register("purpose")}
-              placeholder="Inventory, equipment, working capital"
+            <Controller
+              control={control}
+              name="purpose"
+              render={({ field }) => (
+                <Select
+                  onValueChange={(value) =>
+                    field.onChange(
+                      value === loanPurposeSelectPlaceholderValue ? "" : value,
+                    )
+                  }
+                  value={field.value || loanPurposeSelectPlaceholderValue}
+                >
+                  <SelectTrigger
+                    id="purpose"
+                    className="h-12 rounded-xl"
+                    aria-invalid={Boolean(errors.purpose)}
+                  >
+                    <SelectValue placeholder="--select--" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value={loanPurposeSelectPlaceholderValue}>
+                      --select--
+                    </SelectItem>
+                    {loanPurposeOptions.map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {loanPurposeLabels[option]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
             />
           </Field>
 
-          <Field label="Remarks" error={errors.remarks?.message} id="remarks">
+          <Field label="Remarks (optional)" error={errors.remarks?.message} id="remarks">
             <Textarea
               id="remarks"
               className="rounded-xl"
@@ -2236,15 +2716,21 @@ function ApplicationForm({
               rows={3}
               placeholder="Optional notes for the lender."
             />
+            <span className="text-xs text-muted-foreground">
+              Optional, but adding details may help lenders review your request.
+            </span>
           </Field>
 
           <div className="grid gap-3 sm:flex sm:items-center sm:justify-between">
-            <p
-              id="loan-application-state"
-              className="text-sm leading-6 text-muted-foreground"
-            >
-              Lenders will review your request and send offers here.
-            </p>
+            <div className="grid gap-2">
+              {feedbackMessage ? (
+                <InlineStatus
+                  id="loan-application-state"
+                  message={feedbackMessage}
+                  tone={feedbackTone}
+                />
+              ) : null}
+            </div>
             <Button
               type="submit"
               disabled={isPending || isOverAvailableCredit}
@@ -2269,6 +2755,7 @@ function ApplicationList({
   onSaveApplication,
   onToggleApplication,
   onWithdrawApplication,
+  onRemoveWithdrawnApplication,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   editingApplicationId: string | null;
@@ -2282,9 +2769,14 @@ function ApplicationList({
   ) => void;
   onToggleApplication: (applicationId: string) => void;
   onWithdrawApplication: (applicationId: string) => void;
+  onRemoveWithdrawnApplication: (applicationId: string) => void;
 }) {
   if (applications.length === 0) {
-    return <EmptyState message="Your applications will appear here." />;
+    return (
+      <EmptyState
+        message="No active applications. Accepted applications move to Loans."
+      />
+    );
   }
 
   return (
@@ -2295,6 +2787,7 @@ function ApplicationList({
           const isExpanded = expandedApplicationIds.has(application.id);
           const isEditing = editingApplicationId === application.id;
           const isEditable = canEditApplication(application.status);
+          const isWithdrawn = application.status === "withdrawn";
           const applicationDetailsId = `application-${application.id}-details`;
 
           return (
@@ -2302,7 +2795,7 @@ function ApplicationList({
               key={application.id}
               detailsId={applicationDetailsId}
               isExpanded={isExpanded}
-              label={application.purpose}
+              label={getLoanPurposeLabel(application.purpose)}
               amount={application.requestedAmount}
               metadata={[
                 preferredTermLabels[application.preferredTerm],
@@ -2357,6 +2850,18 @@ function ApplicationList({
                         >
                           Withdraw
                         </Button>
+                        {isWithdrawn ? (
+                          <Button
+                            variant="ghost"
+                            disabled={isPending}
+                            onClick={() =>
+                              onRemoveWithdrawnApplication(application.id)
+                            }
+                            className="h-11 rounded-full font-semibold text-muted-foreground hover:text-destructive"
+                          >
+                            Remove
+                          </Button>
+                        ) : null}
                         {!isEditable ? (
                           <p className="text-sm text-muted-foreground">
                             Closed applications cannot be edited.
@@ -2376,89 +2881,264 @@ function ApplicationList({
 }
 
 function OfferList({
-  closedOffers,
-  expandedOfferIds,
-  isPending,
-  onAcceptOffer,
-  onDeclineOffer,
+  applications,
+  onBackToApplications,
   onNavigate,
-  onToggleOffer,
-  pendingOffers,
+  onSelectApplication,
   highlightOfferId,
+  selectedApplicationId,
 }: {
-  closedOffers: OfferListItem[];
-  expandedOfferIds: Set<string>;
-  isPending: boolean;
-  onAcceptOffer: (applicationId: string, offerId: string) => void;
-  onDeclineOffer: (applicationId: string, offerId: string) => void;
+  applications: BorrowerLoanApplicationSummary[];
+  onBackToApplications: () => void;
   onNavigate?: (tab: BorrowerTab) => void;
-  onToggleOffer: (offerId: string) => void;
-  pendingOffers: OfferListItem[];
+  onSelectApplication: (applicationId: string) => void;
   highlightOfferId?: string | null;
+  selectedApplicationId: string | null;
 }) {
-  if (pendingOffers.length === 0 && closedOffers.length === 0) {
+  const offerApplicationGroups = applications
+    .map((application) => {
+      const pendingOffers = application.offers.filter(
+        (offer) => offer.status === "pending",
+      );
+
+      return {
+        application,
+        pendingOffers,
+      };
+    })
+    .filter((group) => group.pendingOffers.length > 0);
+  const hasActiveLoan = applications.some((application) =>
+    isLoanActiveForBorrowerList(application.activeLoan),
+  );
+  const hasAnyOffer = applications.some(
+    (application) => application.offers.length > 0,
+  );
+
+  if (offerApplicationGroups.length === 0) {
     return (
       <EmptyState
-        message="Offers from lenders will appear after you submit an application."
-        action="Go to Apply"
-        onAction={() => onNavigate?.("apply")}
+        message={
+          hasActiveLoan
+            ? "Accepted offers are now active loans. Go to Loans to view repayment details."
+            : hasAnyOffer
+              ? "There are no pending offers right now."
+              : "Pending offers from lenders will appear after you submit an application."
+        }
+        action={hasActiveLoan ? "Go to Loans" : "Go to Apply"}
+        onAction={() => onNavigate?.(hasActiveLoan ? "loans" : "apply")}
+      />
+    );
+  }
+
+  const selectedGroup =
+    offerApplicationGroups.find(
+      (group) => group.application.id === selectedApplicationId,
+    ) ?? null;
+
+  if (selectedGroup) {
+    return (
+      <SelectedApplicationOffers
+        group={selectedGroup}
+        highlightOfferId={highlightOfferId}
+        onBack={onBackToApplications}
       />
     );
   }
 
   return (
-    <div className="grid gap-5">
-      <div className="grid gap-3">
-        <h3 className="text-lg font-semibold">Pending</h3>
-        {pendingOffers.length > 0 ? (
-          <div className="grid gap-3">
-            {pendingOffers.map((item) => (
-              <OfferCard
-                key={item.offer.id}
-                item={item}
-                isExpanded={expandedOfferIds.has(item.offer.id)}
-                isPending={isPending}
-                onAcceptOffer={onAcceptOffer}
-                onDeclineOffer={onDeclineOffer}
-                onNavigate={onNavigate}
-                onToggleOffer={onToggleOffer}
-                isHighlighted={item.offer.id === highlightOfferId}
-              />
-            ))}
-          </div>
-        ) : (
-          <EmptyState message="No pending offers right now." />
-        )}
-      </div>
+    <OfferApplicationList
+      groups={offerApplicationGroups}
+      onSelectApplication={onSelectApplication}
+    />
+  );
+}
 
-      {closedOffers.length > 0 ? (
-        <div className="grid gap-3">
-          <h3 className="text-lg font-semibold">Closed</h3>
-          <div className="grid gap-3">
-            {closedOffers.map((item) => (
-              <OfferCard
-                key={item.offer.id}
-                item={item}
-                isExpanded={expandedOfferIds.has(item.offer.id)}
-                isPending={isPending}
-                onAcceptOffer={onAcceptOffer}
-                onDeclineOffer={onDeclineOffer}
-                onNavigate={onNavigate}
-                onToggleOffer={onToggleOffer}
-                isHighlighted={item.offer.id === highlightOfferId}
-              />
-            ))}
-          </div>
-        </div>
-      ) : null}
+type OfferApplicationGroup = {
+  application: BorrowerLoanApplicationSummary;
+  pendingOffers: BorrowerLoanApplicationSummary["offers"];
+};
+
+function OfferApplicationList({
+  groups,
+  onSelectApplication,
+}: {
+  groups: OfferApplicationGroup[];
+  onSelectApplication: (applicationId: string) => void;
+}) {
+  return (
+    <div className="grid gap-2">
+      {groups.map((group) => (
+        <OfferApplicationRow
+          key={group.application.id}
+          group={group}
+          onSelect={() => onSelectApplication(group.application.id)}
+        />
+      ))}
     </div>
   );
 }
 
-type OfferListItem = {
-  application: BorrowerLoanApplicationSummary;
+function OfferApplicationRow({
+  group,
+  onSelect,
+}: {
+  group: OfferApplicationGroup;
+  onSelect: () => void;
+}) {
+  const { application, pendingOffers } = group;
+  const bestPendingRepayment =
+    pendingOffers.length > 0
+      ? Math.min(...pendingOffers.map((offer) => offer.totalRepaymentAmount))
+      : null;
+
+  return (
+    <Card className="rounded-xl">
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(9rem,1.3fr)_repeat(5,auto)_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {getLoanPurposeLabel(application.purpose)}
+          </p>
+        </div>
+        <CompactRowText label="Requested">
+          {formatMoney(application.requestedAmount)}
+        </CompactRowText>
+        <CompactRowText label="Pending">
+          {pendingOffers.length} pending {pendingOffers.length === 1 ? "offer" : "offers"}
+        </CompactRowText>
+        <CompactRowText label="Lowest">
+          {bestPendingRepayment !== null
+            ? formatMoney(bestPendingRepayment)
+            : "No pending offers"}
+        </CompactRowText>
+        <CompactRowText label="Term">
+          {preferredTermLabels[application.preferredTerm]}
+        </CompactRowText>
+        <div className="flex items-center gap-2">
+          <StatusBadge value={application.status} />
+        </div>
+        <Button
+          type="button"
+          onClick={onSelect}
+          size="sm"
+          className="h-9 w-full rounded-full font-semibold sm:w-fit"
+        >
+          View offers
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SelectedApplicationOffers({
+  group,
+  highlightOfferId,
+  onBack,
+}: {
+  group: OfferApplicationGroup;
+  highlightOfferId?: string | null;
+  onBack: () => void;
+}) {
+  const offerCount = group.pendingOffers.length;
+
+  return (
+    <div className="grid gap-3">
+      <Button
+        type="button"
+        variant="outline"
+        onClick={onBack}
+        className="h-10 w-fit rounded-full px-4 font-semibold"
+      >
+        <ArrowLeft className="size-4" />
+        Back to applications
+      </Button>
+
+      <Card className="rounded-xl">
+        <CardContent className="grid gap-2 px-4 py-3 sm:grid-cols-[minmax(0,1fr)_auto_auto_auto] sm:items-center sm:gap-4">
+          <p className="min-w-0 truncate text-sm font-semibold">
+            {getLoanPurposeLabel(group.application.purpose)}
+          </p>
+          <CompactRowText label="Requested">
+            Requested {formatMoney(group.application.requestedAmount)}
+          </CompactRowText>
+          <CompactRowText label="Offers">
+            {offerCount} pending {offerCount === 1 ? "offer" : "offers"}
+          </CompactRowText>
+          <CompactRowText label="Term">
+            {preferredTermLabels[group.application.preferredTerm]}
+          </CompactRowText>
+        </CardContent>
+      </Card>
+
+      <div className="grid gap-2">
+        {group.pendingOffers.map((offer) => (
+          <CompactOfferRow
+            key={offer.id}
+            offer={offer}
+            isHighlighted={offer.id === highlightOfferId}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CompactOfferRow({
+  isHighlighted,
+  offer,
+}: {
+  isHighlighted?: boolean;
   offer: BorrowerLoanApplicationSummary["offers"][number];
-};
+}) {
+  return (
+    <Card
+      id={`offer-${offer.id}`}
+      className={cn(
+        "rounded-xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
+      <CardContent className="grid gap-2 px-4 py-2.5 sm:grid-cols-[minmax(12rem,1fr)_auto_auto_auto_auto_auto] sm:items-center sm:gap-3">
+        <p className="min-w-0 truncate text-sm font-semibold">
+          {offer.lenderName}
+        </p>
+        <CompactRowText label="Principal">
+          {formatMoney(offer.principalAmount)}
+        </CompactRowText>
+        <CompactRowText label="Total">
+          {formatMoney(offer.totalRepaymentAmount)}
+        </CompactRowText>
+        <CompactRowText label="Final">
+          {formatDateOnly(offer.dueDate)}
+        </CompactRowText>
+        <StatusBadge value={offer.status} />
+        <Button
+          asChild
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 w-full rounded-full px-3 text-xs font-semibold sm:w-fit"
+        >
+          <Link href={`/borrower/offers/${offer.id}`}>View details</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompactRowText({
+  children,
+  label,
+}: {
+  children: ReactNode;
+  label: string;
+}) {
+  return (
+    <div className="min-w-0 text-sm sm:whitespace-nowrap">
+      <span className="text-xs text-muted-foreground sm:hidden">{label}: </span>
+      <span className="text-foreground">{children}</span>
+    </div>
+  );
+}
 
 function BorrowerListCard({
   amount,
@@ -2541,130 +3221,6 @@ function BorrowerListCardHeader({
   );
 }
 
-function OfferCard({
-  isExpanded,
-  isPending,
-  item,
-  onAcceptOffer,
-  onDeclineOffer,
-  onNavigate,
-  onToggleOffer,
-  isHighlighted,
-}: {
-  isExpanded: boolean;
-  isPending: boolean;
-  item: OfferListItem;
-  onAcceptOffer: (applicationId: string, offerId: string) => void;
-  onDeclineOffer: (applicationId: string, offerId: string) => void;
-  onNavigate?: (tab: BorrowerTab) => void;
-  onToggleOffer: (offerId: string) => void;
-  isHighlighted?: boolean;
-}) {
-  const { application, offer } = item;
-  const offerDetailsId = `offer-${offer.id}-details`;
-  const isClosed = offer.status !== "pending";
-
-  return (
-    <Card
-      id={`offer-${offer.id}`}
-      className={cn(
-        "overflow-hidden rounded-2xl",
-        isHighlighted && "ring-2 ring-primary/30",
-      )}
-    >
-      <BorrowerListCardHeader
-        detailsId={offerDetailsId}
-        isExpanded={isExpanded}
-        label={offer.lenderName}
-        amount={offer.approvedAmount}
-        metadata={[
-          `Total repayment ${formatMoney(offer.totalRepaymentAmount)}`,
-          `Final repayment ${formatDateOnly(offer.dueDate)}`,
-        ]}
-        status={<StatusBadge value={offer.status} />}
-        onToggle={() => onToggleOffer(offer.id)}
-      />
-
-      {isExpanded ? (
-        <div id={offerDetailsId} className="border-t border-border px-4 py-4 sm:px-5">
-          <dl className="grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
-            <SummaryItem label="Application" value={application.purpose} />
-            <SummaryItem label="You receive (principal)" value={formatMoney(offer.principalAmount)} />
-            <SummaryItem label="Interest/service charge" value={formatMoney(offer.interestAmount)} />
-            <SummaryItem label="Other fees" value={formatMoney(offer.fees)} />
-            <SummaryItem label="Total you repay" value={formatMoney(offer.totalRepaymentAmount)} />
-            <SummaryItem label="Sent" value={formatDate(offer.sentAt)} />
-            <SummaryItem label="Remarks" value={offer.remarks || "None"} />
-          </dl>
-          <p className="mt-3 text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, and other fees. This is the full amount you will repay.
-          </p>
-
-          {offer.repaymentChannel ? (
-            <div className="mt-3 grid gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
-              <p className="text-sm font-semibold">Repayment destination</p>
-              <dl className="grid grid-cols-2 gap-2 text-sm">
-                <SummaryItem label="Channel" value={offer.repaymentChannel} />
-                <SummaryItem label="Account name" value={offer.repaymentAccountName ?? ""} />
-                <SummaryItem label="Account number" value={offer.repaymentAccountNumber ?? ""} />
-                {offer.repaymentInstructions ? (
-                  <SummaryItem label="Instructions" value={offer.repaymentInstructions} />
-                ) : null}
-              </dl>
-            </div>
-          ) : null}
-
-          {offer.status === "accepted" && application.activeLoan ? (
-            <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-              <p className="text-sm leading-6 text-muted-foreground">
-                Linked to loan.
-              </p>
-              <Button
-                variant="outline"
-                onClick={() => onNavigate?.("loans")}
-                className="h-11 w-full rounded-full font-semibold sm:w-fit"
-              >
-                View loan
-              </Button>
-            </div>
-          ) : null}
-
-          <div className="mt-4 grid gap-3 border-t border-border pt-4 sm:grid-cols-[1fr_auto] sm:items-center">
-            <p className="text-sm leading-6 text-muted-foreground">
-              {offer.status === "accepted" && application.activeLoan
-                ? "Use Loans to track repayments."
-                : "Accepting an offer closes other pending offers for this application."}
-            </p>
-            <div className="grid gap-2 sm:flex">
-              <Button
-                variant="outline"
-                disabled={isPending || isClosed}
-                onClick={() => onDeclineOffer(application.id, offer.id)}
-                className="h-11 rounded-full font-semibold"
-              >
-                Decline
-              </Button>
-              <Button
-                disabled={isPending || isClosed}
-                onClick={() => onAcceptOffer(application.id, offer.id)}
-                className="h-11 rounded-full font-semibold"
-              >
-                {offer.status === "accepted"
-                  ? "Accepted"
-                  : offer.status === "declined"
-                    ? "Closed"
-                    : isPending
-                      ? "Working..."
-                      : "Accept offer"}
-              </Button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-    </Card>
-  );
-}
-
 function InlineFeedback({
   loadState,
   message,
@@ -2697,7 +3253,7 @@ function InlineFeedback({
     return (
       <p
         role="status"
-        className="rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 font-medium text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-300"
+        className="rounded-xl border border-[#C9D7C6] bg-[#EFF3EA] px-3 py-2 text-sm leading-6 font-medium text-[#33423C]"
       >
         {successMessage}
       </p>
@@ -2711,59 +3267,269 @@ function BorrowerLoansPanel({
   applications,
   expandedRepaymentIds,
   onNavigate,
+  onBackToLoans,
   onProofSubmitted,
+  onSelectLoan,
   onToggleRepayment,
   highlightRepaymentId,
   highlightLoanId,
+  selectedLoanId,
 }: {
   applications: BorrowerLoanApplicationSummary[];
   expandedRepaymentIds: Set<string>;
   onNavigate?: (tab: BorrowerTab) => void;
+  onBackToLoans: () => void;
   onProofSubmitted: () => void;
+  onSelectLoan: (loanId: string) => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
   highlightRepaymentId?: string | null;
   highlightLoanId?: string | null;
+  selectedLoanId: string | null;
 }) {
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
+  const loanItems = applications
+    .flatMap((application) =>
+      application.activeLoan
+        ? [{ application, loan: application.activeLoan }]
+        : [],
+    );
+  const ongoingLoans = loanItems.filter(({ loan }) =>
+    isLoanOngoingForList(loan),
   );
+  const completedLoans = loanItems.filter(({ loan }) =>
+    isCompletedLoan(loan),
+  );
+  const defaultGroup = ongoingLoans.length > 0 ? "ongoing" : "completed";
+  const [selectedGroup, setSelectedGroup] = useState<"ongoing" | "completed">(
+    defaultGroup,
+  );
+  const visibleGroup =
+    selectedGroup === "completed" && completedLoans.length === 0
+      ? "ongoing"
+      : selectedGroup === "ongoing" && ongoingLoans.length === 0 && completedLoans.length > 0
+        ? "completed"
+        : selectedGroup;
+  const visibleLoans = visibleGroup === "ongoing" ? ongoingLoans : completedLoans;
 
-  if (activeLoans.length === 0) {
+  if (loanItems.length === 0) {
     return (
       <EmptyState
-        message="When you accept an offer, the active loan and repayment schedule will appear here."
+        message="When you accept an offer, your loan will appear here."
         action="Review offers"
         onAction={() => onNavigate?.("offers")}
       />
     );
   }
 
-  return (
-    <div className="grid gap-4">
-      {activeLoans.map((loan) => (
+  const selectedLoan =
+    loanItems.find(({ loan }) => loan.id === selectedLoanId)?.loan ?? null;
+  const selectedApplication =
+    loanItems.find(({ loan }) => loan.id === selectedLoanId)?.application ??
+    null;
+
+  if (selectedLoan) {
+    const selectedIsCompleted = isCompletedLoan(selectedLoan);
+
+    return (
+      <div className="grid gap-3">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={onBackToLoans}
+          className="h-10 w-fit rounded-full px-4 font-semibold"
+        >
+          <ArrowLeft className="size-4" />
+          Back to loans
+        </Button>
         <ActiveLoanCard
-          key={loan.id}
+          application={selectedApplication}
           expandedRepaymentIds={expandedRepaymentIds}
-          loan={loan}
+          isReadOnly={selectedIsCompleted}
+          loan={selectedLoan}
           onProofSubmitted={onProofSubmitted}
           onToggleRepayment={onToggleRepayment}
-          isHighlighted={loan.id === highlightLoanId}
+          isHighlighted={selectedLoan.id === highlightLoanId}
           highlightRepaymentId={highlightRepaymentId}
         />
-      ))}
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3">
+      <div className="grid grid-cols-2 gap-2 rounded-xl bg-muted p-1">
+        <Button
+          type="button"
+          variant={visibleGroup === "ongoing" ? "secondary" : "ghost"}
+          onClick={() => setSelectedGroup("ongoing")}
+          className="h-9 rounded-lg text-sm font-semibold"
+        >
+          Ongoing ({ongoingLoans.length})
+        </Button>
+        <Button
+          type="button"
+          variant={visibleGroup === "completed" ? "secondary" : "ghost"}
+          onClick={() => setSelectedGroup("completed")}
+          className="h-9 rounded-lg text-sm font-semibold"
+        >
+          Completed ({completedLoans.length})
+        </Button>
+      </div>
+
+      {visibleLoans.length > 0 ? (
+        <div className="grid gap-2">
+          {visibleLoans.map(({ application, loan }) =>
+            visibleGroup === "ongoing" ? (
+              <ActiveLoanListRow
+                key={loan.id}
+                application={application}
+                loan={loan}
+                onSelect={() => onSelectLoan(loan.id)}
+                isHighlighted={loan.id === highlightLoanId}
+              />
+            ) : (
+              <CompletedLoanListRow
+                key={loan.id}
+                application={application}
+                loan={loan}
+                onSelect={() => onSelectLoan(loan.id)}
+                isHighlighted={loan.id === highlightLoanId}
+              />
+            ),
+          )}
+        </div>
+      ) : (
+        <Card className="rounded-2xl border-dashed border-border/50">
+          <CardContent className="p-5 text-center text-sm text-muted-foreground">
+            {visibleGroup === "completed"
+              ? "Completed loans will appear here after repayment is finished."
+              : "Ongoing loans will appear here when an accepted offer becomes active."}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
 
+function ActiveLoanListRow({
+  application,
+  isHighlighted,
+  loan,
+  onSelect,
+}: {
+  application: BorrowerLoanApplicationSummary;
+  isHighlighted?: boolean;
+  loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+  onSelect: () => void;
+}) {
+  const nextRepayment = getNextRepayment(loan.schedule);
+
+  return (
+    <Card
+      id={`loan-${loan.id}`}
+      className={cn(
+        "rounded-xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(10rem,1.3fr)_auto_auto_auto_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {getLoanPurposeLabel(application.purpose)}
+          </p>
+        </div>
+        <CompactRowText label="Outstanding">
+          {formatMoney(loan.outstandingBalance)}
+        </CompactRowText>
+        <CompactRowText label="Next due">
+          {nextRepayment
+            ? `${formatDateOnly(nextRepayment.dueDate)} · ${formatMoney(nextRepayment.amountDue)}`
+            : "No unpaid repayments"}
+        </CompactRowText>
+        <LoanStatusPill
+          status={loan.status}
+          disbursementStatus={loan.disbursementStatus}
+        />
+        <Button
+          type="button"
+          onClick={onSelect}
+          size="sm"
+          className="h-9 w-full rounded-full font-semibold sm:w-fit"
+        >
+          View details
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function CompletedLoanListRow({
+  application,
+  isHighlighted,
+  loan,
+  onSelect,
+}: {
+  application: BorrowerLoanApplicationSummary;
+  isHighlighted?: boolean;
+  loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
+  onSelect: () => void;
+}) {
+  const totalRepaid = Math.max(loan.repaymentAmount - loan.outstandingBalance, 0);
+
+  return (
+    <Card
+      id={`loan-${loan.id}`}
+      className={cn(
+        "rounded-xl transition",
+        isHighlighted && "ring-2 ring-primary/30",
+      )}
+    >
+      <CardContent className="grid gap-3 px-3 py-3 sm:grid-cols-[minmax(10rem,1.3fr)_auto_auto_auto_auto] sm:items-center sm:gap-4">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-semibold">
+            {getLoanPurposeLabel(application.purpose)}
+          </p>
+        </div>
+        <CompactRowText label="Principal">
+          {formatMoney(loan.principalAmount)}
+        </CompactRowText>
+        <CompactRowText label="Total repaid">
+          {formatMoney(totalRepaid)}
+        </CompactRowText>
+        <CompactRowText label="Completed">
+          {formatDateOnly(loan.dueDate)}
+        </CompactRowText>
+        <div className="flex flex-wrap items-center gap-2">
+        <LoanStatusPill
+          status={loan.status}
+          disbursementStatus={loan.disbursementStatus}
+        />
+          <Button
+            type="button"
+            onClick={onSelect}
+            size="sm"
+            className="h-9 w-full rounded-full font-semibold sm:w-fit"
+          >
+            View summary
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
 function ActiveLoanCard({
+  application,
   expandedRepaymentIds,
+  isReadOnly = false,
   loan,
   onProofSubmitted,
   onToggleRepayment,
   isHighlighted,
   highlightRepaymentId,
 }: {
+  application: BorrowerLoanApplicationSummary | null;
   expandedRepaymentIds: Set<string>;
+  isReadOnly?: boolean;
   loan: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>;
   onProofSubmitted: () => void;
   onToggleRepayment: (repaymentScheduleId: string) => void;
@@ -2776,9 +3542,19 @@ function ActiveLoanCard({
       ? Math.min(Math.round((paidAmount / loan.repaymentAmount) * 100), 100)
       : 0;
   const nextRepayment = getNextRepayment(loan.schedule);
-  const isCompletedLoan = loan.status === "paid" || loan.status === "closed";
-  const primaryAmount = isCompletedLoan ? paidAmount : loan.outstandingBalance;
-  const remainingAmount = isCompletedLoan ? 0 : loan.outstandingBalance;
+  const loanIsCompleted = isCompletedLoan(loan);
+  const isAwaitingRelease = loan.disbursementStatus === "awaiting_release";
+  const isFundsReleased = loan.disbursementStatus === "released_by_lender";
+  const isReleaseDisputed = loan.disbursementStatus === "release_disputed";
+  const fundsReceived = loan.disbursementStatus === "received_by_borrower";
+  const hasDisbursementDestination = Boolean(
+    loan.disbursementDestinationSubmittedAt &&
+      loan.disbursementDestinationMethod,
+  );
+  const canReportReleaseNotReceived =
+    isFundsReleased && !loan.borrowerReceivedAt && !loanIsCompleted;
+  const primaryAmount = loanIsCompleted ? paidAmount : loan.outstandingBalance;
+  const remainingAmount = loanIsCompleted ? 0 : loan.outstandingBalance;
   const scheduleTotal = loan.schedule.reduce(
     (total, repayment) => total + repayment.amountDue,
     0,
@@ -2791,15 +3567,122 @@ function ActiveLoanCard({
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="grid gap-1">
               <p className="text-sm font-semibold text-muted-foreground">
-                {isCompletedLoan ? "Completed loan" : "Current loan"}
+                {loanIsCompleted ? "Completed loan" : "Current loan"}
               </p>
+              {application ? (
+                <p className="text-base font-semibold">
+                  {getLoanPurposeLabel(application.purpose)}
+                </p>
+              ) : null}
               <MoneyText value={primaryAmount} className="text-3xl font-semibold" />
               <p className="text-sm text-muted-foreground">
-                {isCompletedLoan ? "Total repaid" : "Outstanding balance"}
+                {loanIsCompleted ? "Total repaid" : "Outstanding balance"}
               </p>
             </div>
-            <LoanStatusPill status={loan.status} />
+            <LoanStatusPill
+              status={loan.status}
+              disbursementStatus={loan.disbursementStatus}
+            />
           </div>
+
+          {isAwaitingRelease && !hasDisbursementDestination ? (
+            <DisbursementDestinationForm
+              activeLoanId={loan.id}
+              onSuccess={onProofSubmitted}
+            />
+          ) : null}
+
+          {isAwaitingRelease && hasDisbursementDestination ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-3 p-4">
+                <ActionBanner
+                  tone="info"
+                  title="Waiting for lender to release funds"
+                  message="Waiting for lender to release funds."
+                />
+                <DisbursementDestinationSummary loan={loan} />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isFundsReleased ? (
+            <Card className="rounded-xl border-primary/20 bg-primary/5">
+              <CardContent className="grid gap-3 p-4">
+                <div className="grid gap-1">
+                  <p className="text-sm font-semibold">Funds released</p>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Confirm once the money is in your account.
+                  </p>
+                </div>
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <SummaryItem
+                    label="Released"
+                    value={loan.disbursedAt ? formatDate(loan.disbursedAt) : "Marked by lender"}
+                  />
+                  {loan.disbursementMethod ? (
+                    <SummaryItem label="Method" value={loan.disbursementMethod} />
+                  ) : null}
+                  {loan.disbursementReference ? (
+                    <SummaryItem label="Reference" value={loan.disbursementReference} />
+                  ) : null}
+                  {loan.disbursementNotes ? (
+                    <SummaryItem label="Notes" value={loan.disbursementNotes} />
+                  ) : null}
+                </dl>
+                <DisbursementDestinationSummary loan={loan} />
+                <ReleaseProofSummary loan={loan} />
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <ConfirmMoneyReceivedButton
+                    activeLoanId={loan.id}
+                    onSuccess={onProofSubmitted}
+                  />
+                  {canReportReleaseNotReceived ? (
+                    <ReportFundsNotReceivedButton
+                      activeLoanId={loan.id}
+                      onSuccess={onProofSubmitted}
+                    />
+                  ) : null}
+                </div>
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {isReleaseDisputed ? (
+            <Card className="rounded-xl border-destructive/30 bg-destructive/5">
+              <CardContent className="grid gap-3 p-4">
+                <ActionBanner
+                  tone="error"
+                  title="Funds not received"
+                  message="You reported that the money was not received. The lender/manager must review the release before this loan can continue."
+                />
+                <dl className="grid grid-cols-2 gap-3 text-sm">
+                  <SummaryItem
+                    label="Reported"
+                    value={loan.releaseDisputedAt ? formatDate(loan.releaseDisputedAt) : "Submitted"}
+                  />
+                  {loan.releaseDisputeReason ? (
+                    <SummaryItem label="Reason" value={loan.releaseDisputeReason} />
+                  ) : null}
+                  {loan.disbursementMethod ? (
+                    <SummaryItem label="Release method" value={loan.disbursementMethod} />
+                  ) : null}
+                  {loan.disbursementReference ? (
+                    <SummaryItem label="Reference" value={loan.disbursementReference} />
+                  ) : null}
+                </dl>
+                <DisbursementDestinationSummary loan={loan} />
+                <ReleaseProofSummary loan={loan} />
+              </CardContent>
+            </Card>
+          ) : null}
+
+          {fundsReceived && loan.borrowerReceivedAt ? (
+            <ActionBanner
+              tone="success"
+              title="Money received"
+              message="Money received. Your loan is now active."
+            />
+          ) : null}
 
           <Separator />
 
@@ -2807,12 +3690,13 @@ function ActiveLoanCard({
             <SummaryItem label="Principal" value={formatMoney(loan.principalAmount)} />
             <SummaryItem label="Interest/service charge" value={formatMoney(loan.interestAmount)} />
             <SummaryItem label="Other fees" value={formatMoney(loan.fees)} />
+            <SummaryItem label="System processing fee" value={formatMoney(loan.processingFee)} />
             <SummaryItem label="Total repayment" value={formatMoney(loan.totalRepaymentAmount)} />
             <SummaryItem label="Schedule total" value={formatMoney(scheduleTotal)} />
             <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, and other fees.
+            Total repayment includes principal, interest/service charge, other fees, and system processing fee.
           </p>
 
           <div className="grid gap-2">
@@ -2852,13 +3736,15 @@ function ActiveLoanCard({
             </Card>
           ) : null}
 
-          {loan.repaymentChannel ? (
+          {loan.repaymentChannel && fundsReceived ? (
             <Card className="rounded-xl border-primary/20 bg-primary/5">
               <CardContent className="grid gap-3 p-4">
                 <p className="text-sm font-semibold">Repayment destination</p>
-                <p className="text-sm leading-6 text-muted-foreground">
-                  Send your repayment to the account below, then upload proof of payment.
-                </p>
+                {!isReadOnly ? (
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Send your repayment to the account below, then upload proof of payment.
+                  </p>
+                ) : null}
                 <dl className="grid grid-cols-2 gap-3 text-sm sm:grid-cols-2">
                   <SummaryItem label="Channel" value={loan.repaymentChannel} />
                   <SummaryItem label="Account name" value={loan.repaymentAccountName ?? ""} />
@@ -2867,17 +3753,36 @@ function ActiveLoanCard({
                     <SummaryItem label="Instructions" value={loan.repaymentInstructions} />
                   ) : null}
                 </dl>
-                <p className="text-xs leading-5 text-muted-foreground">
-                  Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
-                </p>
+                {loan.additionalRepaymentChannels.length > 0 ? (
+                  <div className="grid gap-2 border-t border-primary/10 pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Additional channels
+                    </p>
+                    {loan.additionalRepaymentChannels.map((ch) => (
+                      <dl key={ch.id} className="grid grid-cols-2 gap-2 text-sm">
+                        <SummaryItem label="Channel" value={ch.channel} />
+                        <SummaryItem label="Account name" value={ch.accountName} />
+                        <SummaryItem label="Account number" value={ch.accountNumber} />
+                        {ch.instructions ? (
+                          <SummaryItem label="Instructions" value={ch.instructions} />
+                        ) : null}
+                      </dl>
+                    ))}
+                  </div>
+                ) : null}
+                {!isReadOnly ? (
+                  <p className="text-xs leading-5 text-muted-foreground">
+                    Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
+                  </p>
+                ) : null}
               </CardContent>
             </Card>
           ) : null}
 
-          {isCompletedLoan ? (
+          {loanIsCompleted ? (
             <Alert>
               <AlertDescription className="font-semibold">
-                All repayments verified.
+                This loan is completed. Repayment details are shown for history only.
               </AlertDescription>
             </Alert>
           ) : null}
@@ -2892,7 +3797,11 @@ function ActiveLoanCard({
               {loan.schedule.length} {loan.schedule.length === 1 ? "installment" : "installments"}
             </p>
           </div>
-          {loan.schedule.length > 0 ? (
+          {!fundsReceived && !loanIsCompleted ? (
+            <p className="rounded-xl bg-muted/30 px-4 py-3 text-sm leading-6 text-muted-foreground">
+              Repayment upload opens after you confirm the money was received.
+            </p>
+          ) : loan.schedule.length > 0 ? (
             <Card className="overflow-hidden rounded-xl">
               <div className="divide-y divide-border">
                 {loan.schedule.map((repayment) => (
@@ -2904,6 +3813,8 @@ function ActiveLoanCard({
                     repaymentAccountName={loan.repaymentAccountName}
                     repaymentAccountNumber={loan.repaymentAccountNumber}
                     repaymentInstructions={loan.repaymentInstructions}
+                    additionalRepaymentChannels={loan.additionalRepaymentChannels}
+                    isReadOnly={isReadOnly || !fundsReceived}
                     onProofSubmitted={onProofSubmitted}
                     onToggle={() => onToggleRepayment(repayment.id)}
                     isHighlighted={repayment.id === highlightRepaymentId}
@@ -2924,31 +3835,36 @@ function ActiveLoanCard({
 
 function RepaymentScheduleRow({
   isExpanded,
+  isReadOnly = false,
   onToggle,
   repayment,
   repaymentChannel,
   repaymentAccountName,
   repaymentAccountNumber,
   repaymentInstructions,
+  additionalRepaymentChannels,
   onProofSubmitted,
   isHighlighted,
 }: {
   isExpanded: boolean;
+  isReadOnly?: boolean;
   onToggle: () => void;
   repayment: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["schedule"][number];
   repaymentChannel: string | null;
   repaymentAccountName: string | null;
   repaymentAccountNumber: string | null;
   repaymentInstructions: string | null;
+  additionalRepaymentChannels: NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>["additionalRepaymentChannels"];
   onProofSubmitted: () => void;
   isHighlighted?: boolean;
 }) {
   const latestProof = repayment.latestProof;
   const canUploadProof =
-    repayment.status === "due" ||
-    repayment.status === "late" ||
-    repayment.status === "rejected" ||
-    latestProof?.status === "rejected";
+    !isReadOnly &&
+    (repayment.status === "due" ||
+      repayment.status === "late" ||
+      repayment.status === "rejected" ||
+      latestProof?.status === "rejected");
   const isRejected =
     repayment.status === "rejected" || latestProof?.status === "rejected";
   const isVerified =
@@ -3023,7 +3939,7 @@ function RepaymentScheduleRow({
               message="Your lender is checking the latest proof. You cannot upload another proof while this one is under review."
             />
           ) : null}
-          {repayment.status === "late" && !isSubmitted && !isVerified ? (
+          {!isReadOnly && repayment.status === "late" && !isSubmitted && !isVerified ? (
             <ActionBanner
               tone="error"
               title="Payment overdue"
@@ -3045,6 +3961,23 @@ function RepaymentScheduleRow({
                     <SummaryItem label="Instructions" value={repaymentInstructions} />
                   ) : null}
                 </dl>
+                {additionalRepaymentChannels.length > 0 ? (
+                  <div className="grid gap-2 border-t border-primary/10 pt-2">
+                    <p className="text-xs font-semibold text-muted-foreground">
+                      Additional channels
+                    </p>
+                    {additionalRepaymentChannels.map((ch) => (
+                      <dl key={ch.id} className="grid grid-cols-2 gap-2 text-sm">
+                        <SummaryItem label="Channel" value={ch.channel} />
+                        <SummaryItem label="Account name" value={ch.accountName} />
+                        <SummaryItem label="Account number" value={ch.accountNumber} />
+                        {ch.instructions ? (
+                          <SummaryItem label="Instructions" value={ch.instructions} />
+                        ) : null}
+                      </dl>
+                    ))}
+                  </div>
+                ) : null}
                 <p className="text-xs leading-5 text-muted-foreground">
                   Repayment happens outside this app. Upload proof here after you pay so your lender can verify it.
                 </p>
@@ -3105,6 +4038,373 @@ function ProofHistory({
   );
 }
 
+function DisbursementDestinationForm({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [state, formAction, isPending] = useActionState(
+    submitLoanDisbursementDestination,
+    null,
+  );
+  const [method, setMethod] = useState("");
+  const isCashPickup = method === "Cash pickup";
+  const fieldErrors = state && !state.ok ? state.fieldErrors : undefined;
+
+  useEffect(() => {
+    if (state?.ok) {
+      onSuccess();
+    }
+  }, [onSuccess, state]);
+
+  return (
+    <Card className="rounded-xl border-primary/20 bg-primary/5">
+      <CardContent className="grid gap-3 p-4">
+        <div className="grid gap-1">
+          <p className="text-sm font-semibold">Where should the lender send the funds?</p>
+          <p className="text-sm leading-6 text-muted-foreground">
+            Add your payout details before the lender releases the money.
+          </p>
+        </div>
+        <form action={formAction} className="grid gap-3">
+          <input type="hidden" name="activeLoanId" value={activeLoanId} />
+          {state ? (
+            <Alert variant={state.ok ? "default" : "destructive"} role="status">
+              <AlertDescription>{state.message}</AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-method-${activeLoanId}`}>Method</Label>
+              <Select
+                name="method"
+                value={method}
+                onValueChange={setMethod}
+                required
+              >
+                <SelectTrigger id={`destination-method-${activeLoanId}`}>
+                  <SelectValue placeholder="Choose method" />
+                </SelectTrigger>
+                <SelectContent>
+                  {disbursementDestinationMethods.map((option) => (
+                    <SelectItem key={option} value={option}>
+                      {option}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {fieldErrors?.method ? (
+                <p className="text-sm text-destructive">{fieldErrors.method[0]}</p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-name-${activeLoanId}`}>
+                Account name{isCashPickup ? " (optional)" : ""}
+              </Label>
+              <Input
+                id={`destination-name-${activeLoanId}`}
+                name="accountName"
+                maxLength={120}
+                required={!isCashPickup}
+              />
+              {fieldErrors?.accountName ? (
+                <p className="text-sm text-destructive">
+                  {fieldErrors.accountName[0]}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-number-${activeLoanId}`}>
+                Account number / mobile number{isCashPickup ? " (optional)" : ""}
+              </Label>
+              <Input
+                id={`destination-number-${activeLoanId}`}
+                name="accountNumber"
+                maxLength={120}
+                required={!isCashPickup}
+              />
+              {fieldErrors?.accountNumber ? (
+                <p className="text-sm text-destructive">
+                  {fieldErrors.accountNumber[0]}
+                </p>
+              ) : null}
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor={`destination-notes-${activeLoanId}`}>
+                Notes or instructions
+              </Label>
+              <Textarea
+                id={`destination-notes-${activeLoanId}`}
+                name="notes"
+                maxLength={500}
+                placeholder="Optional"
+              />
+              {fieldErrors?.notes ? (
+                <p className="text-sm text-destructive">{fieldErrors.notes[0]}</p>
+              ) : null}
+            </div>
+          </div>
+          <Button
+            type="submit"
+            disabled={isPending || state?.ok}
+            className="h-10 w-fit rounded-full font-semibold"
+          >
+            {isPending ? "Saving..." : "Submit payout details"}
+          </Button>
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DisbursementDestinationSummary({
+  loan,
+}: {
+  loan: Pick<
+    NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>,
+    | "disbursementDestinationMethod"
+    | "disbursementDestinationAccountName"
+    | "disbursementDestinationAccountNumber"
+    | "disbursementDestinationNotes"
+    | "disbursementDestinationSubmittedAt"
+  >;
+}) {
+  if (!loan.disbursementDestinationSubmittedAt) {
+    return null;
+  }
+
+  return (
+    <div className="grid gap-2 rounded-lg border border-border/70 bg-background/70 p-3">
+      <p className="text-sm font-semibold">Payout destination</p>
+      <dl className="grid grid-cols-2 gap-3 text-sm">
+        <SummaryItem label="Method" value={loan.disbursementDestinationMethod ?? ""} />
+        {loan.disbursementDestinationAccountName ? (
+          <SummaryItem
+            label="Account name"
+            value={loan.disbursementDestinationAccountName}
+          />
+        ) : null}
+        {loan.disbursementDestinationAccountNumber ? (
+          <SummaryItem
+            label="Account number"
+            value={loan.disbursementDestinationAccountNumber}
+          />
+        ) : null}
+        {loan.disbursementDestinationNotes ? (
+          <SummaryItem label="Notes" value={loan.disbursementDestinationNotes} />
+        ) : null}
+      </dl>
+    </div>
+  );
+}
+
+function ConfirmMoneyReceivedButton({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function onConfirm() {
+    setMessage("");
+    startTransition(async () => {
+      const result = await confirmLoanFundsReceived(activeLoanId);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      setMessage(result.message);
+      onSuccess();
+    });
+  }
+
+  return (
+    <div className="grid gap-2">
+      {message ? (
+        <p
+          role="status"
+          className={cn(
+            "rounded-xl px-3 py-2 text-sm font-medium",
+            message.startsWith("Money received")
+              ? "bg-emerald-50 text-emerald-900"
+              : "bg-destructive/10 text-destructive",
+          )}
+        >
+          {message}
+        </p>
+      ) : null}
+      <Button
+        type="button"
+        onClick={onConfirm}
+        disabled={isPending}
+        className="h-10 rounded-full font-semibold"
+      >
+        {isPending ? "Confirming..." : "Confirm money received"}
+      </Button>
+    </div>
+  );
+}
+
+function ReportFundsNotReceivedButton({
+  activeLoanId,
+  onSuccess,
+}: {
+  activeLoanId: string;
+  onSuccess: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [message, setMessage] = useState("");
+  const [isPending, startTransition] = useTransition();
+
+  function onSubmit() {
+    setMessage("");
+
+    if (!reason.trim()) {
+      setMessage("Enter a reason for the report.");
+      return;
+    }
+
+    startTransition(async () => {
+      const result = await reportLoanReleaseNotReceived(activeLoanId, reason);
+
+      if (!result.ok) {
+        setMessage(result.message);
+        return;
+      }
+
+      setOpen(false);
+      setReason("");
+      setMessage("");
+      onSuccess();
+    });
+  }
+
+  return (
+    <AlertDialog open={open} onOpenChange={setOpen}>
+      <Button
+        type="button"
+        variant="outline"
+        onClick={() => setOpen(true)}
+        className="h-10 rounded-full border-destructive/40 font-semibold text-destructive hover:bg-destructive/10 hover:text-destructive"
+      >
+        I did not receive the money
+      </Button>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Report funds not received?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Use this only if the lender marked the funds as released but the money has not arrived in your account.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <div className="grid gap-2">
+          <Label htmlFor={`release-report-reason-${activeLoanId}`}>Reason</Label>
+          <Textarea
+            id={`release-report-reason-${activeLoanId}`}
+            value={reason}
+            onChange={(event) => {
+              setReason(event.target.value);
+              setMessage("");
+            }}
+            placeholder="Example: I checked my GCash/bank account but no transfer was received."
+            maxLength={500}
+            required
+          />
+          {message ? (
+            <p role="alert" className="text-sm font-medium text-destructive">
+              {message}
+            </p>
+          ) : null}
+        </div>
+        <AlertDialogFooter>
+          <AlertDialogCancel disabled={isPending}>Cancel</AlertDialogCancel>
+          <Button
+            type="button"
+            onClick={onSubmit}
+            disabled={isPending || !reason.trim()}
+          >
+            {isPending ? "Submitting..." : "Submit report"}
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+function ReleaseProofSummary({
+  loan,
+}: {
+  loan: Pick<
+    NonNullable<BorrowerLoanApplicationSummary["activeLoan"]>,
+    | "releaseProofFileName"
+    | "releaseProofFileSize"
+    | "releaseProofFileType"
+    | "releaseProofViewUrl"
+  >;
+}) {
+  if (!loan.releaseProofFileName) {
+    return (
+      <div className="grid gap-1 rounded-lg border border-border/70 bg-background/70 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+        <div className="grid gap-1">
+          <p className="text-xs font-semibold uppercase text-muted-foreground">
+            Proof
+          </p>
+          <p className="text-sm text-muted-foreground">No proof uploaded</p>
+        </div>
+      </div>
+    );
+  }
+
+  const canPreview =
+    Boolean(loan.releaseProofViewUrl) &&
+    Boolean(loan.releaseProofFileType) &&
+    typeof loan.releaseProofFileSize === "number";
+
+  return (
+    <div className="grid gap-3 rounded-lg border border-border/70 bg-background/70 p-3 text-sm sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+      <div className="grid min-w-0 gap-1">
+        <p className="text-xs font-semibold uppercase text-muted-foreground">
+          Proof
+        </p>
+        <p className="break-words font-medium">{loan.releaseProofFileName}</p>
+        {typeof loan.releaseProofFileSize === "number" ? (
+          <p className="text-xs text-muted-foreground">
+            {formatFileSize(loan.releaseProofFileSize)}
+          </p>
+        ) : null}
+        {!canPreview ? (
+          <p className="text-xs text-muted-foreground">Preview unavailable</p>
+        ) : null}
+      </div>
+      {canPreview ? (
+        <ProofPreviewButton
+          fileName={loan.releaseProofFileName}
+          fileSize={loan.releaseProofFileSize ?? 0}
+          fileType={loan.releaseProofFileType ?? ""}
+          title="Release Proof Preview"
+          viewUrl={loan.releaseProofViewUrl ?? ""}
+          className="h-8 w-full rounded-full px-3 font-semibold sm:w-fit"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function formatFileSize(size: number) {
+  if (size >= 1024 * 1024) {
+    return `${(size / 1024 / 1024).toFixed(1)} MB`;
+  }
+
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
 function RepaymentProofForm({
   isRejected,
   repaymentId,
@@ -3118,6 +4418,7 @@ function RepaymentProofForm({
     submitRepaymentProof,
     null,
   );
+  const [clientError, setClientError] = useState("");
 
   useEffect(() => {
     if (state?.ok) {
@@ -3125,8 +4426,44 @@ function RepaymentProofForm({
     }
   }, [state, onSuccess]);
 
+  const onSubmit: FormEventHandler<HTMLFormElement> = (event) => {
+    const proofInput = event.currentTarget.elements.namedItem("proofFile");
+
+    if (!(proofInput instanceof HTMLInputElement)) {
+      event.preventDefault();
+      setClientError("Choose a proof file to upload.");
+      return;
+    }
+
+    const proofFile = proofInput.files?.item(0);
+
+    if (!proofFile || proofFile.size === 0) {
+      event.preventDefault();
+      setClientError("Choose a proof file to upload.");
+      return;
+    }
+
+    if (!repaymentProofAllowedTypes.has(proofFile.type)) {
+      event.preventDefault();
+      setClientError("Upload a JPG, PNG, WebP, HEIC, or PDF file.");
+      return;
+    }
+
+    if (proofFile.size > repaymentProofMaxFileSize) {
+      event.preventDefault();
+      setClientError("Upload a file up to 5 MB.");
+      return;
+    }
+
+    setClientError("");
+  };
+
   return (
-    <form action={formAction} className="grid gap-3 border-t border-border pt-3">
+    <form
+      action={formAction}
+      className="grid gap-3 border-t border-border pt-3"
+      onSubmit={onSubmit}
+    >
       <input type="hidden" name="repaymentScheduleId" value={repaymentId} />
       <div className="grid gap-1.5">
         <Label htmlFor={`proof-${repaymentId}`} className="text-sm font-semibold">
@@ -3138,11 +4475,23 @@ function RepaymentProofForm({
           type="file"
           accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf"
           disabled={isPending}
+          aria-describedby={`proof-help-${repaymentId} proof-error-${repaymentId}`}
+          aria-invalid={clientError ? "true" : undefined}
+          onChange={() => setClientError("")}
           className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 disabled:pointer-events-none disabled:opacity-50"
         />
-        <p className="text-xs leading-5 text-muted-foreground">
+        <p id={`proof-help-${repaymentId}`} className="text-xs leading-5 text-muted-foreground">
           JPG, PNG, WebP, HEIC, or PDF up to 5 MB. Upload a new file only after a rejection or when repayment is due.
         </p>
+        {clientError ? (
+          <p
+            id={`proof-error-${repaymentId}`}
+            className="text-xs font-medium text-destructive"
+            role="alert"
+          >
+            {clientError}
+          </p>
+        ) : null}
       </div>
       <Button
         type="submit"
@@ -3155,7 +4504,7 @@ function RepaymentProofForm({
             ? "Submit corrected proof"
             : "Upload proof"}
       </Button>
-      {state ? (
+      {state && !clientError ? (
         <InlineStatus
           message={state.message}
           tone={state.ok ? "success" : "error"}
@@ -3185,7 +4534,9 @@ function ApplicationEditForm({
     resolver: zodResolver(loanApplicationSchema),
     defaultValues: {
       requestedAmount: application.requestedAmount,
-      purpose: application.purpose,
+      purpose: isLoanPurposeOption(application.purpose)
+        ? application.purpose
+        : "",
       preferredTerm: application.preferredTerm,
       remarks: application.remarks ?? "",
     },
@@ -3227,20 +4578,50 @@ function ApplicationEditForm({
       </div>
 
       <Field label="Purpose" error={errors.purpose?.message} id="edit-purpose">
-        <Input
-          id="edit-purpose"
-          aria-invalid={Boolean(errors.purpose)}
-          {...register("purpose")}
+        <Controller
+          control={control}
+          name="purpose"
+          render={({ field }) => (
+            <Select
+              onValueChange={(value) =>
+                field.onChange(
+                  value === loanPurposeSelectPlaceholderValue ? "" : value,
+                )
+              }
+              value={field.value || loanPurposeSelectPlaceholderValue}
+            >
+              <SelectTrigger
+                id="edit-purpose"
+                className="h-11 rounded-xl"
+                aria-invalid={Boolean(errors.purpose)}
+              >
+                <SelectValue placeholder="--select--" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={loanPurposeSelectPlaceholderValue}>
+                  --select--
+                </SelectItem>
+                {loanPurposeOptions.map((option) => (
+                  <SelectItem key={option} value={option}>
+                    {loanPurposeLabels[option]}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         />
       </Field>
 
-      <Field label="Remarks" error={errors.remarks?.message} id="edit-remarks">
+      <Field label="Remarks (optional)" error={errors.remarks?.message} id="edit-remarks">
         <Textarea
           id="edit-remarks"
           aria-invalid={Boolean(errors.remarks)}
           {...register("remarks")}
           rows={3}
         />
+        <span className="text-xs text-muted-foreground">
+          Optional, but adding details may help lenders review your request.
+        </span>
       </Field>
 
       <div className="grid gap-2 sm:flex sm:justify-end">
@@ -3363,7 +4744,25 @@ function getRejectedProofNextStep(reviewNotes?: string | null) {
   return `Lender note: ${reviewNotes} ${nextStep}`;
 }
 
-function LoanStatusPill({ status }: { status: string }) {
+function LoanStatusPill({
+  status,
+  disbursementStatus = "received_by_borrower",
+}: {
+  status: string;
+  disbursementStatus?: string;
+}) {
+  if (disbursementStatus === "awaiting_release") {
+    return <StatusPill tone="neutral">Waiting for release</StatusPill>;
+  }
+
+  if (disbursementStatus === "released_by_lender") {
+    return <StatusPill tone="neutral">Funds released</StatusPill>;
+  }
+
+  if (disbursementStatus === "release_disputed") {
+    return <StatusPill tone="danger">Funds disputed</StatusPill>;
+  }
+
   const tone = status === "overdue" ? "danger" : "success";
 
   return (
@@ -3484,29 +4883,15 @@ function getDefaultExpandedApplicationIds(
   return new Set<string>();
 }
 
-function getDefaultExpandedOfferIds(
-  applications: BorrowerLoanApplicationSummary[],
-  collapsedOfferIds = new Set<string>(),
-) {
-  return new Set(
-    applications.flatMap((application) =>
-      application.offers
-        .filter(
-          (offer) =>
-            offer.status === "pending" && !collapsedOfferIds.has(offer.id),
-        )
-        .map((offer) => offer.id),
-    ),
-  );
-}
-
 function getDefaultExpandedRepaymentIds(
   applications: BorrowerLoanApplicationSummary[],
   collapsedRepaymentIds = new Set<string>(),
 ) {
-  const activeLoans = applications.flatMap((application) =>
-    application.activeLoan ? [application.activeLoan] : [],
-  );
+  const activeLoans = applications
+    .flatMap((application) =>
+      application.activeLoan ? [application.activeLoan] : [],
+    )
+    .filter(isLoanActiveForBorrowerList);
   const priorityRepayments = activeLoans
     .flatMap((loan) => loan.schedule)
     .filter(

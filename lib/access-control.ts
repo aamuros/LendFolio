@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from "./supabase/server";
 import type { AppRole, Database } from "./supabase/types";
-import { canAccessRole, isApprovedLender } from "./role-rules";
+import { canAccessRole, hasPrimaryRole, hasRole, isApprovedLender } from "./role-rules";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -34,11 +34,13 @@ export async function getCurrentUserProfile(
 
   try {
     const {
-      data: { user },
-      error: userError,
-    } = await client.auth.getUser();
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession();
 
-    if (userError || !user) {
+    const user = session?.user;
+
+    if (sessionError || !user) {
       return {
         ok: false,
         supabase: client,
@@ -49,7 +51,7 @@ export async function getCurrentUserProfile(
 
     const { data: profile, error: profileError } = await client
       .from("profiles")
-      .select("id, role, display_name, status, created_at, updated_at")
+      .select("id, role, additional_roles, display_name, status, created_at, updated_at")
       .eq("id", user.id)
       .maybeSingle();
 
@@ -62,12 +64,14 @@ export async function getCurrentUserProfile(
       };
     }
 
+    const isLender = hasRole(profile as CurrentUserProfile, "lender");
+
     const { data: lenderProfile, error: lenderProfileError } =
-      profile.role === "lender"
+      isLender
         ? await client
             .from("lender_profiles")
             .select(
-              "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at",
+              "id, user_id, organization_name, contact_person, phone_number, business_address, operating_area, business_registration_number, address_region, address_city_or_municipality, address_barangay, address_zip_code, min_loan_amount, max_loan_amount, typical_repayment_terms, lender_description, verification_status, approved_at, approved_by, manager_review_notes, rejection_reason, rejected_at, rejected_by, created_at, updated_at",
             )
             .eq("user_id", profile.id)
             .maybeSingle()
@@ -88,7 +92,7 @@ export async function getCurrentUserProfile(
       profile: {
         ...profile,
         lenderProfile,
-      },
+      } as CurrentUserProfile,
     };
   } catch {
     return {
@@ -120,7 +124,7 @@ export async function requireRole(role: AppRole, supabase?: SupabaseServerClient
 }
 
 export function requireBorrower(supabase?: SupabaseServerClient) {
-  return requireRole("borrower", supabase);
+  return requirePrimaryRole("borrower", supabase);
 }
 
 export async function requireApprovedLender(
@@ -134,12 +138,13 @@ export async function requireApprovedLender(
 
   if (!isApprovedLender(result.profile)) {
     const verificationStatus = result.profile.lenderProfile?.verification_status;
+    const userIsLender = hasPrimaryRole(result.profile, "lender");
     const message =
-      result.profile.role === "lender" && verificationStatus === "incomplete"
+      userIsLender && verificationStatus === "incomplete"
         ? "Complete your lender profile to continue."
-        : result.profile.role === "lender" && verificationStatus === "pending"
-          ? "Your lender access is pending review. You will be able to continue when your account is approved."
-          : result.profile.role === "lender" && verificationStatus === "rejected"
+        : userIsLender && verificationStatus === "pending"
+          ? "Your lender profile is under review. Upload the required verification documents so a manager can complete approval."
+          : userIsLender && verificationStatus === "rejected"
             ? "Your lender access was not approved. Update your lender profile to resubmit."
             : "Your account does not have access to this workspace.";
 
@@ -156,4 +161,26 @@ export async function requireApprovedLender(
 
 export function requireManager(supabase?: SupabaseServerClient) {
   return requireRole("manager", supabase);
+}
+
+export async function requirePrimaryRole(
+  role: AppRole,
+  supabase?: SupabaseServerClient,
+) {
+  const result = await getCurrentUserProfile(supabase);
+
+  if (!result.ok) {
+    return result;
+  }
+
+  if (!hasPrimaryRole(result.profile, role)) {
+    return {
+      ok: false as const,
+      supabase: result.supabase,
+      reason: "forbidden" as const,
+      message: "Your account does not have access to this workspace.",
+    };
+  }
+
+  return result;
 }

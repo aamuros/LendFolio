@@ -3,7 +3,9 @@ import { ConsentAcceptancePanel } from "@/components/consent-acceptance-panel";
 import { LenderApplicationsStatus } from "@/components/lender-applications-list";
 import { LenderPendingReviewPanel } from "@/components/lender/lender-pending-review-panel";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
+import { BorrowerCard, PageHeader } from "@/components/borrower/ui";
 import { Button } from "@/components/ui/button";
+import { CardContent } from "@/components/ui/card";
 import type { CurrentUserProfile } from "@/lib/access-control";
 import type { ConsentStatus } from "@/lib/consents";
 import type {
@@ -34,6 +36,7 @@ export function LenderAccessPanel({
     return (
       <LenderPendingReviewPanel
         consentStatus={consentStatus}
+        lenderProfile={lenderProfile}
         lenderProfileId={lenderProfile?.id ?? null}
         verificationStatus={lenderProfile?.verification_status ?? "pending"}
         documents={documents}
@@ -47,16 +50,24 @@ export function LenderAccessPanel({
   if (isRejected) {
     return (
       <div className="grid gap-5">
-        <LenderApplicationsStatus
-          message="Your lender access was not approved. Update your lender profile to resubmit."
-          tone="error"
+        <PageHeader
+          title="Lender profile"
+          description="Update your profile and documents before resubmitting for approval."
         />
-        <Button
-          asChild
-          className="h-11 w-full rounded-full font-semibold sm:w-fit"
-        >
-          <Link href="/lender/onboarding">Update lender profile</Link>
-        </Button>
+        <BorrowerCard>
+          <CardContent className="grid gap-4 p-5">
+            <LenderApplicationsStatus
+              message="Your lender access was not approved. Update your lender profile to resubmit."
+              tone="error"
+            />
+            <Button
+              asChild
+              className="h-11 w-full rounded-full font-semibold sm:w-fit"
+            >
+              <Link href="/lender/onboarding">Update lender profile</Link>
+            </Button>
+          </CardContent>
+        </BorrowerCard>
         <ConsentAcceptancePanel scope="lender_review" status={consentStatus} />
         {lenderProfile?.id ? (
           <LenderVerificationDocumentsPanel
@@ -74,10 +85,18 @@ export function LenderAccessPanel({
 
   return (
     <div className="grid gap-5">
-      <LenderApplicationsStatus
-        message="Your account does not have access to this workspace."
-        tone="error"
+      <PageHeader
+        title="Lender profile"
+        description="This account cannot open the lender workspace."
       />
+      <BorrowerCard>
+        <CardContent className="p-5">
+          <LenderApplicationsStatus
+            message="Your account does not have access to this workspace."
+            tone="error"
+          />
+        </CardContent>
+      </BorrowerCard>
       {profile.role === "lender" ? (
         <ConsentAcceptancePanel scope="lender_review" status={consentStatus} />
       ) : null}

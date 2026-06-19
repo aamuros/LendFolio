@@ -3,14 +3,15 @@ import {
   CircleDollarSign,
   Edit3Icon,
   FileCheck,
+  FileText,
   HelpCircle,
   Lock,
+  ShieldAlert,
   ShieldCheck,
 } from "lucide-react";
 import { LenderProfileSubview } from "./lender-profile-subview";
 import { LenderProfileDetailCard } from "./lender-profile-detail-card";
 import { SummaryRow } from "@/components/borrower/ui/summary-row";
-import { LenderProfileStatusBanner } from "./lender-profile-status-banner";
 import { LenderAccountSection } from "./lender-account-section";
 import { LenderVerificationDocumentsPanel } from "@/components/lender-verification-documents-panel";
 import { LenderProfileChangeRequestForm } from "@/components/lender-profile-change-request-form";
@@ -19,6 +20,8 @@ import { ProfileMenuRow } from "@/components/profile/profile-menu-row";
 import { ProfileSignOutRow } from "@/components/profile/profile-sign-out-row";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import type { ConsentStatus } from "@/lib/consents";
+import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
 
 import Link from "next/link";
 
@@ -27,6 +30,7 @@ export type LenderProfileView =
   | "organization"
   | "lending"
   | "verification"
+  | "disclosures"
   | "documents"
   | "change-requests"
   | "account"
@@ -97,13 +101,17 @@ type LenderProfileData = {
 export function LenderProfileHub({
   accountEmail,
   activeView,
+  consentStatus,
   lenderProfile,
+  onEditProfile,
   onNavigateHome,
   onViewChange,
 }: {
   accountEmail: string;
   activeView: LenderProfileView;
+  consentStatus?: ConsentStatus;
   lenderProfile: LenderProfileData;
+  onEditProfile: () => void;
   onNavigateHome: () => void;
   onViewChange: (view: LenderProfileView) => void;
 }) {
@@ -111,6 +119,9 @@ export function LenderProfileHub({
   const displayName =
     lenderProfile?.organization_name?.trim() || "Lender profile";
   const verificationLabel = formatVerificationStatus(verificationStatus);
+  const disclosureSummary = formatDisclosureSummary(consentStatus);
+  const profileCompletion = getLenderProfileCompletion(lenderProfile);
+  const needsProfileDetails = !profileCompletion.complete;
 
   if (activeView === "organization") {
     return (
@@ -234,6 +245,38 @@ export function LenderProfileHub({
     );
   }
 
+  if (activeView === "disclosures") {
+    return (
+      <LenderProfileSubview
+        title="Required Disclosures"
+        onBack={() => onViewChange("index")}
+      >
+        <LenderProfileDetailCard
+          headerLabel="Required disclosures"
+          headerTitle={disclosureSummary}
+          headerSubtitle={
+            consentStatus?.isCurrent
+              ? "Current disclosures accepted"
+              : "Review and accept remaining disclosures from Home"
+          }
+        >
+          <SummaryRow
+            label="Accepted"
+            value={`${getAcceptedRequiredConsentCount(consentStatus)}`}
+          />
+          <SummaryRow
+            label="Remaining"
+            value={`${consentStatus?.missing.length ?? 0}`}
+          />
+          <SummaryRow
+            label="Required"
+            value={`${consentStatus?.required.length ?? 0}`}
+          />
+        </LenderProfileDetailCard>
+      </LenderProfileSubview>
+    );
+  }
+
   if (activeView === "change-requests") {
     return (
       <LenderProfileSubview
@@ -308,21 +351,62 @@ export function LenderProfileHub({
         email={accountEmail}
         fallbackInitial="L"
         onBack={onNavigateHome}
+        onEditProfile={() => {
+          if (verificationStatus === "approved") {
+            onViewChange("change-requests");
+            return;
+          }
+
+          onEditProfile();
+        }}
       />
 
-      {verificationStatus !== "approved" ? (
-        <LenderProfileStatusBanner
-          status={getVerificationBannerStatus(verificationStatus)}
-          onAction={() => onViewChange("verification")}
-        />
+      {needsProfileDetails ? (
+        <>
+          <Card className="rounded-2xl border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]">
+            <div className="grid gap-4 p-5 sm:grid-cols-[auto_1fr] sm:items-start sm:p-6">
+              <span className="grid size-11 shrink-0 place-items-center rounded-2xl bg-muted text-muted-foreground">
+                <ShieldAlert className="size-5" />
+              </span>
+              <div className="grid gap-3">
+                <div className="grid gap-1">
+                  <p className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    PROFILE NEEDS REVIEW
+                  </p>
+                  <h2 className="text-lg font-semibold tracking-tight text-foreground">
+                    Complete your lender profile
+                  </h2>
+                  <p className="text-sm leading-6 text-muted-foreground">
+                    Add the lender details managers need before approval.
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  className="h-11 w-full rounded-full font-semibold sm:w-fit"
+                  onClick={onEditProfile}
+                >
+                  Update lender details
+                </Button>
+              </div>
+            </div>
+          </Card>
+
+          <div className="flex items-start gap-3 rounded-2xl bg-muted/40 px-5 py-4">
+            <ShieldCheck className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+            <p className="text-sm leading-relaxed text-muted-foreground">
+              Lender approval unlocks after profile review and verification approval.
+            </p>
+          </div>
+        </>
       ) : null}
 
-      <div className="overflow-hidden rounded-2xl ring-1 ring-foreground/10 divide-y divide-border/50">
+      <div className="overflow-hidden rounded-3xl border border-border/50 bg-card/80 shadow-sm divide-y divide-border/50">
         <ProfileMenuRow
           icon={Building2}
           label="Organization Profile"
           subtitle={
-            lenderProfile?.organization_name || "Organization details"
+            lenderProfile?.organization_name ||
+            "Organization, contact, and operating area"
           }
           onClick={() => onViewChange("organization")}
         />
@@ -337,6 +421,12 @@ export function LenderProfileHub({
           label="Verification"
           subtitle={verificationLabel}
           onClick={() => onViewChange("verification")}
+        />
+        <ProfileMenuRow
+          icon={FileText}
+          label="Required Disclosures"
+          subtitle={disclosureSummary}
+          onClick={() => onViewChange("disclosures")}
         />
         <ProfileMenuRow
           icon={FileCheck}
@@ -456,50 +546,6 @@ function LenderVerificationDetail({
   );
 }
 
-function getVerificationBannerStatus(verificationStatus: string) {
-  switch (verificationStatus) {
-    case "approved":
-      return {
-        tone: "ready" as const,
-        label: "Approved",
-        title: "Your lender account is approved",
-        description:
-          "Your organization can review applications and send offers.",
-        action: null,
-        actionLabel: null,
-      };
-    case "pending":
-      return {
-        tone: "attention" as const,
-        label: "Pending review",
-        title: "Your lender account is pending review",
-        description: "A manager is reviewing your lender profile.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-    case "rejected":
-      return {
-        tone: "attention" as const,
-        label: "Rejected",
-        title: "Your lender access was not approved",
-        description:
-          "Update your lender profile and resubmit for review.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-    default:
-      return {
-        tone: "attention" as const,
-        label: "Incomplete",
-        title: "Complete your lender profile",
-        description:
-          "Complete your lender profile to request approval.",
-        action: "verification" as const,
-        actionLabel: "View details",
-      };
-  }
-}
-
 function formatVerificationStatus(status: string) {
   switch (status) {
     case "approved":
@@ -609,4 +655,31 @@ function formatDate(value: string | null) {
   }
 }
 
+function getAcceptedRequiredConsentCount(status?: ConsentStatus) {
+  if (!status) {
+    return 0;
+  }
 
+  return status.required.filter((required) =>
+    status.accepted.some(
+      (accepted) =>
+        accepted.consentType === required.consentType &&
+        accepted.version === required.version,
+    ),
+  ).length;
+}
+
+function formatDisclosureSummary(status?: ConsentStatus) {
+  if (!status) {
+    return "Disclosures unavailable";
+  }
+
+  const acceptedCount = getAcceptedRequiredConsentCount(status);
+  const requiredCount = status.required.length;
+
+  if (status.isCurrent) {
+    return `${acceptedCount}/${requiredCount} accepted`;
+  }
+
+  return `${status.missing.length} remaining`;
+}

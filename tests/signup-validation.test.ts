@@ -321,8 +321,14 @@ describe("lender onboarding schema validation", () => {
     organizationName: "Lending Corp",
     contactPerson: "Juan dela Cruz",
     phoneNumber: "+63 900 000 0000",
-    businessAddress: "123 Main Street, Quezon City",
-    operatingArea: "NCR - National Capital Region",
+    streetAddress: "123 Main Street",
+    address: {
+      regionCode: "NCR",
+      regionName: "NCR - National Capital Region",
+      cityOrMunicipality: "Quezon City",
+      barangay: "Diliman",
+      zipCode: "1100",
+    },
     businessRegistrationNumber: "SEC-12345",
     minLoanAmount: "5000",
     maxLoanAmount: "50000",
@@ -381,15 +387,12 @@ describe("lender onboarding schema validation", () => {
     }
   });
 
-  it("rejects short lender description", () => {
+  it("accepts short lender description when optional", () => {
     const result = lenderOnboardingSchema.safeParse({
       ...validInput,
       lenderDescription: "Too short",
     });
-    expect(result.success).toBe(false);
-    if (!result.success) {
-      expect(result.error.flatten().fieldErrors.lenderDescription).toBeDefined();
-    }
+    expect(result.success).toBe(true);
   });
 
   it("rejects max loan below min loan", () => {
@@ -432,14 +435,20 @@ describe("lender onboarding schema validation", () => {
     }
   });
 
-  it("rejects short business address", () => {
+  it("rejects invalid address selection", () => {
     const result = lenderOnboardingSchema.safeParse({
       ...validInput,
-      businessAddress: "123",
+      address: {
+        regionCode: "INVALID",
+        regionName: "Invalid Region",
+        cityOrMunicipality: "Invalid City",
+        barangay: "Invalid Barangay",
+        zipCode: "0000",
+      },
     });
     expect(result.success).toBe(false);
     if (!result.success) {
-      expect(result.error.flatten().fieldErrors.businessAddress).toBeDefined();
+      expect(result.error.flatten().fieldErrors.address).toBeDefined();
     }
   });
 });

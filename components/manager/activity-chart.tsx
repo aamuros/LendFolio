@@ -57,22 +57,22 @@ export function ActivityChart({
   const metrics: ActivityMetric[] = ["applications", "offers", "loans"];
 
   return (
-    <Card>
-      <CardHeader className="flex flex-col gap-0 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+    <Card className="min-w-0 border-border/70 bg-card/95 shadow-[0_18px_50px_rgba(14,26,18,0.05)]">
+      <CardHeader className="flex flex-col gap-3 space-y-0 pb-2 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex flex-col gap-1">
-          <CardTitle>Platform activity</CardTitle>
+          <CardTitle className="text-base">Platform activity</CardTitle>
           <CardDescription>
             {monthsWithData >= 3
               ? "Monthly lending activity across the platform"
               : "Trends will become more useful after 3+ active months."}
           </CardDescription>
         </div>
-        <div className="flex gap-1 pt-2 sm:pt-0">
+        <div className="flex max-w-full flex-wrap gap-1 rounded-lg border border-border/70 bg-muted/60 p-1">
           {metrics.map((metric) => (
             <button
               key={metric}
               data-active={activeMetric === metric}
-              className="rounded-md px-2 py-0.5 text-xs font-medium transition-colors data-[active=true]:bg-muted data-[active=true]:text-foreground text-muted-foreground hover:bg-muted/50"
+              className="rounded-md px-2 py-0.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-card/80 hover:text-foreground data-[active=true]:bg-card data-[active=true]:text-foreground data-[active=true]:shadow-sm"
               onClick={() => setActiveMetric(metric)}
             >
               {chartConfig[metric].label}
@@ -80,10 +80,10 @@ export function ActivityChart({
           ))}
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="pt-0">
         <ChartContainer
           config={chartConfig}
-          className="aspect-auto h-[200px] w-full"
+          className="aspect-auto h-[210px] w-full"
         >
           <BarChart
             accessibilityLayer
@@ -93,7 +93,7 @@ export function ActivityChart({
               right: 12,
             }}
           >
-            <CartesianGrid vertical={false} />
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeOpacity={0.75} />
             <XAxis
               dataKey="month"
               tickLine={false}

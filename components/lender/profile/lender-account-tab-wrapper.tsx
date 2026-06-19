@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { LenderAccountTab } from "./lender-account-tab";
 import type { LenderVerificationDocumentSummary, LenderVerificationDocumentPolicy } from "@/lib/lender-verification";
+import type { ConsentStatus } from "@/lib/consents";
 
 type LenderProfileData = {
   id?: string | null;
@@ -50,12 +51,14 @@ export function LenderAccountTabWrapper({
   lenderProfile,
   documents,
   documentPolicy,
+  consentStatus,
   changeRequests,
 }: {
   email: string;
   lenderProfile: LenderProfileData;
   documents?: LenderVerificationDocumentSummary[];
   documentPolicy?: LenderVerificationDocumentPolicy;
+  consentStatus?: ConsentStatus;
   changeRequests?: ChangeRequestData[];
 }) {
   const router = useRouter();
@@ -63,6 +66,7 @@ export function LenderAccountTabWrapper({
   return (
     <LenderAccountTab
       email={email}
+      consentStatus={consentStatus}
       lenderProfile={lenderProfile ? {
         ...lenderProfile,
         id: lenderProfile.id ?? null,
@@ -78,6 +82,7 @@ export function LenderAccountTabWrapper({
         },
         changeRequests: changeRequests ?? [],
       } : null}
+      onEditProfile={() => router.push("/lender/edit-profile/organization")}
       onNavigateHome={() => router.push("/lender")}
     />
   );

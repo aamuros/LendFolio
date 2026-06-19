@@ -126,12 +126,87 @@ export type BorrowerVerificationDocumentPolicy = {
   documentsAccepted: boolean;
 };
 
+export type BusinessProofStatus =
+  | "accepted"
+  | "pending"
+  | "rejected"
+  | "missing";
+
+type BusinessProofDocumentLike = {
+  type?: unknown;
+  document_type?: unknown;
+  documentType?: unknown;
+  category?: unknown;
+  kind?: unknown;
+  status?: unknown;
+};
+
+export function normalizeVerificationValue(value: unknown) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+}
+
+export function isAcceptedVerificationStatus(status: unknown) {
+  return ["accepted", "approved", "verified"].includes(
+    normalizeVerificationValue(status),
+  );
+}
+
+export function isPendingVerificationStatus(status: unknown) {
+  return ["pending", "submitted", "under_review", "in_review"].includes(
+    normalizeVerificationValue(status),
+  );
+}
+
+export function isRejectedVerificationStatus(status: unknown) {
+  return ["rejected", "declined"].includes(normalizeVerificationValue(status));
+}
+
+export function isBusinessProofDocument(doc: BusinessProofDocumentLike) {
+  const type = normalizeVerificationValue(
+    doc.type ?? doc.document_type ?? doc.documentType ?? doc.category ?? doc.kind,
+  );
+
+  return [
+    "business_proof",
+    "business_registration",
+    "business_registration_proof",
+    "business_permit",
+    "dti_registration",
+    "sec_registration",
+    "mayor_permit",
+    "barangay_business_permit",
+  ].includes(type);
+}
+
+export function getBusinessProofStatus(
+  documents: BusinessProofDocumentLike[] = [],
+): BusinessProofStatus {
+  const businessDocs = documents.filter(isBusinessProofDocument);
+
+  if (businessDocs.some((doc) => isAcceptedVerificationStatus(doc.status))) {
+    return "accepted";
+  }
+  if (businessDocs.some((doc) => isPendingVerificationStatus(doc.status))) {
+    return "pending";
+  }
+  if (businessDocs.some((doc) => isRejectedVerificationStatus(doc.status))) {
+    return "rejected";
+  }
+
+  return "missing";
+}
+
 export function calculateBorrowerVerificationDocumentPolicy(
   documents: Pick<
     BorrowerVerificationDocumentSummary,
     "documentType" | "status"
   >[],
+  verificationStatus?: BorrowerVerificationStatus | "missing",
 ): BorrowerVerificationDocumentPolicy {
+  const replacementRequired = verificationStatus === "needs_resubmission";
   const latestByType = new Map<
     BorrowerVerificationDocumentType,
     (typeof documents)[number]
@@ -145,13 +220,31 @@ export function calculateBorrowerVerificationDocumentPolicy(
   const submitted = new Set<BorrowerVerificationDocumentType>();
   const accepted = new Set<BorrowerVerificationDocumentType>();
   const rejected = new Set<BorrowerVerificationDocumentType>();
+  const businessProofStatus = replacementRequired
+    ? getBusinessProofStatus(
+        documents
+          .filter((document) => document.status !== "accepted")
+          .map((document) => ({
+            documentType: document.documentType,
+            status: document.status,
+          })),
+      )
+    : getBusinessProofStatus(
+        documents.map((document) => ({
+          documentType: document.documentType,
+          status: document.status,
+        })),
+      );
 
   for (const document of latestByType.values()) {
-    if (document.status === "submitted" || document.status === "accepted") {
+    if (
+      document.status === "submitted" ||
+      (document.status === "accepted" && !replacementRequired)
+    ) {
       submitted.add(document.documentType);
     }
 
-    if (document.status === "accepted") {
+    if (document.status === "accepted" && !replacementRequired) {
       accepted.add(document.documentType);
     }
 
@@ -160,21 +253,31 @@ export function calculateBorrowerVerificationDocumentPolicy(
     }
   }
 
-  const missingRequiredDocumentTypes =
+  if (businessProofStatus === "accepted") {
+    accepted.add("business_proof");
+  }
+  if (businessProofStatus === "accepted" || businessProofStatus === "pending") {
+    submitted.add("business_proof");
+  }
+  if (businessProofStatus === "rejected") {
+    rejected.add("business_proof");
+  }
+
+  const effectiveMissingRequiredDocumentTypes =
     requiredBorrowerVerificationDocumentTypes.filter(
       (documentType) => !accepted.has(documentType),
     );
 
   return {
     requiredDocumentTypes: [...requiredBorrowerVerificationDocumentTypes],
-    missingRequiredDocumentTypes,
+    missingRequiredDocumentTypes: effectiveMissingRequiredDocumentTypes,
     submittedDocumentTypes: [...submitted],
     acceptedDocumentTypes: [...accepted],
     rejectedDocumentTypes: [...rejected],
     readyForManagerReview: requiredBorrowerVerificationDocumentTypes.every(
       (documentType) => submitted.has(documentType),
     ),
-    documentsAccepted: missingRequiredDocumentTypes.length === 0,
+    documentsAccepted: effectiveMissingRequiredDocumentTypes.length === 0,
   };
 }
 
@@ -195,9 +298,19 @@ export function getBorrowerVerificationMessage(
   }
 
   if (verification.status === "approved") {
-    return verification.documentPolicy.documentsAccepted
-      ? "Borrower verification approved."
-      : "Required verification documents must be accepted before applying.";
+    if (verification.documentPolicy.documentsAccepted) {
+      return "Borrower verification approved.";
+    }
+
+    if (
+      !verification.documentPolicy.acceptedDocumentTypes.includes(
+        "business_proof",
+      )
+    ) {
+      return "Upload and wait for approval of your business proof before applying.";
+    }
+
+    return "Required verification documents must be accepted before applying.";
   }
 
   if (
@@ -275,7 +388,10 @@ export async function getBorrowerVerificationStatus(
     submittedAt: data.submitted_at,
     reviewedAt: data.reviewed_at,
     documents: mappedDocuments,
-    documentPolicy: calculateBorrowerVerificationDocumentPolicy(mappedDocuments),
+    documentPolicy: calculateBorrowerVerificationDocumentPolicy(
+      mappedDocuments,
+      data.verification_status,
+    ),
   };
 }
 
@@ -327,7 +443,8 @@ export const borrowerFacingVerificationStateDescriptions: Record<
   waiting_review:
     "Your required documents are uploaded and waiting for manager review.",
   under_review: "A manager is reviewing your verification documents.",
-  needs_update: "One or more documents need to be replaced.",
+  needs_update:
+    "Some profile details changed after approval. Please replace your verification documents so we can review the updated information.",
   approved: "Your borrower verification is approved.",
 };
 

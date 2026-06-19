@@ -12,6 +12,7 @@ import {
 import { mapLoanOfferRow, type LoanOfferSummary } from "@/lib/loan-offer";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import { isUuid } from "@/lib/validation/uuid";
 import { openApplicationStatuses } from "@/lib/workflow-rules";
 
 type ApprovedLenderAccess = Extract<
@@ -25,6 +26,7 @@ type SupabaseServerClient = ApprovedLenderAccess["supabase"];
 
 export type LenderApplicationReview = LoanApplicationSummary & {
   borrowerId: string;
+  currentLenderId: string;
   currentLenderOfferState:
     | "not_offered"
     | "offer_pending"
@@ -32,6 +34,7 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     | "offer_declined"
     | "offer_expired";
   hasAcceptedOffer: boolean;
+  currentLenderOffer: LoanOfferSummary | null;
   portfolio: {
     businessType: BorrowerPortfolioRow["business_type"];
     businessTypeLabel: string;
@@ -40,13 +43,32 @@ export type LenderApplicationReview = LoanApplicationSummary & {
     monthlyExpenses: number;
     existingLoanPayments: number;
     yearsInOperation: number;
-    loanPurposeContext: string;
+    loanPurposeContext: string | null;
   };
   financialIndicators: {
     estimatedNetMonthlyRevenue: number;
     monthlyCashAfterLoanPayments: number;
   };
+  creditProfileHistory: BorrowerCreditProfileHistorySummary;
   offers: LoanOfferSummary[];
+};
+
+export type BorrowerCreditProfileHistoryStatus =
+  | "first_time_applicant"
+  | "completed_one_cycle"
+  | "completed_multiple_cycles"
+  | "good_payer"
+  | "strong_repeat_payer"
+  | "needs_review";
+
+export type BorrowerCreditProfileHistorySummary = {
+  status: BorrowerCreditProfileHistoryStatus;
+  label: string;
+  description: string;
+  completedLoanCycles: number;
+  onTimeRepayments: number | null;
+  activeLoanCount: number;
+  lateRepayments: number | null;
 };
 
 export type LenderOfferReview = LoanOfferSummary & {
@@ -107,13 +129,17 @@ export type LenderOffersLoadResult =
     };
 
 const lenderReviewApplicationSelect =
-  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, created_at, updated_at";
+  "id, borrower_id, borrower_portfolio_id, requested_amount, credit_limit_at_submission, used_credit_at_submission, available_credit_at_submission, monthly_net_cash_flow_at_submission, credit_readiness_status, borrower_profile_snapshot, borrower_readiness_snapshot, borrower_credit_profile_grade, borrower_credit_profile_assessment, purpose, preferred_term, remarks, status, submitted_at, borrower_removed_at, created_at, updated_at";
 
 const lenderReviewPortfolioSelect =
-  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
+  "id, borrower_id, business_name, business_description, business_type, started_operating_at, business_address, barangay, city_or_municipality, province, region, zip_code, location, operating_model, primary_sales_channel, revenue_period, revenue_confidence, monthly_gross_revenue, monthly_expenses, existing_loan_payments, years_in_operation, expense_breakdown, debt_obligation_summary, loan_purpose_context, profile_last_confirmed_at, profile_review_status, created_at, updated_at";
 
 const lenderReviewOfferSelect =
-  "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, repayment_amount, fees, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, borrower_id, lender_id, lender_name, approved_amount, interest_service_charge_rate, repayment_amount, fees, processing_fee_rate, processing_fee_amount, due_date, remarks, status, sent_at, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+const lenderReviewActiveLoanSelect =
+  "id, borrower_id, lender_id, status";
+const lenderReviewRepaymentScheduleSelect =
+  "active_loan_id, status";
 
 export async function loadOpenLenderApplications(
   verifiedAccess?: ApprovedLenderAccess,
@@ -160,11 +186,11 @@ export async function loadOpenLenderApplications(
     const profileIds = [
       ...new Set(applications.map((application) => application.borrower_portfolio_id)),
     ];
-    const { data: lenderOffers, error: lenderOffersError } = await supabase
+    const { data: allApplicationOffers, error: lenderOffersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
-      .eq("lender_id", access.profile.id)
-      .in("loan_application_id", applicationIds);
+      .in("loan_application_id", applicationIds)
+      .order("sent_at", { ascending: false });
 
     if (lenderOffersError) {
       return {
@@ -202,15 +228,20 @@ export async function loadOpenLenderApplications(
       };
     }
 
+    const openApplications = combineApplicationsWithPortfolios(
+      applications,
+      portfolios,
+      allApplicationOffers,
+      access.profile.id,
+      offerFlagsResult.flags,
+    ).filter(
+      (application) => application.currentLenderOfferState === "not_offered",
+    );
+
     return {
       ok: true,
       mode: "supabase",
-      applications: combineApplicationsWithPortfolios(
-        applications,
-        portfolios,
-        lenderOffers,
-        offerFlagsResult.flags,
-      ),
+      applications: openApplications,
       message: "Applications loaded.",
     };
   } catch {
@@ -228,6 +259,15 @@ export async function loadLenderApplicationDetail(
   verifiedAccess?: ApprovedLenderAccess,
 ): Promise<LenderApplicationDetailResult> {
   try {
+    if (!isUuid(applicationId)) {
+      return {
+        ok: false,
+        mode: "not-found",
+        application: null,
+        message: "This application is not available for lender review.",
+      };
+    }
+
     const supabase =
       verifiedAccess?.supabase ?? (await createSupabaseServerClient());
     const access = verifiedAccess ?? (await requireApprovedLender(supabase));
@@ -245,6 +285,7 @@ export async function loadLenderApplicationDetail(
       .from("loan_applications")
       .select(lenderReviewApplicationSelect)
       .eq("id", applicationId)
+      .in("status", [...openApplicationStatuses])
       .maybeSingle();
 
     if (applicationError) {
@@ -280,7 +321,7 @@ export async function loadLenderApplicationDetail(
       };
     }
 
-    const { data: offers, error: offersError } = await supabase
+    const { data: allApplicationOffers, error: offersError } = await supabase
       .from("loan_offers")
       .select(lenderReviewOfferSelect)
       .eq("loan_application_id", application.id)
@@ -295,8 +336,9 @@ export async function loadLenderApplicationDetail(
       };
     }
 
-    const offerFlagsResult = await loadAcceptedOfferFlags(supabase, [
-      application.id,
+    const [offerFlagsResult, creditProfileHistory] = await Promise.all([
+      loadAcceptedOfferFlags(supabase, [application.id]),
+      loadBorrowerCreditProfileHistory(supabase, application.borrower_id),
     ]);
 
     if (!offerFlagsResult.ok) {
@@ -314,8 +356,10 @@ export async function loadLenderApplicationDetail(
       application: toLenderApplicationReview(
         application,
         portfolio,
-        offers,
+        allApplicationOffers,
+        access.profile.id,
         offerFlagsResult.flags.get(application.id) ?? false,
+        creditProfileHistory,
       ),
       message: "Application loaded.",
     };
@@ -464,6 +508,7 @@ function combineApplicationsWithPortfolios(
   applications: Database["public"]["Tables"]["loan_applications"]["Row"][],
   portfolios: BorrowerPortfolioRow[],
   offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  currentLenderId = "",
   acceptedOfferFlags = new Map<string, boolean>(),
 ) {
   const portfoliosById = new Map(
@@ -483,6 +528,7 @@ function combineApplicationsWithPortfolios(
         application,
         portfolio,
         offersByApplicationId.get(application.id) ?? [],
+        currentLenderId,
         acceptedOfferFlags.get(application.id) ?? false,
       ),
     ];
@@ -492,35 +538,197 @@ function combineApplicationsWithPortfolios(
 function toLenderApplicationReview(
   application: Database["public"]["Tables"]["loan_applications"]["Row"],
   portfolio: BorrowerPortfolioRow,
-  offers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
-  hasAcceptedOffer = offers.some((offer) => offer.status === "accepted"),
+  allApplicationOffers: Database["public"]["Tables"]["loan_offers"]["Row"][] = [],
+  currentLenderId = "",
+  hasAcceptedOffer = allApplicationOffers.some(
+    (offer) => offer.status === "accepted",
+  ),
+  creditProfileHistory: BorrowerCreditProfileHistorySummary = buildBorrowerCreditProfileHistorySummary(
+    [],
+    [],
+  ),
 ): LenderApplicationReview {
   const mappedApplication = mapLoanApplicationRow(application);
   const reviewPortfolio = getSubmittedPortfolio(application, portfolio);
+  const businessType = reviewPortfolio.business_type ?? "other";
+  const location = reviewPortfolio.location ?? "Not provided";
+  const monthlyGrossRevenue = reviewPortfolio.monthly_gross_revenue ?? 0;
+  const monthlyExpenses = reviewPortfolio.monthly_expenses ?? 0;
+  const existingLoanPayments = reviewPortfolio.existing_loan_payments ?? 0;
+  const yearsInOperation = reviewPortfolio.years_in_operation ?? 0;
   const estimatedNetMonthlyRevenue =
-    reviewPortfolio.monthly_gross_revenue - reviewPortfolio.monthly_expenses;
+    monthlyGrossRevenue - monthlyExpenses;
+  const currentLenderOffers = getCurrentLenderOffers(
+    allApplicationOffers,
+    currentLenderId,
+  );
+  const currentLenderOffer = getCurrentLenderOffer(currentLenderOffers);
 
   return {
     ...mappedApplication,
     borrowerId: application.borrower_id,
-    currentLenderOfferState: getCurrentLenderOfferState(offers),
+    currentLenderId,
+    currentLenderOfferState: getCurrentLenderOfferState(currentLenderOffers),
     hasAcceptedOffer,
+    currentLenderOffer: currentLenderOffer
+      ? mapLoanOfferRow(currentLenderOffer)
+      : null,
     portfolio: {
-      businessType: reviewPortfolio.business_type,
-      businessTypeLabel: businessTypeLabels[reviewPortfolio.business_type],
-      location: reviewPortfolio.location,
-      monthlyGrossRevenue: reviewPortfolio.monthly_gross_revenue,
-      monthlyExpenses: reviewPortfolio.monthly_expenses,
-      existingLoanPayments: reviewPortfolio.existing_loan_payments,
-      yearsInOperation: reviewPortfolio.years_in_operation,
+      businessType,
+      businessTypeLabel: businessTypeLabels[businessType],
+      location,
+      monthlyGrossRevenue,
+      monthlyExpenses,
+      existingLoanPayments,
+      yearsInOperation,
       loanPurposeContext: reviewPortfolio.loan_purpose_context,
     },
     financialIndicators: {
       estimatedNetMonthlyRevenue,
       monthlyCashAfterLoanPayments:
-        estimatedNetMonthlyRevenue - reviewPortfolio.existing_loan_payments,
+        estimatedNetMonthlyRevenue - existingLoanPayments,
     },
-    offers: offers.map(mapLoanOfferRow),
+    creditProfileHistory,
+    offers: allApplicationOffers.map(mapLoanOfferRow),
+  };
+}
+
+async function loadBorrowerCreditProfileHistory(
+  supabase: SupabaseServerClient,
+  borrowerId: string,
+): Promise<BorrowerCreditProfileHistorySummary> {
+  const { data: loans, error: loansError } = await supabase
+    .from("active_loans")
+    .select(lenderReviewActiveLoanSelect)
+    .eq("borrower_id", borrowerId);
+
+  if (loansError || loans.length === 0) {
+    return buildBorrowerCreditProfileHistorySummary([], []);
+  }
+
+  const loanIds = loans.map((loan) => loan.id);
+  const { data: repayments, error: repaymentsError } = await supabase
+    .from("loan_repayment_schedules")
+    .select(lenderReviewRepaymentScheduleSelect)
+    .in("active_loan_id", loanIds);
+
+  return buildBorrowerCreditProfileHistorySummary(
+    loans,
+    repaymentsError ? [] : repayments,
+  );
+}
+
+function buildBorrowerCreditProfileHistorySummary(
+  loans: Pick<
+    Database["public"]["Tables"]["active_loans"]["Row"],
+    "id" | "status"
+  >[],
+  repayments: Pick<
+    Database["public"]["Tables"]["loan_repayment_schedules"]["Row"],
+    "active_loan_id" | "status"
+  >[],
+): BorrowerCreditProfileHistorySummary {
+  const completedLoanCycles = loans.filter((loan) =>
+    loan.status === "paid" || loan.status === "closed"
+  ).length;
+  const activeLoanCount = loans.filter((loan) =>
+    loan.status === "active" || loan.status === "overdue"
+  ).length;
+  const hasRepaymentConcern =
+    loans.some((loan) => loan.status === "overdue" || loan.status === "defaulted") ||
+    repayments.some((repayment) =>
+      repayment.status === "late" || repayment.status === "rejected"
+    );
+  const onTimeRepayments =
+    repayments.length === 0
+      ? null
+      : repayments.filter((repayment) => repayment.status === "verified").length;
+  const lateRepayments =
+    repayments.length === 0
+      ? null
+      : repayments.filter((repayment) =>
+          repayment.status === "late" || repayment.status === "rejected"
+        ).length;
+  const hasCleanCompletedHistory =
+    completedLoanCycles > 0 &&
+    repayments.length > 0 &&
+    repayments.every((repayment) => repayment.status === "verified") &&
+    !hasRepaymentConcern;
+
+  if (hasRepaymentConcern) {
+    return {
+      status: "needs_review",
+      label: "Needs review",
+      description:
+        "Repayment history includes an overdue or unresolved repayment item.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+      lateRepayments,
+    };
+  }
+
+  if (completedLoanCycles >= 2 && hasCleanCompletedHistory) {
+    return {
+      status: "strong_repeat_payer",
+      label: "Strong repeat payer",
+      description:
+        "Completed 2+ loan cycles with no missed repayments in available records.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+      lateRepayments,
+    };
+  }
+
+  if (hasCleanCompletedHistory) {
+    return {
+      status: "good_payer",
+      label: "Good payer",
+      description:
+        "Completed loan cycle with no missed repayments in available records.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+      lateRepayments,
+    };
+  }
+
+  if (completedLoanCycles >= 2) {
+    return {
+      status: "completed_multiple_cycles",
+      label: "Completed 2+ loan cycles",
+      description:
+        "Borrower has completed repeat loan cycles. Review current financials before sending an offer.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+      lateRepayments,
+    };
+  }
+
+  if (completedLoanCycles === 1) {
+    return {
+      status: "completed_one_cycle",
+      label: "Completed 1 loan cycle",
+      description:
+        "Borrower has completed one loan cycle. Review current financials before sending an offer.",
+      completedLoanCycles,
+      onTimeRepayments,
+      activeLoanCount,
+      lateRepayments,
+    };
+  }
+
+  return {
+    status: "first_time_applicant",
+    label: "First-time applicant",
+    description:
+      "No completed loan cycles yet. Review submitted financials and verification before sending an offer.",
+    completedLoanCycles,
+    onTimeRepayments,
+    activeLoanCount,
+    lateRepayments,
   };
 }
 
@@ -647,8 +855,9 @@ function combineOffersWithApplications(
         submittedAt: mappedApplication.submittedAt,
         portfolio: portfolio
           ? {
-              businessTypeLabel: businessTypeLabels[portfolio.business_type],
-              location: portfolio.location,
+              businessTypeLabel:
+                businessTypeLabels[portfolio.business_type ?? "other"],
+              location: portfolio.location ?? "Not provided",
             }
           : null,
       },
@@ -690,4 +899,24 @@ function getCurrentLenderOfferState(
   }
 
   return "not_offered";
+}
+
+function getCurrentLenderOffers(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+  currentLenderId: string,
+) {
+  return offers.filter((offer) => offer.lender_id === currentLenderId);
+}
+
+function getCurrentLenderOffer(
+  offers: Database["public"]["Tables"]["loan_offers"]["Row"][],
+) {
+  return (
+    offers.find((offer) => offer.status === "pending") ??
+    offers.find((offer) => offer.status === "accepted") ??
+    offers.find((offer) => offer.status === "declined") ??
+    offers.find((offer) => offer.status === "expired") ??
+    offers[0] ??
+    null
+  );
 }

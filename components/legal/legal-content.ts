@@ -149,3 +149,50 @@ export const privacyContent: LegalContent = {
     },
   ],
 };
+
+export const lenderVerificationAuthorizationContent: LegalContent = {
+  title: "Authorization for Verification",
+  version: "2026-06-lender-verification-v1",
+  displayVersion: "v1.0",
+  lastUpdated: "June 14, 2026",
+  description:
+    "This authorization explains how LendFolio may review lender profiles, submitted documents, and eligibility before activating lender access.",
+  summary:
+    "LendFolio may review lender profile details, submitted verification documents, and related account information for lender verification and platform approval. This is not a loan funding commitment.",
+  sections: [
+    {
+      heading: "Key points",
+      paragraphs: [
+        "LendFolio may review the lender profile, submitted verification documents, and related account information to determine whether lender access can be activated.",
+        "This authorization is only for verification and platform approval. It does not require the lender to fund any loan, accept any borrower application, or submit any offer.",
+      ],
+    },
+    {
+      heading: "Profile and document review",
+      paragraphs: [
+        "By accepting this authorization, the lender allows LendFolio managers or authorized reviewers to check submitted information, including identity details, business or organization details, funding eligibility, and uploaded documents.",
+        "LendFolio may approve the profile, reject the profile, or request additional information if submitted details are incomplete, unclear, expired, or inconsistent.",
+      ],
+    },
+    {
+      heading: "Accuracy of submitted information",
+      paragraphs: [
+        "The lender confirms that the information and documents submitted are true, accurate, and belong to the lender or the represented lending organization.",
+        "If any submitted information changes, the lender is responsible for updating the profile or submitting corrected documents.",
+      ],
+    },
+    {
+      heading: "No automatic lending commitment",
+      paragraphs: [
+        "Accepting this authorization does not mean the lender is approved automatically.",
+        "Accepting this authorization also does not mean the lender agrees to fund loans, accept borrower applications, or participate in any specific financing offer.",
+      ],
+    },
+    {
+      heading: "Platform approval",
+      paragraphs: [
+        "Lender access may remain limited until all required disclosures are accepted, required documents are uploaded, and a manager completes the review.",
+      ],
+    },
+  ],
+};

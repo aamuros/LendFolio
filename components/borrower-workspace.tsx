@@ -10,6 +10,7 @@ import {
   BorrowerBottomTabs,
   type BorrowerTab,
 } from "@/components/borrower-bottom-tabs";
+import { BorrowerAssistant } from "@/components/borrower/assistant/borrower-assistant";
 import { BorrowerLoanApplicationPanel } from "@/components/borrower-loan-application-panel";
 import { BorrowerPortfolioForm } from "@/components/borrower-portfolio-form";
 import { BorrowerProfileHub } from "./borrower/profile/borrower-profile-hub";
@@ -18,13 +19,22 @@ import { AppHeader, type AppHeaderNavItem } from "@/components/app-header";
 import { cn } from "@/lib/utils";
 import { borrowerPageBottomPadding } from "@/components/borrower/ui";
 
-import { type BorrowerPortfolioInput } from "@/lib/borrower-portfolio";
+import {
+  getNextIncompleteBorrowerPortfolioStep,
+  getBusinessProfileSectionStep,
+  isBorrowerPortfolioComplete,
+  type BusinessProfileSection,
+  type BorrowerPortfolioInput,
+  type BorrowerPortfolioStep,
+} from "@/lib/borrower-portfolio";
 import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
+import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
 import { type BorrowerCreditSummary } from "@/lib/credit-limit";
 
 type ProfileMode =
   | "index"
+  | "complete"
   | "edit"
   | "business"
   | "financial"
@@ -43,6 +53,7 @@ type BorrowerWorkspaceProps = {
   highlightLoanId?: string | null;
   highlightRepaymentId?: string | null;
   highlightProofId?: string | null;
+  initialLoanMessage?: string;
 };
 
 const desktopTabs: AppHeaderNavItem[] = [
@@ -61,10 +72,15 @@ export function BorrowerWorkspace({
   highlightLoanId = null,
   highlightRepaymentId = null,
   highlightProofId = null,
+  initialLoanMessage = "",
 }: BorrowerWorkspaceProps) {
   const [activeTab, setActiveTab] = useState<BorrowerTab>(initialTab);
   const [profileMode, setProfileMode] = useState<ProfileMode>("index");
   const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
+  const [editInitialStep, setEditInitialStep] =
+    useState<BorrowerPortfolioStep>();
+  const [editBusinessSection, setEditBusinessSection] =
+    useState<BusinessProfileSection>();
   const [portfolioLoadState, setPortfolioLoadState] =
     useState<PortfolioLoadState>("loading");
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
@@ -79,9 +95,23 @@ export function BorrowerWorkspace({
   const [readiness, setReadiness] = useState<BorrowerReadinessResult | null>(
     initialLoanApplications?.readiness ?? null,
   );
+  const [borrowerVerification, setBorrowerVerification] =
+    useState<BorrowerVerificationSummary | null>(
+      initialLoanApplications?.borrowerVerification ?? null,
+    );
   const hasSavedPortfolioRef = useRef(portfolio !== null);
   const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
+
+  function refreshBorrowerLoanState() {
+    startTransition(() => {
+      void loadBorrowerLoanApplications().then((result) => {
+        setCreditSummary(result.creditSummary);
+        setReadiness(result.readiness);
+        setBorrowerVerification(result.borrowerVerification);
+      });
+    });
+  }
 
   function navigateToVerification() {
     setPostSaveVerification(false);
@@ -101,6 +131,7 @@ export function BorrowerWorkspace({
 
           setCreditSummary(result.creditSummary);
           setReadiness(result.readiness);
+          setBorrowerVerification(result.borrowerVerification);
         });
       });
     }
@@ -128,6 +159,7 @@ export function BorrowerWorkspace({
 
         setCreditSummary(result.creditSummary);
         setReadiness(result.readiness);
+        setBorrowerVerification(result.borrowerVerification);
       });
     });
 
@@ -179,9 +211,18 @@ export function BorrowerWorkspace({
     };
   }, [activeTab, startTransition]);
 
-  function openProfileEdit(returnMode: ProfileMode = "index") {
+  function openProfileEdit(
+    returnMode: ProfileMode = "index",
+    businessSection?: BusinessProfileSection,
+  ) {
     setPostSaveVerification(false);
     setEditReturnMode(returnMode);
+    setEditBusinessSection(businessSection);
+    setEditInitialStep(
+      businessSection
+        ? getBusinessProfileSectionStep(businessSection)
+        : resolveEditInitialStep(returnMode, portfolio),
+    );
     setProfileMode("edit");
     requestAnimationFrame(() => {
       document
@@ -190,27 +231,34 @@ export function BorrowerWorkspace({
     });
   }
 
+  function openProfileCompletion() {
+    setPostSaveVerification(false);
+    setEditReturnMode("index");
+    setEditBusinessSection(undefined);
+    setEditInitialStep(getNextIncompleteBorrowerPortfolioStep(portfolio));
+    setProfileMode("complete");
+    requestAnimationFrame(() => {
+      document
+        .getElementById("borrower-profile-form")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+
   function handlePortfolioSaved(savedPortfolio: BorrowerPortfolioInput) {
-    const wasEmpty = !hasSavedPortfolioRef.current;
     setPortfolio(savedPortfolio);
     setPortfolioLoadState("ready");
     setPortfolioMessage("");
     hasSavedPortfolioRef.current = true;
 
-    const verificationStatus =
-      initialLoanApplications?.borrowerVerification?.status ?? null;
+    const verificationStatus = borrowerVerification?.status ?? null;
     const needsVerification =
       verificationStatus !== null && verificationStatus !== "approved";
 
-    if (needsVerification) {
+    if (needsVerification && isBorrowerPortfolioComplete(savedPortfolio)) {
       setPostSaveVerification(true);
     }
 
-    if (wasEmpty) {
-      setProfileMode("verification");
-    } else {
-      setProfileMode(editReturnMode);
-    }
+    setProfileMode(editReturnMode);
   }
 
   const showProfile = activeTab === "profile";
@@ -218,6 +266,9 @@ export function BorrowerWorkspace({
   function handleProfileViewChange(view: ProfileMode) {
     setPostSaveVerification(false);
     setProfileMode(view);
+    if (view === "index") {
+      refreshBorrowerLoanState();
+    }
   }
 
   return (
@@ -235,15 +286,41 @@ export function BorrowerWorkspace({
       <div className="mx-auto w-full max-w-7xl px-4 pt-6 sm:px-6 sm:pt-8">
         {showProfile ? (
           <section>
-            {profileMode === "edit" ? (
-              <div id="business-profile-edit" className="grid gap-6">
+            {profileMode === "edit" || profileMode === "complete" ? (
+              <div id="borrower-profile-form" className="grid gap-6">
                 <ProfileSubviewHeader
-                  title="Edit Profile"
-                  description="Keep your business and loan-use details current."
-                  onBack={() => setProfileMode(editReturnMode)}
+                  title={
+                    profileMode === "complete"
+                      ? "Finish your profile"
+                      : editReturnMode === "business"
+                      ? "Edit Business Profile"
+                      : "Edit Profile"
+                  }
+                  description={
+                    profileMode === "complete"
+                      ? "Complete the required profile sections before applying."
+                      : editReturnMode === "business"
+                      ? "Update this business profile section."
+                      : "Keep your business and loan-use details current."
+                  }
+                  onBack={() =>
+                    setProfileMode(
+                      profileMode === "complete" ? "index" : editReturnMode,
+                    )
+                  }
                 />
                 <BorrowerPortfolioForm
-                  onCancel={() => setProfileMode(editReturnMode)}
+                  borrowerVerification={borrowerVerification}
+                  businessSection={
+                    profileMode === "edit" ? editBusinessSection : undefined
+                  }
+                  initialStep={editInitialStep}
+                  mode={profileMode === "complete" ? "completion" : "edit"}
+                  onCancel={() =>
+                    setProfileMode(
+                      profileMode === "complete" ? "index" : editReturnMode,
+                    )
+                  }
                   onSaved={handlePortfolioSaved}
                 />
               </div>
@@ -255,6 +332,7 @@ export function BorrowerWorkspace({
                 loadState={portfolioLoadState}
                 message={portfolioMessage}
                 onEditProfile={openProfileEdit}
+                onCompleteProfile={openProfileCompletion}
                 onNavigateHome={() => changeTab("home")}
                 onProfileViewChange={handleProfileViewChange}
                 portfolio={portfolio}
@@ -275,6 +353,7 @@ export function BorrowerWorkspace({
             highlightLoanId={highlightLoanId}
             highlightRepaymentId={highlightRepaymentId}
             highlightProofId={highlightProofId}
+            initialSuccessMessage={initialLoanMessage}
           />
         )}
       </div>
@@ -282,6 +361,35 @@ export function BorrowerWorkspace({
       <div className="sm:hidden">
         <BorrowerBottomTabs activeTab={activeTab} onTabChange={changeTab} />
       </div>
+
+      {!showProfile ? (
+        <BorrowerAssistant
+          activeTab={workspaceTab}
+          applications={initialLoanApplications?.applications ?? []}
+          creditSummary={creditSummary}
+          readiness={readiness}
+          result={initialLoanApplications}
+          selectedApplicationId={highlightApplicationId}
+          onNavigate={changeTab}
+          onNavigateVerification={navigateToVerification}
+        />
+      ) : null}
     </div>
   );
+}
+
+function resolveEditInitialStep(
+  returnMode: ProfileMode,
+  portfolio: BorrowerPortfolioInput | null,
+): BorrowerPortfolioStep {
+  if (returnMode === "business") return "businessBasics";
+  if (returnMode === "financial" || returnMode === "borrowingPower") {
+    return "financials";
+  }
+
+  if (portfolio && isBorrowerPortfolioComplete(portfolio)) {
+    return "businessBasics";
+  }
+
+  return getNextIncompleteBorrowerPortfolioStep(portfolio);
 }

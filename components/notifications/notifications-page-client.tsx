@@ -73,16 +73,15 @@ export function NotificationsPageClient() {
     });
   }, [router]);
 
-  const openNotification = useCallback(
-    async (notification: AppNotification) => {
+  const markAsRead = useCallback(
+    (notification: AppNotification) => {
       setActiveNotificationId(notification.id);
 
-      if (!notification.readAt) {
-        const result = await markNotificationReadAction(notification.id);
+      void markNotificationReadAction(notification.id).then((result) => {
+        setActiveNotificationId(null);
 
         if (!result.ok) {
           setMessage("Could not update notification.");
-          setActiveNotificationId(null);
           return;
         }
 
@@ -100,16 +99,9 @@ export function NotificationsPageClient() {
           ),
         );
         window.dispatchEvent(new CustomEvent("notifications-updated"));
-        router.refresh();
-      }
-
-      setActiveNotificationId(null);
-
-      if (notification.href) {
-        router.push(notification.href);
-      }
+      });
     },
-    [router],
+    [],
   );
 
   const filteredNotifications = useMemo(
@@ -121,21 +113,24 @@ export function NotificationsPageClient() {
   );
 
   return (
-    <div className="flex min-h-dvh flex-col bg-background">
-      <header className="sticky top-0 z-10 border-b border-border bg-background">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+    <div className="theme-lendfolio relative isolate min-h-dvh overflow-hidden bg-background text-foreground">
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[linear-gradient(to_right,rgba(22,22,22,0.035)_1px,transparent_1px),linear-gradient(to_bottom,rgba(22,22,22,0.03)_1px,transparent_1px)] bg-[size:5rem_5rem]" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 -z-10 h-64 bg-[radial-gradient(circle_at_50%_0%,rgba(51,66,60,0.12),transparent_64%)]" />
+
+      <header className="sticky top-0 z-10 border-b border-border/80 bg-background/90 backdrop-blur supports-[backdrop-filter]:bg-background/70">
+        <div className="mx-auto flex max-w-5xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <div className="flex items-center gap-3">
             <Button
               variant="ghost"
               size="icon"
               onClick={() => router.back()}
               aria-label="Go back"
-              className="rounded-full text-muted-foreground hover:text-foreground"
+              className="rounded-xl text-muted-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <ArrowLeft className="size-5" />
             </Button>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-semibold text-foreground">
+              <h1 className="text-base font-semibold tracking-[0.12em] text-foreground uppercase">
                 Notifications
               </h1>
               {unreadCount > 0 ? (
@@ -154,7 +149,7 @@ export function NotificationsPageClient() {
               size="sm"
               onClick={markAllRead}
               disabled={isPending}
-              className="gap-1.5 text-muted-foreground"
+              className="gap-1.5 rounded-xl border border-border/80 bg-card/80 text-accent-foreground hover:bg-accent hover:text-accent-foreground"
             >
               <CheckCheck className="size-4" />
               <span className="hidden sm:inline">Mark all read</span>
@@ -164,71 +159,87 @@ export function NotificationsPageClient() {
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl flex-1">
-        <div className="px-4 py-3">
-          <Tabs
-            value={filter}
-            onValueChange={(value) => setFilter(value as "all" | "unread")}
-          >
-            <TabsList>
-              <TabsTrigger value="all">All</TabsTrigger>
-              <TabsTrigger value="unread">
-                Unread
-                {unreadCount > 0 ? (
-                  <Badge
-                    variant="secondary"
-                    className="ml-1.5 min-w-5 justify-center rounded-full px-1 py-0 text-[10px] leading-none"
-                  >
-                    {unreadCount > 9 ? "9+" : unreadCount}
-                  </Badge>
-                ) : null}
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-
-        {message ? (
-          <div className="px-4 py-4">
-            <Alert variant="destructive">
-              <AlertCircle className="size-4" />
-              <AlertDescription>{message}</AlertDescription>
-            </Alert>
-          </div>
-        ) : null}
-
-        {!message && isInitialLoad ? (
-          <NotificationsSkeleton count={6} />
-        ) : null}
-
-        {!message && !isInitialLoad && filteredNotifications.length === 0 ? (
-          <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-16">
-            <div className="flex size-16 items-center justify-center rounded-full bg-muted">
-              <Bell className="size-8 text-muted-foreground/50" />
-            </div>
-            <div className="grid gap-1 text-center">
-              <p className="text-sm font-medium text-foreground">
-                {filter === "unread"
-                  ? "No unread notifications"
-                  : "No notifications yet"}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-4 py-5 sm:px-6 sm:py-8">
+        <section className="overflow-hidden rounded-2xl border border-border/80 bg-card/90 shadow-[0_18px_50px_rgba(14,26,18,0.08)]">
+          <div className="flex flex-col gap-4 border-b border-border/80 bg-card/80 px-4 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-5">
+            <div className="grid gap-1">
+              <p className="text-sm font-semibold text-foreground">
+                Workflow updates
               </p>
-              <p className="text-sm text-muted-foreground">
-                {filter === "unread"
-                  ? "You're all caught up."
-                  : "Workflow updates will appear here."}
+              <p className="text-sm leading-6 text-muted-foreground">
+                Review application, verification, offer, and repayment activity.
               </p>
             </div>
+            <Tabs
+              value={filter}
+              onValueChange={(value) => setFilter(value as "all" | "unread")}
+            >
+              <TabsList className="h-10 rounded-xl border border-border/80 bg-muted/70 p-1 text-muted-foreground">
+                <TabsTrigger
+                  value="all"
+                  className="rounded-lg px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+                >
+                  All
+                </TabsTrigger>
+                <TabsTrigger
+                  value="unread"
+                  className="rounded-lg px-4 data-active:bg-primary data-active:text-primary-foreground data-active:shadow-sm"
+                >
+                  Unread
+                  {unreadCount > 0 ? (
+                    <Badge
+                      variant="secondary"
+                      className="ml-1.5 min-w-5 justify-center rounded-full border border-border/80 bg-card px-1 py-0 text-[10px] leading-none text-foreground"
+                    >
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </Badge>
+                  ) : null}
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
           </div>
-        ) : null}
 
-        {!message && filteredNotifications.length > 0 ? (
-          <div className="divide-y divide-border">
+          {message ? (
+            <div className="px-4 py-4 sm:px-5">
+              <Alert variant="destructive">
+                <AlertCircle className="size-4" />
+                <AlertDescription>{message}</AlertDescription>
+              </Alert>
+            </div>
+          ) : null}
+
+          {!message && isInitialLoad ? (
+            <NotificationsSkeleton count={6} />
+          ) : null}
+
+          {!message && !isInitialLoad && filteredNotifications.length === 0 ? (
+            <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-16">
+              <div className="flex size-16 items-center justify-center rounded-2xl border border-border/80 bg-muted/70 text-accent-foreground shadow-[0_10px_30px_rgba(14,26,18,0.05)]">
+                <Bell className="size-8" />
+              </div>
+              <div className="grid gap-1 text-center">
+                <p className="text-sm font-medium text-foreground">
+                  {filter === "unread"
+                    ? "No unread notifications"
+                    : "No notifications yet"}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {filter === "unread"
+                    ? "You're all caught up."
+                    : "Workflow updates will appear here."}
+                </p>
+              </div>
+            </div>
+          ) : null}
+
+          {!message && filteredNotifications.length > 0 ? (
             <NotificationList
               notifications={filteredNotifications}
               activeNotificationId={activeNotificationId}
-              onOpenNotification={openNotification}
+              onRead={markAsRead}
             />
-          </div>
-        ) : null}
+          ) : null}
+        </section>
 
         <div className="h-24 sm:h-0" />
       </main>

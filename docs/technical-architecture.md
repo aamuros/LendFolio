@@ -188,16 +188,13 @@ A database trigger (`provision_new_auth_user`) fires on `auth.users` insert to:
 
 ```
 credit_limit = min(
-  net_cash_flow × 3 × years_multiplier,
-  gross_revenue × 2,
-  1,000,000
+  (monthly_net_cash_flow × 0.30) × 3,
+  repayment_history_cap,
+  100,000
 )
 ```
 
-Where `years_multiplier` is:
-- Less than 1 year: 0.75
-- 1 to 3 years: 1.0
-- More than 3 years: 1.25
+Repayment history caps start at PHP 10,000 for new borrowers and increase after clean completed loans. Late repayments reduce the effective history tier; defaulted repayment history blocks available credit.
 
 ## 6. Storage Bucket Usage
 

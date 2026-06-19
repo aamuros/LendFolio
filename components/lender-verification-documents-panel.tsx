@@ -1,17 +1,17 @@
 "use client";
 
 import {
-  useActionState,
   useEffect,
+  useId,
   useRef,
   useState,
+  type ChangeEvent,
+  type FormEvent,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
-  submitLenderVerificationDocument,
-  type LenderVerificationDocumentSubmitResult,
-} from "@/app/lender/actions";
-import {
+  lenderVerificationDocumentAllowedTypes,
+  lenderVerificationDocumentMaxFileSize,
   lenderVerificationDocumentTypeDescriptions,
   lenderVerificationDocumentTypeLabels,
   requiredLenderVerificationDocumentTypes,
@@ -27,9 +27,7 @@ import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 import {
   UploadIcon,
-  CheckCircle2,
   Clock,
-  AlertCircle,
   FileText,
   Eye,
 } from "lucide-react";
@@ -43,7 +41,17 @@ type LenderVerificationDocumentsPanelProps = {
   managerReviewNotes: string | null;
 };
 
-const initialState: LenderVerificationDocumentSubmitResult | null = null;
+type UploadState =
+  | {
+      ok: true;
+      message: string;
+    }
+  | {
+      ok: false;
+      message: string;
+    };
+
+const lenderDocumentAccept = "application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png";
 
 export function LenderVerificationDocumentsPanel({
   lenderProfileId,
@@ -72,7 +80,7 @@ export function LenderVerificationDocumentsPanel({
   }
 
   return (
-    <div className="grid gap-5">
+    <div id="lender-verification-documents" className="scroll-mt-24 grid gap-5">
       <HeaderCard
         facingState={facingState}
         rejectionReason={rejectionReason}
@@ -82,7 +90,6 @@ export function LenderVerificationDocumentsPanel({
 
       <RequiredDocumentsSection
         lenderProfileId={lenderProfileId}
-        verificationStatus={verificationStatus}
         documents={documents}
         documentPolicy={documentPolicy}
         canUpload={canUpload}
@@ -156,13 +163,11 @@ function HeaderCard({
 
 function RequiredDocumentsSection({
   lenderProfileId,
-  verificationStatus,
   documents,
   documentPolicy,
   canUpload,
 }: {
   lenderProfileId: string;
-  verificationStatus: string;
   documents: LenderVerificationDocumentSummary[];
   documentPolicy: LenderVerificationDocumentPolicy;
   canUpload: boolean;
@@ -232,10 +237,22 @@ function RequiredDocumentRow({
 }) {
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
-  const [state, formAction, isPending] = useActionState(
-    submitLenderVerificationDocument,
-    initialState,
-  );
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fileInputId = useId();
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
+  const [state, setState] = useState<UploadState | null>(null);
+  const [isPending, setIsPending] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (previewUrlRef.current) {
+        URL.revokeObjectURL(previewUrlRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!state?.ok) {
@@ -243,8 +260,32 @@ function RequiredDocumentRow({
     }
 
     formRef.current?.reset();
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+    window.setTimeout(() => {
+      setSelectedFile(null);
+      setPreviewUrl(null);
+      setLocalPreviewOpen(false);
+    }, 0);
     router.refresh();
   }, [router, state]);
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.currentTarget.files?.[0] ?? null;
+    if (previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+    }
+
+    setSelectedFile(file);
+    setState(null);
+
+    const url = file ? URL.createObjectURL(file) : null;
+    previewUrlRef.current = url;
+    setPreviewUrl(url);
+  }
 
   const docStatus = getDocumentDisplayStatus(documentPolicy, documentType);
   const latestDoc = documents.find(
@@ -252,9 +293,64 @@ function RequiredDocumentRow({
   ) ?? null;
   const showUpload =
     canUpload && docStatus.state !== "accepted";
+  const uploadButtonLabel =
+    docStatus.state === "rejected" || latestDoc ? "Replace file" : "Upload file";
+  const selectedFileError = selectedFile ? validateDocumentFile(selectedFile) : null;
+
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const file = selectedFile ?? fileInputRef.current?.files?.[0] ?? null;
+
+    if (!file) {
+      setState({
+        ok: false,
+        message: "Choose a verification document to upload.",
+      });
+      return;
+    }
+
+    const validationError = validateDocumentFile(file);
+    if (validationError) {
+      setState({ ok: false, message: validationError });
+      return;
+    }
+
+    const formData = new FormData(event.currentTarget);
+    setIsPending(true);
+    setState(null);
+
+    try {
+      const response = await fetch("/api/lender/verification-documents", {
+        method: "POST",
+        body: formData,
+      });
+      const result = (await response.json()) as UploadState;
+
+      setState({
+        ok: result.ok,
+        message:
+          result.message ??
+          (response.ok
+            ? "Verification document uploaded."
+            : "Could not upload verification document."),
+      });
+    } catch {
+      setState({
+        ok: false,
+        message: "Could not upload verification document.",
+      });
+    } finally {
+      setIsPending(false);
+    }
+  }
 
   return (
-    <div>
+    <div
+      tabIndex={-1}
+      data-lender-document-state={docStatus.state}
+      className="focus:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+    >
       <div className="grid gap-4 px-5 py-4 sm:py-5">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
@@ -304,35 +400,66 @@ function RequiredDocumentRow({
         ) : null}
 
         {showUpload ? (
-          <form ref={formRef} action={formAction} className="grid gap-3">
+          <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
             <input type="hidden" name="documentType" value={documentType} />
             <input type="hidden" name="lenderProfileId" value={lenderProfileId} />
             <input
+              ref={fileInputRef}
+              id={fileInputId}
               name="documentFile"
               type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              className="flex w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none file:mr-3 file:rounded-full file:border-0 file:bg-secondary file:px-4 file:py-1.5 file:text-sm file:font-semibold file:text-secondary-foreground focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              accept={lenderDocumentAccept}
+              className="sr-only"
+              onChange={handleFileChange}
               required
             />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <Button
+                asChild
+                variant="outline"
+                className="h-8 rounded-full px-3.5 text-xs font-semibold"
+              >
+                <label htmlFor={fileInputId}>
+                  <UploadIcon className="size-3" />
+                  {uploadButtonLabel}
+                </label>
+              </Button>
               <Button
                 type="submit"
-                disabled={isPending}
+                disabled={isPending || !selectedFile || Boolean(selectedFileError)}
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
-                <UploadIcon className="size-3" />
                 {isPending
                   ? "Uploading..."
                   : docStatus.state === "rejected"
-                    ? "Replace"
+                    ? "Submit replacement"
                     : latestDoc
-                      ? "Replace"
-                      : "Upload"}
+                      ? "Submit replacement"
+                      : "Submit document"}
               </Button>
               <p className="text-xs text-muted-foreground">
-                JPG, PNG, WebP, or PDF. Max 5 MB.
+                {selectedFile
+                  ? `${selectedFile.name} (${formatFileSize(selectedFile.size)})`
+                  : "PDF, JPG, JPEG, or PNG. Max 5 MB."}
               </p>
+              {selectedFile && previewUrl ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 shrink-0 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                  onClick={() => setLocalPreviewOpen(true)}
+                >
+                  <Eye className="size-3.5" />
+                  Preview
+                </Button>
+              ) : null}
             </div>
+            {selectedFileError ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs leading-5 text-destructive">
+                {selectedFileError}
+              </p>
+            ) : null}
           </form>
         ) : null}
 
@@ -349,6 +476,18 @@ function RequiredDocumentRow({
           </p>
         ) : null}
       </div>
+
+      {selectedFile && previewUrl ? (
+        <DocumentPreviewDialog
+          title={`${lenderVerificationDocumentTypeLabels[documentType]} Preview`}
+          fileName={selectedFile.name}
+          fileSize={selectedFile.size}
+          fileType={selectedFile.type}
+          viewUrl={previewUrl}
+          open={localPreviewOpen}
+          onOpenChange={setLocalPreviewOpen}
+        />
+      ) : null}
     </div>
   );
 }
@@ -386,4 +525,16 @@ function formatFileSize(size: number) {
   }
 
   return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
+function validateDocumentFile(file: File) {
+  if (!lenderVerificationDocumentAllowedTypes.has(file.type)) {
+    return "Upload a PDF, JPG, JPEG, or PNG file.";
+  }
+
+  if (file.size > lenderVerificationDocumentMaxFileSize) {
+    return "This file is too large. Please upload a file under 5 MB.";
+  }
+
+  return null;
 }

@@ -40,7 +40,7 @@ export async function createLoanOffer(
 
   const parsed = loanOfferSchema.safeParse({
     approvedAmount: formData.get("approvedAmount"),
-    interestServiceCharge: formData.get("interestServiceCharge"),
+    interestServiceChargeRate: formData.get("interestServiceChargeRate"),
     fees: formData.get("fees"),
     dueDate: formData.get("dueDate"),
     remarks: formData.get("remarks"),
@@ -62,7 +62,7 @@ export async function createLoanOffer(
 
   const { data: application, error: applicationError } = await access.supabase
     .from("loan_applications")
-    .select("requested_amount")
+    .select("requested_amount, available_credit_at_submission")
     .eq("id", applicationId)
     .maybeSingle();
 
@@ -85,12 +85,30 @@ export async function createLoanOffer(
     };
   }
 
+  const maxPrincipal =
+    application.available_credit_at_submission ?? application.requested_amount;
+
+  if (parsed.data.approvedAmount > maxPrincipal) {
+    return {
+      ok: false,
+      message: "Approved principal cannot exceed the borrower's available credit.",
+      fieldErrors: {
+        approvedAmount: [
+          "Approved principal cannot exceed the borrower's available credit.",
+        ],
+      },
+    };
+  }
+
   try {
     const { data, error } = await access.supabase.rpc("create_loan_offer", {
       p_loan_application_id: applicationId,
       p_approved_amount: parsed.data.approvedAmount,
       p_repayment_amount: parsed.data.repaymentAmount,
+      p_interest_service_charge_rate: parsed.data.interestServiceChargeRate,
       p_fees: parsed.data.fees,
+      p_processing_fee_rate: parsed.data.processingFeeRate,
+      p_processing_fee_amount: parsed.data.processingFee,
       p_due_date: parsed.data.dueDate,
       p_remarks: parsed.data.remarks || null,
       p_repayment_channel: parsed.data.repaymentChannel,

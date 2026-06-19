@@ -245,19 +245,29 @@ supabase start
 
 This will output the local Supabase URL and anon key. Copy these into `.env.local`.
 
-5. Apply database migrations:
+5. Optional: add a server-only Gemini key if you want the borrower assistant to polish LendFolio answers and classify fallback prompts:
+
+```env
+GEMINI_API_KEY=your-google-ai-studio-key
+```
+
+`GOOGLE_API_KEY` is also supported if that is the variable name you already use. Do not use `NEXT_PUBLIC_GEMINI_API_KEY`, because that would expose the key to the browser and the server action does not read it.
+
+6. Apply database migrations:
 
 ```bash
 supabase db reset
 ```
 
-6. Start the development server:
+7. Start the development server:
 
 ```bash
 npm run dev
 ```
 
-7. Open [http://localhost:3000](http://localhost:3000) in your browser.
+After editing `.env.local`, restart the dev server with `npm run dev` so Next.js picks up the new environment variable.
+
+8. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
 ### Environment Variables
 
@@ -265,8 +275,20 @@ npm run dev
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (local or hosted) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public API key |
+| `GEMINI_API_KEY` | Optional server-only Google AI Studio key for borrower assistant polishing and scoped fallback |
+| `GOOGLE_API_KEY` | Optional fallback variable name for the same Gemini server key |
 
-> **Security note**: Never commit real credentials. Never expose Supabase service role keys through `NEXT_PUBLIC_*` variables. The `.env.example` file contains placeholder values only.
+> **Security note**: Never commit real credentials. Never expose Supabase service role keys or Gemini keys through `NEXT_PUBLIC_*` variables. The `.env.example` file contains placeholder values only.
+
+### Borrower Assistant Gemini Check
+
+With `GEMINI_API_KEY` or `GOOGLE_API_KEY` configured, local development logs include safe `[BorrowerAssistant/Gemini]` messages when Gemini is attempted, missing, fails, or returns an unusable response. The borrower UI still receives only the final assistant text.
+
+Manual prompts to verify:
+
+- `Best offer` should use the deterministic offer answer, then Gemini polish if configured.
+- `How do I complete my profile?` should use the workflow answer, then Gemini polish if configured.
+- `What is the weather?` should return the exact LendFolio-only fallback.
 
 ## Database Setup
 

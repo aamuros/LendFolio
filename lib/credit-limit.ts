@@ -1,13 +1,21 @@
-import type { ActiveLoanStatus } from "@/lib/supabase/types";
+import type { ActiveLoanStatus, ApplicationStatus } from "@/lib/supabase/types";
 
 export type CreditLimitPortfolioInput = {
   monthlyGrossRevenue: number;
   monthlyExpenses: number;
   existingLoanPayments: number;
   yearsInOperation: number;
+  totalHouseholdExpenses?: number;
+};
+
+export type CreditLimitRepaymentHistoryInput = {
+  cleanCompletedLoanCount?: number;
+  lateRepaymentCount?: number;
+  defaultedLoanCount?: number;
 };
 
 export type CreditLimitLoanInput = {
+  principalAmount: number;
   outstandingBalance: number;
   status: ActiveLoanStatus;
 };
@@ -17,67 +25,70 @@ export type BorrowerCreditSummary = {
   usedCredit: number;
   availableCredit: number;
   monthlyNetCashFlow: number;
-  baseLimit: number;
-  yearsMultiplier: number;
-  grossRevenueCap: number;
+  safeMonthlyRepaymentCapacity: number;
+  incomeBasedCapacity: number;
+  repaymentHistoryCap: number;
   maximumCap: number;
+  cleanCompletedLoanCount: number;
+  lateRepaymentCount: number;
+  defaultedLoanCount: number;
   riskFlags: string[];
 };
 
-export const creditLimitMaximum = 1_000_000;
+export const creditLimitMaximum = 100_000;
+export const safeRepaymentRatio = 0.3;
+export const creditConsumingApplicationStatuses = [
+  "submitted",
+  "open",
+] as const satisfies ApplicationStatus[];
+export const creditConsumingActiveLoanStatuses = [
+  "active",
+  "overdue",
+] as const satisfies ActiveLoanStatus[];
 
 export function calculateBorrowerCreditLimit(
   portfolio: CreditLimitPortfolioInput,
+  repaymentHistory: CreditLimitRepaymentHistoryInput = {},
 ) {
-  const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
-  const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
-  const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
-  const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
-  const monthlyNetCashFlow =
-    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
-  const baseLimit = monthlyNetCashFlow * 3;
-  const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
-  const grossRevenueCap = monthlyGrossRevenue * 2;
-  const cappedLimit = Math.min(
-    baseLimit * yearsMultiplier,
-    grossRevenueCap,
-    creditLimitMaximum,
-  );
+  const details = getBorrowerCreditLimitDetails(portfolio, repaymentHistory);
 
-  return Math.max(0, floorToNearest100(cappedLimit));
+  return details.calculatedCreditLimit;
 }
 
 export function explainBorrowerCreditLimit(
   portfolio: CreditLimitPortfolioInput,
+  repaymentHistory: CreditLimitRepaymentHistoryInput = {},
 ) {
+  const details = getBorrowerCreditLimitDetails(portfolio, repaymentHistory);
+  const riskFlags: string[] = [];
   const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
   const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
   const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
   const yearsInOperation = toFiniteNumber(portfolio.yearsInOperation);
-  const monthlyNetCashFlow =
-    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
-  const baseLimit = monthlyNetCashFlow * 3;
-  const yearsMultiplier = getYearsInOperationMultiplier(yearsInOperation);
-  const grossRevenueCap = monthlyGrossRevenue * 2;
-  const calculatedCreditLimit = calculateBorrowerCreditLimit(portfolio);
-  const riskFlags: string[] = [];
 
-  if (monthlyNetCashFlow <= 0) riskFlags.push("non_positive_cash_flow");
+  if (details.monthlyNetCashFlow <= 0) riskFlags.push("non_positive_cash_flow");
   if (monthlyExpenses > monthlyGrossRevenue) {
     riskFlags.push("expenses_exceed_revenue");
   }
-  if (existingLoanPayments > monthlyNetCashFlow * 0.4) {
+  if (monthlyGrossRevenue > 0 && existingLoanPayments / monthlyGrossRevenue >= 0.4) {
     riskFlags.push("high_existing_debt_payments");
   }
   if (yearsInOperation < 1) riskFlags.push("very_new_business");
+  if (details.lateRepaymentCount > 0) riskFlags.push("late_repayment_history");
+  if (details.defaultedLoanCount > 0) {
+    riskFlags.push("defaulted_repayment_history");
+  }
 
   return {
-    calculatedCreditLimit,
-    monthlyNetCashFlow,
-    baseLimit,
-    yearsMultiplier,
-    grossRevenueCap,
+    calculatedCreditLimit: details.calculatedCreditLimit,
+    monthlyNetCashFlow: details.monthlyNetCashFlow,
+    safeMonthlyRepaymentCapacity: details.safeMonthlyRepaymentCapacity,
+    incomeBasedCapacity: details.incomeBasedCapacity,
+    repaymentHistoryCap: details.repaymentHistoryCap,
     maximumCap: creditLimitMaximum,
+    cleanCompletedLoanCount: details.cleanCompletedLoanCount,
+    lateRepaymentCount: details.lateRepaymentCount,
+    defaultedLoanCount: details.defaultedLoanCount,
     riskFlags,
   };
 }
@@ -86,11 +97,16 @@ export function calculateBorrowerAvailableCredit(input: {
   portfolio: CreditLimitPortfolioInput;
   activeLoans: CreditLimitLoanInput[];
   pendingApplicationAmounts?: number[];
+  repaymentHistory?: CreditLimitRepaymentHistoryInput;
 }): BorrowerCreditSummary {
-  const creditLimit = explainBorrowerCreditLimit(input.portfolio);
+  const creditLimit = explainBorrowerCreditLimit(
+    input.portfolio,
+    input.repaymentHistory,
+  );
   const activeLoanCredit = input.activeLoans
+    .filter((loan) => loanConsumesCredit(loan.status))
     .filter((loan) => loan.outstandingBalance > 0)
-    .reduce((total, loan) => total + loan.outstandingBalance, 0);
+    .reduce((total, loan) => total + loan.principalAmount, 0);
   const pendingApplicationCredit = (input.pendingApplicationAmounts ?? []).reduce(
     (total, amount) => total + amount,
     0,
@@ -102,12 +118,41 @@ export function calculateBorrowerAvailableCredit(input: {
     usedCredit,
     availableCredit: Math.max(0, creditLimit.calculatedCreditLimit - usedCredit),
     monthlyNetCashFlow: creditLimit.monthlyNetCashFlow,
-    baseLimit: creditLimit.baseLimit,
-    yearsMultiplier: creditLimit.yearsMultiplier,
-    grossRevenueCap: creditLimit.grossRevenueCap,
+    safeMonthlyRepaymentCapacity: creditLimit.safeMonthlyRepaymentCapacity,
+    incomeBasedCapacity: creditLimit.incomeBasedCapacity,
+    repaymentHistoryCap: creditLimit.repaymentHistoryCap,
     maximumCap: creditLimit.maximumCap,
+    cleanCompletedLoanCount: creditLimit.cleanCompletedLoanCount,
+    lateRepaymentCount: creditLimit.lateRepaymentCount,
+    defaultedLoanCount: creditLimit.defaultedLoanCount,
     riskFlags: creditLimit.riskFlags,
   };
+}
+
+export function applicationConsumesCredit(status: ApplicationStatus) {
+  return creditConsumingApplicationStatuses.includes(
+    status as (typeof creditConsumingApplicationStatuses)[number],
+  );
+}
+
+export function loanConsumesCredit(status: ActiveLoanStatus) {
+  return creditConsumingActiveLoanStatuses.includes(
+    status as (typeof creditConsumingActiveLoanStatuses)[number],
+  );
+}
+
+export function normalizeCreditComparisonAmount(value: unknown) {
+  return Math.floor(Number(value) || 0);
+}
+
+export function exceedsAvailableCredit(
+  requestedAmount: unknown,
+  availableCredit: unknown,
+) {
+  return (
+    normalizeCreditComparisonAmount(requestedAmount) >
+    normalizeCreditComparisonAmount(availableCredit)
+  );
 }
 
 export function formatCreditAmount(value: number) {
@@ -116,23 +161,74 @@ export function formatCreditAmount(value: number) {
   }).format(value)}`;
 }
 
-function getYearsInOperationMultiplier(yearsInOperation: number) {
-  if (yearsInOperation < 1) {
-    return 0.75;
-  }
+function getBorrowerCreditLimitDetails(
+  portfolio: CreditLimitPortfolioInput,
+  repaymentHistory: CreditLimitRepaymentHistoryInput,
+) {
+  const monthlyGrossRevenue = toFiniteNumber(portfolio.monthlyGrossRevenue);
+  const monthlyExpenses = toFiniteNumber(portfolio.monthlyExpenses);
+  const existingLoanPayments = toFiniteNumber(portfolio.existingLoanPayments);
+  const cleanCompletedLoanCount = Math.max(
+    0,
+    Math.floor(toFiniteNumber(repaymentHistory.cleanCompletedLoanCount)),
+  );
+  const lateRepaymentCount = Math.max(
+    0,
+    Math.floor(toFiniteNumber(repaymentHistory.lateRepaymentCount)),
+  );
+  const defaultedLoanCount = Math.max(
+    0,
+    Math.floor(toFiniteNumber(repaymentHistory.defaultedLoanCount)),
+  );
+  const monthlyNetCashFlow =
+    monthlyGrossRevenue - monthlyExpenses - existingLoanPayments;
+  const safeMonthlyRepaymentCapacity = monthlyNetCashFlow * safeRepaymentRatio;
+  const incomeBasedCapacity = safeMonthlyRepaymentCapacity * 3;
+  const repaymentHistoryCap = getRepaymentHistoryCap({
+    cleanCompletedLoanCount,
+    lateRepaymentCount,
+    defaultedLoanCount,
+  });
+  const cappedLimit = Math.min(
+    incomeBasedCapacity,
+    repaymentHistoryCap,
+    creditLimitMaximum,
+  );
 
-  if (yearsInOperation < 3) {
-    return 1;
-  }
+  return {
+    calculatedCreditLimit: Math.max(0, floorToNearest100(cappedLimit)),
+    monthlyNetCashFlow,
+    safeMonthlyRepaymentCapacity: Math.max(
+      0,
+      floorToNearest100(safeMonthlyRepaymentCapacity),
+    ),
+    incomeBasedCapacity: Math.max(0, floorToNearest100(incomeBasedCapacity)),
+    repaymentHistoryCap,
+    cleanCompletedLoanCount,
+    lateRepaymentCount,
+    defaultedLoanCount,
+  };
+}
 
-  return 1.25;
+function getRepaymentHistoryCap({
+  cleanCompletedLoanCount,
+  defaultedLoanCount,
+}: Required<CreditLimitRepaymentHistoryInput>) {
+  if (defaultedLoanCount > 0) return 0;
+
+  if (cleanCompletedLoanCount <= 0) return 10_000;
+  if (cleanCompletedLoanCount === 1) return 15_000;
+  if (cleanCompletedLoanCount === 2) return 25_000;
+  if (cleanCompletedLoanCount === 3) return 40_000;
+  if (cleanCompletedLoanCount <= 5) return 60_000;
+  return 100_000;
 }
 
 function floorToNearest100(value: number) {
   return Math.floor(value / 100) * 100;
 }
 
-function toFiniteNumber(value: number) {
+function toFiniteNumber(value: number | null | undefined) {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
 }

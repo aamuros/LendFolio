@@ -188,15 +188,15 @@ export function AppBottomTabs<T extends string>({
         {floatingMenu}
       </div>
       <div
-        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-border/50 bg-card/95 p-2 shadow-lg backdrop-blur"
+        className="mx-auto flex max-w-lg transform-gpu items-center justify-between rounded-full border border-border/80 bg-card/95 p-2 shadow-[0_18px_50px_rgba(14,26,18,0.12)] backdrop-blur"
       >
         {tabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const tabClassName = cn(
             "flex h-[3.25rem] min-w-0 flex-1 transform-gpu items-center justify-center gap-1.5 rounded-full px-2 text-sm font-semibold transition-all duration-200 ease-out active:scale-[0.97] touch-manipulation motion-reduce:transform-none motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
             isActive
-              ? "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 active:bg-primary/90 [&>span]:text-primary-foreground [&_svg]:text-primary-foreground [&_svg]:stroke-current"
-              : "text-foreground hover:bg-muted/70 hover:text-foreground active:bg-muted [&_svg]:text-current [&_svg]:stroke-current",
+              ? "bg-primary text-primary-foreground shadow-sm hover:bg-[#0E1A12] active:bg-[#0E1A12] [&>span]:text-primary-foreground [&_svg]:text-primary-foreground [&_svg]:stroke-current"
+              : "text-muted-foreground hover:bg-accent hover:text-accent-foreground active:bg-accent [&_svg]:text-current [&_svg]:stroke-current",
           );
           const content = (
             <>

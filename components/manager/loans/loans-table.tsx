@@ -16,6 +16,7 @@ import { getShortId } from "@/lib/manager-operations";
 import {
   formatCurrency,
   formatDateOnly,
+  ManagerTableCard,
   ManagerDetailsLink,
   PersonLabel,
   StatusBadge,
@@ -129,13 +130,13 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
     return (
       <>
         <div className="hidden md:block">
-          <Card className="py-0">
-            <Table>
+          <ManagerTableCard>
+            <Table className="min-w-[1260px] table-fixed">
               <TableBody>
                 <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
-          </Card>
+          </ManagerTableCard>
         </div>
         <div className="md:hidden">
           <MobileEmptyState hasActiveFilters={hasActiveFilters} />
@@ -147,19 +148,19 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <ManagerTableCard>
+          <Table className="min-w-[1260px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Loan ID</TableHead>
-                <TableHead>Borrower</TableHead>
-                <TableHead>Lender</TableHead>
-                <TableHead>Principal</TableHead>
-                <TableHead>Outstanding balance</TableHead>
-                <TableHead>Next due date</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Repayment progress</TableHead>
-                <TableHead className="w-[96px] text-center">Action</TableHead>
+                <TableHead className="w-[90px]">Loan ID</TableHead>
+                <TableHead className="w-[160px]">Borrower</TableHead>
+                <TableHead className="w-[160px]">Lender</TableHead>
+                <TableHead className="w-[130px]">Principal</TableHead>
+                <TableHead className="w-[160px]">Outstanding balance</TableHead>
+                <TableHead className="w-[150px]">Next due date</TableHead>
+                <TableHead className="w-[120px]">Status</TableHead>
+                <TableHead className="w-[190px]">Repayment progress</TableHead>
+                <TableHead className="w-[100px] pr-4 text-center">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -170,10 +171,10 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
                       {getShortId(loan.id)}
                     </p>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <PersonLabel person={loan.borrower} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <PersonLabel person={loan.lender} />
                   </TableCell>
                   <TableCell className="font-medium">
@@ -191,7 +192,7 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
                   <TableCell>
                     <RepaymentProgress loan={loan} />
                   </TableCell>
-                  <TableCell className="text-center">
+                  <TableCell className="pr-4 text-center">
                     <ManagerDetailsLink
                       href={`/manager/loans/${loan.id}`}
                     />
@@ -200,7 +201,7 @@ export function LoansTable({ loans, hasActiveFilters }: LoansTableProps) {
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </ManagerTableCard>
       </div>
 
       <div className="grid gap-3 md:hidden">

@@ -4,6 +4,11 @@ import {
   requireManager,
 } from "@/lib/access-control";
 import { deriveInterestAmount } from "@/lib/loan-offer";
+export {
+  isCompletedLoan,
+  isCompletedLoanStatus,
+  isOngoingLoanStatus,
+} from "@/lib/active-loan-status";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
 
@@ -17,6 +22,11 @@ type LenderAccess = Extract<
 >;
 
 type ActiveLoanRow = Database["public"]["Tables"]["active_loans"]["Row"];
+export type DisbursementStatus =
+  | "awaiting_release"
+  | "released_by_lender"
+  | "release_disputed"
+  | "received_by_borrower";
 type RepaymentScheduleRow =
   Database["public"]["Tables"]["loan_repayment_schedules"]["Row"];
 type RepaymentProofRow = Database["public"]["Tables"]["repayment_proofs"]["Row"];
@@ -31,6 +41,17 @@ export type RepaymentProofSummary = {
   reviewedAt: string | null;
   reviewNotes: string | null;
   viewUrl: string | null;
+};
+
+export type RepaymentChannelSummary = {
+  id: string;
+  activeLoanId: string;
+  lenderId: string;
+  channel: string;
+  accountName: string;
+  accountNumber: string;
+  instructions: string | null;
+  createdAt: string;
 };
 
 export type RepaymentScheduleSummary = {
@@ -56,15 +77,37 @@ export type ActiveLoanSummary = {
   repaymentAmount: number;
   totalRepaymentAmount: number;
   fees: number;
+  processingFee: number;
+  processingFeeRate: number;
   interestAmount: number;
   outstandingBalance: number;
   status: Database["public"]["Enums"]["active_loan_status"];
+  disbursementStatus: DisbursementStatus;
+  disbursedAt: string | null;
+  disbursementMethod: string | null;
+  disbursementReference: string | null;
+  disbursementNotes: string | null;
+  releaseProofUrl: string | null;
+  releaseProofFileName: string | null;
+  releaseProofFileType: string | null;
+  releaseProofFileSize: number | null;
+  releaseProofViewUrl: string | null;
+  releaseDisputedAt: string | null;
+  releaseDisputeReason: string | null;
+  releaseDisputedBy: string | null;
+  disbursementDestinationMethod: string | null;
+  disbursementDestinationAccountName: string | null;
+  disbursementDestinationAccountNumber: string | null;
+  disbursementDestinationNotes: string | null;
+  disbursementDestinationSubmittedAt: string | null;
+  borrowerReceivedAt: string | null;
   startedAt: string;
   dueDate: string;
   repaymentChannel: string | null;
   repaymentAccountName: string | null;
   repaymentAccountNumber: string | null;
   repaymentInstructions: string | null;
+  additionalRepaymentChannels: RepaymentChannelSummary[];
   schedule: RepaymentScheduleSummary[];
 };
 
@@ -83,12 +126,14 @@ export type ActiveLoansLoadResult =
     };
 
 const activeLoanSelect =
-  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, outstanding_balance, status, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
+  "id, loan_application_id, accepted_offer_id, borrower_id, lender_id, principal_amount, repayment_amount, fees, processing_fee_rate, processing_fee_amount, outstanding_balance, status, disbursement_status, disbursed_at, disbursement_method, disbursement_reference, disbursement_notes, release_proof_url, release_proof_file_name, release_proof_file_type, release_proof_file_size, release_disputed_at, release_dispute_reason, release_disputed_by, disbursement_destination_method, disbursement_destination_account_name, disbursement_destination_account_number, disbursement_destination_notes, disbursement_destination_submitted_at, borrower_received_at, started_at, due_date, repayment_channel, repayment_account_name, repayment_account_number, repayment_instructions, created_at, updated_at";
 
 const repaymentScheduleSelect =
-  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, created_at, updated_at";
+  "id, active_loan_id, borrower_id, lender_id, installment_number, amount_due, due_date, status, was_late, created_at, updated_at";
 const repaymentProofSelect =
   "id, repayment_schedule_id, active_loan_id, borrower_id, lender_id, storage_bucket, storage_path, file_name, file_type, file_size, status, submitted_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+const repaymentChannelSelect =
+  "id, active_loan_id, lender_id, channel, account_name, account_number, instructions, created_at";
 
 export async function loadBorrowerActiveLoans(
   verifiedAccess?: BorrowerAccess,
@@ -189,11 +234,14 @@ export async function loadManagerActiveLoans(): Promise<ActiveLoansLoadResult> {
 export function mapActiveLoanRow(
   row: ActiveLoanRow,
   schedule: RepaymentScheduleSummary[] = [],
+  additionalChannels: RepaymentChannelSummary[] = [],
+  releaseProofViewUrl: string | null = null,
 ): ActiveLoanSummary {
   const interestAmount = deriveInterestAmount({
     principalAmount: row.principal_amount,
     repaymentAmount: row.repayment_amount,
     fees: row.fees,
+    processingFee: row.processing_fee_amount ?? 0,
   });
 
   return {
@@ -206,15 +254,37 @@ export function mapActiveLoanRow(
     repaymentAmount: row.repayment_amount,
     totalRepaymentAmount: row.repayment_amount,
     fees: row.fees,
+    processingFee: row.processing_fee_amount ?? 0,
+    processingFeeRate: row.processing_fee_rate ?? 0.02,
     interestAmount,
     outstandingBalance: row.outstanding_balance,
     status: row.status,
+    disbursementStatus: row.disbursement_status ?? "awaiting_release",
+    disbursedAt: row.disbursed_at,
+    disbursementMethod: row.disbursement_method,
+    disbursementReference: row.disbursement_reference,
+    disbursementNotes: row.disbursement_notes,
+    releaseProofUrl: row.release_proof_url,
+    releaseProofFileName: row.release_proof_file_name,
+    releaseProofFileType: row.release_proof_file_type,
+    releaseProofFileSize: row.release_proof_file_size,
+    releaseProofViewUrl,
+    releaseDisputedAt: row.release_disputed_at,
+    releaseDisputeReason: row.release_dispute_reason,
+    releaseDisputedBy: row.release_disputed_by,
+    disbursementDestinationMethod: row.disbursement_destination_method,
+    disbursementDestinationAccountName: row.disbursement_destination_account_name,
+    disbursementDestinationAccountNumber: row.disbursement_destination_account_number,
+    disbursementDestinationNotes: row.disbursement_destination_notes,
+    disbursementDestinationSubmittedAt: row.disbursement_destination_submitted_at,
+    borrowerReceivedAt: row.borrower_received_at,
     startedAt: row.started_at,
     dueDate: row.due_date,
     repaymentChannel: row.repayment_channel,
     repaymentAccountName: row.repayment_account_name,
     repaymentAccountNumber: row.repayment_account_number,
     repaymentInstructions: row.repayment_instructions,
+    additionalRepaymentChannels: additionalChannels,
     schedule,
   };
 }
@@ -234,6 +304,24 @@ export function mapRepaymentScheduleRow(
     status: row.status,
     latestProof: proofs[0] ?? null,
     proofs,
+  };
+}
+
+type RepaymentChannelRow =
+  Database["public"]["Tables"]["repayment_channels"]["Row"];
+
+export function mapRepaymentChannelRow(
+  row: RepaymentChannelRow,
+): RepaymentChannelSummary {
+  return {
+    id: row.id,
+    activeLoanId: row.active_loan_id,
+    lenderId: row.lender_id,
+    channel: row.channel,
+    accountName: row.account_name,
+    accountNumber: row.account_number,
+    instructions: row.instructions,
+    createdAt: row.created_at,
   };
 }
 
@@ -275,18 +363,37 @@ async function loadSchedulesForLoans(
   }
 
   const loanIds = loans.map((loan) => loan.id);
-  const { data: scheduleRows, error } = await supabase
-    .from("loan_repayment_schedules")
-    .select(repaymentScheduleSelect)
-    .in("active_loan_id", loanIds)
-    .order("installment_number", { ascending: true });
+  const [scheduleResult, channelsResult] = await Promise.all([
+    supabase
+      .from("loan_repayment_schedules")
+      .select(repaymentScheduleSelect)
+      .in("active_loan_id", loanIds)
+      .order("installment_number", { ascending: true }),
+    supabase
+      .from("repayment_channels")
+      .select(repaymentChannelSelect)
+      .in("active_loan_id", loanIds)
+      .order("created_at", { ascending: true }),
+  ]);
 
-  if (error) {
+  const { data: scheduleRows, error: scheduleError } = scheduleResult;
+  const { data: channelRows, error: channelError } = channelsResult;
+
+  if (scheduleError) {
     return {
       ok: false,
       mode: "supabase",
       loans: [],
       message: "Could not load repayment schedule.",
+    };
+  }
+
+  if (channelError) {
+    return {
+      ok: false,
+      mode: "supabase",
+      loans: [],
+      message: "Could not load repayment channels.",
     };
   }
 
@@ -305,11 +412,37 @@ async function loadSchedulesForLoans(
     ]);
   });
 
+  const channelsByLoanId = new Map<string, RepaymentChannelSummary[]>();
+
+  (channelRows ?? []).forEach((row) => {
+    const channels = channelsByLoanId.get(row.active_loan_id) ?? [];
+    channelsByLoanId.set(row.active_loan_id, [
+      ...channels,
+      mapRepaymentChannelRow(row),
+    ]);
+  });
+
+  const releaseProofUrls = await Promise.all(
+    loans.map((loan) =>
+      loan.release_proof_url
+        ? getReleaseProofSignedUrl(supabase, loan)
+        : Promise.resolve(null),
+    ),
+  );
+  const releaseProofUrlByLoanId = new Map(
+    loans.map((loan, index) => [loan.id, releaseProofUrls[index]]),
+  );
+
   return {
     ok: true,
     mode: "supabase",
     loans: loans.map((loan) =>
-      mapActiveLoanRow(loan, schedulesByLoanId.get(loan.id) ?? []),
+      mapActiveLoanRow(
+        loan,
+        schedulesByLoanId.get(loan.id) ?? [],
+        channelsByLoanId.get(loan.id) ?? [],
+        releaseProofUrlByLoanId.get(loan.id) ?? null,
+      ),
     ),
     message: "Active loans loaded.",
   };
@@ -331,19 +464,26 @@ async function loadProofsByScheduleId(
     return new Map<string, RepaymentProofSummary[]>();
   }
 
+  const signedUrls = await Promise.all(
+    rows.map((row) =>
+      getRepaymentProofSignedUrl(supabase, row.storage_bucket, row.storage_path),
+    ),
+  );
+
   const proofsByScheduleId = new Map<string, RepaymentProofSummary[]>();
 
-  for (const row of rows) {
-    const summary = mapRepaymentProofRowWithoutUrl(row);
-    const existing = proofsByScheduleId.get(row.repayment_schedule_id) ?? [];
-    proofsByScheduleId.set(row.repayment_schedule_id, [...existing, summary]);
+  for (let i = 0; i < rows.length; i++) {
+    const summary = mapRepaymentProofRow(rows[i], signedUrls[i]);
+    const existing = proofsByScheduleId.get(rows[i].repayment_schedule_id) ?? [];
+    proofsByScheduleId.set(rows[i].repayment_schedule_id, [...existing, summary]);
   }
 
   return proofsByScheduleId;
 }
 
-function mapRepaymentProofRowWithoutUrl(
+function mapRepaymentProofRow(
   row: RepaymentProofRow,
+  viewUrl: string | null,
 ): RepaymentProofSummary {
   return {
     id: row.id,
@@ -354,7 +494,7 @@ function mapRepaymentProofRowWithoutUrl(
     submittedAt: row.submitted_at,
     reviewedAt: row.reviewed_at,
     reviewNotes: row.review_notes,
-    viewUrl: null,
+    viewUrl,
   };
 }
 
@@ -363,9 +503,54 @@ export async function getRepaymentProofSignedUrl(
   storageBucket: string,
   storagePath: string,
 ): Promise<string | null> {
-  const { data } = await supabase.storage
+  const { data, error } = await supabase.storage
     .from(storageBucket)
     .createSignedUrl(storagePath, 300);
 
+  if (error) {
+    console.warn("Could not create repayment proof signed URL.", {
+      storageBucket,
+      storagePath,
+      message: error.message,
+    });
+  }
+
   return data?.signedUrl ?? null;
+}
+
+async function getReleaseProofSignedUrl(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  loan: ActiveLoanRow,
+): Promise<string | null> {
+  if (!loan.release_proof_url) {
+    return null;
+  }
+
+  const expectedPathPrefix = `lenders/${loan.lender_id}/loans/${loan.id}/release/`;
+
+  if (!loan.release_proof_url.startsWith(expectedPathPrefix)) {
+    console.warn("Release proof path does not match its active loan.", {
+      activeLoanId: loan.id,
+      lenderId: loan.lender_id,
+    });
+
+    return null;
+  }
+
+  const signedUrl = await getRepaymentProofSignedUrl(
+    supabase,
+    "repayment-proofs",
+    loan.release_proof_url,
+  );
+
+  if (!signedUrl) {
+    console.warn("Could not create release proof signed URL.", {
+      activeLoanId: loan.id,
+      borrowerId: loan.borrower_id,
+      lenderId: loan.lender_id,
+      disbursementStatus: loan.disbursement_status,
+    });
+  }
+
+  return signedUrl;
 }

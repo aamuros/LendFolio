@@ -9,11 +9,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   StatusBadge,
   PersonLabel,
+  ManagerTableCard,
   ManagerDetailsLink,
   MobileCard,
   formatCurrency,
@@ -52,20 +52,20 @@ export function RepaymentProofsTable({
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <ManagerTableCard>
+          <Table className="min-w-[1330px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Proof ID</TableHead>
-                <TableHead>Borrower</TableHead>
-                <TableHead>Lender</TableHead>
-                <TableHead>Loan</TableHead>
-                <TableHead>Amount</TableHead>
-                <TableHead>Due date</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Proof status</TableHead>
-                <TableHead>Repayment status</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="w-[90px]">Proof ID</TableHead>
+                <TableHead className="w-[165px]">Borrower</TableHead>
+                <TableHead className="w-[165px]">Lender</TableHead>
+                <TableHead className="w-[100px]">Loan</TableHead>
+                <TableHead className="w-[120px]">Amount</TableHead>
+                <TableHead className="w-[120px]">Due date</TableHead>
+                <TableHead className="w-[170px]">Submitted</TableHead>
+                <TableHead className="w-[145px]">Proof status</TableHead>
+                <TableHead className="w-[155px]">Repayment status</TableHead>
+                <TableHead className="w-[100px] pr-4 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -76,10 +76,10 @@ export function RepaymentProofsTable({
                       {getShortId(proof.id)}
                     </span>
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <PersonLabel person={proof.borrower} />
                   </TableCell>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <PersonLabel person={proof.lender} />
                   </TableCell>
                   <TableCell>
@@ -111,7 +111,7 @@ export function RepaymentProofsTable({
                   <TableCell>
                     <StatusBadge status={proof.repaymentStatus} />
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="pr-4 text-right">
                     <ManagerDetailsLink
                       href={`/manager/repayments/${proof.id}`}
                     />
@@ -120,7 +120,7 @@ export function RepaymentProofsTable({
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </ManagerTableCard>
       </div>
 
       <div className="grid gap-3 md:hidden">

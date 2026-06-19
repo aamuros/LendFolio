@@ -12,11 +12,11 @@ export function NotificationsLoading() {
 
 export function NotificationsSkeleton({ count = 5 }: { count?: number }) {
   return (
-    <div className="divide-y divide-border">
+    <div className="divide-y divide-border/80">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-3"
+          className="grid grid-cols-[auto_1fr] items-start gap-3 px-4 py-4 sm:px-5"
         >
           <Skeleton className="mt-0.5 size-8 rounded-full" />
           <div className="grid gap-2">

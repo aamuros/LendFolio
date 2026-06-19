@@ -39,6 +39,7 @@ export function LenderRegisterForm() {
   );
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const isSuccess = state.status === "success";
+  const formKey = state.values ? JSON.stringify(state.values) : "initial";
 
   const handleSubmit = useCallback(
     (formData: FormData) => {
@@ -72,7 +73,7 @@ export function LenderRegisterForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={handleSubmit}>
+          <form key={formKey} action={handleSubmit}>
             <FieldGroup>
               <Field>
                 <FieldLabel htmlFor="displayName">Full name</FieldLabel>
@@ -82,6 +83,7 @@ export function LenderRegisterForm() {
                   type="text"
                   placeholder="John Doe"
                   autoComplete="name"
+                  defaultValue={state.values?.displayName}
                   required
                 />
                 <FieldErrorHelper
@@ -96,6 +98,7 @@ export function LenderRegisterForm() {
                   type="email"
                   placeholder="m@example.com"
                   autoComplete="email"
+                  defaultValue={state.values?.email}
                   required
                 />
                 <FieldErrorHelper messages={state.fieldErrors?.email} />
@@ -110,6 +113,7 @@ export function LenderRegisterForm() {
                   type="text"
                   placeholder="Acme Corp"
                   autoComplete="organization"
+                  defaultValue={state.values?.organizationName}
                   required
                 />
                 <FieldErrorHelper

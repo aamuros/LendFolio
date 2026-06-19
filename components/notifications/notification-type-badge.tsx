@@ -25,32 +25,36 @@ const notificationTypeLabels: Record<string, string> = {
   application_submitted: "Application",
   application_withdrawn: "Withdrawn",
   application_updated: "Updated",
+  lender_profile_change_approved: "Approved",
+  lender_profile_change_rejected: "Rejected",
 };
 
 const notificationTypeStyles: Record<string, string> = {
-  offer_received: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  offer_accepted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  offer_declined: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  repayment_proof_submitted: "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
-  repayment_verified: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  repayment_rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  repayment_late: "bg-orange-100 text-orange-700 dark:bg-orange-950 dark:text-orange-300",
-  loan_overdue: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
-  loan_restored_active: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  loan_paid: "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
-  verification_approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  verification_rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  verification_update: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  verification_document_submitted: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
-  lender_approved: "bg-teal-100 text-teal-700 dark:bg-teal-950 dark:text-teal-300",
-  lender_rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  lender_review_update: "bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300",
-  lender_onboarding_submitted: "bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300",
-  document_accepted: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300",
-  document_rejected: "bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300",
-  application_submitted: "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
-  application_withdrawn: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
-  application_updated: "bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300",
+  offer_received: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  offer_accepted: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  offer_declined: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  repayment_proof_submitted: "border-[#E2DAC6] bg-[#F8F1DD] text-[#6A4B17]",
+  repayment_verified: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  repayment_rejected: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  repayment_late: "border-[#E2DAC6] bg-[#F8F1DD] text-[#6A4B17]",
+  loan_overdue: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  loan_restored_active: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  loan_paid: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  verification_approved: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  verification_rejected: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  verification_update: "border-[#D9D7D1] bg-[#F8F7F3] text-[#55534F]",
+  verification_document_submitted: "border-[#E2DAC6] bg-[#F8F1DD] text-[#6A4B17]",
+  lender_approved: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  lender_rejected: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  lender_review_update: "border-[#D9D7D1] bg-[#F8F7F3] text-[#55534F]",
+  lender_onboarding_submitted: "border-[#E2DAC6] bg-[#F8F1DD] text-[#6A4B17]",
+  document_accepted: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  document_rejected: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
+  application_submitted: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  application_withdrawn: "border-[#D9D7D1] bg-[#F8F7F3] text-[#55534F]",
+  application_updated: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  lender_profile_change_approved: "border-[#C9D7C6] bg-[#EFF3EA] text-[#33423C]",
+  lender_profile_change_rejected: "border-[#D9A7A0] bg-[#FFF4F1] text-[#8A2A1E]",
 };
 
 export function NotificationTypeBadge({ type }: { type: string }) {
@@ -62,7 +66,7 @@ export function NotificationTypeBadge({ type }: { type: string }) {
   return (
     <Badge
       variant="secondary"
-      className={cn("text-[10px] font-semibold border-transparent", style)}
+      className={cn("border text-[10px] font-semibold", style)}
     >
       {label}
     </Badge>

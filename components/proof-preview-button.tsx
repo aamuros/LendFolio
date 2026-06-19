@@ -5,14 +5,20 @@ import { Button } from "@/components/ui/button";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 
 export function ProofPreviewButton({
+  buttonText = "Preview proof",
+  className,
   fileName,
   fileSize,
   fileType,
+  title,
   viewUrl,
 }: {
+  buttonText?: string;
+  className?: string;
   fileName: string;
   fileSize: number;
   fileType: string;
+  title: string;
   viewUrl: string;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -20,14 +26,16 @@ export function ProofPreviewButton({
   return (
     <>
       <Button
+        type="button"
         variant="outline"
-        className="h-10 w-full rounded-full font-semibold sm:w-fit"
+        size="sm"
+        className={className}
         onClick={() => setPreviewOpen(true)}
       >
-        Preview proof
+        {buttonText}
       </Button>
       <DocumentPreviewDialog
-        title="Repayment Proof Preview"
+        title={title}
         fileName={fileName}
         fileSize={fileSize}
         fileType={fileType}

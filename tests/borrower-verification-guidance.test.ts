@@ -111,6 +111,46 @@ describe("verification document policy", () => {
     expect(policy.missingRequiredDocumentTypes).toEqual([]);
   });
 
+  it("does not count old accepted documents while replacement is required", () => {
+    const documents = [
+      createDocument({ documentType: "valid_id", status: "accepted" }),
+      createDocument({ documentType: "business_proof", status: "accepted" }),
+    ];
+    const policy = calculateBorrowerVerificationDocumentPolicy(
+      documents,
+      "needs_resubmission",
+    );
+
+    expect(policy.acceptedDocumentTypes).toEqual([]);
+    expect(policy.submittedDocumentTypes).toEqual([]);
+    expect(policy.missingRequiredDocumentTypes).toEqual([
+      "valid_id",
+      "business_proof",
+    ]);
+    expect(policy.readyForManagerReview).toBe(false);
+    expect(policy.documentsAccepted).toBe(false);
+  });
+
+  it("marks replacement documents ready for review when both are submitted", () => {
+    const documents = [
+      createDocument({ documentType: "valid_id", status: "submitted" }),
+      createDocument({ documentType: "business_proof", status: "submitted" }),
+      createDocument({ documentType: "valid_id", status: "superseded" }),
+      createDocument({ documentType: "business_proof", status: "superseded" }),
+    ];
+    const policy = calculateBorrowerVerificationDocumentPolicy(
+      documents,
+      "needs_resubmission",
+    );
+
+    expect(policy.submittedDocumentTypes).toEqual([
+      "valid_id",
+      "business_proof",
+    ]);
+    expect(policy.readyForManagerReview).toBe(true);
+    expect(policy.documentsAccepted).toBe(false);
+  });
+
   it("tracks rejected document types separately", () => {
     const documents = [
       createDocument({ documentType: "valid_id", status: "rejected" }),
@@ -198,6 +238,26 @@ describe("verification messages", () => {
       },
     });
     expect(getBorrowerVerificationMessage(verification)).toContain("approved");
+  });
+
+  it("returns business proof guidance when approved verification is missing accepted business proof", () => {
+    const verification = createVerification({
+      status: "approved",
+      documentPolicy: {
+        requiredDocumentTypes: ["valid_id", "business_proof"],
+        missingRequiredDocumentTypes: ["business_proof"],
+        submittedDocumentTypes: ["valid_id"],
+        acceptedDocumentTypes: ["valid_id"],
+        rejectedDocumentTypes: [],
+        readyForManagerReview: true,
+        documentsAccepted: false,
+      },
+    });
+
+    expect(canSubmitLoanApplicationForVerification(verification)).toBe(false);
+    expect(getBorrowerVerificationMessage(verification)).toBe(
+      "Upload and wait for approval of your business proof before applying.",
+    );
   });
 
   it("returns upload message when documents are not ready for review", () => {

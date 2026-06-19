@@ -1,7 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
-import { redirect } from "next/navigation";
+import { redirect, RedirectType } from "next/navigation";
 import { getRouteForRole } from "@/lib/app-roles";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -59,7 +59,7 @@ export async function loginAction(
     };
   }
 
-  redirect(destination);
+  redirect(destination, RedirectType.replace);
 }
 
 export async function signOutAction() {
@@ -70,7 +70,7 @@ export async function signOutAction() {
     // Missing auth configuration still lands the user back on the login page.
   }
 
-  redirect("/login?message=signed-out");
+  redirect("/login", RedirectType.replace);
 }
 
 async function getPostLoginDestination(

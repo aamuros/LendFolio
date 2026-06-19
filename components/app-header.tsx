@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { User, LogOut, UserCircle } from "lucide-react";
 import { signOutAction } from "@/app/login/actions";
+import { Logo } from "@/components/brand/logo";
 import { NotificationButton } from "@/components/notification-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -45,23 +46,24 @@ export function AppHeader({
   accountLabel?: string;
 }) {
   return (
-    <header className="sticky top-0 z-30 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-4 px-4 sm:h-16 sm:px-6">
-        <div className="flex items-center gap-6">
+    <header className="sticky top-0 z-30 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
+      <div className="mx-auto flex min-h-14 max-w-7xl flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2 sm:min-h-16 sm:flex-nowrap sm:gap-5 sm:px-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3 sm:gap-5">
           <Link
             href="/"
-            className="text-base font-semibold tracking-tight text-foreground"
+            className="inline-flex shrink-0 items-center focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            aria-label="LendFolio home"
           >
-            LendFolio
+            <Logo size="sm" priority />
           </Link>
-          <nav className="hidden items-center gap-1 sm:flex">
+          <nav className="hidden min-w-0 items-center gap-1 sm:flex">
             {navItems.map((item) => {
               const isActive = activeNavId === item.id;
               const activeClassName = cn(
-                "relative px-1.5 py-0.5 text-sm font-medium transition-colors",
+                "relative rounded-full px-3 py-1.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
                 isActive
-                  ? "text-foreground after:absolute after:inset-x-0 after:bottom-[-5px] after:h-0.5 after:bg-foreground"
-                  : "text-muted-foreground hover:text-foreground",
+                  ? "bg-primary/10 text-primary"
+                  : "text-muted-foreground hover:bg-muted/70 hover:text-foreground",
               );
 
               if (item.href) {
@@ -91,7 +93,7 @@ export function AppHeader({
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
           {showNotifications ? <NotificationButton /> : null}
           {showAccountMenu ? (
             <DropdownMenu>
@@ -101,8 +103,8 @@ export function AppHeader({
                   size="icon"
                   aria-label="Open profile menu"
                   className={cn(
-                    "rounded-full text-muted-foreground hover:text-foreground",
-                    isAccountActive && "bg-muted text-foreground",
+                    "size-10 rounded-xl border border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
+                    isAccountActive && "bg-primary/10 text-primary hover:bg-primary/15 hover:text-primary",
                   )}
                 >
                   <User className="size-5" />

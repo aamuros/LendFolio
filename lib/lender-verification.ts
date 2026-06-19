@@ -35,7 +35,6 @@ export const lenderVerificationDocumentMaxFileSize = 5 * 1024 * 1024;
 export const lenderVerificationDocumentAllowedTypes = new Set([
   "image/jpeg",
   "image/png",
-  "image/webp",
   "application/pdf",
 ]);
 

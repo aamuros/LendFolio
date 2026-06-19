@@ -16,6 +16,7 @@ import { managerPreferredTermLabels } from "@/lib/manager-operations";
 import {
   formatCurrency,
   formatDateOnly,
+  ManagerTableCard,
   ManagerDetailsLink,
   PersonLabel,
   StatusBadge,
@@ -123,25 +124,25 @@ export function ApplicationsTable({
     return (
       <>
         <div className="hidden md:block">
-          <Card className="py-0">
-            <Table>
+          <ManagerTableCard>
+            <Table className="min-w-[1220px] table-fixed">
               <TableHeader>
                 <TableRow>
-                  <TableHead>Borrower</TableHead>
-                  <TableHead>Requested amount</TableHead>
-                  <TableHead>Preferred term</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Offers</TableHead>
-                  <TableHead>Submitted</TableHead>
-                  <TableHead>Last updated</TableHead>
-                  <TableHead className="text-right">Action</TableHead>
+                  <TableHead className="w-[280px]">Borrower</TableHead>
+                  <TableHead className="w-[140px]">Requested amount</TableHead>
+                  <TableHead className="w-[130px]">Preferred term</TableHead>
+                  <TableHead className="w-[130px]">Status</TableHead>
+                  <TableHead className="w-[180px]">Offers</TableHead>
+                  <TableHead className="w-[130px]">Submitted</TableHead>
+                  <TableHead className="w-[130px]">Last updated</TableHead>
+                  <TableHead className="w-[100px] pr-4 text-right">Action</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 <EmptyTableState hasActiveFilters={hasActiveFilters} />
               </TableBody>
             </Table>
-          </Card>
+          </ManagerTableCard>
         </div>
         <div className="md:hidden">
           <MobileEmptyState hasActiveFilters={hasActiveFilters} />
@@ -153,24 +154,24 @@ export function ApplicationsTable({
   return (
     <>
       <div className="hidden md:block">
-        <Card className="py-0">
-          <Table>
+        <ManagerTableCard>
+          <Table className="min-w-[1220px] table-fixed">
             <TableHeader>
               <TableRow>
-                <TableHead>Borrower</TableHead>
-                <TableHead>Requested amount</TableHead>
-                <TableHead>Preferred term</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Offers</TableHead>
-                <TableHead>Submitted</TableHead>
-                <TableHead>Last updated</TableHead>
-                <TableHead className="text-right">Action</TableHead>
+                <TableHead className="w-[280px]">Borrower</TableHead>
+                <TableHead className="w-[140px]">Requested amount</TableHead>
+                <TableHead className="w-[130px]">Preferred term</TableHead>
+                <TableHead className="w-[130px]">Status</TableHead>
+                <TableHead className="w-[180px]">Offers</TableHead>
+                <TableHead className="w-[130px]">Submitted</TableHead>
+                <TableHead className="w-[130px]">Last updated</TableHead>
+                <TableHead className="w-[100px] pr-4 text-right">Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {applications.map((application) => (
                 <TableRow key={application.id}>
-                  <TableCell>
+                  <TableCell className="whitespace-normal">
                     <div className="min-w-0">
                       <PersonLabel person={application.borrower} />
                       <p className="mt-0.5 truncate text-xs text-muted-foreground">
@@ -196,7 +197,7 @@ export function ApplicationsTable({
                   <TableCell className="text-xs text-muted-foreground">
                     {formatDateOnly(application.submittedAt)}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="pr-4 text-right">
                     <ManagerDetailsLink
                       href={`/manager/applications/${application.id}`}
                     />
@@ -205,7 +206,7 @@ export function ApplicationsTable({
               ))}
             </TableBody>
           </Table>
-        </Card>
+        </ManagerTableCard>
       </div>
 
       <div className="grid gap-3 md:hidden">

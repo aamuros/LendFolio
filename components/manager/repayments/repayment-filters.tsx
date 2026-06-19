@@ -21,8 +21,8 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
   return (
     <Card>
       <CardContent>
-        <FilterForm className="flex flex-wrap items-end gap-3">
-          <div className="min-w-[140px] flex-1">
+        <FilterForm className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(140px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(260px,1.4fr)_auto]">
+          <div className="min-w-0">
             <SelectFilter
               label="Proof status"
               name="proofStatus"
@@ -34,7 +34,7 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
               ]}
             />
           </div>
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-0">
             <SelectFilter
               label="Repayment status"
               name="repaymentStatus"
@@ -48,17 +48,17 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
               ]}
             />
           </div>
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-0">
             <TextFilter label="Lender" name="lender" defaultValue={filters.lender} />
           </div>
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-0">
             <TextFilter
               label="Borrower"
               name="borrower"
               defaultValue={filters.borrower}
             />
           </div>
-          <div className="min-w-[140px] flex-1">
+          <div className="min-w-0">
             <SelectFilter
               label="Submitted range"
               name="range"
@@ -72,37 +72,33 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
               ]}
             />
           </div>
-          <div className="flex w-full items-end gap-3">
-            <div className="min-w-[200px] flex-1">
-              <div className="grid gap-1.5">
+          <div className="grid min-w-0 gap-1.5">
                 <span className="text-xs font-medium">Submitted date</span>
-                <div className="flex gap-2">
+                <div className="grid min-w-0 gap-2 sm:grid-cols-2">
                   <Input
                     name="submittedFrom"
                     type="date"
                     defaultValue={filters.submittedFrom ?? ""}
-                    className="flex-1"
+                    className="min-w-0"
                     aria-label="Submitted from"
                   />
                   <Input
                     name="submittedTo"
                     type="date"
                     defaultValue={filters.submittedTo ?? ""}
-                    className="flex-1"
+                    className="min-w-0"
                     aria-label="Submitted to"
                   />
                 </div>
               </div>
-            </div>
-            <div className="flex shrink-0 items-end gap-2">
-              <Button type="submit">Apply</Button>
+            <div className="flex min-w-0 items-end gap-2 sm:col-span-2 xl:col-span-3 2xl:col-span-1">
+              <Button type="submit" className="flex-1 sm:flex-none">Apply</Button>
               {hasActiveFilters ? (
-                <Button type="button" variant="outline" asChild>
+                <Button type="button" variant="outline" className="flex-1 sm:flex-none" asChild>
                   <Link href="/manager/repayments">Clear</Link>
                 </Button>
               ) : null}
             </div>
-          </div>
         </FilterForm>
       </CardContent>
     </Card>
