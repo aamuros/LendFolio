@@ -201,6 +201,20 @@ const emptyAddressSelection = {
   zipCode: "",
 };
 
+function sanitizeStoredAddressSelection(
+  selection: PhilippineAddressSelection,
+): PhilippineAddressSelection {
+  const hasAnyAddressValue = Object.values(selection).some(
+    (item) => item.trim().length > 0,
+  );
+
+  if (!hasAnyAddressValue || isValidPhilippineAddressSelection(selection)) {
+    return selection;
+  }
+
+  return emptyAddressSelection;
+}
+
 const borrowerPortfolioBaseSchema = z.object({
   mobileNumber: shortText(30),
   homeAddress: shortText(240),
@@ -1400,13 +1414,13 @@ export function mapBorrowerPortfolioRow(
     otherAssetsValue,
   ].some((value) => value > 0);
 
-  const address: PhilippineAddressSelection = {
+  const address = sanitizeStoredAddressSelection({
     regionCode,
     regionName: regionCode,
     cityOrMunicipality,
     barangay,
     zipCode,
-  };
+  });
 
   const mapped = {
     mobileNumber: stringFrom(row.mobile_number),

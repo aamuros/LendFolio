@@ -88,12 +88,14 @@ export function BorrowerWorkspace({
     useState<BusinessProfileSection>();
   const [portfolioLoadState, setPortfolioLoadState] =
     useState<PortfolioLoadState>(
-      initialPortfolio ? "ready" : initialLoanApplications?.ok ? "empty" : "loading",
+      getInitialPortfolioLoadState(initialLoanApplications, initialPortfolio),
     );
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
     initialPortfolio,
   );
-  const [portfolioMessage, setPortfolioMessage] = useState("");
+  const [portfolioMessage, setPortfolioMessage] = useState(
+    initialLoanApplications?.ok === false ? initialLoanApplications.message : "",
+  );
   const [, startTransition] = useTransition();
   const [creditSummary, setCreditSummary] =
     useState<BorrowerCreditSummary | null>(
@@ -111,6 +113,9 @@ export function BorrowerWorkspace({
     borrowerLoanApplication: ConsentStatus;
   } | null>(initialLoanApplications?.consentStatuses ?? null);
   const hasSavedPortfolioRef = useRef(portfolio !== null);
+  const skipInitialProfileRefreshRef = useRef(
+    activeTab === "profile" && initialLoanApplications !== null,
+  );
   const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
@@ -131,7 +136,12 @@ export function BorrowerWorkspace({
       setPortfolio(null);
       setPortfolioLoadState("empty");
       setPortfolioMessage("");
+      return;
     }
+
+    setPortfolio(null);
+    setPortfolioLoadState("error");
+    setPortfolioMessage(result.message);
   }
 
   function refreshBorrowerLoanState() {
@@ -178,6 +188,11 @@ export function BorrowerWorkspace({
 
   useEffect(() => {
     if (activeTab !== "profile") {
+      return;
+    }
+
+    if (skipInitialProfileRefreshRef.current) {
+      skipInitialProfileRefreshRef.current = false;
       return;
     }
 
@@ -407,6 +422,21 @@ export function BorrowerWorkspace({
       ) : null}
     </div>
   );
+}
+
+function getInitialPortfolioLoadState(
+  initialLoanApplications: LoanApplicationsLoadResult | null,
+  initialPortfolio: BorrowerPortfolioInput | null,
+): PortfolioLoadState {
+  if (initialPortfolio) {
+    return "ready";
+  }
+
+  if (!initialLoanApplications) {
+    return "loading";
+  }
+
+  return initialLoanApplications.ok ? "empty" : "error";
 }
 
 function resolveEditInitialStep(

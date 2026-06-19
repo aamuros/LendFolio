@@ -476,6 +476,33 @@ describe("microbusiness borrower readiness", () => {
     expect(mapped.loanPurposeDetails).toBe("Restock sari-sari inventory");
   });
 
+  it("loads legacy partial business address data without rejecting the profile", () => {
+    const mapped = mapBorrowerPortfolioRow({
+      id: "portfolio-address-1",
+      borrower_id: "borrower-1",
+      business_name: "Commonwealth Store",
+      business_address: "45 Mabini Street, Brgy. Commonwealth, Quezon City",
+      barangay: "Commonwealth",
+      city_or_municipality: "Quezon City",
+      province: "Metro Manila",
+      region: null,
+      zip_code: null,
+      location: "Quezon City",
+    } as Parameters<typeof mapBorrowerPortfolioRow>[0]);
+
+    expect(mapped.businessAddress).toBe(
+      "45 Mabini Street, Brgy. Commonwealth, Quezon City",
+    );
+    expect(mapped.location).toBe("Quezon City");
+    expect(mapped.address).toEqual({
+      regionCode: "",
+      regionName: "",
+      cityOrMunicipality: "",
+      barangay: "",
+      zipCode: "",
+    });
+  });
+
   it("normalizes saved registration data into a checked state", () => {
     const mapped = mapBorrowerPortfolioRow({
       id: "portfolio-registration-1",

@@ -367,12 +367,14 @@ export async function loadBorrowerPortfolio(
       data: data ? mapBorrowerPortfolioRow(data) : null,
       message: data ? "Profile loaded." : "",
     };
-  } catch {
+  } catch (error) {
+    console.error("[borrower-portfolio-load]", error);
+
     return {
       ok: false,
-      mode: "auth",
+      mode: "supabase",
       data: null,
-      message: "Sign in to continue.",
+      message: "Could not load your profile.",
     };
   }
 }
@@ -1529,10 +1531,12 @@ export async function loadBorrowerLoanApplications(
         ? getBorrowerVerificationMessage(borrowerVerification)
         : "Save your business profile before submitting an application.",
     };
-  } catch {
+  } catch (error) {
+    console.error("[borrower-loan-applications-load]", error);
+
     return {
       ok: false,
-      mode: "auth",
+      mode: "supabase",
       applications: [],
       hasPortfolio: false,
       completedPortfolioSteps: [],
@@ -1541,7 +1545,7 @@ export async function loadBorrowerLoanApplications(
       creditSummary: null,
       readiness: null,
       consentStatuses: null,
-      message: "Sign in to continue.",
+      message: "Could not load your borrower workspace.",
     };
   }
 }
