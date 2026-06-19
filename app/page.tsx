@@ -23,6 +23,8 @@ export default async function Home({ searchParams }: HomeProps) {
   }
 
   const authMessage = getAuthMessage(params?.auth);
+  const emailVerificationMessage =
+    !access.ok && access.reason === "email_unverified" ? access.message : "";
 
   let lenderPendingMessage = "";
   if (
@@ -34,7 +36,7 @@ export default async function Home({ searchParams }: HomeProps) {
     lenderPendingMessage = LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE;
   }
 
-  const statusMessage = lenderPendingMessage || authMessage;
+  const statusMessage = lenderPendingMessage || emailVerificationMessage || authMessage;
 
   return (
     <main className="theme-lendfolio min-h-svh overflow-x-hidden bg-background text-foreground">
@@ -1310,7 +1312,7 @@ const metrics = [
 
 function getAuthMessage(auth?: string) {
   if (auth === "unknown") {
-    return "Your account is signed in, but it does not have access to a workspace yet.";
+    return "Your account is signed in, but the workspace is not ready yet.";
   }
 
   if (auth === "lender-pending") {

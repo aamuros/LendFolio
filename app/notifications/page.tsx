@@ -6,7 +6,10 @@ export default async function NotificationsPage() {
   const access = await getCurrentUserProfile();
 
   if (!access.ok) {
-    redirect("/login", RedirectType.replace);
+    redirect(
+      access.reason === "email_unverified" ? "/login?message=verify-email" : "/login",
+      RedirectType.replace,
+    );
   }
 
   return <NotificationsPageClient />;

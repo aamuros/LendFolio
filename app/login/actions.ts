@@ -3,6 +3,10 @@
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import { getRouteForRole } from "@/lib/app-roles";
+import {
+  EMAIL_VERIFICATION_LOGIN_MESSAGE,
+  hasConfirmedEmail,
+} from "@/lib/auth-confirmation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { AppRole, ProfileStatus } from "@/lib/supabase/types";
@@ -36,6 +40,14 @@ export async function loginAction(
     if (error || !data.user) {
       return {
         message: getLoginErrorMessage(error),
+      };
+    }
+
+    if (!hasConfirmedEmail(data.user)) {
+      await supabase.auth.signOut();
+
+      return {
+        message: EMAIL_VERIFICATION_LOGIN_MESSAGE,
       };
     }
 
@@ -116,7 +128,7 @@ function getLoginErrorMessage(error: { code?: string; message?: string } | null)
     message.includes("email not confirmed") ||
     message.includes("email is not confirmed")
   ) {
-    return "Confirm your email before signing in.";
+    return EMAIL_VERIFICATION_LOGIN_MESSAGE;
   }
 
   return "Could not sign in. Check your email and password.";

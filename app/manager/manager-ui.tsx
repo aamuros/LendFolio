@@ -62,10 +62,19 @@ export function ManagerShell({
 }
 
 export function AccessDenied({ message }: { message: string }) {
+  const isEmailVerification = message.startsWith("Confirm your email");
+  const isAccountNotReady = message.includes("workspace is not ready");
+  const isRecoverable = isEmailVerification || isAccountNotReady;
+  const title = isEmailVerification
+    ? "Confirm your email"
+    : isAccountNotReady
+      ? "Account not ready"
+      : "Access Denied";
+
   return (
-    <Alert variant="destructive">
-      <AlertCircleIcon />
-      <AlertTitle>Access Denied</AlertTitle>
+    <Alert variant={isRecoverable ? "default" : "destructive"}>
+      {isRecoverable ? <InfoIcon /> : <AlertCircleIcon />}
+      <AlertTitle>{title}</AlertTitle>
       <AlertDescription>{message}</AlertDescription>
     </Alert>
   );

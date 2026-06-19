@@ -1,5 +1,9 @@
 import { createSupabaseServerClient } from "./supabase/server";
 import type { AppRole, Database } from "./supabase/types";
+import {
+  EMAIL_VERIFICATION_REQUIRED_MESSAGE,
+  hasConfirmedEmail,
+} from "./auth-confirmation";
 import { canAccessRole, hasPrimaryRole, hasRole, isApprovedLender } from "./role-rules";
 
 type SupabaseServerClient = Awaited<
@@ -24,7 +28,7 @@ export type AccessResult =
       ok: false;
       supabase: SupabaseServerClient | null;
       message: string;
-      reason: "unauthenticated" | "forbidden" | "unavailable";
+      reason: "unauthenticated" | "email_unverified" | "forbidden" | "unavailable";
     };
 
 export const LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE =
@@ -41,12 +45,21 @@ export async function getCurrentUserProfile(
       error: userError,
     } = await client.auth.getUser();
 
-    if (userError || !user || user.email_confirmed_at === null) {
+    if (userError || !user) {
       return {
         ok: false,
         supabase: client,
         reason: "unauthenticated",
         message: "Sign in to continue.",
+      };
+    }
+
+    if (!hasConfirmedEmail(user)) {
+      return {
+        ok: false,
+        supabase: client,
+        reason: "email_unverified",
+        message: EMAIL_VERIFICATION_REQUIRED_MESSAGE,
       };
     }
 
@@ -61,7 +74,7 @@ export async function getCurrentUserProfile(
         ok: false,
         supabase: client,
         reason: "forbidden",
-        message: "Your account does not have access to this workspace.",
+        message: "Your account is signed in, but the workspace is not ready yet.",
       };
     }
 

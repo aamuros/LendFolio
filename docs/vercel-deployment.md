@@ -192,6 +192,16 @@ emails consistently return users to the production login page. Supabase allowed
 redirect URLs must include the local, production, and preview patterns listed
 above.
 
+If a newly signed-up user sees an account-not-ready or email-verification
+message in production, check these items first:
+
+1. The user has clicked the Supabase confirmation email before signing in.
+2. `NEXT_PUBLIC_SITE_URL` matches the deployed production origin exactly.
+3. The same production origin is listed in Supabase Auth **Site URL** and
+   **Redirect URLs**.
+4. Production database migrations have been applied, including the account
+   provisioning trigger migrations.
+
 ---
 
 ## Manager Account Bootstrap

@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
+import { hasConfirmedEmail } from "@/lib/auth-confirmation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
 import { getAuthRedirectUrl } from "@/lib/site-url";
@@ -92,7 +93,7 @@ export async function lenderRegisterAction(
       };
     }
 
-    if (!data.session || data.user.email_confirmed_at === null) {
+    if (!data.session || !hasConfirmedEmail(data.user)) {
       if (data.session) {
         await supabase.auth.signOut();
       }

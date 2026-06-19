@@ -3,6 +3,7 @@ import { LoginForm } from "@/app/login/login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import { getRouteForRole } from "@/lib/app-roles";
+import { EMAIL_VERIFICATION_LOGIN_MESSAGE } from "@/lib/auth-confirmation";
 
 export default async function LoginPage({
   searchParams,
@@ -17,13 +18,22 @@ export default async function LoginPage({
   const params = await searchParams;
   const notice = getLoginNotice(params);
   const access = await getCurrentUserProfile();
-  if (!notice && access.ok && access.profile.status === "active") {
+  const emailVerificationNotice =
+    !notice && !access.ok && access.reason === "email_unverified"
+      ? ({
+          status: "error",
+          message: EMAIL_VERIFICATION_LOGIN_MESSAGE,
+        } satisfies LoginNotice)
+      : null;
+  const visibleNotice = notice ?? emailVerificationNotice;
+
+  if (!visibleNotice && access.ok && access.profile.status === "active") {
     redirect(getRouteForRole(access.profile.role), RedirectType.replace);
   }
 
   return (
     <AuthShell maxWidth="max-w-sm">
-      <LoginForm notice={notice} />
+      <LoginForm notice={visibleNotice} />
     </AuthShell>
   );
 }
@@ -43,6 +53,13 @@ function getLoginNotice(params: {
     return {
       status: "success",
       message: "Email confirmed. Sign in to continue.",
+    };
+  }
+
+  if (params.message === "verify-email") {
+    return {
+      status: "error",
+      message: EMAIL_VERIFICATION_LOGIN_MESSAGE,
     };
   }
 

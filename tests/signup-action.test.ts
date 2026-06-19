@@ -40,11 +40,17 @@ function createSignupFormData(role: "borrower" | "lender") {
   return formData;
 }
 
-function mockSupabase(profileRole: "borrower" | "lender") {
+function mockSupabase(
+  profileRole: "borrower" | "lender",
+  user: { id: string; email_confirmed_at?: string; confirmed_at?: string } = {
+    id: "user-1",
+    email_confirmed_at: "2026-01-01T00:00:00.000Z",
+  },
+) {
   const signOut = vi.fn().mockResolvedValue({ error: null });
   const signUp = vi.fn().mockResolvedValue({
     data: {
-      user: { id: "user-1" },
+      user,
       session: { access_token: "token" },
     },
     error: null,
@@ -82,5 +88,18 @@ describe("signup action role enforcement", () => {
     );
     expect(result.values?.role).toBe("borrower");
     expect(supabase.signOut).toHaveBeenCalled();
+  });
+
+  it("keeps unconfirmed email signups on the check-email state", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower", { id: "user-1" });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("success");
+    expect(result.message).toContain("Check your email");
+    expect(supabase.signOut).toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });

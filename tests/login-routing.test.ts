@@ -33,12 +33,19 @@ function createLoginFormData(email = "user@example.com", password = "password123
 const previousState = { message: "" };
 
 function mockSupabase(overrides: {
-  authUser?: { id: string } | null;
+  authUser?: {
+    id: string;
+    email_confirmed_at?: string;
+    confirmed_at?: string;
+  } | null;
   profile?: { role: string; status: string } | null;
   lenderProfile?: { verification_status: string } | null;
 } = {}) {
   const {
-    authUser = { id: "user-1" },
+    authUser = {
+      id: "user-1",
+      email_confirmed_at: "2026-01-01T00:00:00.000Z",
+    },
     profile = { role: "lender", status: "active" },
     lenderProfile = { verification_status: "pending" },
   } = overrides;
@@ -75,9 +82,10 @@ function mockSupabase(overrides: {
     data: { user: authUser },
     error: null,
   });
+  const signOut = vi.fn().mockResolvedValue({ error: null });
 
   const supabase = {
-    auth: { signInWithPassword },
+    auth: { signInWithPassword, signOut },
     from,
   };
 
@@ -167,5 +175,19 @@ describe("login routing for lenders", () => {
     } catch (error) {
       expect((error as Error).message).toBe("REDIRECT:/lender/onboarding");
     }
+  });
+
+  it("shows email verification guidance instead of routing unconfirmed users", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase({
+      authUser: { id: "user-1" },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await loginAction(previousState, createLoginFormData());
+
+    expect(result.message).toContain("Confirm your email");
+    expect(supabase.auth.signOut).toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 });
