@@ -7,6 +7,7 @@ import {
   useState,
   type ChangeEvent,
   type FormEvent,
+  type ReactNode,
 } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -19,11 +20,12 @@ import {
   type LenderVerificationDocumentPolicy,
   type LenderVerificationDocumentType,
 } from "@/lib/lender-verification";
+import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
-import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
+import { Badge } from "@/components/ui/badge";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 import {
   UploadIcon,
@@ -45,12 +47,14 @@ type UploadState =
   | {
       ok: true;
       message: string;
-      aiReviewStatus?: "fail" | "needs_manual_review";
+      aiReviewStatus?: "fail" | "needs_manual_review" | "error";
     }
   | {
       ok: false;
       message: string;
     };
+
+type LenderDocumentBadgeTone = "success" | "danger" | "attention" | "neutral";
 
 const lenderDocumentAccept = "application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png";
 
@@ -110,7 +114,7 @@ function HeaderCard({
   managerReviewNotes: string | null;
   missingCount: number;
 }) {
-  const toneMap: Record<typeof facingState, BadgeTone> = {
+  const toneMap: Record<typeof facingState, LenderDocumentBadgeTone> = {
     approved: "success",
     needs_update: "danger",
     waiting_review: "neutral",
@@ -132,33 +136,39 @@ function HeaderCard({
   const isWaiting = facingState === "waiting_review";
 
   return (
-    <div className="grid gap-3">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-base font-semibold">Verification documents</h2>
-        <ToneBadge tone={toneMap[facingState]}>
-          {labelMap[facingState]}
-        </ToneBadge>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        {descMap[facingState]}
-      </p>
-      {isWaiting ? (
-        <div className="flex items-center gap-2 rounded-lg bg-amber-50/70 px-3.5 py-2.5 text-xs text-amber-700">
-          <Clock className="size-3.5 shrink-0" />
-          No action needed right now.
+    <Card size="sm">
+      <CardHeader>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <CardTitle className="text-base font-semibold">
+            Verification documents
+          </CardTitle>
+          <LenderDocumentStatusBadge tone={toneMap[facingState]}>
+            {labelMap[facingState]}
+          </LenderDocumentStatusBadge>
         </div>
-      ) : null}
-      {rejectionReason ? (
-        <Alert variant="destructive">
-          <AlertDescription>{rejectionReason}</AlertDescription>
-        </Alert>
-      ) : null}
-      {managerReviewNotes ? (
-        <Alert>
-          <AlertDescription>{managerReviewNotes}</AlertDescription>
-        </Alert>
-      ) : null}
-    </div>
+        <CardDescription>{descMap[facingState]}</CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-3">
+        {isWaiting ? (
+          <Alert>
+            <Clock className="size-4" />
+            <AlertDescription>No action needed right now.</AlertDescription>
+          </Alert>
+        ) : null}
+        {rejectionReason ? (
+          <Alert variant="destructive">
+            <AlertTitle>Manager feedback</AlertTitle>
+            <AlertDescription>{rejectionReason}</AlertDescription>
+          </Alert>
+        ) : null}
+        {managerReviewNotes ? (
+          <Alert>
+            <AlertTitle>Manager note</AlertTitle>
+            <AlertDescription>{managerReviewNotes}</AlertDescription>
+          </Alert>
+        ) : null}
+      </CardContent>
+    </Card>
   );
 }
 
@@ -362,7 +372,9 @@ function RequiredDocumentRow({
               {lenderVerificationDocumentTypeDescriptions[documentType]}
             </p>
           </div>
-          <ToneBadge tone={docStatus.tone}>{docStatus.label}</ToneBadge>
+          <LenderDocumentStatusBadge tone={docStatus.tone}>
+            {docStatus.label}
+          </LenderDocumentStatusBadge>
         </div>
 
         {latestDoc ? (
@@ -395,10 +407,13 @@ function RequiredDocumentRow({
         ) : null}
 
         {latestDoc?.reviewNotes ? (
-          <p className="text-xs text-muted-foreground">
-            {latestDoc.reviewNotes}
-          </p>
+          <Alert>
+            <AlertTitle>Manager feedback</AlertTitle>
+            <AlertDescription>{latestDoc.reviewNotes}</AlertDescription>
+          </Alert>
         ) : null}
+
+        {latestDoc ? <DocumentAiReviewNote review={latestDoc.aiReview} /> : null}
 
         {showUpload ? (
           <form ref={formRef} onSubmit={handleSubmit} className="grid gap-3">
@@ -457,26 +472,20 @@ function RequiredDocumentRow({
               ) : null}
             </div>
             {selectedFileError ? (
-              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs leading-5 text-destructive">
-                {selectedFileError}
-              </p>
+              <Alert variant="destructive">
+                <AlertDescription>{selectedFileError}</AlertDescription>
+              </Alert>
             ) : null}
           </form>
         ) : null}
 
         {state ? (
-          <p
-            className={`rounded-md border px-3 py-1.5 text-xs leading-5 ${
-              state.ok && state.aiReviewStatus
-                ? "border-amber-200 bg-amber-50 text-amber-700"
-                : state.ok
-                  ? "border-border bg-muted/30 text-muted-foreground"
-                : "border-destructive/30 bg-destructive/10 text-destructive"
-            }`}
-            role="status"
-          >
-            {state.message}
-          </p>
+          <Alert variant={state.ok ? "default" : "destructive"} role="status">
+            <AlertTitle>
+              {state.ok ? "Document submitted" : "Upload failed"}
+            </AlertTitle>
+            <AlertDescription>{state.message}</AlertDescription>
+          </Alert>
         ) : null}
       </div>
 
@@ -501,7 +510,7 @@ function getDocumentDisplayStatus(
 ): {
   state: "missing" | "submitted" | "accepted" | "rejected";
   label: string;
-  tone: BadgeTone;
+  tone: LenderDocumentBadgeTone;
 } {
   if (policy.acceptedDocumentTypes.includes(documentType)) {
     return { state: "accepted", label: "Accepted", tone: "success" };
@@ -520,6 +529,41 @@ function getDocumentDisplayStatus(
   }
 
   return { state: "missing", label: "Upload required", tone: "attention" };
+}
+
+function LenderDocumentStatusBadge({
+  tone,
+  children,
+}: {
+  tone: LenderDocumentBadgeTone;
+  children: ReactNode;
+}) {
+  return (
+    <Badge
+      variant={
+        tone === "danger"
+          ? "destructive"
+          : tone === "neutral"
+            ? "secondary"
+            : "outline"
+      }
+      className={getBadgeClassName(tone)}
+    >
+      {children}
+    </Badge>
+  );
+}
+
+function getBadgeClassName(tone: LenderDocumentBadgeTone) {
+  if (tone === "success") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-50";
+  }
+
+  if (tone === "attention") {
+    return "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-50";
+  }
+
+  return undefined;
 }
 
 function formatFileSize(size: number) {

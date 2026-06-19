@@ -125,8 +125,10 @@ function buildDocumentCheckPrompt({
     `Requested document type: ${requestedDocumentType}.`,
     "",
     "Classify only whether the file appears to be a document, what broad type it appears to be, whether it appears to match the requested type, readability, risk flags, decision, confidence, and a brief reason.",
+    'Use cautious wording such as "appears to be", "visually resembles", or "may match". Do not state that a document is authentic, legally valid, government-issued, verified, or approved. Do not claim final verification. The manager is responsible for the final decision.',
     "Do not claim that any government ID or license is legally authentic.",
-    "Do not extract, quote, describe, or store sensitive personal details, including full ID numbers, addresses, birthdays, signatures, or face descriptions.",
+    "Do not extract, quote, describe, or store sensitive personal details, including full names, ID numbers, addresses, birthdays, signatures, or face descriptions.",
+    'The reason must not say "this is authentic", "this is verified", or similar final-verification language.',
     "If the requested type is authorized_representative_id, use detectedType valid_id when the file appears to be a representative ID and set matchesRequestedType accordingly.",
     "If the requested type is collection_policy or sample_loan_terms, use detectedType other when the file appears to match that requested business document.",
     "",
@@ -165,7 +167,7 @@ function parseDocumentCheckResponse(
       riskFlags,
       decision,
       confidence: parsed.data.confidence,
-      reason: sanitizeAiText(parsed.data.reason, 1000),
+      reason: sanitizeAiReason(parsed.data.reason, 1000),
     };
   } catch {
     return null;
@@ -213,9 +215,30 @@ function sanitizeAiText(value: string, maxLength: number) {
     .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, "[redacted]")
     .replace(/\+?\d[\d\s().-]{7,}\d/g, "[redacted]")
     .replace(/\b\d{4,}\b/g, "[redacted]")
+    .replace(
+      /\b(?:birth(?:day|date)|date of birth|dob|address|signature|full name|id number|face)\b\s*[:,-]?\s*[^.]+/gi,
+      "[redacted]",
+    )
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, maxLength);
+}
+
+function sanitizeAiReason(value: string, maxLength: number) {
+  const sanitized = sanitizeAiText(value, maxLength)
+    .replace(/\bauthentic\b/gi, "appears consistent")
+    .replace(/\blegally valid\b/gi, "appears relevant")
+    .replace(/\bverified\b/gi, "appears to need review")
+    .replace(/\bapproved\b/gi, "appears acceptable");
+
+  if (!/\b(appears|visually resembles|may match|may not match)\b/i.test(sanitized)) {
+    return `The uploaded file appears to require manual review. ${sanitized}`.slice(
+      0,
+      maxLength,
+    );
+  }
+
+  return sanitized;
 }
 
 function createErrorResult(reason: string): DocumentCheckerResult {

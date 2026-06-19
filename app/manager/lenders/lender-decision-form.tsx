@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { reviewLenderAction } from "@/app/manager/actions";
 import { getCurrentScrollY } from "@/app/manager/scroll-position";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -72,24 +73,23 @@ export function LenderDecisionForm({
           onChange={(e) => setRejectionReason(e.target.value)}
         />
       </div>
-      {isBlocked ? (
-        <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-700">
-          <ShieldAlertIcon className="mt-0.5 size-3.5 shrink-0" />
-          <span>{reason}</span>
-        </div>
-      ) : null}
       <div className="grid gap-2">
-        {!isBlocked ? (
-          <Button
-            type="submit"
-            name="decision"
-            value="approve"
-            className="w-full"
-          >
-            <CheckCircle2Icon className="size-4" />
-            Approve
-          </Button>
+        {isBlocked ? (
+          <Alert>
+            <ShieldAlertIcon />
+            <AlertDescription>{reason}</AlertDescription>
+          </Alert>
         ) : null}
+        <Button
+          type="submit"
+          name="decision"
+          value="approve"
+          className="w-full"
+          disabled={isBlocked}
+        >
+          <CheckCircle2Icon className="size-4" />
+          Approve
+        </Button>
         <Button
           type="submit"
           name="decision"
@@ -101,17 +101,15 @@ export function LenderDecisionForm({
           <XCircleIcon className="size-4" />
           Reject
         </Button>
-        {!isBlocked ? (
-          <Button
-            type="submit"
-            name="decision"
-            value="return_to_pending"
-            variant="ghost"
-            className="w-full"
-          >
-            Return to pending
-          </Button>
-        ) : null}
+        <Button
+          type="submit"
+          name="decision"
+          value="return_to_pending"
+          variant="ghost"
+          className="w-full"
+        >
+          Return to pending
+        </Button>
       </div>
     </form>
   );

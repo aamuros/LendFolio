@@ -52,6 +52,7 @@ import {
 import {
   Alert,
   AlertDescription,
+  AlertTitle,
 } from "@/components/ui/alert";
 import {
   AlertCircleIcon,
@@ -737,6 +738,15 @@ function RequiredDocumentsSection({
       documentPolicy.submittedDocumentTypes.includes(dt) &&
       !documentPolicy.acceptedDocumentTypes.includes(dt),
   );
+  const requiredDocuments = documentPolicy.requiredDocumentTypes.map(
+    (docType) => latestByType.get(docType),
+  );
+  const hasAiMismatch = requiredDocuments.some(
+    (doc) => doc?.aiReview.aiReviewStatus === "fail",
+  );
+  const hasAiNeedsManualReview = requiredDocuments.some(
+    (doc) => doc?.aiReview.aiReviewStatus === "needs_manual_review",
+  );
 
   return (
     <div className="space-y-3">
@@ -749,97 +759,36 @@ function RequiredDocumentsSection({
       </div>
 
       {!hasMissing && hasSubmittedNotAccepted ? (
-        <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-          <span>
+        <Alert>
+          <AlertCircleIcon />
+          <AlertDescription>
             All required documents are uploaded. Accept each document before
             approving borrower verification.
-          </span>
-        </div>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="hidden sm:block">
-        <Card className="py-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>File</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[60px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documentPolicy.requiredDocumentTypes.map((docType) => {
-                const latest = latestByType.get(docType);
-                const isAccepted =
-                  documentPolicy.acceptedDocumentTypes.includes(docType);
-                const isSubmitted =
-                  documentPolicy.submittedDocumentTypes.includes(docType);
-                const isRejected =
-                  documentPolicy.rejectedDocumentTypes.includes(docType);
+      {hasAiMismatch ? (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>AI detected a possible document mismatch.</AlertTitle>
+          <AlertDescription>
+            One or more uploaded files may not match the required document type.
+            Review the document manually or request resubmission.
+          </AlertDescription>
+        </Alert>
+      ) : hasAiNeedsManualReview ? (
+        <Alert>
+          <AlertCircleIcon />
+          <AlertTitle>Some documents need closer review.</AlertTitle>
+          <AlertDescription>
+            AI could not confidently determine that every uploaded document
+            matches the requested type.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-                const docLabel =
-                  borrowerVerificationDocumentTypeLabels[docType];
-                const canReview =
-                  latest?.status === "submitted" && !isAccepted;
-
-                return (
-                  <TableRow key={docType}>
-                    <TableCell className="font-medium">
-                      {docLabel}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {latest ? (
-                        <div className="grid gap-1.5">
-                          <span className="flex items-center gap-1.5">
-                            <FileTextIcon className="size-3.5 shrink-0" />
-                            <span className="max-w-[200px] truncate">
-                              {latest.fileName}
-                            </span>
-                          </span>
-                          <DocumentAiReviewNote review={latest.aiReview} />
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          Not uploaded
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
-                    </TableCell>
-                    <TableCell>
-                      <DocumentStatusBadge
-                        isAccepted={isAccepted}
-                        isSubmitted={isSubmitted}
-                        isRejected={isRejected}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {latest ? (
-                        <DocumentActionsCell
-                          documentId={latest.id}
-                          documentLabel={docLabel}
-                          fileName={latest.fileName}
-                          fileSize={latest.fileSize}
-                          fileType={latest.fileType}
-                          viewUrl={latest.viewUrl}
-                          canReview={canReview}
-                          selected={selected}
-                        />
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
-
-      <div className="space-y-2 sm:hidden">
+      <div className="space-y-2">
         {documentPolicy.requiredDocumentTypes.map((docType) => {
           const latest = latestByType.get(docType);
           const isAccepted =
@@ -854,41 +803,46 @@ function RequiredDocumentsSection({
 
           return (
             <Card key={docType} size="sm">
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{docLabel}</span>
-                  <DocumentStatusBadge
-                    isAccepted={isAccepted}
-                    isSubmitted={isSubmitted}
-                    isRejected={isRejected}
-                  />
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                  <div className="min-w-0 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-medium">{docLabel}</span>
+                      <DocumentStatusBadge
+                        isAccepted={isAccepted}
+                        isSubmitted={isSubmitted}
+                        isRejected={isRejected}
+                      />
+                    </div>
+                    {latest ? (
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                        <FileTextIcon className="size-3 shrink-0" />
+                        <span className="break-all">{latest.fileName}</span>
+                        <span>{"\u00b7"}</span>
+                        <span>{formatDateTime(latest.uploadedAt)}</span>
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground">
+                        Not uploaded
+                      </p>
+                    )}
+                  </div>
+                  {latest ? (
+                    <DocumentActionsCell
+                      documentId={latest.id}
+                      documentLabel={docLabel}
+                      fileName={latest.fileName}
+                      fileSize={latest.fileSize}
+                      fileType={latest.fileType}
+                      viewUrl={latest.viewUrl}
+                      canReview={canReview}
+                      aiReviewStatus={latest.aiReview.aiReviewStatus}
+                      selected={selected}
+                    />
+                  ) : null}
                 </div>
                 {latest ? (
-                  <>
-                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <FileTextIcon className="size-3 shrink-0" />
-                      {latest.fileName}
-                      {" \u00b7 "}
-                      {formatDateTime(latest.uploadedAt)}
-                    </p>
-                    <DocumentAiReviewNote review={latest.aiReview} />
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Not uploaded
-                  </p>
-                )}
-                {latest ? (
-                  <DocumentActionsCell
-                    documentId={latest.id}
-                    documentLabel={docLabel}
-                    fileName={latest.fileName}
-                    fileSize={latest.fileSize}
-                    fileType={latest.fileType}
-                    viewUrl={latest.viewUrl}
-                    canReview={canReview}
-                    selected={selected}
-                  />
+                  <DocumentAiReviewNote review={latest.aiReview} />
                 ) : null}
               </CardContent>
             </Card>
@@ -1052,6 +1006,11 @@ function ManagerDecisionPanel({
   verification: ManagerBorrowerVerificationRow;
   selected: string;
 }) {
+  const allRequiredDocumentsAccepted =
+    verification.documentPolicy.requiredDocumentTypes.every((docType) =>
+      verification.documentPolicy.acceptedDocumentTypes.includes(docType),
+    );
+
   return (
     <Card size="sm">
       <CardHeader>
@@ -1062,6 +1021,8 @@ function ManagerDecisionPanel({
           borrowerId={verification.borrower.id}
           verificationId={verification.id}
           selected={selected}
+          approvalBlocked={!allRequiredDocumentsAccepted}
+          approvalBlockReason="Accept all required documents before approving this verification."
         />
       </CardContent>
     </Card>

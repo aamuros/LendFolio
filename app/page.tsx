@@ -1,7 +1,10 @@
 import Link from "next/link";
 import { redirect, RedirectType } from "next/navigation";
 import { FloatingLandingHeader } from "@/components/landing/floating-landing-header";
-import { getCurrentUserProfile } from "@/lib/access-control";
+import {
+  getCurrentUserProfile,
+  LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE,
+} from "@/lib/access-control";
 import { getRouteForRole } from "@/lib/app-roles";
 import { isApprovedLender } from "@/lib/role-rules";
 
@@ -28,8 +31,7 @@ export default async function Home({ searchParams }: HomeProps) {
     !isApprovedLender(access.profile) &&
     access.profile.lenderProfile?.verification_status === "pending"
   ) {
-    lenderPendingMessage =
-      "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.";
+    lenderPendingMessage = LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE;
   }
 
   const statusMessage = lenderPendingMessage || authMessage;

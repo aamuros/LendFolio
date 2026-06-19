@@ -4,7 +4,10 @@ import {
   LenderApplicationsList,
   LenderApplicationsStatus,
 } from "@/components/lender-applications-list";
-import { requirePrimaryRole } from "@/lib/access-control";
+import {
+  LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE,
+  requirePrimaryRole,
+} from "@/lib/access-control";
 import { loadOpenLenderApplications } from "@/lib/lender-applications";
 import { isApprovedLender } from "@/lib/role-rules";
 import { PageHeader, borrowerPageBottomPadding } from "@/components/borrower/ui";
@@ -41,6 +44,10 @@ export default async function LenderApplicationsPage() {
               <PageHeader
                 title="Open applications"
                 description="Review borrower requests once your lender account is approved."
+              />
+              <LenderApplicationsStatus
+                message={LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE}
+                tone="error"
               />
               <LenderApplicationsList
                 applications={[]}

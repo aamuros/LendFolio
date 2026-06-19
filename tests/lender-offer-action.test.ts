@@ -93,7 +93,7 @@ describe("createLoanOffer", () => {
       ok: false,
       reason: "forbidden",
       message:
-        "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.",
+        "Your lender verification must be approved before you can make loan offers.",
       supabase: asSupabase(mockSupabase),
     });
 
@@ -106,7 +106,7 @@ describe("createLoanOffer", () => {
     expect(result).toEqual({
       ok: false,
       message:
-        "Your lender profile is under review. Upload the required verification documents so a manager can complete approval.",
+        "Your lender verification must be approved before you can make loan offers.",
     });
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });
@@ -120,7 +120,8 @@ describe("createLoanOffer", () => {
     mockedRequireApprovedLender.mockResolvedValue({
       ok: false,
       reason: "forbidden",
-      message: "Your lender access was not approved.",
+      message:
+        "Your lender verification must be approved before you can make loan offers.",
       supabase: asSupabase(mockSupabase),
     });
 
@@ -132,7 +133,8 @@ describe("createLoanOffer", () => {
 
     expect(result).toEqual({
       ok: false,
-      message: "Your lender access was not approved.",
+      message:
+        "Your lender verification must be approved before you can make loan offers.",
     });
     expect(mockSupabase.rpc).not.toHaveBeenCalled();
   });

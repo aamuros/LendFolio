@@ -3,22 +3,30 @@
 import { useRef, useState } from "react";
 import { reviewBorrowerVerificationAction } from "@/app/manager/actions";
 import { getCurrentScrollY } from "@/app/manager/scroll-position";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { CheckCircle2Icon, XCircleIcon } from "lucide-react";
+import { CheckCircle2Icon, ShieldAlertIcon, XCircleIcon } from "lucide-react";
 
 export function VerificationDecisionForm({
   borrowerId,
   verificationId,
   selected,
+  approvalBlocked,
+  approvalBlockReason,
 }: {
   borrowerId: string;
   verificationId: string;
   selected?: string;
+  approvalBlocked?: boolean;
+  approvalBlockReason?: string;
 }) {
   const [rejectionReason, setRejectionReason] = useState("");
   const scrollYRef = useRef<HTMLInputElement>(null);
+  const blockedReason =
+    approvalBlockReason ??
+    "Accept all required documents before approving this verification.";
 
   return (
     <form
@@ -66,11 +74,18 @@ export function VerificationDecisionForm({
         />
       </div>
       <div className="grid gap-2">
+        {approvalBlocked ? (
+          <Alert>
+            <ShieldAlertIcon />
+            <AlertDescription>{blockedReason}</AlertDescription>
+          </Alert>
+        ) : null}
         <Button
           type="submit"
           name="decision"
           value="approve"
           className="w-full"
+          disabled={approvalBlocked}
         >
           <CheckCircle2Icon className="size-4" />
           Approve

@@ -20,7 +20,10 @@ import {
   buildConsentStatus,
 } from "@/lib/consents";
 import { loadUserConsents } from "@/lib/user-consents";
-import { requirePrimaryRole } from "@/lib/access-control";
+import {
+  LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE,
+  requirePrimaryRole,
+} from "@/lib/access-control";
 import { LenderToast } from "@/app/lender/lender-toast";
 import {
   isApplicationActionableForOffer,
@@ -177,21 +180,33 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             ) : null}
 
             {activeTab === "applications" ? (
-              <ApplicationsTab
-                applications={[]}
-                error=""
-                emptyDescription="Borrower applications will appear here once your lender account is approved."
-              />
+              <div className="grid gap-4">
+                <LenderApplicationsStatus
+                  message={LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE}
+                  tone="error"
+                />
+                <ApplicationsTab
+                  applications={[]}
+                  error=""
+                  emptyDescription="Borrower applications will appear here once your lender account is approved."
+                />
+              </div>
             ) : null}
 
             {activeTab === "offers" ? (
-              <OffersTab
-                offers={[]}
-                error=""
-                selectedStatus={selectedOfferStatus}
-                highlightOfferId={null}
-                highlightProofId={null}
-              />
+              <div className="grid gap-4">
+                <LenderApplicationsStatus
+                  message={LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE}
+                  tone="error"
+                />
+                <OffersTab
+                  offers={[]}
+                  error=""
+                  selectedStatus={selectedOfferStatus}
+                  highlightOfferId={null}
+                  highlightProofId={null}
+                />
+              </div>
             ) : null}
 
             {activeTab === "loans" ? (

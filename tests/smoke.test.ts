@@ -469,6 +469,18 @@ describe("manager operations helpers", () => {
     expect(lenderPage).toContain("includeSignedUrls: true");
   });
 
+  it("does not expose borrower private verification documents to lender review queries", () => {
+    const lenderApplications = readFileSync(
+      "lib/lender-applications.ts",
+      "utf8",
+    );
+
+    expect(lenderApplications).not.toContain("borrower_verification_documents");
+    expect(lenderApplications).not.toContain("borrower-verification-documents");
+    expect(lenderApplications).not.toContain("storage_path");
+    expect(lenderApplications).not.toContain("storage_bucket");
+  });
+
   it("keeps signup from silently redirecting active sessions into a workspace", () => {
     const signupPage = readFileSync("app/signup/page.tsx", "utf8");
 
@@ -1844,6 +1856,25 @@ describe("manager lender review page", () => {
     expect(decisionForm).toContain("reviewLenderAction");
     expect(decisionForm).toContain('name="lenderProfileId"');
     expect(decisionForm).toContain('name="decision"');
+  });
+
+  it("keeps manager approval disabled until required documents are accepted", () => {
+    const borrowerDecisionForm = readFileSync(
+      "app/manager/verification-decision-form.tsx",
+      "utf8",
+    );
+    const lenderDecisionForm = readFileSync(
+      "app/manager/lenders/lender-decision-form.tsx",
+      "utf8",
+    );
+
+    expect(borrowerDecisionForm).toContain("approvalBlocked");
+    expect(borrowerDecisionForm).toContain(
+      "Accept all required documents before approving this verification.",
+    );
+    expect(borrowerDecisionForm).toContain("disabled={approvalBlocked}");
+    expect(lenderDecisionForm).toContain("disabled={isBlocked}");
+    expect(lenderDecisionForm).toContain("Approve");
   });
 
   it("does not render incomplete lenders as reviewed or rejected", () => {

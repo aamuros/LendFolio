@@ -44,6 +44,10 @@ export function LenderToast() {
       toast.error(
         "Waiting for lender to complete profile details: contact, area, loan range.",
       );
+    } else if (review === "documents-required") {
+      toast.error(
+        "Accept the required documents before approving verification.",
+      );
     }
 
     if (documentReview === "accepted") {

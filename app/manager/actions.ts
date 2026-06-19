@@ -3,6 +3,16 @@
 import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
 import { requireManager } from "@/lib/access-control";
+import {
+  calculateBorrowerVerificationDocumentPolicy,
+  type BorrowerVerificationDocumentStatus,
+  type BorrowerVerificationDocumentType,
+} from "@/lib/borrower-verification";
+import {
+  calculateLenderVerificationDocumentPolicy,
+  type LenderVerificationDocumentStatus,
+  type LenderVerificationDocumentType,
+} from "@/lib/lender-verification";
 import type { Json } from "@/lib/supabase/types";
 
 type LenderReviewResult = {
@@ -10,6 +20,10 @@ type LenderReviewResult = {
   code?: string;
   message?: string;
 };
+type ManagerSupabaseClient = Extract<
+  Awaited<ReturnType<typeof requireManager>>,
+  { ok: true }
+>["supabase"];
 
 function buildReturnQuery(params: Record<string, string | undefined>) {
   const qs = new URLSearchParams();
@@ -63,6 +77,21 @@ export async function reviewLenderAction(formData: FormData) {
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
   }
 
+  if (
+    decision === "approve" &&
+    !(await hasAcceptedLenderRequiredDocuments(
+      access.supabase,
+      lenderProfileId,
+    ))
+  ) {
+    const qs = buildReturnQuery({
+      review: "documents-required",
+      selected,
+      scrollY,
+    });
+    redirect(`/manager/lenders?${qs}`, RedirectType.replace);
+  }
+
   const { data, error } = await access.supabase.rpc(
     "review_lender_verification",
     {
@@ -80,6 +109,8 @@ export async function reviewLenderAction(formData: FormData) {
         ? "consent-required"
         : result?.code === "profile_details_required"
           ? "profile-details-required"
+          : result?.code === "documents_required"
+            ? "documents-required"
           : "error";
     const qs = buildReturnQuery({ review: reviewCode, selected, scrollY });
     redirect(`/manager/lenders?${qs}`, RedirectType.replace);
@@ -111,6 +142,18 @@ export async function reviewBorrowerVerificationAction(formData: FormData) {
 
   if (!access.ok || !borrowerId) {
     const qs = buildReturnQuery({ review: "error", selected, scrollY });
+    redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
+  }
+
+  if (
+    decision === "approve" &&
+    !(await hasAcceptedBorrowerRequiredDocuments(access.supabase, borrowerId))
+  ) {
+    const qs = buildReturnQuery({
+      review: "documents-required",
+      selected,
+      scrollY,
+    });
     redirect(`/manager/borrower-verifications?${qs}`, RedirectType.replace);
   }
 
@@ -266,4 +309,46 @@ export async function reviewLenderProfileChangeRequestAction(
   const review = decision === "approve" ? "approved" : "rejected";
   const qs = buildReturnQuery({ changeRequestReview: review, selected, scrollY });
   redirect(`/manager/lenders?${qs}`, RedirectType.replace);
+}
+
+async function hasAcceptedBorrowerRequiredDocuments(
+  supabase: ManagerSupabaseClient,
+  borrowerId: string,
+) {
+  const { data, error } = await supabase
+    .from("borrower_verification_documents")
+    .select("document_type, status")
+    .eq("borrower_id", borrowerId)
+    .order("uploaded_at", { ascending: false });
+
+  if (error || !data) return false;
+
+  return calculateBorrowerVerificationDocumentPolicy(
+    data.map((document) => ({
+      documentType:
+        document.document_type as BorrowerVerificationDocumentType,
+      status: document.status as BorrowerVerificationDocumentStatus,
+    })),
+  ).documentsAccepted;
+}
+
+async function hasAcceptedLenderRequiredDocuments(
+  supabase: ManagerSupabaseClient,
+  lenderProfileId: string,
+) {
+  const { data, error } = await supabase
+    .from("lender_verification_documents")
+    .select("document_type, status")
+    .eq("lender_profile_id", lenderProfileId)
+    .order("uploaded_at", { ascending: false });
+
+  if (error || !data) return false;
+
+  return calculateLenderVerificationDocumentPolicy(
+    data.map((document) => ({
+      documentType:
+        document.document_type as LenderVerificationDocumentType,
+      status: document.status as LenderVerificationDocumentStatus,
+    })),
+  ).documentsAccepted;
 }

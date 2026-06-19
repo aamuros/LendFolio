@@ -1,5 +1,12 @@
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/types";
+import {
+  documentAiDetectedTypes,
+  documentAiReviewStatuses,
+  type DocumentAiDetectedType,
+  type DocumentAiReviewStatus,
+  type DocumentAiReviewSummary,
+} from "@/lib/ai/document-review";
 
 type SupabaseServerClient = Awaited<
   ReturnType<typeof createSupabaseServerClient>
@@ -25,6 +32,7 @@ export type LenderVerificationDocumentSummary = {
   reviewedAt: string | null;
   reviewNotes: string | null;
   viewUrl: string | null;
+  aiReview: DocumentAiReviewSummary;
 };
 
 export const lenderVerificationDocumentBucket =
@@ -180,6 +188,41 @@ export function mapLenderVerificationDocumentRow(
     reviewedAt: row.reviewed_at,
     reviewNotes: row.review_notes,
     viewUrl: null,
+    aiReview: mapLenderDocumentAiReview(row),
+  };
+}
+
+function mapLenderDocumentAiReview(
+  row: Pick<
+    LenderVerificationDocumentRow,
+    | "ai_review_status"
+    | "ai_review_confidence"
+    | "ai_detected_document_type"
+    | "ai_review_reason"
+    | "ai_risk_flags"
+    | "ai_model"
+    | "ai_reviewed_at"
+  >,
+): DocumentAiReviewSummary {
+  const status = documentAiReviewStatuses.includes(
+    row.ai_review_status as DocumentAiReviewStatus,
+  )
+    ? (row.ai_review_status as DocumentAiReviewStatus)
+    : "not_run";
+  const detectedType = documentAiDetectedTypes.includes(
+    row.ai_detected_document_type as DocumentAiDetectedType,
+  )
+    ? (row.ai_detected_document_type as DocumentAiDetectedType)
+    : null;
+
+  return {
+    aiReviewStatus: status,
+    aiReviewConfidence: row.ai_review_confidence,
+    aiDetectedDocumentType: detectedType,
+    aiReviewReason: row.ai_review_reason,
+    aiRiskFlags: row.ai_risk_flags ?? [],
+    aiModel: row.ai_model,
+    aiReviewedAt: row.ai_reviewed_at,
   };
 }
 

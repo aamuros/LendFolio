@@ -51,16 +51,24 @@ export type DocumentAiReviewSummary = {
 
 export function getDocumentAiUploadMessage(status: DocumentAiReviewStatus) {
   if (status === "fail") {
-    return "The uploaded file does not appear to match the selected document type. You may upload another file or submit it for manual review.";
+    return "The document was submitted, but AI flagged it as possibly mismatched. You may replace it with the correct document, or wait for manager review.";
   }
 
   if (status === "needs_manual_review") {
-    return "The document was submitted, but it may require manual review due to quality or uncertainty.";
+    return "The document was submitted, but it may need closer manual review.";
+  }
+
+  if (status === "pass") {
+    return "The document was submitted and appears to match the selected document type. A manager will still complete the final review.";
+  }
+
+  if (status === "error") {
+    return "The document was submitted for manual review. AI pre-screening was unavailable.";
   }
 
   return null;
 }
 
 export function isDocumentAiReviewWarning(status: DocumentAiReviewStatus) {
-  return status === "fail" || status === "needs_manual_review";
+  return status === "fail" || status === "needs_manual_review" || status === "error";
 }

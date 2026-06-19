@@ -5,7 +5,6 @@ import { consentTypeLabels, type ConsentStatus } from "@/lib/consents";
 import {
   lenderVerificationDocumentTypeLabels,
   lenderProfileChangeRequestStatusLabels,
-  type LenderVerificationDocumentType,
   type LenderVerificationDocumentPolicy,
 } from "@/lib/lender-verification";
 import {
@@ -75,6 +74,7 @@ import {
 import {
   Alert,
   AlertDescription,
+  AlertTitle,
 } from "@/components/ui/alert";
 import { LenderEvidenceDocumentRow } from "@/app/manager/lenders/lender-evidence-document-row";
 import { getLenderProfileCompletion } from "@/lib/lender-profile-completion";
@@ -501,17 +501,22 @@ function SelectedLenderDetail({
 
   const hasNotes = lender.rejectionReason || lender.managerReviewNotes;
   const missingFields = getMissingProfileFields(lender);
-  const missingDocuments = lender.documentPolicy.missingRequiredDocumentTypes;
   const disclosuresCurrent = lender.consentStatus.isCurrent;
   const profileComplete = missingFields.length === 0;
-  const documentsComplete = missingDocuments.length === 0;
+  const allRequiredDocumentsAccepted =
+    lender.documentPolicy.requiredDocumentTypes.every((docType) =>
+      lender.documentPolicy.acceptedDocumentTypes.includes(docType),
+    );
+  const documentsComplete = allRequiredDocumentsAccepted;
   const blocked = !profileComplete || !documentsComplete || !disclosuresCurrent;
   const blockerReason = blocked
     ? [
         !profileComplete
           ? `Waiting for lender to complete profile details: ${missingFields.join(", ")}`
           : null,
-        !documentsComplete ? `Needs documents: ${missingDocuments.map((dt: LenderVerificationDocumentType) => lenderVerificationDocumentTypeLabels[dt]).join(", ")}` : null,
+        !documentsComplete
+          ? "Accept all required documents before approving this lender."
+          : null,
         !disclosuresCurrent ? "Needs disclosures" : null,
       ]
         .filter(Boolean)
@@ -976,6 +981,15 @@ function LenderDocumentsSection({
       documentPolicy.submittedDocumentTypes.includes(dt) &&
       !documentPolicy.acceptedDocumentTypes.includes(dt),
   );
+  const requiredDocuments = documentPolicy.requiredDocumentTypes.map(
+    (docType) => latestByType.get(docType),
+  );
+  const hasAiMismatch = requiredDocuments.some(
+    (doc) => doc?.aiReview.aiReviewStatus === "fail",
+  );
+  const hasAiNeedsManualReview = requiredDocuments.some(
+    (doc) => doc?.aiReview.aiReviewStatus === "needs_manual_review",
+  );
 
   return (
     <div className="space-y-3">
@@ -988,97 +1002,36 @@ function LenderDocumentsSection({
       </div>
 
       {!hasMissing && hasSubmittedNotAccepted ? (
-        <div className="flex items-start gap-2 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-sm text-sky-700">
-          <AlertCircleIcon className="mt-0.5 size-4 shrink-0" />
-          <span>
+        <Alert>
+          <AlertCircleIcon />
+          <AlertDescription>
             All required documents are uploaded. Accept each document before
             approving lender verification.
-          </span>
-        </div>
+          </AlertDescription>
+        </Alert>
       ) : null}
 
-      <div className="hidden sm:block">
-        <Card className="py-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Type</TableHead>
-                <TableHead>File</TableHead>
-                <TableHead>Uploaded</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="w-[60px] text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {documentPolicy.requiredDocumentTypes.map((docType) => {
-                const latest = latestByType.get(docType);
-                const isAccepted =
-                  documentPolicy.acceptedDocumentTypes.includes(docType);
-                const isSubmitted =
-                  documentPolicy.submittedDocumentTypes.includes(docType);
-                const isRejected =
-                  documentPolicy.rejectedDocumentTypes.includes(docType);
+      {hasAiMismatch ? (
+        <Alert variant="destructive">
+          <AlertCircleIcon />
+          <AlertTitle>AI detected a possible document mismatch.</AlertTitle>
+          <AlertDescription>
+            One or more uploaded lender files may not match the required document
+            type. Review the document manually or request resubmission.
+          </AlertDescription>
+        </Alert>
+      ) : hasAiNeedsManualReview ? (
+        <Alert>
+          <AlertCircleIcon />
+          <AlertTitle>Some documents need closer review.</AlertTitle>
+          <AlertDescription>
+            AI could not confidently determine that every uploaded lender
+            document matches the requested type.
+          </AlertDescription>
+        </Alert>
+      ) : null}
 
-                const docLabel =
-                  lenderVerificationDocumentTypeLabels[docType];
-                const canReviewDoc =
-                  canReview && latest?.status === "submitted" && !isAccepted;
-
-                return (
-                  <TableRow key={docType}>
-                    <TableCell className="font-medium">
-                      {docLabel}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {latest ? (
-                        <div className="grid gap-1.5">
-                          <span className="flex items-center gap-1.5">
-                            <FileTextIcon className="size-3.5 shrink-0" />
-                            <span className="max-w-[200px] truncate">
-                              {latest.fileName}
-                            </span>
-                          </span>
-                          <DocumentAiReviewNote review={latest.aiReview} />
-                        </div>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          Not uploaded
-                        </span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {latest ? formatDateTime(latest.uploadedAt) : "\u2014"}
-                    </TableCell>
-                    <TableCell>
-                      <DocumentStatusBadge
-                        isAccepted={isAccepted}
-                        isSubmitted={isSubmitted}
-                        isRejected={isRejected}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {latest ? (
-                        <LenderDocumentActionsCell
-                          documentId={latest.id}
-                          documentType={latest.documentType}
-                          fileName={latest.fileName}
-                          fileSize={latest.fileSize}
-                          fileType={latest.fileType}
-                          viewUrl={latest.viewUrl}
-                          canReview={canReviewDoc}
-                          selected={selected}
-                        />
-                      ) : null}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Card>
-      </div>
-
-      <div className="space-y-2 sm:hidden">
+      <div className="space-y-2">
         {documentPolicy.requiredDocumentTypes.map((docType) => {
           const latest = latestByType.get(docType);
           const isAccepted =
@@ -1093,30 +1046,32 @@ function LenderDocumentsSection({
 
           return (
             <Card key={docType} size="sm">
-              <CardContent className="space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="text-sm font-medium">{docLabel}</span>
-                  <DocumentStatusBadge
-                    isAccepted={isAccepted}
-                    isSubmitted={isSubmitted}
-                    isRejected={isRejected}
-                  />
-                </div>
-                {latest ? (
-                  <>
-                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                      <FileTextIcon className="size-3 shrink-0" />
-                      {latest.fileName}
-                      {" \u00b7 "}
-                      {formatDateTime(latest.uploadedAt)}
+              <CardContent className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+                <div className="min-w-0 space-y-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium">{docLabel}</span>
+                    <DocumentStatusBadge
+                      isAccepted={isAccepted}
+                      isSubmitted={isSubmitted}
+                      isRejected={isRejected}
+                    />
+                  </div>
+                  {latest ? (
+                    <>
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-muted-foreground">
+                        <FileTextIcon className="size-3 shrink-0" />
+                        <span className="break-all">{latest.fileName}</span>
+                        <span>{"\u00b7"}</span>
+                        <span>{formatDateTime(latest.uploadedAt)}</span>
+                      </p>
+                      <DocumentAiReviewNote review={latest.aiReview} />
+                    </>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      Not uploaded
                     </p>
-                    <DocumentAiReviewNote review={latest.aiReview} />
-                  </>
-                ) : (
-                  <p className="text-xs text-muted-foreground">
-                    Not uploaded
-                  </p>
-                )}
+                  )}
+                </div>
                 {latest ? (
                   <LenderDocumentActionsCell
                     documentId={latest.id}
@@ -1126,6 +1081,7 @@ function LenderDocumentsSection({
                     fileType={latest.fileType}
                     viewUrl={latest.viewUrl}
                     canReview={canReviewDoc}
+                    aiReviewStatus={latest.aiReview.aiReviewStatus}
                     selected={selected}
                   />
                 ) : null}

@@ -232,7 +232,8 @@ describe("submitLenderVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: true,
-      message: "Verification document uploaded.",
+      message:
+        "The document was submitted and appears to match the selected document type. A manager will still complete the final review.",
       documentId: "document-1",
     });
     expect(mockSupabase.storage.from).toHaveBeenCalledWith(
@@ -286,11 +287,77 @@ describe("submitLenderVerificationDocument", () => {
     expect(result).toEqual({
       ok: true,
       message:
-        "The uploaded file does not appear to match the selected document type. You may upload another file or submit it for manual review.",
+        "The document was submitted, but AI flagged it as possibly mismatched. You may replace it with the correct document, or wait for manager review.",
       documentId: "document-1",
       aiReviewStatus: "fail",
     });
     expect(mockSupabase.rpc).toHaveBeenCalled();
+  });
+
+  it("uploads when AI pre-screening is unavailable", async () => {
+    mockedCheckVerificationDocumentWithAi.mockResolvedValueOnce({
+      isDocument: false,
+      detectedType: "unknown",
+      matchesRequestedType: false,
+      readability: "unreadable",
+      riskFlags: ["other"],
+      decision: "needs_manual_review",
+      confidence: 0,
+      reason: "AI pre-screening could not be completed; manual review is required.",
+      aiReviewStatus: "error",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
+    const mockSupabase = createMockSupabase({ verificationStatus: "pending" });
+    mockSupabaseClient(mockSupabase);
+
+    const result = await submitLenderVerificationDocument(
+      null,
+      createFormData(
+        new File(["pdf"], "registration.pdf", { type: "application/pdf" }),
+      ),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message:
+        "The document was submitted for manual review. AI pre-screening was unavailable.",
+      documentId: "document-1",
+      aiReviewStatus: "error",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "submit_lender_verification_document",
+      expect.objectContaining({
+        p_ai_review_status: "error",
+      }),
+    );
+  });
+
+  it.each([
+    "business_registration",
+    "authorized_representative_id",
+    "authorization_letter",
+    "lending_license",
+    "proof_of_address",
+  ])("allows upload for required lender document type %s", async (documentType) => {
+    const mockSupabase = createMockSupabase({ verificationStatus: "pending" });
+    mockSupabaseClient(mockSupabase);
+
+    const result = await submitLenderVerificationDocument(
+      null,
+      createFormData(
+        new File(["pdf"], `${documentType}.pdf`, { type: "application/pdf" }),
+        documentType,
+      ),
+    );
+
+    expect(result.ok).toBe(true);
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "submit_lender_verification_document",
+      expect.objectContaining({
+        p_document_type: documentType,
+      }),
+    );
   });
 
   it("allows uploads when lender status is incomplete", async () => {
@@ -309,7 +376,8 @@ describe("submitLenderVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: true,
-      message: "Verification document uploaded.",
+      message:
+        "The document was submitted and appears to match the selected document type. A manager will still complete the final review.",
       documentId: "document-1",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith(
@@ -334,7 +402,8 @@ describe("submitLenderVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: true,
-      message: "Verification document uploaded.",
+      message:
+        "The document was submitted and appears to match the selected document type. A manager will still complete the final review.",
       documentId: "document-1",
     });
     expect(mockSupabase.rpc).toHaveBeenCalledWith(

@@ -27,6 +27,9 @@ export type AccessResult =
       reason: "unauthenticated" | "forbidden" | "unavailable";
     };
 
+export const LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE =
+  "Your lender verification must be approved before you can make loan offers.";
+
 export async function getCurrentUserProfile(
   supabase?: SupabaseServerClient,
 ): Promise<AccessResult> {
@@ -135,16 +138,11 @@ export async function requireApprovedLender(
   }
 
   if (!isApprovedLender(result.profile)) {
-    const verificationStatus = result.profile.lenderProfile?.verification_status;
     const userIsLender = hasPrimaryRole(result.profile, "lender");
     const message =
-      userIsLender && verificationStatus === "incomplete"
-        ? "Complete your lender profile to continue."
-        : userIsLender && verificationStatus === "pending"
-          ? "Your lender profile is under review. Upload the required verification documents so a manager can complete approval."
-          : userIsLender && verificationStatus === "rejected"
-            ? "Your lender access was not approved. Update your lender profile to resubmit."
-            : "Your account does not have access to this workspace.";
+      userIsLender
+        ? LENDER_OFFER_VERIFICATION_REQUIRED_MESSAGE
+        : "Your account does not have access to this workspace.";
 
     return {
       ok: false,

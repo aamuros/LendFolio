@@ -215,7 +215,8 @@ describe("submitBorrowerVerificationDocument", () => {
 
     expect(result).toEqual({
       ok: true,
-      message: "Verification document uploaded.",
+      message:
+        "The document was submitted and appears to match the selected document type. A manager will still complete the final review.",
       documentId: "document-1",
     });
     expect(mockSupabase.storage.from).toHaveBeenCalledWith(
@@ -266,11 +267,48 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(result).toEqual({
       ok: true,
       message:
-        "The document was submitted, but it may require manual review due to quality or uncertainty.",
+        "The document was submitted, but it may need closer manual review.",
       documentId: "document-1",
       aiReviewStatus: "needs_manual_review",
     });
     expect(mockSupabase.rpc).toHaveBeenCalled();
+  });
+
+  it("uploads when AI pre-screening is unavailable", async () => {
+    mockedCheckVerificationDocumentWithAi.mockResolvedValueOnce({
+      isDocument: false,
+      detectedType: "unknown",
+      matchesRequestedType: false,
+      readability: "unreadable",
+      riskFlags: ["other"],
+      decision: "needs_manual_review",
+      confidence: 0,
+      reason: "AI pre-screening could not be completed; manual review is required.",
+      aiReviewStatus: "error",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
+    const mockSupabase = createMockSupabase();
+    mockBorrowerAccess(mockSupabase);
+
+    const result = await submitBorrowerVerificationDocument(
+      null,
+      createFormData(new File(["pdf"], "id.pdf", { type: "application/pdf" })),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message:
+        "The document was submitted for manual review. AI pre-screening was unavailable.",
+      documentId: "document-1",
+      aiReviewStatus: "error",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledWith(
+      "submit_borrower_verification_document",
+      expect.objectContaining({
+        p_ai_review_status: "error",
+      }),
+    );
   });
 
   it("removes uploaded storage when metadata RPC fails", async () => {
