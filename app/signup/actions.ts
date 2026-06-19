@@ -32,6 +32,7 @@ export type SignupState = {
   message: string;
   status: "idle" | "error" | "success";
   fieldErrors?: SignupFieldErrors;
+  confirmationEmail?: string;
   values?: {
     displayName?: string;
     email?: string;
@@ -105,6 +106,7 @@ export async function signupAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          confirmationEmail: input.email,
         };
       }
 
@@ -114,6 +116,7 @@ export async function signupAction(
         return {
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+          confirmationEmail: input.email,
         };
       }
 
@@ -129,6 +132,7 @@ export async function signupAction(
           message: resent
             ? SIGNUP_CHECK_EMAIL_MESSAGE
             : SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
+          confirmationEmail: resent ? input.email : undefined,
           values: resent
             ? undefined
             : {
@@ -176,6 +180,7 @@ export async function signupAction(
       return {
         status: "success",
         message: SIGNUP_CHECK_EMAIL_MESSAGE,
+        confirmationEmail: input.email,
       };
     }
 

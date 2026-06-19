@@ -52,7 +52,7 @@ function getLoginNotice(params: {
   if (params.message === "email-confirmed") {
     return {
       status: "success",
-      message: "Email confirmed. Sign in to continue.",
+      message: "Email confirmed. Sign in to open your workspace.",
     };
   }
 

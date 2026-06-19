@@ -12,10 +12,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LegalDialog } from "@/components/legal/legal-dialog";
 import { termsContent, privacyContent } from "@/components/legal/legal-content";
-import { CheckCircle2, AlertCircle, HandCoins, Landmark } from "lucide-react";
+import { AlertCircle, HandCoins, Landmark, MailCheck } from "lucide-react";
 
 const initialState: SignupState = {
   message: "",
@@ -54,6 +54,10 @@ function SignupFormContent({
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
     : state.fieldErrors?.confirmPassword;
+
+  if (isSuccess) {
+    return <SignupSuccessMessage state={state} />;
+  }
 
   return (
     <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/94 p-5 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md sm:p-6">
@@ -221,8 +225,8 @@ function SignupFormContent({
             </div>
 
             {!passwordMismatch && state.message ? (
-              <Alert variant={isSuccess ? "default" : "destructive"}>
-                {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
+              <Alert variant="destructive">
+                <AlertCircle />
                 <AlertDescription>{state.message}</AlertDescription>
               </Alert>
             ) : null}
@@ -243,6 +247,63 @@ function SignupFormContent({
               Log in
             </Link>
           </p>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function SignupSuccessMessage({ state }: { state: SignupState }) {
+  const hasConfirmationEmail = Boolean(state.confirmationEmail);
+
+  return (
+    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/94 p-5 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md sm:p-6">
+      <CardHeader className="items-center p-0 text-center">
+        <div className="mb-1 flex size-12 items-center justify-center rounded-full bg-[#E6DDCB] text-[#33423C]">
+          <MailCheck className="size-6" />
+        </div>
+        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
+          {hasConfirmationEmail ? "Check your email" : "Account created"}
+        </CardTitle>
+        <CardDescription className="text-[#55534F]">
+          {hasConfirmationEmail ? (
+            <>
+              We sent a confirmation link
+              {state.confirmationEmail ? (
+                <>
+                  {" "}
+                  to{" "}
+                  <span className="break-all font-medium text-[#161616]">
+                    {state.confirmationEmail}
+                  </span>
+                </>
+              ) : null}
+              .
+            </>
+          ) : (
+            "Your account is ready for sign in."
+          )}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="grid gap-4 p-0">
+        <Alert>
+          <MailCheck className="size-4" />
+          <AlertTitle>
+            {hasConfirmationEmail ? "Confirm your account" : "Continue"}
+          </AlertTitle>
+          <AlertDescription>{state.message}</AlertDescription>
+        </Alert>
+        <div className="grid gap-2 sm:grid-cols-2">
+          <Button asChild className="h-11 rounded-xl font-semibold">
+            <Link href="/login">Go to sign in</Link>
+          </Button>
+          <Button
+            asChild
+            variant="outline"
+            className="h-11 rounded-xl font-semibold"
+          >
+            <Link href="/">Back to home</Link>
+          </Button>
         </div>
       </CardContent>
     </Card>

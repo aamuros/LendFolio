@@ -103,6 +103,19 @@ Do **not** disable RLS on any table or bucket in production.
    for production.
 4. Configure custom SMTP for production. Supabase's default email sending is
    limited and intended mainly for testing.
+5. In **Authentication > Email Templates > Confirm signup**, use the app
+   confirmation route so the server can verify the token and redirect safely:
+
+```html
+<h2>Confirm your email address</h2>
+
+<p>Follow the link below to confirm this email address and finish signing up.</p>
+<p>
+  <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}">
+    Confirm email address
+  </a>
+</p>
+```
 
 ### 6. Configure Auth URLs
 
@@ -181,11 +194,18 @@ reset. The following server actions construct redirect URLs:
 | Lender register | `app/lender/register/actions.ts` | `/login?message=email-confirmed` |
 | Forgot password | `app/forgot-password/actions.ts` | `/reset-password` |
 
-All three actions resolve the origin using this priority:
+Signup and lender registration send the final post-confirmation target to
+Supabase as `RedirectTo`. The Confirm signup email template above sends users to
+`/auth/confirm`, where the app verifies `token_hash`, rejects cross-origin
+`next` values, and then redirects to the login confirmation notice.
+
+All auth actions resolve the origin using this priority:
 
 1. `process.env.NEXT_PUBLIC_SITE_URL` — production URL override
-2. `requestHeaders.get("origin")` — automatically correct on Vercel previews
-3. `http://localhost:3000` — local development fallback
+2. `x-forwarded-host` / `host` request headers — Vercel deployment origin
+3. `requestHeaders.get("origin")` — browser request origin fallback
+4. `process.env.VERCEL_URL` — Vercel deployment URL fallback
+5. `http://localhost:3000` — local development fallback
 
 Set `NEXT_PUBLIC_SITE_URL` to the production domain in Vercel so confirmation
 emails consistently return users to the production login page. Supabase allowed
@@ -199,7 +219,8 @@ message in production, check these items first:
 2. `NEXT_PUBLIC_SITE_URL` matches the deployed production origin exactly.
 3. The same production origin is listed in Supabase Auth **Site URL** and
    **Redirect URLs**.
-4. Production database migrations have been applied, including the account
+4. The Confirm signup email template points to `/auth/confirm` as shown above.
+5. Production database migrations have been applied, including the account
    provisioning trigger migrations.
 
 ---

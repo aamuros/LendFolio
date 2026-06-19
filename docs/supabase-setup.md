@@ -65,10 +65,22 @@ user metadata.
 
 ## Email Confirmation
 
-Local Supabase currently has email confirmations disabled, so signup can return
-an active session immediately. Hosted projects often require email confirmation.
-If confirmations are enabled, keep Supabase redirect URLs aligned with the app
-origin and direct users back to sign in after confirmation.
+Production Supabase should keep **Confirm Email** enabled. Configure the
+Confirm signup template to send users through the app confirmation route:
+
+```html
+<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}">
+  Confirm email address
+</a>
+```
+
+The route verifies the token server-side, rejects cross-origin redirects, and
+then sends confirmed users back to the login confirmation notice. Keep Supabase
+Site URL and Redirect URLs aligned with the deployed app origin.
+
+Local Supabase may keep email confirmations disabled for faster seeded-account
+testing. If local confirmations are enabled, use the local email testing inbox
+and keep `http://localhost:3000/**` in the redirect allow list.
 
 Baseline Terms and Privacy consent is attempted immediately when signup returns
 an active session. If email confirmation prevents that write, the app retries

@@ -384,7 +384,7 @@ LendFolio is ready for deployment to Vercel with Supabase as the production back
 ### Quick Checklist
 
 1. Create a Supabase project and apply all 55 migrations (`supabase db push`).
-2. Configure Supabase Auth: enable Email provider, turn Confirm Email on, set Site URL and Redirect URLs.
+2. Configure Supabase Auth: enable Email provider, turn Confirm Email on, set Site URL, Redirect URLs, and the Confirm signup template.
 3. Provision a manager account manually in the production database.
 4. Create a Vercel project, import the repository, and set environment variables.
 5. Configure custom SMTP for production auth emails.
