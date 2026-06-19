@@ -27,10 +27,14 @@ import {
   type BorrowerPortfolioInput,
   type BorrowerPortfolioStep,
 } from "@/lib/borrower-portfolio";
-import { borrowerPortfolioSavedEvent } from "@/lib/borrower-workflow-events";
+import {
+  borrowerPortfolioSavedEvent,
+  borrowerVerificationUpdatedEvent,
+} from "@/lib/borrower-workflow-events";
 import type { BorrowerReadinessResult } from "@/lib/borrower-readiness";
 import type { BorrowerVerificationSummary } from "@/lib/borrower-verification";
 import { type BorrowerCreditSummary } from "@/lib/credit-limit";
+import type { ConsentStatus } from "@/lib/consents";
 
 type ProfileMode =
   | "index"
@@ -74,6 +78,7 @@ export function BorrowerWorkspace({
   highlightProofId = null,
   initialLoanMessage = "",
 }: BorrowerWorkspaceProps) {
+  const initialPortfolio = initialLoanApplications?.borrowerPortfolio ?? null;
   const [activeTab, setActiveTab] = useState<BorrowerTab>(initialTab);
   const [profileMode, setProfileMode] = useState<ProfileMode>("index");
   const [editReturnMode, setEditReturnMode] = useState<ProfileMode>("index");
@@ -82,9 +87,11 @@ export function BorrowerWorkspace({
   const [editBusinessSection, setEditBusinessSection] =
     useState<BusinessProfileSection>();
   const [portfolioLoadState, setPortfolioLoadState] =
-    useState<PortfolioLoadState>("loading");
+    useState<PortfolioLoadState>(
+      initialPortfolio ? "ready" : initialLoanApplications?.ok ? "empty" : "loading",
+    );
   const [portfolio, setPortfolio] = useState<BorrowerPortfolioInput | null>(
-    null,
+    initialPortfolio,
   );
   const [portfolioMessage, setPortfolioMessage] = useState("");
   const [, startTransition] = useTransition();
@@ -99,16 +106,38 @@ export function BorrowerWorkspace({
     useState<BorrowerVerificationSummary | null>(
       initialLoanApplications?.borrowerVerification ?? null,
     );
+  const [consentStatuses, setConsentStatuses] = useState<{
+    borrowerDocumentUpload: ConsentStatus;
+    borrowerLoanApplication: ConsentStatus;
+  } | null>(initialLoanApplications?.consentStatuses ?? null);
   const hasSavedPortfolioRef = useRef(portfolio !== null);
   const [postSaveVerification, setPostSaveVerification] = useState(false);
   const workspaceTab = activeTab === "profile" ? "home" : activeTab;
 
+  function applyBorrowerLoanState(result: LoanApplicationsLoadResult) {
+    setCreditSummary(result.creditSummary);
+    setReadiness(result.readiness);
+    setBorrowerVerification(result.borrowerVerification);
+    setConsentStatuses(result.consentStatuses);
+
+    if (result.borrowerPortfolio) {
+      setPortfolio(result.borrowerPortfolio);
+      setPortfolioLoadState("ready");
+      setPortfolioMessage("");
+      return;
+    }
+
+    if (result.ok) {
+      setPortfolio(null);
+      setPortfolioLoadState("empty");
+      setPortfolioMessage("");
+    }
+  }
+
   function refreshBorrowerLoanState() {
     startTransition(() => {
       void loadBorrowerLoanApplications().then((result) => {
-        setCreditSummary(result.creditSummary);
-        setReadiness(result.readiness);
-        setBorrowerVerification(result.borrowerVerification);
+        applyBorrowerLoanState(result);
       });
     });
   }
@@ -129,18 +158,21 @@ export function BorrowerWorkspace({
             return;
           }
 
-          setCreditSummary(result.creditSummary);
-          setReadiness(result.readiness);
-          setBorrowerVerification(result.borrowerVerification);
+          applyBorrowerLoanState(result);
         });
       });
     }
 
     window.addEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+    window.addEventListener(borrowerVerificationUpdatedEvent, loadCreditSummary);
 
     return () => {
       isActive = false;
       window.removeEventListener(borrowerPortfolioSavedEvent, loadCreditSummary);
+      window.removeEventListener(
+        borrowerVerificationUpdatedEvent,
+        loadCreditSummary,
+      );
     };
   }, [startTransition]);
 
@@ -157,9 +189,7 @@ export function BorrowerWorkspace({
           return;
         }
 
-        setCreditSummary(result.creditSummary);
-        setReadiness(result.readiness);
-        setBorrowerVerification(result.borrowerVerification);
+        applyBorrowerLoanState(result);
       });
     });
 
@@ -181,7 +211,7 @@ export function BorrowerWorkspace({
   }
 
   useEffect(() => {
-    if (activeTab !== "profile") {
+    if (activeTab !== "profile" || portfolioLoadState !== "loading") {
       return;
     }
 
@@ -209,7 +239,7 @@ export function BorrowerWorkspace({
     return () => {
       isActive = false;
     };
-  }, [activeTab, startTransition]);
+  }, [activeTab, portfolioLoadState, startTransition]);
 
   function openProfileEdit(
     returnMode: ProfileMode = "index",
@@ -338,7 +368,8 @@ export function BorrowerWorkspace({
                 portfolio={portfolio}
                 postSaveVerification={postSaveVerification}
                 readiness={readiness}
-                result={initialLoanApplications}
+                verification={borrowerVerification}
+                documentConsentStatus={consentStatuses?.borrowerDocumentUpload ?? null}
               />
             )}
           </section>

@@ -35,7 +35,7 @@ export async function loginAction(
 
     if (error || !data.user) {
       return {
-        message: "Could not sign in. Check your email and password.",
+        message: getLoginErrorMessage(error),
       };
     }
 
@@ -105,4 +105,19 @@ async function getPostLoginDestination(
   }
 
   return "/lender";
+}
+
+function getLoginErrorMessage(error: { code?: string; message?: string } | null) {
+  const code = error?.code?.toLowerCase() ?? "";
+  const message = error?.message?.toLowerCase() ?? "";
+
+  if (
+    code === "email_not_confirmed" ||
+    message.includes("email not confirmed") ||
+    message.includes("email is not confirmed")
+  ) {
+    return "Confirm your email before signing in.";
+  }
+
+  return "Could not sign in. Check your email and password.";
 }

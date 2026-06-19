@@ -4,10 +4,12 @@ import { useState } from "react";
 import { FileTextIcon, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
+import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import {
   lenderVerificationDocumentTypeLabels,
   type LenderVerificationDocumentType,
 } from "@/lib/lender-verification";
+import type { DocumentAiReviewSummary } from "@/lib/ai/document-review";
 import { formatDateTime } from "../manager-ui";
 
 function formatFileSize(size: number) {
@@ -25,6 +27,7 @@ export function LenderEvidenceDocumentRow({
   uploadedAt,
   reviewNotes,
   viewUrl,
+  aiReview,
   statusBadge,
 }: {
   fileName: string;
@@ -34,6 +37,7 @@ export function LenderEvidenceDocumentRow({
   uploadedAt: string;
   reviewNotes: string | null;
   viewUrl: string | null;
+  aiReview: DocumentAiReviewSummary;
   statusBadge: React.ReactNode;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -67,6 +71,7 @@ export function LenderEvidenceDocumentRow({
               Note: {reviewNotes}
             </p>
           ) : null}
+          <DocumentAiReviewNote review={aiReview} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {statusBadge}

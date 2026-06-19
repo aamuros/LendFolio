@@ -356,7 +356,7 @@ export async function getBorrowerVerificationStatus(
   const { data: documents } = await supabase
     .from("borrower_verification_documents")
     .select(
-      "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at",
+      "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at",
     )
     .eq("borrower_verification_id", data.id)
     .order("uploaded_at", { ascending: false });

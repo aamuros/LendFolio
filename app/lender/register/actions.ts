@@ -4,6 +4,7 @@ import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
+import { getAuthRedirectUrl } from "@/lib/site-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type LenderRegisterFieldErrors = Partial<
@@ -55,21 +56,21 @@ export async function lenderRegisterAction(
 
   const input = parsed.data;
   const destination = "/lender/onboarding";
+  const emailConfirmationRedirect = "/login?message=email-confirmed";
   let redirectTo: string | null = null;
 
   try {
     const supabase = await createSupabaseServerClient();
     const requestHeaders = await headers();
-    const origin =
-      requestHeaders.get("origin") ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      "http://localhost:3000";
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
       options: {
-        emailRedirectTo: `${origin}${destination}`,
+        emailRedirectTo: getAuthRedirectUrl(
+          emailConfirmationRedirect,
+          requestHeaders,
+        ),
         data: {
           lendfolio_role: "lender",
           display_name: input.displayName,
@@ -91,11 +92,15 @@ export async function lenderRegisterAction(
       };
     }
 
-    if (!data.session) {
+    if (!data.session || data.user.email_confirmed_at === null) {
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
       return {
         status: "success",
         message:
-          "Check your email to confirm your account, then sign in to continue.",
+          "Account created. Check your email to confirm your account, then sign in to continue.",
       };
     }
 

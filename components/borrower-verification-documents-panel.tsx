@@ -580,8 +580,10 @@ function RequiredDocumentRow({
         {state ? (
           <p
             className={`rounded-md border px-3 py-1.5 text-xs leading-5 ${
-              state.ok
-                ? "border-border bg-muted/30 text-muted-foreground"
+              state.ok && state.aiReviewStatus
+                ? "border-amber-200 bg-amber-50 text-amber-700"
+                : state.ok
+                  ? "border-border bg-muted/30 text-muted-foreground"
                 : "border-destructive/30 bg-destructive/10 text-destructive"
             }`}
             role="status"

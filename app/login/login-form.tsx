@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { loginAction, type LoginState } from "@/app/login/actions";
@@ -9,16 +9,37 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, CheckCircle2 } from "lucide-react";
 
 const initialState: LoginState = {
   message: "",
 };
 
-export function LoginForm() {
+export function LoginForm({
+  notice,
+}: {
+  notice?: { message: string; status: "error" | "success" } | null;
+}) {
   const [state, formAction] = useActionState(loginAction, initialState);
+  const [hashNotice, setHashNotice] = useState<
+    { message: string; status: "error" | "success" } | null
+  >(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+
+  useEffect(() => {
+    const parsedNotice = getConfirmationHashNotice(window.location.hash);
+
+    if (parsedNotice) {
+      const timeout = window.setTimeout(() => {
+        setHashNotice(parsedNotice);
+      }, 0);
+
+      return () => {
+        window.clearTimeout(timeout);
+      };
+    }
+  }, []);
 
   return (
     <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md">
@@ -79,7 +100,7 @@ export function LoginForm() {
               />
             </Field>
 
-            <LoginError state={state} />
+            <LoginMessage notice={hashNotice ?? notice} state={state} />
 
             <Field>
               <SubmitButton />
@@ -103,17 +124,61 @@ export function LoginForm() {
   );
 }
 
-function LoginError({ state }: { state: LoginState }) {
+function getConfirmationHashNotice(hash: string) {
+  if (!hash.startsWith("#")) {
+    return null;
+  }
+
+  const params = new URLSearchParams(hash.slice(1));
+  const errorCode = params.get("error_code")?.toLowerCase() ?? "";
+  const errorDescription =
+    params.get("error_description")?.toLowerCase() ?? "";
+
+  if (
+    params.has("error") ||
+    errorCode === "otp_expired" ||
+    errorDescription.includes("invalid") ||
+    errorDescription.includes("expired")
+  ) {
+    return {
+      status: "error" as const,
+      message: "This confirmation link is invalid or has expired.",
+    };
+  }
+
+  return null;
+}
+
+function LoginMessage({
+  notice,
+  state,
+}: {
+  notice?: { message: string; status: "error" | "success" } | null;
+  state: LoginState;
+}) {
   const { pending } = useFormStatus();
 
-  if (!state.message || pending) {
+  if (pending) {
+    return null;
+  }
+
+  if (state.message) {
+    return (
+      <Alert variant="destructive">
+        <AlertCircle />
+        <AlertDescription>{state.message}</AlertDescription>
+      </Alert>
+    );
+  }
+
+  if (!notice) {
     return null;
   }
 
   return (
-    <Alert variant="destructive">
-      <AlertCircle />
-      <AlertDescription>{state.message}</AlertDescription>
+    <Alert variant={notice.status === "success" ? "default" : "destructive"}>
+      {notice.status === "success" ? <CheckCircle2 /> : <AlertCircle />}
+      <AlertDescription>{notice.message}</AlertDescription>
     </Alert>
   );
 }

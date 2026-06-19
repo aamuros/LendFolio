@@ -99,8 +99,10 @@ Do **not** disable RLS on any table or bucket in production.
 
 1. Open **Authentication > Providers** and confirm **Email** is enabled.
 2. Keep email/password sign-in enabled.
-3. (Optional) Disable email confirmations for the school demo if immediate
-   session creation is needed. If enabled, ensure redirect URLs are configured.
+3. In **Authentication > Providers > Email**, keep **Confirm Email** turned on
+   for production.
+4. Configure custom SMTP for production. Supabase's default email sending is
+   limited and intended mainly for testing.
 
 ### 6. Configure Auth URLs
 
@@ -134,7 +136,7 @@ Configure these in Vercel under **Settings > Environment Variables** for both
 | --- | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | `https://your-project-ref.supabase.co` | From Supabase dashboard Settings > API |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | `your-public-anon-key` | From Supabase dashboard Settings > API |
-| `NEXT_PUBLIC_SITE_URL` | `https://your-production-url.vercel.app` | Optional. Used as fallback for auth email redirects. Falls back to request origin header, then `http://localhost:3000`. |
+| `NEXT_PUBLIC_SITE_URL` | `https://your-production-url.vercel.app` | Production URL used for auth email redirects. Falls back to request origin header, then `http://localhost:3000` for local development. |
 
 Do **not** add a Supabase service role key to Vercel. The app only uses the
 anon key for browser and server-side Supabase clients. Never expose service
@@ -175,20 +177,20 @@ reset. The following server actions construct redirect URLs:
 
 | Action | File | Redirect Target |
 | --- | --- | --- |
-| Signup | `app/signup/actions.ts` | `/borrower?message=account-created` or `/lender/onboarding` |
-| Lender register | `app/lender/register/actions.ts` | `/lender/onboarding` |
+| Signup | `app/signup/actions.ts` | `/login?message=email-confirmed` |
+| Lender register | `app/lender/register/actions.ts` | `/login?message=email-confirmed` |
 | Forgot password | `app/forgot-password/actions.ts` | `/reset-password` |
 
 All three actions resolve the origin using this priority:
 
-1. `requestHeaders.get("origin")` — automatically correct on Vercel
-2. `process.env.NEXT_PUBLIC_SITE_URL` — explicit override
+1. `process.env.NEXT_PUBLIC_SITE_URL` — production URL override
+2. `requestHeaders.get("origin")` — automatically correct on Vercel previews
 3. `http://localhost:3000` — local development fallback
 
-On Vercel, the `origin` header is set correctly for both production and preview
-deployments, so the default behavior works without `NEXT_PUBLIC_SITE_URL`. Set
-`NEXT_PUBLIC_SITE_URL` only if you need to override the origin (e.g., for
-custom domains or testing).
+Set `NEXT_PUBLIC_SITE_URL` to the production domain in Vercel so confirmation
+emails consistently return users to the production login page. Supabase allowed
+redirect URLs must include the local, production, and preview patterns listed
+above.
 
 ---
 

@@ -192,7 +192,7 @@ export async function getLenderVerificationDocuments(
   const { data: documents } = await supabase
     .from("lender_verification_documents")
     .select(
-      "id, lender_id, lender_profile_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at",
+      "id, lender_id, lender_profile_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at",
     )
     .eq("lender_profile_id", lenderProfileId)
     .order("uploaded_at", { ascending: false });

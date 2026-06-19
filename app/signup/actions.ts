@@ -3,6 +3,7 @@
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
+import { getAuthRedirectUrl } from "@/lib/site-url";
 import { signupSchema } from "@/lib/signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -64,21 +65,21 @@ export async function signupAction(
   const input = parsed.data;
   const destination =
     input.role === "borrower" ? "/borrower?message=account-created" : "/lender/onboarding";
+  const emailConfirmationRedirect = "/login?message=email-confirmed";
   let redirectTo: string | null = null;
 
   try {
     const supabase = await createSupabaseServerClient();
     const requestHeaders = await headers();
-    const origin =
-      requestHeaders.get("origin") ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      "http://localhost:3000";
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
       options: {
-        emailRedirectTo: `${origin}${destination}`,
+        emailRedirectTo: getAuthRedirectUrl(
+          emailConfirmationRedirect,
+          requestHeaders,
+        ),
         data: {
           lendfolio_role: input.role,
           display_name: input.displayName,
@@ -100,11 +101,15 @@ export async function signupAction(
       };
     }
 
-    if (!data.session) {
+    if (!data.session || data.user.email_confirmed_at === null) {
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
       return {
         status: "success",
         message:
-          "Check your email to confirm your account, then sign in to continue.",
+          "Account created. Check your email to confirm your account, then sign in to continue.",
       };
     }
 

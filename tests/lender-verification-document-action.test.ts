@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { submitLenderVerificationDocument } from "../app/lender/actions";
+import { checkVerificationDocumentWithAi } from "@/lib/ai/document-checker";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -7,10 +8,17 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
 }));
 
+vi.mock("@/lib/ai/document-checker", () => ({
+  checkVerificationDocumentWithAi: vi.fn(),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
+const mockedCheckVerificationDocumentWithAi = vi.mocked(
+  checkVerificationDocumentWithAi,
+);
 const mockedCreateSupabaseServerClient = vi.mocked(createSupabaseServerClient);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
 
@@ -101,6 +109,19 @@ function mockSupabaseClient(mockSupabase: MockSupabase) {
 describe("submitLenderVerificationDocument", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedCheckVerificationDocumentWithAi.mockResolvedValue({
+      isDocument: true,
+      detectedType: "business_registration",
+      matchesRequestedType: true,
+      readability: "clear",
+      riskFlags: [],
+      decision: "pass",
+      confidence: 0.9,
+      reason: "The file appears to match the requested document type.",
+      aiReviewStatus: "pass",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
   });
 
   it("rejects unauthenticated users", async () => {
@@ -224,10 +245,52 @@ describe("submitLenderVerificationDocument", () => {
         p_document_type: "business_registration",
         p_file_name: "registration.pdf",
         p_file_type: "application/pdf",
+        p_ai_review_status: "pass",
+        p_ai_review_confidence: 0.9,
+        p_ai_detected_document_type: "business_registration",
+        p_ai_review_reason:
+          "The file appears to match the requested document type.",
+        p_ai_risk_flags: [],
+        p_ai_model: "gemini-3.1-flash-lite",
+        p_ai_reviewed_at: "2026-06-19T00:00:00.000Z",
       }),
     );
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/lender");
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/manager");
+  });
+
+  it("warns without blocking when AI says the document appears mismatched", async () => {
+    mockedCheckVerificationDocumentWithAi.mockResolvedValueOnce({
+      isDocument: true,
+      detectedType: "valid_id",
+      matchesRequestedType: false,
+      readability: "clear",
+      riskFlags: ["wrong_type"],
+      decision: "fail",
+      confidence: 0.88,
+      reason: "The file appears to be a different document type.",
+      aiReviewStatus: "fail",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
+    const mockSupabase = createMockSupabase({ verificationStatus: "pending" });
+    mockSupabaseClient(mockSupabase);
+
+    const result = await submitLenderVerificationDocument(
+      null,
+      createFormData(
+        new File(["pdf"], "registration.pdf", { type: "application/pdf" }),
+      ),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message:
+        "The uploaded file does not appear to match the selected document type. You may upload another file or submit it for manual review.",
+      documentId: "document-1",
+      aiReviewStatus: "fail",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalled();
   });
 
   it("allows uploads when lender status is incomplete", async () => {

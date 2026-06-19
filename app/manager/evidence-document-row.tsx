@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
+import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { borrowerVerificationDocumentTypeLabels } from "@/lib/borrower-verification";
 import type { BorrowerVerificationDocumentType } from "@/lib/borrower-verification";
+import type { DocumentAiReviewSummary } from "@/lib/ai/document-review";
 import { Eye, FileTextIcon } from "lucide-react";
 import { formatDateTime } from "@/lib/manager-date-format";
 
@@ -24,6 +26,7 @@ export function EvidenceDocumentRow({
   uploadedAt,
   reviewNotes,
   viewUrl,
+  aiReview,
   statusBadge,
 }: {
   fileName: string;
@@ -33,6 +36,7 @@ export function EvidenceDocumentRow({
   uploadedAt: string;
   reviewNotes: string | null;
   viewUrl: string | null;
+  aiReview: DocumentAiReviewSummary;
   statusBadge: React.ReactNode;
 }) {
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -65,6 +69,7 @@ export function EvidenceDocumentRow({
               Note: {reviewNotes}
             </p>
           ) : null}
+          <DocumentAiReviewNote review={aiReview} />
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {statusBadge}

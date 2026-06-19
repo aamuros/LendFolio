@@ -34,13 +34,11 @@ export async function getCurrentUserProfile(
 
   try {
     const {
-      data: { session },
-      error: sessionError,
-    } = await client.auth.getSession();
+      data: { user },
+      error: userError,
+    } = await client.auth.getUser();
 
-    const user = session?.user;
-
-    if (sessionError || !user) {
+    if (userError || !user || user.email_confirmed_at === null) {
       return {
         ok: false,
         supabase: client,

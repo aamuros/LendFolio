@@ -245,7 +245,7 @@ supabase start
 
 This will output the local Supabase URL and anon key. Copy these into `.env.local`.
 
-5. Optional: add a server-only Gemini key if you want the borrower assistant to polish LendFolio answers and classify fallback prompts:
+5. Optional: add a server-only Gemini key if you want the borrower assistant to polish LendFolio answers and verification uploads to receive AI-assisted document pre-screening:
 
 ```env
 GEMINI_API_KEY=your-google-ai-studio-key
@@ -275,14 +275,14 @@ After editing `.env.local`, restart the dev server with `npm run dev` so Next.js
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL (local or hosted) |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public API key |
-| `GEMINI_API_KEY` | Optional server-only Google AI Studio key for borrower assistant polishing and scoped fallback |
+| `GEMINI_API_KEY` | Optional server-only Google AI Studio key for borrower assistant polishing, scoped fallback, and document pre-screening |
 | `GOOGLE_API_KEY` | Optional fallback variable name for the same Gemini server key |
 
 > **Security note**: Never commit real credentials. Never expose Supabase service role keys or Gemini keys through `NEXT_PUBLIC_*` variables. The `.env.example` file contains placeholder values only.
 
-### Borrower Assistant Gemini Check
+### Gemini Checks
 
-With `GEMINI_API_KEY` or `GOOGLE_API_KEY` configured, local development logs include safe `[BorrowerAssistant/Gemini]` messages when Gemini is attempted, missing, fails, or returns an unusable response. The borrower UI still receives only the final assistant text.
+With `GEMINI_API_KEY` or `GOOGLE_API_KEY` configured, Gemini can polish scoped borrower assistant answers and pre-screen borrower/lender verification uploads before manager review. Document pre-screening stores only classification metadata, not extracted personal details, and manager approval remains the final decision.
 
 Manual prompts to verify:
 
@@ -384,10 +384,11 @@ LendFolio is ready for deployment to Vercel with Supabase as the production back
 ### Quick Checklist
 
 1. Create a Supabase project and apply all 55 migrations (`supabase db push`).
-2. Configure Supabase Auth: enable Email provider, set Site URL and Redirect URLs.
+2. Configure Supabase Auth: enable Email provider, turn Confirm Email on, set Site URL and Redirect URLs.
 3. Provision a manager account manually in the production database.
 4. Create a Vercel project, import the repository, and set environment variables.
-5. Deploy from `main`.
+5. Configure custom SMTP for production auth emails.
+6. Deploy from `main`.
 
 ### Required Environment Variables
 
@@ -395,7 +396,7 @@ LendFolio is ready for deployment to Vercel with Supabase as the production back
 | --- | --- |
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anonymous/public API key |
-| `NEXT_PUBLIC_SITE_URL` | (Optional) Production URL override for auth redirects |
+| `NEXT_PUBLIC_SITE_URL` | Production URL for auth email redirects |
 
 > **Security note**: Never commit real credentials. Never expose Supabase service role keys through `NEXT_PUBLIC_*` variables.
 

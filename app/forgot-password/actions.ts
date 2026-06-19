@@ -1,6 +1,7 @@
 "use server";
 
 import { headers } from "next/headers";
+import { getAuthRedirectUrl } from "@/lib/site-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type ForgotPasswordState = {
@@ -24,13 +25,9 @@ export async function forgotPasswordAction(
   try {
     const supabase = await createSupabaseServerClient();
     const requestHeaders = await headers();
-    const origin =
-      requestHeaders.get("origin") ??
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      "http://localhost:3000";
 
     await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${origin}/reset-password`,
+      redirectTo: getAuthRedirectUrl("/reset-password", requestHeaders),
     });
   } catch {
     // Swallow errors to avoid leaking account existence.

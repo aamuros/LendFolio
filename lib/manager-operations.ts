@@ -1,4 +1,11 @@
 import type { Database, Json } from "@/lib/supabase/types";
+import {
+  documentAiDetectedTypes,
+  documentAiReviewStatuses,
+  type DocumentAiDetectedType,
+  type DocumentAiReviewStatus,
+  type DocumentAiReviewSummary,
+} from "@/lib/ai/document-review";
 import type { createSupabaseServerClient } from "@/lib/supabase/server";
 import {
   calculateBorrowerVerificationDocumentPolicy,
@@ -284,6 +291,7 @@ export type ManagerLenderVerificationDocumentRow = {
   uploadedAt: string;
   reviewNotes: string | null;
   viewUrl: string | null;
+  aiReview: DocumentAiReviewSummary;
 };
 
 export type ManagerLenderProfileChangeRequestRow = {
@@ -318,6 +326,7 @@ export type ManagerBorrowerVerificationDocumentRow = {
   uploadedAt: string;
   reviewNotes: string | null;
   viewUrl: string | null;
+  aiReview: DocumentAiReviewSummary;
 };
 
 export type ManagerBorrowerVerificationRow = {
@@ -356,10 +365,10 @@ const lenderProfileFullSelect =
 const borrowerVerificationSelect =
   "id, borrower_id, verification_status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
 const borrowerVerificationDocumentSelect =
-  "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+  "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at";
 
 const lenderVerificationDocumentSelect =
-  "id, lender_id, lender_profile_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, created_at, updated_at";
+  "id, lender_id, lender_profile_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at";
 
 const lenderProfileChangeRequestSelect =
   "id, lender_id, lender_profile_id, proposed_organization_name, proposed_contact_person, proposed_business_address, proposed_operating_area, proposed_business_registration_number, proposed_min_loan_amount, proposed_max_loan_amount, proposed_typical_repayment_terms, proposed_lender_description, proposed_address_region, proposed_address_city, proposed_address_barangay, proposed_address_zip_code, proposed_values, status, submitted_at, reviewed_at, reviewed_by, manager_review_notes, rejection_reason, created_at, updated_at";
@@ -406,6 +415,37 @@ export const managerPreferredTermLabels = {
 
 export function getShortId(id: string) {
   return id.slice(0, 8);
+}
+
+function mapDocumentAiReview(row: {
+  ai_review_status?: string | null;
+  ai_review_confidence?: number | null;
+  ai_detected_document_type?: string | null;
+  ai_review_reason?: string | null;
+  ai_risk_flags?: string[] | null;
+  ai_model?: string | null;
+  ai_reviewed_at?: string | null;
+}): DocumentAiReviewSummary {
+  const status = documentAiReviewStatuses.includes(
+    row.ai_review_status as DocumentAiReviewStatus,
+  )
+    ? (row.ai_review_status as DocumentAiReviewStatus)
+    : "not_run";
+  const detectedType = documentAiDetectedTypes.includes(
+    row.ai_detected_document_type as DocumentAiDetectedType,
+  )
+    ? (row.ai_detected_document_type as DocumentAiDetectedType)
+    : null;
+
+  return {
+    aiReviewStatus: status,
+    aiReviewConfidence: row.ai_review_confidence ?? null,
+    aiDetectedDocumentType: detectedType,
+    aiReviewReason: row.ai_review_reason ?? null,
+    aiRiskFlags: row.ai_risk_flags ?? [],
+    aiModel: row.ai_model ?? null,
+    aiReviewedAt: row.ai_reviewed_at ?? null,
+  };
 }
 
 export function createScheduleSummary(
@@ -1565,6 +1605,7 @@ export async function loadManagerBorrowerVerifications(
               uploadedAt: doc.uploaded_at,
               reviewNotes: doc.review_notes,
               viewUrl,
+              aiReview: mapDocumentAiReview(doc),
             };
           }),
         );
@@ -1658,6 +1699,7 @@ export async function loadManagerBorrowerVerification(
         uploadedAt: doc.uploaded_at,
         reviewNotes: doc.review_notes,
         viewUrl,
+        aiReview: mapDocumentAiReview(doc),
       };
     }),
   );
@@ -1837,6 +1879,7 @@ async function mapManagerLenderRows(
           uploadedAt: doc.uploaded_at,
           reviewNotes: doc.review_notes,
           viewUrl,
+          aiReview: mapDocumentAiReview(doc),
         };
       }),
     );

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { submitBorrowerVerificationDocument } from "../app/borrower/actions";
 import { requireBorrower } from "@/lib/access-control";
+import { checkVerificationDocumentWithAi } from "@/lib/ai/document-checker";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -12,11 +13,18 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
 }));
 
+vi.mock("@/lib/ai/document-checker", () => ({
+  checkVerificationDocumentWithAi: vi.fn(),
+}));
+
 vi.mock("next/cache", () => ({
   revalidatePath: vi.fn(),
 }));
 
 const mockedRequireBorrower = vi.mocked(requireBorrower);
+const mockedCheckVerificationDocumentWithAi = vi.mocked(
+  checkVerificationDocumentWithAi,
+);
 const mockedCreateSupabaseServerClient = vi.mocked(createSupabaseServerClient);
 const mockedRevalidatePath = vi.mocked(revalidatePath);
 
@@ -131,6 +139,19 @@ function mockBorrowerAccess(mockSupabase: MockSupabase) {
 describe("submitBorrowerVerificationDocument", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockedCheckVerificationDocumentWithAi.mockResolvedValue({
+      isDocument: true,
+      detectedType: "valid_id",
+      matchesRequestedType: true,
+      readability: "clear",
+      riskFlags: [],
+      decision: "pass",
+      confidence: 0.92,
+      reason: "The file appears to match the requested document type.",
+      aiReviewStatus: "pass",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
   });
 
   it("rejects invalid file types before upload", async () => {
@@ -207,9 +228,49 @@ describe("submitBorrowerVerificationDocument", () => {
         p_document_type: "valid_id",
         p_file_name: "Valid ID.pdf",
         p_file_type: "application/pdf",
+        p_ai_review_status: "pass",
+        p_ai_review_confidence: 0.92,
+        p_ai_detected_document_type: "valid_id",
+        p_ai_review_reason:
+          "The file appears to match the requested document type.",
+        p_ai_risk_flags: [],
+        p_ai_model: "gemini-3.1-flash-lite",
+        p_ai_reviewed_at: "2026-06-19T00:00:00.000Z",
       }),
     );
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/borrower");
+  });
+
+  it("warns without blocking when AI says the document needs manual review", async () => {
+    mockedCheckVerificationDocumentWithAi.mockResolvedValueOnce({
+      isDocument: true,
+      detectedType: "unknown",
+      matchesRequestedType: false,
+      readability: "partially_readable",
+      riskFlags: ["blurry"],
+      decision: "needs_manual_review",
+      confidence: 0.45,
+      reason: "The document is blurry.",
+      aiReviewStatus: "needs_manual_review",
+      aiModel: "gemini-3.1-flash-lite",
+      aiReviewedAt: "2026-06-19T00:00:00.000Z",
+    });
+    const mockSupabase = createMockSupabase();
+    mockBorrowerAccess(mockSupabase);
+
+    const result = await submitBorrowerVerificationDocument(
+      null,
+      createFormData(new File(["pdf"], "id.pdf", { type: "application/pdf" })),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message:
+        "The document was submitted, but it may require manual review due to quality or uncertainty.",
+      documentId: "document-1",
+      aiReviewStatus: "needs_manual_review",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalled();
   });
 
   it("removes uploaded storage when metadata RPC fails", async () => {

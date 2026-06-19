@@ -32,6 +32,7 @@ import { LenderToast } from "@/app/manager/lenders/lender-toast";
 import { LenderDecisionForm } from "@/app/manager/lenders/lender-decision-form";
 import { LenderDocumentActionsCell } from "@/app/manager/lenders/lender-document-review-dialog";
 import { LenderChangeRequestDecisionForm } from "@/app/manager/lenders/lender-change-request-decision-form";
+import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -1030,12 +1031,15 @@ function LenderDocumentsSection({
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {latest ? (
-                        <span className="flex items-center gap-1.5">
-                          <FileTextIcon className="size-3.5 shrink-0" />
-                          <span className="max-w-[200px] truncate">
-                            {latest.fileName}
+                        <div className="grid gap-1.5">
+                          <span className="flex items-center gap-1.5">
+                            <FileTextIcon className="size-3.5 shrink-0" />
+                            <span className="max-w-[200px] truncate">
+                              {latest.fileName}
+                            </span>
                           </span>
-                        </span>
+                          <DocumentAiReviewNote review={latest.aiReview} />
+                        </div>
                       ) : (
                         <span className="text-muted-foreground">
                           Not uploaded
@@ -1099,12 +1103,15 @@ function LenderDocumentsSection({
                   />
                 </div>
                 {latest ? (
-                  <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                    <FileTextIcon className="size-3 shrink-0" />
-                    {latest.fileName}
-                    {" \u00b7 "}
-                    {formatDateTime(latest.uploadedAt)}
-                  </p>
+                  <>
+                    <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                      <FileTextIcon className="size-3 shrink-0" />
+                      {latest.fileName}
+                      {" \u00b7 "}
+                      {formatDateTime(latest.uploadedAt)}
+                    </p>
+                    <DocumentAiReviewNote review={latest.aiReview} />
+                  </>
                 ) : (
                   <p className="text-xs text-muted-foreground">
                     Not uploaded
@@ -1229,6 +1236,7 @@ function EvidenceHistorySection({
                 uploadedAt={doc.uploadedAt}
                 reviewNotes={doc.reviewNotes}
                 viewUrl={doc.viewUrl}
+                aiReview={doc.aiReview}
                 statusBadge={<StatusBadge status={doc.status} />}
               />
             ))}

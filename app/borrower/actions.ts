@@ -59,6 +59,12 @@ import {
   type LoanApplicationSummary,
 } from "@/lib/loan-application";
 import { mapLoanOfferRow, type LoanOfferSummary } from "@/lib/loan-offer";
+import { checkVerificationDocumentWithAi } from "@/lib/ai/document-checker";
+import {
+  getDocumentAiUploadMessage,
+  isDocumentAiReviewWarning,
+  type DocumentAiReviewStatus,
+} from "@/lib/ai/document-review";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Json } from "@/lib/supabase/types";
 
@@ -177,6 +183,7 @@ export type LoanApplicationsLoadResult =
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
       completedPortfolioSteps: BorrowerPortfolioStep[];
+      borrowerPortfolio: BorrowerPortfolioInput | null;
       borrowerVerification: BorrowerVerificationSummary;
       creditSummary: BorrowerCreditSummary | null;
       readiness: BorrowerReadinessResult | null;
@@ -192,6 +199,7 @@ export type LoanApplicationsLoadResult =
       applications: BorrowerLoanApplicationSummary[];
       hasPortfolio: boolean;
       completedPortfolioSteps: BorrowerPortfolioStep[];
+      borrowerPortfolio: BorrowerPortfolioInput | null;
       borrowerVerification: BorrowerVerificationSummary | null;
       creditSummary: BorrowerCreditSummary | null;
       readiness: BorrowerReadinessResult | null;
@@ -273,6 +281,7 @@ export type BorrowerVerificationDocumentSubmitResult =
       message: string;
       documentId: string;
       verificationStatus?: string;
+      aiReviewStatus?: DocumentAiReviewStatus;
     }
   | {
       ok: false;
@@ -1325,6 +1334,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: false,
         completedPortfolioSteps: [],
+        borrowerPortfolio: null,
         borrowerVerification: null,
         creditSummary: null,
         readiness: null,
@@ -1362,6 +1372,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: false,
         completedPortfolioSteps: [],
+        borrowerPortfolio: null,
         borrowerVerification,
         creditSummary: null,
         readiness: null,
@@ -1407,6 +1418,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: Boolean(portfolio),
         completedPortfolioSteps,
+        borrowerPortfolio: mappedPortfolio,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1422,6 +1434,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: Boolean(portfolio),
         completedPortfolioSteps,
+        borrowerPortfolio: mappedPortfolio,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1452,6 +1465,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: Boolean(portfolio),
         completedPortfolioSteps,
+        borrowerPortfolio: mappedPortfolio,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1467,6 +1481,7 @@ export async function loadBorrowerLoanApplications(
         applications: [],
         hasPortfolio: Boolean(portfolio),
         completedPortfolioSteps,
+        borrowerPortfolio: mappedPortfolio,
         borrowerVerification,
         creditSummary,
         readiness,
@@ -1505,6 +1520,7 @@ export async function loadBorrowerLoanApplications(
       }),
       hasPortfolio: Boolean(portfolio),
       completedPortfolioSteps,
+      borrowerPortfolio: mappedPortfolio,
       borrowerVerification,
       creditSummary,
       readiness,
@@ -1520,6 +1536,7 @@ export async function loadBorrowerLoanApplications(
       applications: [],
       hasPortfolio: false,
       completedPortfolioSteps: [],
+      borrowerPortfolio: null,
       borrowerVerification: null,
       creditSummary: null,
       readiness: null,
@@ -2492,6 +2509,12 @@ export async function submitBorrowerVerificationDocument(
       };
     }
 
+    const aiReview = await checkVerificationDocumentWithAi({
+      file: documentFile,
+      requestedDocumentType: documentType,
+      userRole: "borrower",
+    });
+
     const safeFileName = createSafeUploadFileName(
       documentFile.name,
       "verification-document",
@@ -2527,6 +2550,13 @@ export async function submitBorrowerVerificationDocument(
         p_file_name: documentFile.name,
         p_file_type: documentFile.type,
         p_file_size: documentFile.size,
+        p_ai_review_status: aiReview.aiReviewStatus,
+        p_ai_review_confidence: aiReview.confidence,
+        p_ai_detected_document_type: aiReview.detectedType,
+        p_ai_review_reason: aiReview.reason,
+        p_ai_risk_flags: aiReview.riskFlags,
+        p_ai_model: aiReview.aiModel,
+        p_ai_reviewed_at: aiReview.aiReviewedAt,
       },
     );
 
@@ -2553,6 +2583,17 @@ export async function submitBorrowerVerificationDocument(
       };
     }
 
+    const aiUploadMessage = getDocumentAiUploadMessage(
+      aiReview.aiReviewStatus,
+    );
+    const aiReviewStatus = isDocumentAiReviewWarning(aiReview.aiReviewStatus)
+      ? aiReview.aiReviewStatus
+      : undefined;
+    const verificationStatus =
+      typeof result.verification_status === "string"
+        ? result.verification_status
+        : undefined;
+
     revalidatePath("/borrower");
     revalidatePath("/manager");
     revalidatePath("/manager/borrower-verifications");
@@ -2560,14 +2601,13 @@ export async function submitBorrowerVerificationDocument(
     return {
       ok: true,
       message:
-        result.verification_status === "submitted"
+        aiUploadMessage ??
+        (result.verification_status === "submitted"
           ? "Updated documents submitted for review."
-          : result.message ?? "Verification document uploaded.",
+          : result.message ?? "Verification document uploaded."),
       documentId: result.document_id,
-      verificationStatus:
-        typeof result.verification_status === "string"
-          ? result.verification_status
-          : undefined,
+      ...(verificationStatus ? { verificationStatus } : {}),
+      ...(aiReviewStatus ? { aiReviewStatus } : {}),
     };
   } catch {
     return {

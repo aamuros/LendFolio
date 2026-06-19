@@ -34,7 +34,7 @@ import {
   formatCreditAmount,
   type BorrowerCreditSummary,
 } from "@/lib/credit-limit";
-import { type LoanApplicationsLoadResult } from "@/app/borrower/actions";
+import type { ConsentStatus } from "@/lib/consents";
 
 type ProfileMode =
   | "index"
@@ -69,7 +69,8 @@ export function BorrowerProfileHub({
   portfolio,
   postSaveVerification = false,
   readiness,
-  result,
+  verification,
+  documentConsentStatus,
 }: {
   accountEmail: string;
   activeView: ProfileMode;
@@ -86,9 +87,9 @@ export function BorrowerProfileHub({
   portfolio: BorrowerPortfolioInput | null;
   postSaveVerification?: boolean;
   readiness: BorrowerReadinessResult | null;
-  result: LoanApplicationsLoadResult | null;
+  verification: BorrowerVerificationSummary | null;
+  documentConsentStatus: ConsentStatus | null;
 }) {
-  const verification = result?.borrowerVerification ?? null;
   const profileStatus = getProfileStatus(
     loadState,
     portfolio,
@@ -353,8 +354,8 @@ export function BorrowerProfileHub({
     return (
       <ProfileSubview title="Verification" onBack={() => onProfileViewChange("index")}>
         <BorrowerVerificationDocumentsPanel
-          verification={result?.borrowerVerification ?? null}
-          consentStatus={result?.consentStatuses?.borrowerDocumentUpload ?? null}
+          verification={verification}
+          consentStatus={documentConsentStatus}
           readinessStatus={readiness?.readinessStatus ?? null}
           onClose={() => onProfileViewChange("index")}
         />
