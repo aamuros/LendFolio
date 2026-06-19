@@ -197,9 +197,14 @@ export function BorrowerAssistant({
       <Button
         type="button"
         className={cn(
-          "fixed right-4 z-40 h-10 gap-2 rounded-full px-4 shadow-lg sm:right-6",
-          "bottom-24 sm:bottom-6",
+          "fixed right-4 z-40 h-10 transform-gpu gap-2 rounded-full px-4 shadow-lg will-change-transform motion-reduce:transition-none sm:right-6",
+          "bottom-[var(--app-assistant-button-bottom,6rem)] sm:bottom-6",
+          "translate-y-[var(--app-assistant-button-y,0px)] sm:translate-y-0",
         )}
+        style={{
+          transition:
+            "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
         onClick={() => setIsOpen(true)}
       >
         <MessageCircle className="h-4 w-4" />
@@ -208,14 +213,28 @@ export function BorrowerAssistant({
 
       <div
         className={cn(
-          "fixed z-50 transition-all duration-200 ease-out",
-          "inset-x-3 bottom-20 sm:inset-auto sm:bottom-6 sm:right-6",
-          isOpen
-            ? "translate-y-0 opacity-100"
-            : "pointer-events-none translate-y-4 opacity-0",
+          "pointer-events-none fixed z-50",
+          "inset-x-3 bottom-[var(--app-assistant-panel-bottom,5rem)] sm:inset-auto sm:bottom-6 sm:right-6",
+          "translate-y-[var(--app-assistant-panel-y,0px)] sm:translate-y-0",
         )}
-        aria-hidden={!isOpen}
+        style={{
+          transition:
+            "transform 280ms cubic-bezier(0.16, 1, 0.3, 1)",
+        }}
       >
+        <div
+          className={cn(
+            "transform-gpu will-change-transform motion-reduce:transition-none",
+            isOpen
+              ? "pointer-events-auto translate-y-0 opacity-100"
+              : "pointer-events-none translate-y-4 opacity-0",
+          )}
+          style={{
+            transition:
+              "transform 280ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease",
+          }}
+          aria-hidden={!isOpen}
+        >
         <Card
           className={cn(
             "flex max-h-[calc(100svh-7rem)] flex-col overflow-hidden border-border/80 shadow-2xl",
@@ -320,6 +339,7 @@ export function BorrowerAssistant({
             </form>
           </CardContent>
         </Card>
+        </div>
       </div>
     </>
   );

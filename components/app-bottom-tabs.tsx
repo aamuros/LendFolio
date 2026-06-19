@@ -52,9 +52,44 @@ export function AppBottomTabs<T extends string>({
   const animationFrameRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const hideDelta = 24;
-    const showDelta = 8;
+    const root = document.documentElement;
+    const assistantButtonY = isVisible
+      ? "0px"
+      : "calc(5rem + env(safe-area-inset-bottom))";
+    const assistantPanelY = isVisible
+      ? "0px"
+      : "calc(4rem + env(safe-area-inset-bottom))";
+
+    root.style.setProperty(
+      "--app-bottom-tabs-page-padding",
+      "calc(10rem + env(safe-area-inset-bottom))",
+    );
+    root.style.setProperty(
+      "--app-assistant-button-bottom",
+      "calc(6rem + env(safe-area-inset-bottom))",
+    );
+    root.style.setProperty(
+      "--app-assistant-panel-bottom",
+      "calc(5rem + env(safe-area-inset-bottom))",
+    );
+    root.style.setProperty("--app-assistant-button-y", assistantButtonY);
+    root.style.setProperty("--app-assistant-panel-y", assistantPanelY);
+
+    return () => {
+      root.style.removeProperty("--app-bottom-tabs-page-padding");
+      root.style.removeProperty("--app-assistant-button-bottom");
+      root.style.removeProperty("--app-assistant-panel-bottom");
+      root.style.removeProperty("--app-assistant-button-y");
+      root.style.removeProperty("--app-assistant-panel-y");
+    };
+  }, [isVisible]);
+
+  useEffect(() => {
+    const hideDelta = 40;
+    const showDelta = 28;
     const hideAfterScrollY = 80;
+    const minScrollDelta = 2;
+    const bottomEdgeBuffer = 24;
 
     function showTabs() {
       downDistanceRef.current = 0;
@@ -64,10 +99,15 @@ export function AppBottomTabs<T extends string>({
 
     function updateForScroll() {
       animationFrameRef.current = null;
-      const nextScrollY = window.scrollY;
+      const maxScrollY = Math.max(
+        0,
+        document.documentElement.scrollHeight - window.innerHeight,
+      );
+      const nextScrollY = Math.min(Math.max(window.scrollY, 0), maxScrollY);
       const scrollDelta = nextScrollY - lastScrollYRef.current;
+      const isNearPageBottom = maxScrollY - nextScrollY <= bottomEdgeBuffer;
 
-      if (scrollDelta === 0) {
+      if (Math.abs(scrollDelta) < minScrollDelta) {
         return;
       }
 
@@ -85,7 +125,7 @@ export function AppBottomTabs<T extends string>({
         upDistanceRef.current += Math.abs(scrollDelta);
         downDistanceRef.current = 0;
 
-        if (upDistanceRef.current >= showDelta) {
+        if (!isNearPageBottom && upDistanceRef.current >= showDelta) {
           setIsVisible(true);
         }
       }

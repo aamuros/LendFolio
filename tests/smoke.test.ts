@@ -706,6 +706,42 @@ describe("manager operations helpers", () => {
     expect(borrowerWorkspace).toContain('<div className="sm:hidden">');
   });
 
+  it("keeps the borrower assistant aligned with mobile bottom navigation", () => {
+    const appBottomTabs = readFileSync(
+      "components/app-bottom-tabs.tsx",
+      "utf8",
+    );
+    const borrowerAssistant = readFileSync(
+      "components/borrower/assistant/borrower-assistant.tsx",
+      "utf8",
+    );
+    const borrowerUi = readFileSync("components/borrower/ui/index.ts", "utf8");
+
+    expect(appBottomTabs).toContain("--app-assistant-button-bottom");
+    expect(appBottomTabs).toContain("--app-assistant-panel-bottom");
+    expect(appBottomTabs).toContain("--app-assistant-button-y");
+    expect(appBottomTabs).toContain("--app-assistant-panel-y");
+    expect(appBottomTabs).toContain(
+      '"calc(10rem + env(safe-area-inset-bottom))"',
+    );
+    expect(appBottomTabs).toContain("const minScrollDelta = 2");
+    expect(appBottomTabs).toContain("const bottomEdgeBuffer = 24");
+    expect(appBottomTabs).toContain("!isNearPageBottom");
+    expect(borrowerAssistant).toContain(
+      "bottom-[var(--app-assistant-button-bottom,6rem)]",
+    );
+    expect(borrowerAssistant).toContain(
+      "bottom-[var(--app-assistant-panel-bottom,5rem)]",
+    );
+    expect(borrowerAssistant).toContain(
+      "translate-y-[var(--app-assistant-button-y,0px)]",
+    );
+    expect(borrowerAssistant).toContain(
+      "translate-y-[var(--app-assistant-panel-y,0px)]",
+    );
+    expect(borrowerUi).not.toContain("transition-[padding-bottom]");
+  });
+
   it("keeps manager bottom navigation focused with an Others menu", () => {
     const appBottomTabs = readFileSync(
       "components/app-bottom-tabs.tsx",
