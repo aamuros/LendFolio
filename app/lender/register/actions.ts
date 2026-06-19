@@ -2,7 +2,14 @@
 
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
-import { hasConfirmedEmail } from "@/lib/auth-confirmation";
+import {
+  hasConfirmedEmail,
+  isSignupConfirmationDeliveryError,
+  isSignupConfirmationPendingError,
+  SIGNUP_CHECK_EMAIL_MESSAGE,
+  SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+  SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
+} from "@/lib/auth-confirmation";
 import { acceptBaselineUserConsents } from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
 import { getAuthRedirectUrl } from "@/lib/site-url";
@@ -63,15 +70,16 @@ export async function lenderRegisterAction(
   try {
     const supabase = await createSupabaseServerClient();
     const requestHeaders = await headers();
+    const emailRedirectTo = getAuthRedirectUrl(
+      emailConfirmationRedirect,
+      requestHeaders,
+    );
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
       password: input.password,
       options: {
-        emailRedirectTo: getAuthRedirectUrl(
-          emailConfirmationRedirect,
-          requestHeaders,
-        ),
+        emailRedirectTo,
         data: {
           lendfolio_role: "lender",
           display_name: input.displayName,
@@ -80,7 +88,62 @@ export async function lenderRegisterAction(
       },
     });
 
-    if (error || !data.user) {
+    if (error) {
+      if (data.user && !hasConfirmedEmail(data.user)) {
+        if (data.session) {
+          await supabase.auth.signOut();
+        }
+
+        return {
+          status: "success",
+          message: SIGNUP_CHECK_EMAIL_MESSAGE,
+        };
+      }
+
+      if (isSignupConfirmationPendingError(error)) {
+        await resendSignupConfirmation(supabase, input.email, emailRedirectTo);
+
+        return {
+          status: "success",
+          message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+        };
+      }
+
+      if (isSignupConfirmationDeliveryError(error)) {
+        const resent = await resendSignupConfirmation(
+          supabase,
+          input.email,
+          emailRedirectTo,
+        );
+
+        return {
+          status: resent ? "success" : "error",
+          message: resent
+            ? SIGNUP_CHECK_EMAIL_MESSAGE
+            : SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
+          values: resent
+            ? undefined
+            : {
+                displayName: input.displayName,
+                email: input.email,
+                organizationName: input.organizationName,
+              },
+        };
+      }
+
+      return {
+        status: "error",
+        message:
+          "Could not create the account. Try another email or password.",
+        values: {
+          displayName: input.displayName,
+          email: input.email,
+          organizationName: input.organizationName,
+        },
+      };
+    }
+
+    if (!data.user) {
       return {
         status: "error",
         message:
@@ -100,8 +163,7 @@ export async function lenderRegisterAction(
 
       return {
         status: "success",
-        message:
-          "Account created. Check your email to confirm your account, then sign in to continue.",
+        message: SIGNUP_CHECK_EMAIL_MESSAGE,
       };
     }
 
@@ -132,4 +194,24 @@ export async function lenderRegisterAction(
   }
 
   redirect(redirectTo, RedirectType.replace);
+}
+
+async function resendSignupConfirmation(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  email: string,
+  emailRedirectTo: string,
+) {
+  try {
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo,
+      },
+    });
+
+    return !error;
+  } catch {
+    return false;
+  }
 }

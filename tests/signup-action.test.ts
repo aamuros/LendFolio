@@ -48,6 +48,7 @@ function mockSupabase(
   },
 ) {
   const signOut = vi.fn().mockResolvedValue({ error: null });
+  const resend = vi.fn().mockResolvedValue({ data: {}, error: null });
   const signUp = vi.fn().mockResolvedValue({
     data: {
       user,
@@ -64,9 +65,11 @@ function mockSupabase(
   const from = vi.fn().mockReturnValue({ select });
 
   return {
-    auth: { signUp, signOut },
+    auth: { signUp, signOut, resend },
     from,
     signOut,
+    resend,
+    signUp,
   };
 }
 
@@ -100,6 +103,32 @@ describe("signup action role enforcement", () => {
     expect(result.status).toBe("success");
     expect(result.message).toContain("Check your email");
     expect(supabase.signOut).toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("treats repeat signup for an unconfirmed account as confirmation pending", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "user_already_exists",
+        message: "User already registered",
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("success");
+    expect(result.message).toContain("Account already created");
+    expect(supabase.resend).toHaveBeenCalledWith({
+      type: "signup",
+      email: "juan@example.com",
+      options: {
+        emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
+      },
+    });
     expect(supabase.from).not.toHaveBeenCalled();
   });
 });
