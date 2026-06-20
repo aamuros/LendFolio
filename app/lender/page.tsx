@@ -1275,10 +1275,6 @@ function getOfferCardHref(offer: LenderOfferReview) {
     return `/lender/offers/${offer.id}`;
   }
 
-  if (offer.status === "pending" && (offer.application?.id || offer.applicationId)) {
-    return `/lender/applications/${offer.application?.id ?? offer.applicationId}`;
-  }
-
   return `/lender/offers/${offer.id}`;
 }
 
