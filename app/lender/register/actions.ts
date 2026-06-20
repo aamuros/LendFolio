@@ -3,8 +3,11 @@
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import {
+  classifySignupError,
   getSignupFailureMessage,
+  getSafeSignupErrorMessage,
   logSignupFailure,
+  type SignupErrorCode,
 } from "@/lib/auth-signup-errors";
 import {
   hasConfirmedEmail,
@@ -12,7 +15,6 @@ import {
   isSignupConfirmationPendingError,
   SIGNUP_CHECK_EMAIL_MESSAGE,
   SIGNUP_CONFIRMATION_PENDING_MESSAGE,
-  SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
 } from "@/lib/auth-confirmation";
 import {
   acceptBaselineUserConsents,
@@ -47,6 +49,8 @@ export type LenderRegisterState = {
     privacyAccepted?: boolean;
   };
   confirmationEmail?: string;
+  canResendConfirmation?: boolean;
+  errorCode?: SignupErrorCode;
 };
 
 export async function lenderRegisterAction(
@@ -107,6 +111,27 @@ export async function lenderRegisterAction(
     });
 
     if (error) {
+      if (isSignupConfirmationDeliveryError(error)) {
+        if (data.session) {
+          await supabase.auth.signOut();
+        }
+
+        return {
+          status: "error",
+          message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
+          errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
+          canResendConfirmation: true,
+          confirmationEmail: input.email,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            organizationName: input.organizationName,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+
       if (data.user && !hasConfirmedEmail(data.user)) {
         if (data.session) {
           await supabase.auth.signOut();
@@ -124,20 +149,6 @@ export async function lenderRegisterAction(
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
           confirmationEmail: input.email,
-        };
-      }
-
-      if (isSignupConfirmationDeliveryError(error)) {
-        return {
-          status: "error",
-          message: SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
-          values: {
-            displayName: input.displayName,
-            email: input.email,
-            organizationName: input.organizationName,
-            termsAccepted: true,
-            privacyAccepted: true,
-          },
         };
       }
 
@@ -206,10 +217,13 @@ export async function lenderRegisterAction(
     }
 
     redirectTo = destination;
-  } catch {
+  } catch (error) {
+    const errorCode = classifySignupError(error);
+
     return {
       status: "error",
-      message: "Account signup is temporarily unavailable.",
+      message: getSafeSignupErrorMessage(errorCode),
+      errorCode,
       values: {
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),

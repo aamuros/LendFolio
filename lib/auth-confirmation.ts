@@ -19,7 +19,7 @@ export const SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE =
   "If this email has a pending account, we sent a new confirmation link.";
 
 export const SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE =
-  "Account created, but the confirmation email could not be sent right now. Use Resend confirmation email below after checking your email settings.";
+  "We could not send a confirmation email right now. Your signup may be pending. Please try resending the confirmation email after a moment.";
 
 export function hasConfirmedEmail(user: EmailConfirmationUser | null | undefined) {
   return Boolean(user?.email_confirmed_at || user?.confirmed_at);

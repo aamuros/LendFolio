@@ -114,6 +114,27 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   }
 
   if (
+    message.includes("rate limit") ||
+    message.includes("too many") ||
+    message.includes("too many requests") ||
+    code.includes("rate_limit") ||
+    status === 429
+  ) {
+    return "SIGNUP_RATE_LIMITED";
+  }
+
+  if (
+    code === "email_provider_disabled" ||
+    (message.includes("confirmation") && message.includes("email")) ||
+    (message.includes("confirmation") && message.includes("mail")) ||
+    (message.includes("send") && message.includes("email")) ||
+    (message.includes("send") && message.includes("mail")) ||
+    message.includes("smtp")
+  ) {
+    return "SIGNUP_CONFIRMATION_SEND_FAILED";
+  }
+
+  if (
     message.includes("provider") ||
     message.includes("signup is disabled") ||
     message.includes("signups not allowed") ||
@@ -130,16 +151,6 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     code.includes("redirect")
   ) {
     return "SIGNUP_REDIRECT_URL";
-  }
-
-  if (
-    message.includes("rate limit") ||
-    message.includes("too many") ||
-    message.includes("too many requests") ||
-    code.includes("rate_limit") ||
-    status === 429
-  ) {
-    return "SIGNUP_RATE_LIMITED";
   }
 
   if (

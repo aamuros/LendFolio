@@ -123,6 +123,76 @@ describe("lender register action", () => {
     expect(resend).not.toHaveBeenCalled();
   });
 
+  it("keeps confirmation delivery failures as errors when Supabase returns no user", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: "email_provider_disabled",
+        message: "Error sending confirmation email",
+      },
+    });
+    const supabase = {
+      auth: {
+        signUp,
+        resend: vi.fn(),
+        signOut: vi.fn(),
+      },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("lender@example.com");
+    expect(result.message).toContain("could not send a confirmation email");
+    expect(result.message).not.toContain("Account created");
+    expect(result.message).not.toContain("Check your email");
+    expect(result.message).not.toContain("We sent");
+  });
+
+  it("keeps confirmation delivery failures as errors when Supabase returns an unconfirmed user and session", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signOut = vi.fn().mockResolvedValue({ error: null });
+    const signUp = vi.fn().mockResolvedValue({
+      data: {
+        user: { id: "lender-user-1", email_confirmed_at: null },
+        session: { access_token: "unexpected-token" },
+      },
+      error: {
+        code: "email_provider_disabled",
+        message: "Error sending confirmation email",
+      },
+    });
+    const supabase = {
+      auth: {
+        signUp,
+        resend: vi.fn(),
+        signOut,
+      },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("lender@example.com");
+    expect(result.message).not.toContain("Account created");
+    expect(result.message).not.toContain("Check your email");
+    expect(result.message).not.toContain("We sent");
+    expect(signOut).toHaveBeenCalled();
+  });
+
   it("reports Supabase database signup failures as account setup unavailable", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const consoleError = vi

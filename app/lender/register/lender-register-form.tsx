@@ -61,7 +61,7 @@ export function LenderRegisterForm() {
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
     : state.fieldErrors?.confirmPassword;
-  const hasConfirmationEmail = Boolean(state.confirmationEmail);
+  const hasConfirmationEmail = isSuccess && Boolean(state.confirmationEmail);
 
   return (
     <div className="flex flex-col gap-6">
@@ -204,7 +204,14 @@ export function LenderRegisterForm() {
               {!passwordMismatch && state.message ? (
                 <Alert variant={isSuccess ? "default" : "destructive"}>
                   {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
-                  <AlertDescription>{state.message}</AlertDescription>
+                  <AlertDescription>
+                    {state.message}
+                    {state.errorCode ? (
+                      <span className="mt-1 block text-xs font-medium uppercase tracking-normal">
+                        Code: {state.errorCode}
+                      </span>
+                    ) : null}
+                  </AlertDescription>
                 </Alert>
               ) : null}
 

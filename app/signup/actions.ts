@@ -147,6 +147,27 @@ export async function signupAction(
         };
       }
 
+      if (isSignupConfirmationDeliveryError(error)) {
+        if (data.session) {
+          await supabase.auth.signOut();
+        }
+
+        return {
+          status: "error",
+          message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
+          errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
+          canResendConfirmation: true,
+          confirmationEmail: input.email,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            role: input.role,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+
       if (data.user && !hasConfirmedEmail(data.user)) {
         if (data.session) {
           await supabase.auth.signOut();
@@ -166,23 +187,6 @@ export async function signupAction(
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
           canResendConfirmation: true,
           confirmationEmail: input.email,
-        };
-      }
-
-      if (isSignupConfirmationDeliveryError(error)) {
-        return {
-          status: "error",
-          message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
-          errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
-          values: {
-            displayName: input.displayName,
-            email: input.email,
-            role: input.role,
-            termsAccepted: true,
-            privacyAccepted: true,
-          },
         };
       }
 
@@ -348,6 +352,17 @@ export async function resendSignupConfirmationAction(
           rateLimitCooldownEndsAt: Date.now() + getSignupRetryDelayMs(error),
         };
       }
+
+      return {
+        status: "error",
+        message:
+          "We could not resend a confirmation email right now. Please try again after a moment.",
+        errorCode:
+          errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED"
+            ? "SIGNUP_CONFIRMATION_SEND_FAILED"
+            : errorCode,
+        confirmationEmail: email,
+      };
     }
 
     return {
@@ -374,8 +389,13 @@ export async function resendSignupConfirmationAction(
     }
 
     return {
-      status: "success",
-      message: SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
+      status: "error",
+      message:
+        "We could not resend a confirmation email right now. Please try again after a moment.",
+      errorCode:
+        errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED"
+          ? "SIGNUP_CONFIRMATION_SEND_FAILED"
+          : errorCode,
       confirmationEmail: email,
     };
   }

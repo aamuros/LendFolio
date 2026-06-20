@@ -296,6 +296,90 @@ describe("signup action role enforcement", () => {
     expect(supabase.signUp).not.toHaveBeenCalled();
   });
 
+  it("resend confirmation returns an error for SMTP delivery failures", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const supabase = mockSupabase("borrower");
+    supabase.resend.mockResolvedValueOnce({
+      data: {},
+      error: {
+        code: "email_provider_disabled",
+        message:
+          "Error sending confirmation email to juan@example.com through SMTP",
+        status: 500,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    const formData = new FormData();
+    formData.set("email", "juan@example.com");
+
+    try {
+      const result = await resendSignupConfirmationAction(previousState, formData);
+
+      expect(result.status).toBe("error");
+      expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+      expect(result.message).not.toContain("sent a new confirmation link");
+      expect(result.message).not.toContain("We sent");
+      expect(consoleError).toHaveBeenCalledWith(
+        "[auth-signup-diagnostic]",
+        expect.objectContaining({
+          flow: "signup",
+          role: "borrower",
+          source: "resend",
+          classifiedErrorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
+          message:
+            "Error sending confirmation email to [redacted-email] through SMTP",
+        }),
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "juan@example.com",
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "securepass123",
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("resend confirmation returns an error when Supabase resend throws", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const supabase = mockSupabase("borrower");
+    supabase.resend.mockRejectedValueOnce(
+      new Error("fetch failed for juan@example.com"),
+    );
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    const formData = new FormData();
+    formData.set("email", "juan@example.com");
+
+    try {
+      const result = await resendSignupConfirmationAction(previousState, formData);
+
+      expect(result.status).toBe("error");
+      expect(result.message).not.toContain("sent a new confirmation link");
+      expect(result.message).not.toContain("We sent");
+      expect(consoleError).toHaveBeenCalledWith(
+        "[auth-signup-diagnostic]",
+        expect.objectContaining({
+          flow: "signup",
+          role: "borrower",
+          source: "resend",
+          message: "fetch failed for [redacted-email]",
+        }),
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "juan@example.com",
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("shows resend confirmation when signup account creation hits an email delivery error", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
@@ -314,9 +398,41 @@ describe("signup action role enforcement", () => {
     expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
     expect(result.canResendConfirmation).toBe(true);
     expect(result.confirmationEmail).toBe("juan@example.com");
-    expect(result.message).toContain("confirmation email could not be sent");
+    expect(result.message).toContain("could not send a confirmation email");
+    expect(result.message).toContain("signup may be pending");
+    expect(result.message).not.toContain("Account created");
+    expect(result.message).not.toContain("Check your email");
+    expect(result.message).not.toContain("We sent");
     expect(supabase.resend).not.toHaveBeenCalled();
     expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("keeps signup delivery errors as errors even when Supabase returns an unconfirmed user and session", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: {
+        user: { id: "user-1", email_confirmed_at: null },
+        session: { access_token: "unexpected-token" },
+      },
+      error: {
+        code: "email_provider_disabled",
+        message: "Error sending confirmation email",
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("juan@example.com");
+    expect(result.message).not.toContain("Account created");
+    expect(result.message).not.toContain("Check your email");
+    expect(result.message).not.toContain("We sent");
+    expect(supabase.signOut).toHaveBeenCalled();
+    expect(supabase.from).not.toHaveBeenCalled();
   });
 
   it("keeps safe field values after a failed signup without returning passwords", async () => {
