@@ -1401,7 +1401,7 @@ function HomeSummary({
           <RepaymentCalendarCard
             activeLoans={activeLoans}
             onNavigate={onNavigate}
-            className="col-span-12 lg:col-span-7"
+            className="col-span-12"
           />
 
           <OffersLoansCard
@@ -2008,17 +2008,17 @@ function RepaymentCalendarCard({
       <CardContent
         className={cn(
           "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
-          "lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)] lg:items-start",
+          "xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:items-start",
         )}
       >
-        <div className="mx-auto w-full min-w-0 max-w-[22rem] lg:mx-0 lg:min-h-[26rem]">
+        <div className="mx-auto w-full min-w-0 max-w-[22rem] xl:mx-0">
           <Calendar
             mode="single"
             selected={selectedDate}
             onSelect={setSelectedDate}
             defaultMonth={today}
             showOutsideDays={true}
-            className="w-full rounded-2xl border border-border/50 p-3 [--cell-size:2.75rem]"
+            className="w-full rounded-2xl border border-border/50 p-2 [--cell-size:2.25rem] sm:p-3 sm:[--cell-size:2.75rem]"
             classNames={{ root: "w-full" }}
             components={
               !isEmpty
@@ -2062,7 +2062,7 @@ function RepaymentCalendarCard({
         </div>
 
         {isEmpty ? (
-          <div className="flex flex-col items-center justify-center gap-1 text-center lg:min-h-[26rem]">
+          <div className="flex min-h-32 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/20 p-4 text-center xl:min-h-[22rem]">
             <p className="text-sm text-muted-foreground">
               No repayment dates yet
             </p>

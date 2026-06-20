@@ -34,7 +34,7 @@ export function DocumentAiReviewNote({
     <Card
       size="sm"
       className={cn(
-        "mt-2 gap-2 py-2 text-xs shadow-none",
+        "mt-2 min-w-0 gap-2 py-2 text-xs shadow-none",
         className,
       )}
     >
@@ -73,7 +73,7 @@ export function DocumentAiReviewNote({
           {review.aiReviewReason ? (
             <div className="grid gap-0.5">
               <dt className="font-medium text-foreground">Reason:</dt>
-              <dd>{review.aiReviewReason}</dd>
+            <dd className="break-words leading-relaxed">{review.aiReviewReason}</dd>
             </div>
           ) : null}
         </dl>

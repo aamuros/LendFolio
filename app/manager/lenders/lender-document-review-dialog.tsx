@@ -82,7 +82,7 @@ export function LenderDocumentActionsCell({
 
   return (
     <>
-      <div className="flex flex-wrap justify-end gap-2">
+      <div className="flex flex-wrap justify-start gap-2 sm:justify-end">
         {viewUrl ? (
           <Button
             type="button"

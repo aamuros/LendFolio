@@ -61,7 +61,7 @@ export function UserMenu({
           </DropdownMenuTrigger>
           <DropdownMenuContent
             side="top"
-            className="w-(--radix-dropdown-menu-trigger-width) min-w-56"
+            className="w-max min-w-56 max-w-[calc(100vw-2rem)]"
             align="end"
             sideOffset={4}
           >
@@ -70,8 +70,8 @@ export function UserMenu({
                 <Avatar size="sm">
                   <AvatarFallback>{initials}</AvatarFallback>
                 </Avatar>
-                <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold">
+                <div className="grid min-w-0 flex-1 text-left text-sm leading-tight">
+                  <span className="break-all font-semibold">
                     {userEmail ?? roleLabel}
                   </span>
                   <span className="truncate text-xs text-muted-foreground">

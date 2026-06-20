@@ -1046,7 +1046,7 @@ function LenderDocumentsSection({
 
           return (
             <Card key={docType} size="sm">
-              <CardContent className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start">
+              <CardContent className="grid min-w-0 gap-3">
                 <div className="min-w-0 space-y-2">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="text-sm font-medium">{docLabel}</span>
@@ -1073,7 +1073,8 @@ function LenderDocumentsSection({
                   )}
                 </div>
                 {latest ? (
-                  <LenderDocumentActionsCell
+                  <div className="border-t border-border/60 pt-3">
+                    <LenderDocumentActionsCell
                     documentId={latest.id}
                     documentType={latest.documentType}
                     fileName={latest.fileName}
@@ -1083,7 +1084,8 @@ function LenderDocumentsSection({
                     canReview={canReviewDoc}
                     aiReviewStatus={latest.aiReview.aiReviewStatus}
                     selected={selected}
-                  />
+                    />
+                  </div>
                 ) : null}
               </CardContent>
             </Card>
