@@ -128,6 +128,58 @@ describe("lender register action", () => {
     });
   });
 
+  it("reports Supabase database signup failures as account setup unavailable", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: "unexpected_failure",
+        message: "Database error saving new user",
+        name: "AuthApiError",
+        status: 500,
+      },
+    });
+    const supabase = {
+      auth: {
+        signUp,
+        resend: vi.fn(),
+        signOut: vi.fn(),
+      },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    try {
+      const result = await lenderRegisterAction(
+        previousState,
+        createLenderRegisterFormData(),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.message).toBe(
+        "Account setup is temporarily unavailable. Try again later.",
+      );
+      expect(consoleError).toHaveBeenCalledWith(
+        "[auth-signup]",
+        expect.objectContaining({
+          flow: "lender_register",
+          role: "lender",
+          code: "unexpected_failure",
+          name: "AuthApiError",
+          status: 500,
+          message: "Database error saving new user",
+        }),
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "lender@example.com",
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("requires explicit Terms and Privacy acceptance", async () => {
     const formData = createLenderRegisterFormData();
     formData.delete("termsAccepted");

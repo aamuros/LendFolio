@@ -3,6 +3,10 @@
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import {
+  getSignupFailureMessage,
+  logSignupFailure,
+} from "@/lib/auth-signup-errors";
+import {
   hasConfirmedEmail,
   isSignupConfirmationDeliveryError,
   isSignupConfirmationPendingError,
@@ -150,10 +154,11 @@ export async function lenderRegisterAction(
         };
       }
 
+      logSignupFailure({ flow: "lender_register", role: "lender" }, error);
+
       return {
         status: "error",
-        message:
-          "Could not create the account. Try another email or password.",
+        message: getSignupFailureMessage(error),
         values: {
           displayName: input.displayName,
           email: input.email,
@@ -173,10 +178,11 @@ export async function lenderRegisterAction(
         };
       }
 
+      logSignupFailure({ flow: "lender_register", role: "lender" }, null);
+
       return {
         status: "error",
-        message:
-          "Could not create the account. Try another email or password.",
+        message: getSignupFailureMessage(null),
         values: {
           displayName: input.displayName,
           email: input.email,

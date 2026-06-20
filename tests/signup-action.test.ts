@@ -161,6 +161,53 @@ describe("signup action role enforcement", () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
+  it("reports Supabase database signup failures as account setup unavailable", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const supabase = mockSupabase("lender");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "unexpected_failure",
+        message: "Database error saving new user",
+        name: "AuthApiError",
+        status: 500,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    try {
+      const result = await signupAction(
+        previousState,
+        createSignupFormData("lender"),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.message).toBe(
+        "Account setup is temporarily unavailable. Try again later.",
+      );
+      expect(result.values?.role).toBe("lender");
+      expect(consoleError).toHaveBeenCalledWith(
+        "[auth-signup]",
+        expect.objectContaining({
+          flow: "signup",
+          role: "lender",
+          code: "unexpected_failure",
+          name: "AuthApiError",
+          status: 500,
+          message: "Database error saving new user",
+        }),
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "juan@example.com",
+      );
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
   it("treats repeat signup for an unconfirmed account as confirmation pending", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
