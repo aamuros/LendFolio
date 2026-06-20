@@ -3,6 +3,7 @@
 import {
   useActionState,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useTransition,
@@ -75,13 +76,50 @@ export function BorrowerVerificationDocumentsPanel({
   const [consentDialogOpen, setConsentDialogOpen] = useState(
     consentStatus ? !consentStatus.isCurrent : false,
   );
+  const [acceptedDisclosuresInSession, setAcceptedDisclosuresInSession] =
+    useState(false);
   const [isConsentPending, startConsentTransition] = useTransition();
+  const effectiveConsentStatus = useMemo(() => {
+    if (
+      !consentStatus ||
+      consentStatus.isCurrent ||
+      !acceptedDisclosuresInSession
+    ) {
+      return consentStatus;
+    }
+
+    const acceptedAt = new Date().toISOString();
+    const accepted = [...consentStatus.accepted];
+
+    for (const required of consentStatus.required) {
+      const alreadyAccepted = accepted.some(
+        (item) =>
+          item.consentType === required.consentType &&
+          item.version === required.version,
+      );
+
+      if (!alreadyAccepted) {
+        accepted.push({
+          consentType: required.consentType,
+          version: required.version,
+          acceptedAt,
+        });
+      }
+    }
+
+    return {
+      ...consentStatus,
+      isCurrent: true,
+      missing: [],
+      accepted,
+    };
+  }, [acceptedDisclosuresInSession, consentStatus]);
 
   if (!verification || verification.status === "missing") {
     return null;
   }
 
-  const disclosuresCurrent = consentStatus?.isCurrent ?? false;
+  const disclosuresCurrent = effectiveConsentStatus?.isCurrent ?? false;
   const facingState = getBorrowerFacingVerificationState(
     verification,
     disclosuresCurrent,
@@ -113,8 +151,10 @@ export function BorrowerVerificationDocumentsPanel({
       setConsentMessage(result.message);
 
       if (result.ok) {
+        setAcceptedDisclosuresInSession(true);
         setConsentChecked(false);
         setConsentDialogOpen(false);
+        window.dispatchEvent(new Event(borrowerVerificationUpdatedEvent));
         router.refresh();
       }
     });
@@ -128,7 +168,7 @@ export function BorrowerVerificationDocumentsPanel({
       />
 
       <DisclosuresSection
-        consentStatus={consentStatus}
+        consentStatus={effectiveConsentStatus}
         consentChecked={consentChecked}
         consentMessage={consentMessage}
         isConsentPending={isConsentPending}
