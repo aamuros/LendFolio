@@ -12,7 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle2, AlertCircle } from "lucide-react";
+import { CheckCircle2, AlertCircle, ArrowLeft, Mail } from "lucide-react";
 
 const initialState: ForgotPasswordState = {
   message: "",
@@ -27,24 +27,32 @@ export function ForgotPasswordForm() {
   const isSuccess = state.status === "success";
 
   return (
-    <Card>
-      <CardHeader className="text-center">
-        <CardTitle className="text-xl">Reset password</CardTitle>
-        <CardDescription>
-          Enter your email and we&apos;ll send you a link to reset your password
+    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md">
+      <CardHeader className="p-0 text-center">
+        <div className="mx-auto mb-2 flex size-12 items-center justify-center rounded-2xl bg-[#E7EEE9] text-[#254C3B] ring-1 ring-[#C9D8CF]">
+          {isSuccess ? <CheckCircle2 className="size-6" /> : <Mail className="size-6" />}
+        </div>
+        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
+          {isSuccess ? "Check your email" : "Reset your password"}
+        </CardTitle>
+        <CardDescription className="text-balance leading-6 text-[#55534F]">
+          {isSuccess
+            ? "If your email is registered, a secure reset link is on its way."
+            : "Enter the email linked to your LendFolio account."}
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-0">
         <form action={formAction}>
-          <FieldGroup>
+          <FieldGroup className="gap-4">
             <Field>
-              <FieldLabel htmlFor="email">Email</FieldLabel>
+              <FieldLabel htmlFor="email" className="text-[#33423C]">Email address</FieldLabel>
               <Input
                 id="email"
                 name="email"
                 type="email"
                 autoComplete="email"
                 placeholder="you@example.com"
+                className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
               />
             </Field>
@@ -54,7 +62,7 @@ export function ForgotPasswordForm() {
                 variant={isSuccess ? "default" : "destructive"}
                 className={
                   isSuccess
-                    ? "border-green-200 bg-green-50 text-green-800 *:[svg]:text-green-600 [&_[data-slot=alert-description]]:text-green-700 dark:border-green-800 dark:bg-green-950 dark:text-green-200 dark:*:[svg]:text-green-400 dark:[&_[data-slot=alert-description]]:text-green-300"
+                    ? "border-[#C9D8CF] bg-[#EFF5F1] text-[#254C3B] *:[svg]:text-[#254C3B] [&_[data-slot=alert-description]]:text-[#33423C]"
                     : undefined
                 }
               >
@@ -65,13 +73,13 @@ export function ForgotPasswordForm() {
 
             <Field>
               <SubmitButton />
-              <FieldDescription className="text-center">
-                Remember your password?{" "}
+              <FieldDescription className="text-center text-[#55534F]">
                 <Link
                   href="/login"
-                  className="underline underline-offset-4 hover:text-primary"
+                  className="inline-flex items-center gap-1.5 font-semibold text-[#33423C] underline underline-offset-4 hover:text-[#161616]"
                 >
-                  Sign in
+                  <ArrowLeft className="size-3.5" />
+                  Back to sign in
                 </Link>
               </FieldDescription>
             </Field>
@@ -86,7 +94,7 @@ function SubmitButton() {
   const { pending } = useFormStatus();
 
   return (
-    <Button type="submit" disabled={pending} className="w-full">
+    <Button type="submit" disabled={pending} className="h-12 w-full rounded-xl border border-[#161616] bg-[#161616] font-semibold !text-white shadow-[0_18px_35px_rgba(14,26,18,0.16)] hover:bg-[#0E1A12]">
       {pending ? "Sending..." : "Send reset link"}
     </Button>
   );
