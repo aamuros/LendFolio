@@ -2019,7 +2019,12 @@ function RepaymentCalendarCard({
             defaultMonth={today}
             showOutsideDays={true}
             className="w-full rounded-2xl border border-border/50 px-5 py-3 [--cell-size:2.25rem] sm:px-6 sm:py-4 sm:[--cell-size:2.5rem]"
-            classNames={{ root: "w-full" }}
+            classNames={{
+              root: "w-full",
+              months: "w-full",
+              month: "w-full",
+              month_grid: "w-full table-fixed border-collapse",
+            }}
             components={
               !isEmpty
                 ? {
