@@ -2008,10 +2008,10 @@ function RepaymentCalendarCard({
       <CardContent
         className={cn(
           "grid gap-4 px-4 pb-4 sm:px-5 sm:pb-5",
-          "xl:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] xl:items-start",
+          "lg:grid-cols-[minmax(0,22rem)_minmax(0,1fr)] lg:items-start",
         )}
       >
-        <div className="mx-auto w-full min-w-0 max-w-[22rem] xl:mx-0">
+        <div className="mx-auto w-full min-w-0 max-w-[22rem] lg:mx-0">
           <Calendar
             mode="single"
             selected={selectedDate}
@@ -2062,7 +2062,7 @@ function RepaymentCalendarCard({
         </div>
 
         {isEmpty ? (
-          <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/20 p-4 text-center xl:min-h-[22rem]">
+          <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/20 p-4 text-center lg:min-h-[22rem]">
             <p className="text-sm text-muted-foreground">
               No repayment dates yet
             </p>
