@@ -348,6 +348,51 @@ describe("signup action role enforcement", () => {
     expect(JSON.stringify(result)).not.toContain("securepass123");
   });
 
+  it("does not report email-specific Supabase Auth validation as project config", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        message: "Unable to validate email address: invalid format",
+        name: "AuthApiError",
+        status: 400,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_INVALID_REQUEST");
+    expect(result.message).toContain("Check the email and password");
+    expect(result.message).not.toContain("Supabase project settings");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("reports Supabase Auth rate limits without blaming project config", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "over_email_send_rate_limit",
+        message: "For security purposes, you can only request this after 60 seconds",
+        name: "AuthApiError",
+        status: 429,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
+    expect(result.message).toContain("Too many signup attempts");
+    expect(result.message).not.toContain("Supabase project settings");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
   it("keeps consent values from invalid submissions in server state", async () => {
     const formData = createSignupFormData("lender");
     formData.set("email", "not-an-email");

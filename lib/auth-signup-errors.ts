@@ -14,6 +14,8 @@ export type SignupErrorCode =
   | "SIGNUP_DATABASE_TRIGGER"
   | "SIGNUP_REDIRECT_URL"
   | "SIGNUP_EMAIL_REGISTERED"
+  | "SIGNUP_RATE_LIMITED"
+  | "SIGNUP_INVALID_REQUEST"
   | "SIGNUP_CONFIRMATION_SEND_FAILED"
   | "SIGNUP_UNEXPECTED";
 
@@ -122,9 +124,32 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   if (
     message.includes("already registered") ||
     message.includes("already exists") ||
+    message.includes("duplicate") ||
+    message.includes("email exists") ||
     code.includes("user_already_exists")
   ) {
     return "SIGNUP_EMAIL_REGISTERED";
+  }
+
+  if (
+    message.includes("rate limit") ||
+    message.includes("too many") ||
+    code.includes("rate_limit")
+  ) {
+    return "SIGNUP_RATE_LIMITED";
+  }
+
+  if (
+    message.includes("invalid email") ||
+    message.includes("email address is invalid") ||
+    message.includes("password") ||
+    message.includes("weak") ||
+    message.includes("not allowed") ||
+    message.includes("unsupported") ||
+    code.includes("validation") ||
+    code.includes("invalid")
+  ) {
+    return "SIGNUP_INVALID_REQUEST";
   }
 
   if (
@@ -143,8 +168,8 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     return "SIGNUP_DATABASE_TRIGGER";
   }
 
-  if (message.includes("authapierror") || status === 400 || status === 422) {
-    return "SIGNUP_SUPABASE_CONFIG";
+  if (status === 400 || status === 422) {
+    return "SIGNUP_INVALID_REQUEST";
   }
 
   return "SIGNUP_UNEXPECTED";
@@ -164,6 +189,10 @@ export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
       return "Signup needs the site redirect URL to be allowed before accounts can be created.";
     case "SIGNUP_EMAIL_REGISTERED":
       return "This email is already registered. Sign in or check your email for the confirmation link.";
+    case "SIGNUP_RATE_LIMITED":
+      return "Too many signup attempts. Wait a few minutes, then try again.";
+    case "SIGNUP_INVALID_REQUEST":
+      return "Signup could not be completed with these details. Check the email and password, then try again.";
     case "SIGNUP_CONFIRMATION_SEND_FAILED":
       return SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE;
     case "SIGNUP_UNEXPECTED":
