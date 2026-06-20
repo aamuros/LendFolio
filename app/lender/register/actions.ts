@@ -144,6 +144,13 @@ export async function lenderRegisterAction(
     }
 
     if (!data.user) {
+      if (!data.session) {
+        return {
+          status: "success",
+          message: SIGNUP_CHECK_EMAIL_MESSAGE,
+        };
+      }
+
       return {
         status: "error",
         message:

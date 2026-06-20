@@ -159,6 +159,14 @@ export async function signupAction(
     }
 
     if (!data.user) {
+      if (!data.session) {
+        return {
+          status: "success",
+          message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          confirmationEmail: input.email,
+        };
+      }
+
       return {
         status: "error",
         message: "Could not create the account. Try another email or password.",

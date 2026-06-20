@@ -43,6 +43,30 @@ describe("lender register action", () => {
     vi.clearAllMocks();
   });
 
+  it("treats no-session signup responses as confirmation pending", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    });
+    const supabase = {
+      auth: {
+        signUp,
+        resend: vi.fn(),
+        signOut: vi.fn(),
+      },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.status).toBe("success");
+    expect(result.message).toContain("Check your email");
+  });
+
   it("treats repeat signup for an unconfirmed lender account as confirmation pending", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const signUp = vi.fn().mockResolvedValue({
