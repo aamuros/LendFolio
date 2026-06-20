@@ -10,7 +10,10 @@ import {
   SIGNUP_CONFIRMATION_PENDING_MESSAGE,
   SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
 } from "@/lib/auth-confirmation";
-import { acceptBaselineUserConsents } from "@/lib/consent-recording";
+import {
+  acceptBaselineUserConsents,
+  getSignupConsentMetadata,
+} from "@/lib/consent-recording";
 import { getAuthRedirectUrl } from "@/lib/site-url";
 import { signupSchema } from "@/lib/signup";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -84,6 +87,7 @@ export async function signupAction(
       emailConfirmationRedirect,
       requestHeaders,
     );
+    const signupConsentMetadata = getSignupConsentMetadata(requestHeaders);
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
@@ -93,6 +97,7 @@ export async function signupAction(
         data: {
           lendfolio_role: input.role,
           display_name: input.displayName,
+          ...signupConsentMetadata,
         },
       },
     });

@@ -21,6 +21,14 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/lib/consent-recording", () => ({
   acceptBaselineUserConsents: vi.fn().mockResolvedValue(true),
+  getSignupConsentMetadata: vi.fn(() => ({
+    signup_terms_accepted: true,
+    signup_privacy_accepted: true,
+    signup_terms_version: "2026-05-terms-v1",
+    signup_privacy_version: "2026-05-privacy-v1",
+    signup_consent_ip_address: null,
+    signup_consent_user_agent: null,
+  })),
 }));
 
 const previousState = {
@@ -35,6 +43,8 @@ function createLenderRegisterFormData() {
   formData.set("organizationName", "Lending Corp");
   formData.set("password", "securepass123");
   formData.set("confirmPassword", "securepass123");
+  formData.set("termsAccepted", "on");
+  formData.set("privacyAccepted", "on");
   return formData;
 }
 
@@ -65,6 +75,21 @@ describe("lender register action", () => {
 
     expect(result.status).toBe("success");
     expect(result.message).toContain("Check your email");
+    expect(result.confirmationEmail).toBe("lender@example.com");
+    expect(signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          data: expect.objectContaining({
+            lendfolio_role: "lender",
+            organization_name: "Lending Corp",
+            signup_terms_accepted: true,
+            signup_privacy_accepted: true,
+            signup_terms_version: "2026-05-terms-v1",
+            signup_privacy_version: "2026-05-privacy-v1",
+          }),
+        }),
+      }),
+    );
   });
 
   it("treats repeat signup for an unconfirmed lender account as confirmation pending", async () => {
@@ -93,6 +118,7 @@ describe("lender register action", () => {
 
     expect(result.status).toBe("success");
     expect(result.message).toContain("Account already created");
+    expect(result.confirmationEmail).toBe("lender@example.com");
     expect(resend).toHaveBeenCalledWith({
       type: "signup",
       email: "lender@example.com",
@@ -100,5 +126,17 @@ describe("lender register action", () => {
         emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
       },
     });
+  });
+
+  it("requires explicit Terms and Privacy acceptance", async () => {
+    const formData = createLenderRegisterFormData();
+    formData.delete("termsAccepted");
+    formData.delete("privacyAccepted");
+
+    const result = await lenderRegisterAction(previousState, formData);
+
+    expect(result.status).toBe("error");
+    expect(result.fieldErrors?.termsAccepted).toBeDefined();
+    expect(result.fieldErrors?.privacyAccepted).toBeDefined();
   });
 });

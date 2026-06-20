@@ -10,7 +10,10 @@ import {
   SIGNUP_CONFIRMATION_PENDING_MESSAGE,
   SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
 } from "@/lib/auth-confirmation";
-import { acceptBaselineUserConsents } from "@/lib/consent-recording";
+import {
+  acceptBaselineUserConsents,
+  getSignupConsentMetadata,
+} from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
 import { getAuthRedirectUrl } from "@/lib/site-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
@@ -21,7 +24,9 @@ type LenderRegisterFieldErrors = Partial<
     | "email"
     | "organizationName"
     | "password"
-    | "confirmPassword",
+    | "confirmPassword"
+    | "termsAccepted"
+    | "privacyAccepted",
     string[]
   >
 >;
@@ -34,7 +39,10 @@ export type LenderRegisterState = {
     displayName?: string;
     email?: string;
     organizationName?: string;
+    termsAccepted?: boolean;
+    privacyAccepted?: boolean;
   };
+  confirmationEmail?: string;
 };
 
 export async function lenderRegisterAction(
@@ -47,6 +55,8 @@ export async function lenderRegisterAction(
     organizationName: formData.get("organizationName"),
     password: formData.get("password"),
     confirmPassword: formData.get("confirmPassword"),
+    termsAccepted: formData.get("termsAccepted"),
+    privacyAccepted: formData.get("privacyAccepted"),
   });
 
   if (!parsed.success) {
@@ -58,6 +68,8 @@ export async function lenderRegisterAction(
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),
         organizationName: String(formData.get("organizationName") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
       },
     };
   }
@@ -74,6 +86,7 @@ export async function lenderRegisterAction(
       emailConfirmationRedirect,
       requestHeaders,
     );
+    const signupConsentMetadata = getSignupConsentMetadata(requestHeaders);
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
@@ -84,6 +97,7 @@ export async function lenderRegisterAction(
           lendfolio_role: "lender",
           display_name: input.displayName,
           organization_name: input.organizationName,
+          ...signupConsentMetadata,
         },
       },
     });
@@ -97,6 +111,7 @@ export async function lenderRegisterAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          confirmationEmail: input.email,
         };
       }
 
@@ -106,6 +121,7 @@ export async function lenderRegisterAction(
         return {
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+          confirmationEmail: input.email,
         };
       }
 
@@ -121,12 +137,15 @@ export async function lenderRegisterAction(
           message: resent
             ? SIGNUP_CHECK_EMAIL_MESSAGE
             : SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
+          confirmationEmail: resent ? input.email : undefined,
           values: resent
             ? undefined
             : {
                 displayName: input.displayName,
                 email: input.email,
                 organizationName: input.organizationName,
+                termsAccepted: true,
+                privacyAccepted: true,
               },
         };
       }
@@ -139,6 +158,8 @@ export async function lenderRegisterAction(
           displayName: input.displayName,
           email: input.email,
           organizationName: input.organizationName,
+          termsAccepted: true,
+          privacyAccepted: true,
         },
       };
     }
@@ -148,6 +169,7 @@ export async function lenderRegisterAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          confirmationEmail: input.email,
         };
       }
 
@@ -159,6 +181,8 @@ export async function lenderRegisterAction(
           displayName: input.displayName,
           email: input.email,
           organizationName: input.organizationName,
+          termsAccepted: true,
+          privacyAccepted: true,
         },
       };
     }
@@ -171,6 +195,7 @@ export async function lenderRegisterAction(
       return {
         status: "success",
         message: SIGNUP_CHECK_EMAIL_MESSAGE,
+        confirmationEmail: input.email,
       };
     }
 
@@ -196,6 +221,8 @@ export async function lenderRegisterAction(
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),
         organizationName: String(formData.get("organizationName") ?? ""),
+        termsAccepted: formData.get("termsAccepted") === "on",
+        privacyAccepted: formData.get("privacyAccepted") === "on",
       },
     };
   }

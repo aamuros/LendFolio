@@ -1,4 +1,5 @@
 import {
+  CURRENT_CONSENT_VERSIONS,
   getRequiredConsentVersions,
   hasCurrentRequiredConsents,
   toConsentRpcPayload,
@@ -16,6 +17,19 @@ export function getConsentRequestMetadata(requestHeaders: RequestHeaderReader) {
       requestHeaders.get("x-real-ip") ||
       null,
     userAgent: requestHeaders.get("user-agent") ?? null,
+  };
+}
+
+export function getSignupConsentMetadata(requestHeaders: RequestHeaderReader) {
+  const { ipAddress, userAgent } = getConsentRequestMetadata(requestHeaders);
+
+  return {
+    signup_terms_accepted: true,
+    signup_privacy_accepted: true,
+    signup_terms_version: CURRENT_CONSENT_VERSIONS.terms_of_service,
+    signup_privacy_version: CURRENT_CONSENT_VERSIONS.privacy_notice,
+    signup_consent_ip_address: ipAddress,
+    signup_consent_user_agent: userAgent,
   };
 }
 

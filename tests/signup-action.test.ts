@@ -21,6 +21,14 @@ vi.mock("next/headers", () => ({
 
 vi.mock("@/lib/consent-recording", () => ({
   acceptBaselineUserConsents: vi.fn().mockResolvedValue(true),
+  getSignupConsentMetadata: vi.fn(() => ({
+    signup_terms_accepted: true,
+    signup_privacy_accepted: true,
+    signup_terms_version: "2026-05-terms-v1",
+    signup_privacy_version: "2026-05-privacy-v1",
+    signup_consent_ip_address: null,
+    signup_consent_user_agent: null,
+  })),
 }));
 
 const previousState = {
@@ -142,6 +150,10 @@ describe("signup action role enforcement", () => {
         options: expect.objectContaining({
           data: expect.objectContaining({
             lendfolio_role: "lender",
+            signup_terms_accepted: true,
+            signup_privacy_accepted: true,
+            signup_terms_version: "2026-05-terms-v1",
+            signup_privacy_version: "2026-05-privacy-v1",
           }),
         }),
       }),

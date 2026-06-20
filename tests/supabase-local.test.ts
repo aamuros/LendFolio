@@ -777,6 +777,58 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     }
   });
 
+  it("records signup baseline consents during lender provisioning", async () => {
+    const email = `consented-lender-${crypto.randomUUID()}@lendfolio.local`;
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        lendfolio_role: "lender",
+        display_name: "Consented Lender",
+        signup_terms_accepted: true,
+        signup_privacy_accepted: true,
+        signup_terms_version: "2026-05-terms-v1",
+        signup_privacy_version: "2026-05-privacy-v1",
+        signup_consent_ip_address: "203.0.113.10",
+        signup_consent_user_agent: "Vitest",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data.user?.id).toBeTruthy();
+    const userId = data.user?.id;
+    if (!userId) {
+      throw new Error("Expected created lender user.");
+    }
+
+    try {
+      const { data: consents, error: consentsError } = await admin
+        .from("user_consents")
+        .select("consent_type, version, ip_address, user_agent")
+        .eq("user_id", userId)
+        .order("consent_type");
+
+      expect(consentsError).toBeNull();
+      expect(consents).toEqual([
+        {
+          consent_type: "privacy_notice",
+          version: "2026-05-privacy-v1",
+          ip_address: "203.0.113.10",
+          user_agent: "Vitest",
+        },
+        {
+          consent_type: "terms_of_service",
+          version: "2026-05-terms-v1",
+          ip_address: "203.0.113.10",
+          user_agent: "Vitest",
+        },
+      ]);
+    } finally {
+      await admin.auth.admin.deleteUser(userId);
+    }
+  });
+
   it.each(["incomplete", "rejected"] as const)(
     "moves %s lender onboarding to pending and logs the real previous status",
     async (previousStatus) => {

@@ -22,6 +22,7 @@ import {
   FieldLabel,
 } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { LegalDialog } from "@/components/legal/legal-dialog";
 import { termsContent, privacyContent } from "@/components/legal/legal-content";
@@ -60,6 +61,7 @@ export function LenderRegisterForm() {
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
     : state.fieldErrors?.confirmPassword;
+  const hasConfirmationEmail = Boolean(state.confirmationEmail);
 
   return (
     <div className="flex flex-col gap-6">
@@ -158,6 +160,47 @@ export function LenderRegisterForm() {
                 />
               </Field>
 
+              <div className="space-y-3 rounded-lg border bg-muted/35 p-4" role="group" aria-label="Required disclosures">
+                <ConsentCheckbox
+                  name="termsAccepted"
+                  id="termsAccepted"
+                  defaultChecked={state.values?.termsAccepted}
+                  label={
+                    <>
+                      {"I agree to the "}
+                      <LegalDialog
+                        trigger={
+                          <button type="button" className="underline underline-offset-4 hover:text-primary">
+                            Terms of Service
+                          </button>
+                        }
+                        content={termsContent}
+                      />
+                    </>
+                  }
+                  error={state.fieldErrors?.termsAccepted}
+                />
+                <ConsentCheckbox
+                  name="privacyAccepted"
+                  id="privacyAccepted"
+                  defaultChecked={state.values?.privacyAccepted}
+                  label={
+                    <>
+                      {"I acknowledge the "}
+                      <LegalDialog
+                        trigger={
+                          <button type="button" className="underline underline-offset-4 hover:text-primary">
+                            Privacy Notice
+                          </button>
+                        }
+                        content={privacyContent}
+                      />
+                    </>
+                  }
+                  error={state.fieldErrors?.privacyAccepted}
+                />
+              </div>
+
               {!passwordMismatch && state.message ? (
                 <Alert variant={isSuccess ? "default" : "destructive"}>
                   {isSuccess ? <CheckCircle2 /> : <AlertCircle />}
@@ -181,26 +224,48 @@ export function LenderRegisterForm() {
           </form>
         </CardContent>
       </Card>
-      <FieldDescription className="px-6 text-center">
-        By clicking continue, you agree to our{" "}
-        <LegalDialog
-          trigger={
-            <button type="button" className="underline underline-offset-4 hover:text-primary">
-              Terms of Service
-            </button>
-          }
-          content={termsContent}
-        />{" "}
-        and{" "}
-        <LegalDialog
-          trigger={
-            <button type="button" className="underline underline-offset-4 hover:text-primary">
-              Privacy Policy
-            </button>
-          }
-          content={privacyContent}
-        />.
-      </FieldDescription>
+      {hasConfirmationEmail ? (
+        <FieldDescription className="px-6 text-center">
+          We sent the confirmation link to{" "}
+          <span className="break-all font-medium text-foreground">
+            {state.confirmationEmail}
+          </span>
+          .
+        </FieldDescription>
+      ) : null}
+    </div>
+  );
+}
+
+function ConsentCheckbox({
+  name,
+  id,
+  label,
+  error,
+  defaultChecked,
+}: {
+  name: string;
+  id: string;
+  label: React.ReactNode;
+  error?: string[];
+  defaultChecked?: boolean;
+}) {
+  return (
+    <div className="grid gap-1">
+      <div className="grid grid-cols-[1.125rem_1fr] items-start gap-x-2.5">
+        <Checkbox
+          id={id}
+          name={name}
+          value="on"
+          className="mt-0.5"
+          defaultChecked={defaultChecked}
+          required
+        />
+        <FieldLabel htmlFor={id} className="inline text-sm font-normal leading-snug">
+          {label}
+        </FieldLabel>
+      </div>
+      <FieldErrorHelper messages={error} />
     </div>
   );
 }
@@ -226,4 +291,3 @@ function SubmitButton() {
     </Button>
   );
 }
-

@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+const requiredConsentCheckbox = (message: string) =>
+  z.preprocess(
+    (value) => value === true || value === "on",
+    z.literal(true, { error: message }),
+  );
+
 export const lenderRegisterSchema = z
   .object({
     displayName: z
@@ -22,6 +28,8 @@ export const lenderRegisterSchema = z
       .min(8, "Password must be at least 8 characters.")
       .max(72, "Password must be 72 characters or fewer."),
     confirmPassword: z.string(),
+    termsAccepted: requiredConsentCheckbox("Accept the Terms of Service."),
+    privacyAccepted: requiredConsentCheckbox("Acknowledge the Privacy Notice."),
   })
   .superRefine((value, context) => {
     if (value.password !== value.confirmPassword) {

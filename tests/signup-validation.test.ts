@@ -265,6 +265,8 @@ describe("lender register schema validation", () => {
     organizationName: "Lending Corp",
     password: "securepassword123",
     confirmPassword: "securepassword123",
+    termsAccepted: true,
+    privacyAccepted: true,
   };
 
   it("accepts valid lender register input", () => {
@@ -299,6 +301,21 @@ describe("lender register schema validation", () => {
       expect(fieldErrors.email).toBeUndefined();
       expect(fieldErrors.organizationName).toBeUndefined();
       expect(fieldErrors.password).toBeUndefined();
+    }
+  });
+
+  it("rejects missing lender register disclosures", () => {
+    const result = lenderRegisterSchema.safeParse({
+      ...validInput,
+      termsAccepted: false,
+      privacyAccepted: false,
+    });
+
+    expect(result.success).toBe(false);
+    if (!result.success) {
+      const fieldErrors = result.error.flatten().fieldErrors;
+      expect(fieldErrors.termsAccepted).toBeDefined();
+      expect(fieldErrors.privacyAccepted).toBeDefined();
     }
   });
 
