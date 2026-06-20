@@ -105,15 +105,15 @@ describe("signup action role enforcement", () => {
     expect(supabase.signOut).toHaveBeenCalled();
   });
 
-  it("keeps unconfirmed email signups on the check-email state", async () => {
+  it("redirects unconfirmed email signups to the check-email page", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower", { id: "user-1" });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    await expect(
+      signupAction(previousState, createSignupFormData("borrower")),
+    ).rejects.toThrow("REDIRECT:/signup/check-email?email=juan%40example.com");
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("Check your email");
     expect(supabase.signOut).toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
   });
@@ -127,11 +127,10 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    await expect(
+      signupAction(previousState, createSignupFormData("borrower")),
+    ).rejects.toThrow("REDIRECT:/signup/check-email?email=juan%40example.com");
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("Check your email");
-    expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
@@ -144,11 +143,10 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("lender"));
+    await expect(
+      signupAction(previousState, createSignupFormData("lender")),
+    ).rejects.toThrow("REDIRECT:/signup/check-email?email=juan%40example.com");
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("Check your email");
-    expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
         email: "juan@example.com",
@@ -236,13 +234,12 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    await expect(
+      signupAction(previousState, createSignupFormData("borrower")),
+    ).rejects.toThrow(
+      "REDIRECT:/signup/check-email?email=juan%40example.com&status=pending",
+    );
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("pending account");
-    expect(result.message).toContain("resend the confirmation link");
-    expect(result.canResendConfirmation).toBe(true);
-    expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.resend).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
   });
@@ -392,19 +389,13 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    await expect(
+      signupAction(previousState, createSignupFormData("borrower")),
+    ).rejects.toThrow(
+      "REDIRECT:/signup/check-email?email=juan%40example.com&status=delivery_failed",
+    );
 
-    expect(result.status).toBe("error");
-    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
-    expect(result.canResendConfirmation).toBe(true);
-    expect(result.confirmationEmail).toBe("juan@example.com");
-    expect(result.message).toContain("could not send a confirmation email");
-    expect(result.message).toContain("signup may be pending");
-    expect(result.message).not.toContain("Account created");
-    expect(result.message).not.toContain("Check your email");
-    expect(result.message).not.toContain("We sent");
     expect(supabase.resend).not.toHaveBeenCalled();
-    expect(JSON.stringify(result)).not.toContain("securepass123");
   });
 
   it("keeps signup delivery errors as errors even when Supabase returns an unconfirmed user and session", async () => {
@@ -422,15 +413,12 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    await expect(
+      signupAction(previousState, createSignupFormData("borrower")),
+    ).rejects.toThrow(
+      "REDIRECT:/signup/check-email?email=juan%40example.com&status=delivery_failed",
+    );
 
-    expect(result.status).toBe("error");
-    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
-    expect(result.canResendConfirmation).toBe(true);
-    expect(result.confirmationEmail).toBe("juan@example.com");
-    expect(result.message).not.toContain("Account created");
-    expect(result.message).not.toContain("Check your email");
-    expect(result.message).not.toContain("We sent");
     expect(supabase.signOut).toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
   });

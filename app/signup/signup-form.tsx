@@ -3,9 +3,7 @@
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
-  resendSignupConfirmationAction,
   signupAction,
-  type ResendSignupConfirmationState,
   type SignupState,
 } from "@/app/signup/actions";
 import type { SignupRole } from "@/lib/signup";
@@ -20,33 +18,21 @@ import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LegalDialog } from "@/components/legal/legal-dialog";
 import { termsContent, privacyContent } from "@/components/legal/legal-content";
-import { AlertCircle, HandCoins, Landmark, MailCheck } from "lucide-react";
+import { AlertCircle, HandCoins, Landmark } from "lucide-react";
 
 const initialState: SignupState = {
   message: "",
   status: "idle",
 };
 
-const initialResendState: ResendSignupConfirmationState = {
-  message: "",
-  status: "idle",
-};
-
 export function SignupForm() {
   const [state, formAction, isPending] = useActionState(signupAction, initialState);
-  const [resendState, resendFormAction, isResendPending] = useActionState(
-    resendSignupConfirmationAction,
-    initialResendState,
-  );
 
   return (
     <SignupFormContent
       state={state}
       formAction={formAction}
       isPending={isPending}
-      resendState={resendState}
-      resendFormAction={resendFormAction}
-      isResendPending={isResendPending}
     />
   );
 }
@@ -55,16 +41,10 @@ function SignupFormContent({
   state,
   formAction,
   isPending,
-  resendState,
-  resendFormAction,
-  isResendPending,
 }: {
   state: SignupState;
   formAction: (payload: FormData) => void;
   isPending: boolean;
-  resendState: ResendSignupConfirmationState;
-  resendFormAction: (payload: FormData) => void;
-  isResendPending: boolean;
 }) {
   const [role, setRole] = useState<SignupRole>(
     isSignupRole(state.values?.role) ? state.values.role : "borrower",
@@ -80,18 +60,10 @@ function SignupFormContent({
   const [passwordMismatch, setPasswordMismatch] = useState(false);
   const [currentTime, setCurrentTime] = useState(() => Date.now());
   const errorAlertRef = useRef<HTMLDivElement>(null);
-  const isSuccess = state.status === "success";
   const isRateLimited = state.errorCode === "SIGNUP_RATE_LIMITED";
-  const resendEmail =
-    state.confirmationEmail || state.values?.email || resendState.confirmationEmail || "";
-  const shouldShowResendConfirmation =
-    Boolean(resendEmail) &&
-    (Boolean(state.canResendConfirmation) ||
-      state.errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED" ||
-      state.errorCode === "SIGNUP_RATE_LIMITED");
-  const storedCooldownEndsAt = getStoredSignupCooldownEndsAt(resendEmail);
-  const serverCooldownEndsAt =
-    state.rateLimitCooldownEndsAt || resendState.rateLimitCooldownEndsAt || 0;
+  const cooldownEmail = state.confirmationEmail || state.values?.email || "";
+  const storedCooldownEndsAt = getStoredSignupCooldownEndsAt(cooldownEmail);
+  const serverCooldownEndsAt = state.rateLimitCooldownEndsAt || 0;
   const cooldownEndsAt = Math.max(serverCooldownEndsAt, storedCooldownEndsAt);
   const rateLimitSecondsRemaining =
     cooldownEndsAt > 0
@@ -101,7 +73,7 @@ function SignupFormContent({
         )
       : 0;
   const isSubmitDisabled =
-    isPending || isResendPending || (isRateLimited && rateLimitSecondsRemaining > 0);
+    isPending || (isRateLimited && rateLimitSecondsRemaining > 0);
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
@@ -117,21 +89,21 @@ function SignupFormContent({
   }, [topLevelError]);
 
   useEffect(() => {
-    if (!resendEmail || serverCooldownEndsAt <= 0) {
+    if (!cooldownEmail || serverCooldownEndsAt <= 0) {
       return;
     }
 
     const nextCooldown = Math.max(serverCooldownEndsAt, storedCooldownEndsAt);
     window.localStorage.setItem(
-      getSignupCooldownStorageKey(resendEmail),
+      getSignupCooldownStorageKey(cooldownEmail),
       String(nextCooldown),
     );
-  }, [resendEmail, serverCooldownEndsAt, storedCooldownEndsAt]);
+  }, [cooldownEmail, serverCooldownEndsAt, storedCooldownEndsAt]);
 
   useEffect(() => {
     if (rateLimitSecondsRemaining <= 0) {
-      if (resendEmail) {
-        window.localStorage.removeItem(getSignupCooldownStorageKey(resendEmail));
+      if (cooldownEmail) {
+        window.localStorage.removeItem(getSignupCooldownStorageKey(cooldownEmail));
       }
       return;
     }
@@ -141,19 +113,7 @@ function SignupFormContent({
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [resendEmail, rateLimitSecondsRemaining]);
-
-  if (isSuccess) {
-    return (
-      <SignupSuccessMessage
-        state={state}
-        resendState={resendState}
-        resendFormAction={resendFormAction}
-        isResendPending={isResendPending}
-        rateLimitSecondsRemaining={rateLimitSecondsRemaining}
-      />
-    );
-  }
+  }, [cooldownEmail, rateLimitSecondsRemaining]);
 
   return (
     <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/94 p-5 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md sm:p-6">
@@ -378,18 +338,6 @@ function SignupFormContent({
           </FieldGroup>
         </form>
 
-        {shouldShowResendConfirmation ? (
-          <div className="mt-4">
-            <ResendConfirmationActions
-              email={resendEmail}
-              resendState={resendState}
-              resendFormAction={resendFormAction}
-              isResendPending={isResendPending}
-              rateLimitSecondsRemaining={rateLimitSecondsRemaining}
-            />
-          </div>
-        ) : null}
-
         <div className="mt-4 text-center text-sm text-[#55534F]">
           <p>
             Already have an account?{" "}
@@ -403,154 +351,6 @@ function SignupFormContent({
         </div>
       </CardContent>
     </Card>
-  );
-}
-
-function SignupSuccessMessage({
-  state,
-  resendState,
-  resendFormAction,
-  isResendPending,
-  rateLimitSecondsRemaining,
-}: {
-  state: SignupState;
-  resendState: ResendSignupConfirmationState;
-  resendFormAction: (payload: FormData) => void;
-  isResendPending: boolean;
-  rateLimitSecondsRemaining: number;
-}) {
-  const hasConfirmationEmail = Boolean(state.confirmationEmail);
-
-  return (
-    <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/94 p-5 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md sm:p-6">
-      <CardHeader className="items-center p-0 text-center">
-        <div className="mb-1 flex size-12 items-center justify-center rounded-full bg-[#E6DDCB] text-[#33423C]">
-          <MailCheck className="size-6" />
-        </div>
-        <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-[#161616]">
-          {hasConfirmationEmail ? "Check your email" : "Account created"}
-        </CardTitle>
-        <CardDescription className="text-[#55534F]">
-          {hasConfirmationEmail ? (
-            <>
-              We sent a confirmation link
-              {state.confirmationEmail ? (
-                <>
-                  {" "}
-                  to{" "}
-                  <span className="break-all font-medium text-[#161616]">
-                    {state.confirmationEmail}
-                  </span>
-                </>
-              ) : null}
-              .
-            </>
-          ) : (
-            "Your account is ready for sign in."
-          )}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="grid gap-4 p-0">
-        <Alert>
-          <MailCheck className="size-4" />
-          <AlertTitle>
-            {hasConfirmationEmail ? "Confirm your account" : "Continue"}
-          </AlertTitle>
-          <AlertDescription>{state.message}</AlertDescription>
-        </Alert>
-        {state.canResendConfirmation && state.confirmationEmail ? (
-          <ResendConfirmationActions
-            email={state.confirmationEmail}
-            resendState={resendState}
-            resendFormAction={resendFormAction}
-            isResendPending={isResendPending}
-            rateLimitSecondsRemaining={rateLimitSecondsRemaining}
-          />
-        ) : null}
-        <div className="grid gap-2 sm:grid-cols-2">
-          <Button asChild className="h-11 rounded-xl font-semibold">
-            <Link href="/login">Go to sign in</Link>
-          </Button>
-          <Button
-            asChild
-            variant="outline"
-            className="h-11 rounded-xl font-semibold"
-          >
-            <Link href="/">Back to home</Link>
-          </Button>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ResendConfirmationActions({
-  email,
-  resendState,
-  resendFormAction,
-  isResendPending,
-  rateLimitSecondsRemaining,
-}: {
-  email: string;
-  resendState: ResendSignupConfirmationState;
-  resendFormAction: (payload: FormData) => void;
-  isResendPending: boolean;
-  rateLimitSecondsRemaining: number;
-}) {
-  const isCoolingDown = rateLimitSecondsRemaining > 0;
-
-  return (
-    <div className="grid gap-3 rounded-2xl border border-[#D9D7D1]/85 bg-[#F8F7F3]/62 p-4">
-      {resendState.message ? (
-        <Alert
-          variant={resendState.status === "error" ? "destructive" : "default"}
-          role="alert"
-          aria-live="polite"
-        >
-          <MailCheck className="size-4" />
-          <AlertTitle>
-            {resendState.status === "error" ? "Resend needs attention" : "Confirmation email"}
-          </AlertTitle>
-          <AlertDescription>
-            {resendState.message}
-            {isCoolingDown ? (
-              <span className="mt-2 block text-sm font-medium">
-                Please wait {rateLimitSecondsRemaining} seconds before trying again.
-              </span>
-            ) : null}
-            {resendState.errorCode ? (
-              <span className="mt-1 block text-xs font-medium uppercase tracking-normal">
-                Code: {resendState.errorCode}
-              </span>
-            ) : null}
-          </AlertDescription>
-        </Alert>
-      ) : null}
-      <div className="grid gap-2 sm:grid-cols-2">
-        <form action={resendFormAction}>
-          <input type="hidden" name="email" value={email} />
-          <Button
-            type="submit"
-            variant="outline"
-            disabled={isResendPending || isCoolingDown}
-            className="h-11 w-full rounded-xl font-semibold"
-          >
-            {isResendPending
-              ? "Sending..."
-              : isCoolingDown
-                ? `Resend in ${rateLimitSecondsRemaining}s`
-                : "Resend confirmation email"}
-          </Button>
-        </form>
-        <Button
-          asChild
-          variant="outline"
-          className="h-11 rounded-xl font-semibold"
-        >
-          <Link href="/login">Go to login</Link>
-        </Button>
-      </div>
-    </div>
   );
 }
 

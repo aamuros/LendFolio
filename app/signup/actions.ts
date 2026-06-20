@@ -14,8 +14,6 @@ import {
   hasConfirmedEmail,
   isSignupConfirmationDeliveryError,
   isSignupConfirmationPendingError,
-  SIGNUP_CHECK_EMAIL_MESSAGE,
-  SIGNUP_CONFIRMATION_PENDING_MESSAGE,
   SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
 } from "@/lib/auth-confirmation";
 import {
@@ -152,12 +150,79 @@ export async function signupAction(
           await supabase.auth.signOut();
         }
 
+        redirectTo = getSignupConfirmationPath(input.email, "delivery_failed");
+      } else if (data.user && !hasConfirmedEmail(data.user)) {
+        if (data.session) {
+          await supabase.auth.signOut();
+        }
+
+        redirectTo = getSignupConfirmationPath(input.email);
+      } else if (isSignupConfirmationPendingError(error)) {
+        redirectTo = getSignupConfirmationPath(input.email, "pending");
+      } else {
         return {
           status: "error",
-          message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
-          errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
+          message: getSafeSignupErrorMessage(errorCode),
+          errorCode,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            role: input.role,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+    } else if (!data.user) {
+      if (!data.session) {
+        redirectTo = getSignupConfirmationPath(input.email);
+      } else {
+        logSignupFailure({ flow: "signup", role: input.role }, null);
+
+        return {
+          status: "error",
+          message: "Could not create the account. Try another email or password.",
+          errorCode: "SIGNUP_UNEXPECTED",
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            role: input.role,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+    } else if (!data.session || !hasConfirmedEmail(data.user)) {
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
+      redirectTo = getSignupConfirmationPath(input.email);
+    } else {
+      const [acceptedBaseline, { data: profile }] = await Promise.all([
+        acceptBaselineUserConsents(supabase, requestHeaders),
+        supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", data.user.id)
+          .maybeSingle(),
+      ]);
+
+      if (!acceptedBaseline) {
+        return {
+          status: "success",
+          message:
+            "Account created. Sign in to finish setting up your workspace.",
+        };
+      }
+
+      if (profile && profile.role !== input.role) {
+        await supabase.auth.signOut();
+
+        return {
+          status: "error",
+          message: getRoleMismatchMessage(profile.role, input.role),
+          errorCode: "SIGNUP_EMAIL_REGISTERED",
           values: {
             displayName: input.displayName,
             email: input.email,
@@ -168,115 +233,8 @@ export async function signupAction(
         };
       }
 
-      if (data.user && !hasConfirmedEmail(data.user)) {
-        if (data.session) {
-          await supabase.auth.signOut();
-        }
-
-        return {
-          status: "success",
-          message: SIGNUP_CHECK_EMAIL_MESSAGE,
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
-        };
-      }
-
-      if (isSignupConfirmationPendingError(error)) {
-        return {
-          status: "success",
-          message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
-        };
-      }
-
-      return {
-        status: "error",
-        message: getSafeSignupErrorMessage(errorCode),
-        errorCode,
-        values: {
-          displayName: input.displayName,
-          email: input.email,
-          role: input.role,
-          termsAccepted: true,
-          privacyAccepted: true,
-        },
-      };
+      redirectTo = destination;
     }
-
-    if (!data.user) {
-      if (!data.session) {
-        return {
-          status: "success",
-          message: SIGNUP_CHECK_EMAIL_MESSAGE,
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
-        };
-      }
-
-      logSignupFailure({ flow: "signup", role: input.role }, null);
-
-      return {
-        status: "error",
-        message: "Could not create the account. Try another email or password.",
-        errorCode: "SIGNUP_UNEXPECTED",
-        values: {
-          displayName: input.displayName,
-          email: input.email,
-          role: input.role,
-          termsAccepted: true,
-          privacyAccepted: true,
-        },
-      };
-    }
-
-    if (!data.session || !hasConfirmedEmail(data.user)) {
-      if (data.session) {
-        await supabase.auth.signOut();
-      }
-
-      return {
-        status: "success",
-        message: SIGNUP_CHECK_EMAIL_MESSAGE,
-        confirmationEmail: input.email,
-      };
-    }
-
-    const [acceptedBaseline, { data: profile }] = await Promise.all([
-      acceptBaselineUserConsents(supabase, requestHeaders),
-      supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", data.user.id)
-        .maybeSingle(),
-    ]);
-
-    if (!acceptedBaseline) {
-      return {
-        status: "success",
-        message:
-          "Account created. Sign in to finish setting up your workspace.",
-      };
-    }
-
-    if (profile && profile.role !== input.role) {
-      await supabase.auth.signOut();
-
-      return {
-        status: "error",
-        message: getRoleMismatchMessage(profile.role, input.role),
-        errorCode: "SIGNUP_EMAIL_REGISTERED",
-        values: {
-          displayName: input.displayName,
-          email: input.email,
-          role: input.role,
-          termsAccepted: true,
-          privacyAccepted: true,
-        },
-      };
-    }
-
-    redirectTo = destination;
   } catch (error) {
     const errorCode = classifySignupError(error);
     const role = formData.get("role");
@@ -418,4 +376,16 @@ function getRoleMismatchMessage(profileRole: string, selectedRole: string) {
 
 function isSignupRoleValue(value: FormDataEntryValue | null): value is "borrower" | "lender" {
   return value === "borrower" || value === "lender";
+}
+
+function getSignupConfirmationPath(
+  email: string,
+  status?: "pending" | "delivery_failed",
+) {
+  const params = new URLSearchParams({ email });
+  if (status) {
+    params.set("status", status);
+  }
+
+  return `/signup/check-email?${params.toString()}`;
 }

@@ -527,21 +527,23 @@ describe("manager operations helpers", () => {
 
   it("shows signup rate-limit cooldown accessibly with per-email local storage", () => {
     const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+    const confirmationPanel = readFileSync(
+      "app/signup/check-email/signup-confirmation-panel.tsx",
+      "utf8",
+    );
 
     expect(signupForm).toContain("state.rateLimitCooldownEndsAt");
-    expect(signupForm).toContain("resendState.rateLimitCooldownEndsAt");
     expect(signupForm).toContain('state.errorCode === "SIGNUP_RATE_LIMITED"');
-    expect(signupForm).toContain('state.errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED"');
-    expect(signupForm).toContain("shouldShowResendConfirmation");
     expect(signupForm).toContain("Please wait {rateLimitSecondsRemaining} seconds before using resend confirmation.");
     expect(signupForm).toContain("disabled={isDisabled}");
-    expect(signupForm).toContain("Resend confirmation email");
-    expect(signupForm).toContain("Go to login");
-    expect(signupForm).toContain('role="alert"');
-    expect(signupForm).toContain('aria-live="polite"');
-    expect(signupForm).toContain("localStorage");
-    expect(signupForm).toContain("lendfolio:signup-confirmation-cooldown");
-    expect(signupForm).not.toContain("sessionStorage");
+    expect(confirmationPanel).toContain("resendState.rateLimitCooldownEndsAt");
+    expect(confirmationPanel).toContain("Resend confirmation");
+    expect(confirmationPanel).toContain("Go to login");
+    expect(confirmationPanel).toContain('role="alert"');
+    expect(confirmationPanel).toContain('aria-live="polite"');
+    expect(confirmationPanel).toContain("localStorage");
+    expect(confirmationPanel).toContain("lendfolio:signup-confirmation-cooldown");
+    expect(confirmationPanel).not.toContain("sessionStorage");
   });
 
   it("keeps lender workspace pages behind primary lender access", () => {
