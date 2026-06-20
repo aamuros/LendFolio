@@ -1179,17 +1179,12 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
   return (
     <Card
       className={cn(
-        "group relative rounded-2xl border-border/50 shadow-sm transition hover:border-primary/30 hover:bg-muted/20 hover:shadow-md focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2",
+        "relative rounded-2xl border-border/50 shadow-sm",
         isHighlighted && "ring-2 ring-primary/30",
         isQuiet && "opacity-75",
       )}
     >
-      <Link
-        href={href}
-        aria-label={`Open offer for ${title}`}
-        className="absolute inset-0 z-10 rounded-2xl focus-visible:outline-none"
-      />
-      <CardContent className="pointer-events-none relative z-20 grid gap-3 p-4">
+      <CardContent className="grid gap-3 p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -1208,10 +1203,16 @@ function OfferCard({ offer, isHighlighted = false }: { offer: LenderOfferReview;
             <ToneBadge tone={offerStatusTone(offer.status)}>
               {offer.status}
             </ToneBadge>
-            <span className="inline-flex h-9 items-center gap-1.5 rounded-xl bg-primary px-3 text-sm font-semibold text-primary-foreground shadow-sm transition group-hover:bg-primary/90">
-              View
-              <ArrowRight className="size-4" />
-            </span>
+            <Button
+              asChild
+              size="sm"
+              className="h-9 rounded-xl font-semibold"
+            >
+              <Link href={href}>
+                View
+                <ArrowRight className="size-4" />
+              </Link>
+            </Button>
           </div>
         </div>
         <div className="grid gap-3 rounded-xl border border-border/60 bg-muted/20 p-3 sm:grid-cols-[minmax(0,1.1fr)_minmax(0,4fr)] sm:items-start">
