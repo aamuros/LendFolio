@@ -506,9 +506,23 @@ describe("manager operations helpers", () => {
     const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
 
     expect(signupForm).toContain("isSignupRole(state.values?.role)");
-    expect(signupForm).toContain("key={formKey}");
+    expect(signupForm).not.toContain("formKey");
+    expect(signupForm).not.toContain("key={formKey}");
     expect(signupForm).toContain('<input type="hidden" name="role" value={role} />');
     expect(signupForm).toContain("submittedRole !== role");
+  });
+
+  it("keeps failed signup errors visible without remounting or returning passwords", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+    const signupActions = readFileSync("app/signup/actions.ts", "utf8");
+
+    expect(signupForm).toContain('role="alert"');
+    expect(signupForm).toContain('aria-live="polite"');
+    expect(signupForm).toContain("errorAlertRef.current?.focus()");
+    expect(signupForm).toContain('value={password}');
+    expect(signupForm).toContain('value={confirmPassword}');
+    expect(signupActions).not.toContain("confirmPassword: input.confirmPassword");
+    expect(signupActions).toContain("errorCode?: SignupErrorCode");
   });
 
   it("keeps lender workspace pages behind primary lender access", () => {

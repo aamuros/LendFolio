@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { signupAction, type SignupState } from "@/app/signup/actions";
 import type { SignupRole } from "@/lib/signup";
@@ -24,11 +24,9 @@ const initialState: SignupState = {
 
 export function SignupForm() {
   const [state, formAction, isPending] = useActionState(signupAction, initialState);
-  const formKey = state.values ? JSON.stringify(state.values) : "initial";
 
   return (
     <SignupFormContent
-      key={formKey}
       state={state}
       formAction={formAction}
       isPending={isPending}
@@ -48,12 +46,30 @@ function SignupFormContent({
   const [role, setRole] = useState<SignupRole>(
     isSignupRole(state.values?.role) ? state.values.role : "borrower",
   );
+  const [termsAccepted, setTermsAccepted] = useState(
+    Boolean(state.values?.termsAccepted),
+  );
+  const [privacyAccepted, setPrivacyAccepted] = useState(
+    Boolean(state.values?.privacyAccepted),
+  );
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const errorAlertRef = useRef<HTMLDivElement>(null);
   const isSuccess = state.status === "success";
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
     : state.fieldErrors?.confirmPassword;
+  const topLevelError = !passwordMismatch && state.status === "error" && state.message
+    ? state.message
+    : null;
+
+  useEffect(() => {
+    if (topLevelError) {
+      errorAlertRef.current?.focus();
+    }
+  }, [topLevelError]);
 
   if (isSuccess) {
     return <SignupSuccessMessage state={state} />;
@@ -99,6 +115,21 @@ function SignupFormContent({
           }}
         >
           <FieldGroup className="gap-4 sm:gap-5">
+            {topLevelError ? (
+              <Alert
+                ref={errorAlertRef}
+                variant="destructive"
+                role="alert"
+                aria-live="polite"
+                tabIndex={-1}
+                className="focus-visible:ring-2 focus-visible:ring-destructive/35 focus-visible:outline-none"
+              >
+                <AlertCircle />
+                <AlertTitle>Signup needs attention</AlertTitle>
+                <AlertDescription>{topLevelError}</AlertDescription>
+              </Alert>
+            ) : null}
+
             <fieldset className="grid gap-2">
               <input type="hidden" name="role" value={role} />
               <RadioGroup
@@ -165,7 +196,13 @@ function SignupFormContent({
                 placeholder="At least 8 characters"
                 className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
-                onChange={() => passwordMismatch && setPasswordMismatch(false)}
+                value={password}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                  if (passwordMismatch) {
+                    setPasswordMismatch(false);
+                  }
+                }}
               />
               <FieldErrorHelper messages={state.fieldErrors?.password} />
             </Field>
@@ -180,7 +217,13 @@ function SignupFormContent({
                 placeholder="Re-enter your password"
                 className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 required
-                onChange={() => passwordMismatch && setPasswordMismatch(false)}
+                value={confirmPassword}
+                onChange={(event) => {
+                  setConfirmPassword(event.target.value);
+                  if (passwordMismatch) {
+                    setPasswordMismatch(false);
+                  }
+                }}
               />
               <FieldErrorHelper messages={confirmPasswordErrors} />
             </Field>
@@ -203,6 +246,8 @@ function SignupFormContent({
                     </>
                   }
                   error={state.fieldErrors?.termsAccepted}
+                  checked={termsAccepted}
+                  onCheckedChange={(checked) => setTermsAccepted(checked === true)}
                 />
                 <ConsentCheckbox
                   name="privacyAccepted"
@@ -221,15 +266,10 @@ function SignupFormContent({
                     </>
                   }
                   error={state.fieldErrors?.privacyAccepted}
+                  checked={privacyAccepted}
+                  onCheckedChange={(checked) => setPrivacyAccepted(checked === true)}
                 />
             </div>
-
-            {!passwordMismatch && state.message ? (
-              <Alert variant="destructive">
-                <AlertCircle />
-                <AlertDescription>{state.message}</AlertDescription>
-              </Alert>
-            ) : null}
 
             <Field>
               <SubmitButton isPending={isPending} />
@@ -357,16 +397,28 @@ function ConsentCheckbox({
   id,
   label,
   error,
+  checked,
+  onCheckedChange,
 }: {
   name: string;
   id: string;
   label: React.ReactNode;
   error?: string[];
+  checked: boolean;
+  onCheckedChange: (checked: boolean | "indeterminate") => void;
 }) {
   return (
     <div className="grid gap-1">
       <div className="grid grid-cols-[1.125rem_1fr] items-start gap-x-2.5 gap-y-0">
-        <Checkbox id={id} name={name} value="on" className="mt-0.5 border-[#C7C4BC] data-[state=checked]:border-[#33423C] data-[state=checked]:bg-[#33423C]" required />
+        <Checkbox
+          id={id}
+          name={name}
+          value="on"
+          checked={checked}
+          onCheckedChange={onCheckedChange}
+          className="mt-0.5 border-[#C7C4BC] data-[state=checked]:border-[#33423C] data-[state=checked]:bg-[#33423C]"
+          required
+        />
         <Label htmlFor={id} className="inline text-sm leading-snug font-normal text-[#4F4F4B] peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
           {label}
         </Label>

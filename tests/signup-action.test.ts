@@ -84,6 +84,7 @@ function mockSupabase(
 describe("signup action role enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
   it("does not redirect to lender when borrower signup resolves to a lender profile", async () => {
@@ -147,9 +148,13 @@ describe("signup action role enforcement", () => {
     expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
+        email: "juan@example.com",
+        password: "securepass123",
         options: expect.objectContaining({
+          emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
           data: expect.objectContaining({
             lendfolio_role: "lender",
+            display_name: "Juan dela Cruz",
             signup_terms_accepted: true,
             signup_privacy_accepted: true,
             signup_terms_version: "2026-05-terms-v1",
@@ -232,5 +237,68 @@ describe("signup action role enforcement", () => {
       },
     });
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("keeps safe field values after a failed signup without returning passwords", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "unexpected_failure",
+        message: "database trigger failed for user provisioning",
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_DATABASE_TRIGGER");
+    expect(result.message).toContain("database migrations");
+    expect(result.values).toEqual({
+      displayName: "Juan dela Cruz",
+      email: "juan@example.com",
+      role: "borrower",
+      termsAccepted: true,
+      privacyAccepted: true,
+    });
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+    expect(console.error).toHaveBeenCalledWith("Signup failed", {
+      message: "database trigger failed for user provisioning",
+      name: undefined,
+      code: "SIGNUP_DATABASE_TRIGGER",
+    });
+  });
+
+  it("returns an actionable safe message for missing Supabase configuration", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    vi.mocked(createSupabaseServerClient).mockRejectedValueOnce(
+      new Error("Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY."),
+    );
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_ENV_MISSING");
+    expect(result.message).toContain("Supabase URL and anon key");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("keeps consent values from invalid submissions in server state", async () => {
+    const formData = createSignupFormData("lender");
+    formData.set("email", "not-an-email");
+
+    const result = await signupAction(previousState, formData);
+
+    expect(result.status).toBe("error");
+    expect(result.values).toMatchObject({
+      displayName: "Juan dela Cruz",
+      email: "not-an-email",
+      role: "lender",
+      termsAccepted: true,
+      privacyAccepted: true,
+    });
+    expect(JSON.stringify(result)).not.toContain("securepass123");
   });
 });
