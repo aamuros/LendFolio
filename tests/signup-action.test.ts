@@ -123,6 +123,32 @@ describe("signup action role enforcement", () => {
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
+  it("shows the confirmation email state after lender signup without an immediate session", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("lender");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: { id: "lender-user-1" }, session: null },
+      error: null,
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("lender"));
+
+    expect(result.status).toBe("success");
+    expect(result.message).toContain("Check your email");
+    expect(result.confirmationEmail).toBe("juan@example.com");
+    expect(supabase.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({
+          data: expect.objectContaining({
+            lendfolio_role: "lender",
+          }),
+        }),
+      }),
+    );
+    expect(supabase.from).not.toHaveBeenCalled();
+  });
+
   it("treats repeat signup for an unconfirmed account as confirmation pending", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
