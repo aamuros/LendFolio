@@ -19,8 +19,11 @@ Production URL: TBD
 - [ ] All migrations applied to the production Supabase database
 - [ ] Storage buckets created through migrations
 - [ ] RLS enabled on all production tables and storage buckets
-- [ ] Supabase Auth providers configured (Email enabled)
-- [ ] Supabase Auth URL configuration set (Site URL + Redirect URLs)
+- [ ] Supabase Auth Email provider enabled
+- [ ] Supabase Auth URL configuration set (Site URL + Redirect URLs include `https://lend-folio.vercel.app/**`)
+- [ ] Custom SMTP configured for reliable production signup emails
+- [ ] Supabase Auth rate-limit settings reviewed
+- [ ] Vercel Function logs reviewed for `source: "signUp"` or `source: "resend"` signup diagnostics
 - [ ] Manager account provisioned in production (see Manager Bootstrap)
 - [ ] Vercel project created and linked to the GitHub repository
 - [ ] Environment variables set in Vercel for both Preview and Production
@@ -103,7 +106,11 @@ Do **not** disable RLS on any table or bucket in production.
    for production.
 4. Configure custom SMTP for production. Supabase's default email sending is
    limited and intended mainly for testing.
-5. In **Authentication > Email Templates > Confirm signup**, use the app
+5. Open **Authentication > Rate Limits** and inspect signup and email-delivery
+   limits before testing repeated signups. A rate limit can apply at the
+   project or delivery-provider level, so changing to a new email address will
+   not reliably avoid it.
+6. In **Authentication > Email Templates > Confirm signup**, use the app
    confirmation route so the server can verify the token and redirect safely:
 
 ```html
@@ -124,14 +131,14 @@ Open **Authentication > URL Configuration** and set:
 **Site URL:**
 
 ```
-https://your-production-url.vercel.app
+https://lend-folio.vercel.app
 ```
 
 **Redirect URLs (add all):**
 
 ```
 http://localhost:3000/**
-https://your-production-url.vercel.app/**
+https://lend-folio.vercel.app/**
 https://*-your-project-ref.vercel.app/**
 ```
 
@@ -222,6 +229,14 @@ message in production, check these items first:
 4. The Confirm signup email template points to `/auth/confirm` as shown above.
 5. Production database migrations have been applied, including the account
    provisioning trigger migrations.
+
+If signup shows `SIGNUP_RATE_LIMITED`, inspect both Supabase Auth logs and
+Vercel Function logs. LendFolio logs safe signup diagnostics only:
+`flow`, `role`, `source`, Supabase error code, HTTP status, sanitized message,
+and classified error code. The `source` value identifies whether the rate limit
+came from `signUp` or an explicit confirmation `resend` action. LendFolio does
+not log email addresses, passwords, cookies, auth tokens, keys, complete form
+data, or request headers.
 
 ---
 

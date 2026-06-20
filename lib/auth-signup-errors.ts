@@ -51,16 +51,22 @@ export function logSignupFailure(
 export function logSignupDiagnosticFailure(
   error: unknown,
   errorCode: SignupErrorCode,
+  context: {
+    flow: "signup" | "lender_register";
+    role: "borrower" | "lender";
+    source: "signUp" | "resend";
+  } = { flow: "signup", role: "borrower", source: "signUp" },
 ) {
   const details = getSignupErrorDetails(error);
 
-  console.error("Signup failed", {
-    message: details.message || "Unknown signup error",
-    name: details.name || undefined,
-    status: details.status || undefined,
-    code: errorCode,
-    sourceCode: details.code || undefined,
-    cause: details.causeMessage || undefined,
+  console.error("[auth-signup-diagnostic]", {
+    flow: context.flow,
+    role: context.role,
+    source: context.source,
+    supabaseErrorCode: details.code || null,
+    httpStatus: details.status || null,
+    message: sanitizeSignupErrorMessage(details.message),
+    classifiedErrorCode: errorCode,
   });
 }
 
@@ -122,6 +128,16 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   }
 
   if (
+    message.includes("rate limit") ||
+    message.includes("too many") ||
+    message.includes("too many requests") ||
+    code.includes("rate_limit") ||
+    status === 429
+  ) {
+    return "SIGNUP_RATE_LIMITED";
+  }
+
+  if (
     message.includes("already registered") ||
     message.includes("already exists") ||
     message.includes("duplicate") ||
@@ -131,14 +147,6 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     code.includes("user_already_exists")
   ) {
     return "SIGNUP_EMAIL_REGISTERED";
-  }
-
-  if (
-    message.includes("rate limit") ||
-    message.includes("too many") ||
-    code.includes("rate_limit")
-  ) {
-    return "SIGNUP_RATE_LIMITED";
   }
 
   if (

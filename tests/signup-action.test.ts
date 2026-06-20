@@ -193,12 +193,15 @@ describe("signup action role enforcement", () => {
       expect(result.message).toContain("production database migrations");
       expect(result.values?.role).toBe("lender");
       expect(consoleError).toHaveBeenCalledWith(
-        "Signup failed",
+        "[auth-signup-diagnostic]",
         expect.objectContaining({
+          flow: "signup",
+          role: "lender",
+          source: "signUp",
           message: "Database error saving new user",
-          code: "SIGNUP_DATABASE_TRIGGER",
-          sourceCode: "unexpected_failure",
-          status: 500,
+          classifiedErrorCode: "SIGNUP_DATABASE_TRIGGER",
+          supabaseErrorCode: "unexpected_failure",
+          httpStatus: 500,
         }),
       );
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
@@ -218,7 +221,7 @@ describe("signup action role enforcement", () => {
     }
   });
 
-  it("treats repeat signup for an unconfirmed account as confirmation pending", async () => {
+  it("treats repeat signup for an unconfirmed account as confirmation pending without resending email", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
     supabase.signUp.mockResolvedValueOnce({
@@ -233,14 +236,9 @@ describe("signup action role enforcement", () => {
     const result = await signupAction(previousState, createSignupFormData("borrower"));
 
     expect(result.status).toBe("success");
-    expect(result.message).toContain("Account already created");
-    expect(supabase.resend).toHaveBeenCalledWith({
-      type: "signup",
-      email: "juan@example.com",
-      options: {
-        emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
-      },
-    });
+    expect(result.message).toContain("An account may already exist");
+    expect(result.message).toContain("after the cooldown");
+    expect(supabase.resend).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
   });
 
@@ -270,11 +268,12 @@ describe("signup action role enforcement", () => {
     });
     expect(JSON.stringify(result)).not.toContain("securepass123");
     expect(console.error).toHaveBeenCalledWith(
-      "Signup failed",
+      "[auth-signup-diagnostic]",
       expect.objectContaining({
         message: "database trigger failed for user provisioning",
-        code: "SIGNUP_DATABASE_TRIGGER",
-        sourceCode: "unexpected_failure",
+        classifiedErrorCode: "SIGNUP_DATABASE_TRIGGER",
+        supabaseErrorCode: "unexpected_failure",
+        source: "signUp",
       }),
     );
   });
@@ -372,6 +371,9 @@ describe("signup action role enforcement", () => {
 
   it("reports Supabase Auth rate limits without blaming project config", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
     const supabase = mockSupabase("borrower");
     supabase.signUp.mockResolvedValueOnce({
       data: { user: null, session: null },
@@ -388,9 +390,89 @@ describe("signup action role enforcement", () => {
 
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
+    expect(result.rateLimitCooldownEndsAt).toEqual(expect.any(Number));
     expect(result.message).toContain("Too many signup attempts");
     expect(result.message).not.toContain("Supabase project settings");
+    expect(result.values).toEqual({
+      displayName: "Juan dela Cruz",
+      email: "juan@example.com",
+      role: "borrower",
+      termsAccepted: true,
+      privacyAccepted: true,
+    });
+    expect(supabase.resend).not.toHaveBeenCalled();
+    expect(supabase.signUp).toHaveBeenCalledTimes(1);
+    expect(consoleError).toHaveBeenCalledWith(
+      "[auth-signup-diagnostic]",
+      expect.objectContaining({
+        flow: "signup",
+        role: "borrower",
+        source: "signUp",
+        supabaseErrorCode: "over_email_send_rate_limit",
+        httpStatus: 429,
+        message: "For security purposes, you can only request this after 60 seconds",
+        classifiedErrorCode: "SIGNUP_RATE_LIMITED",
+      }),
+    );
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "juan@example.com",
+    );
     expect(JSON.stringify(result)).not.toContain("securepass123");
+    expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+      "securepass123",
+    );
+  });
+
+  it("does not treat a rate-limited signup as confirmation send failure or pending confirmation", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "over_email_send_rate_limit",
+        message: "Too many requests for confirmation email",
+        name: "AuthApiError",
+        status: 429,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
+    expect(result.message).not.toContain("confirmation email could not be sent");
+    expect(result.message).not.toContain("An account may already exist");
+    expect(result.confirmationEmail).toBeUndefined();
+    expect(supabase.resend).not.toHaveBeenCalled();
+  });
+
+  it("does not expose passwords in signup state, logs, or browser storage fields", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "over_email_send_rate_limit",
+        message: "Too many requests",
+        status: 429,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+    const serializedState = JSON.stringify(result);
+    const serializedLogs = JSON.stringify(consoleError.mock.calls);
+
+    expect(serializedState).not.toContain("securepass123");
+    expect(serializedLogs).not.toContain("securepass123");
+    expect(result).not.toHaveProperty("password");
+    expect(result).not.toHaveProperty("confirmPassword");
+    expect(serializedState).not.toContain("localStorage");
+    expect(serializedState).not.toContain("sessionStorage");
   });
 
   it("keeps consent values from invalid submissions in server state", async () => {

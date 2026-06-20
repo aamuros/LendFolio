@@ -38,6 +38,35 @@ describe("signup auth error classification", () => {
     ).toBe("SIGNUP_EMAIL_REGISTERED");
   });
 
+  it("classifies Supabase rate-limit responses before other signup states", () => {
+    expect(
+      classifySignupError({
+        code: "over_email_send_rate_limit",
+        message: "For security purposes, you can only request this after 60 seconds",
+        status: 429,
+      }),
+    ).toBe("SIGNUP_RATE_LIMITED");
+
+    expect(
+      classifySignupError({
+        message: "Too many requests",
+        status: 400,
+      }),
+    ).toBe("SIGNUP_RATE_LIMITED");
+
+    expect(
+      classifySignupError({
+        code: "user_already_exists",
+        message: "Too many requests for user already registered",
+        status: 429,
+      }),
+    ).toBe("SIGNUP_RATE_LIMITED");
+
+    expect(getSafeSignupErrorMessage("SIGNUP_RATE_LIMITED")).toContain(
+      "Too many signup attempts",
+    );
+  });
+
   it("classifies RLS and permission failures as provisioning failures", () => {
     expect(
       classifySignupError({

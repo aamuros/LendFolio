@@ -55,8 +55,19 @@ function SignupFormContent({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [passwordMismatch, setPasswordMismatch] = useState(false);
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
   const errorAlertRef = useRef<HTMLDivElement>(null);
   const isSuccess = state.status === "success";
+  const isRateLimited = state.errorCode === "SIGNUP_RATE_LIMITED";
+  const rateLimitSecondsRemaining =
+    isRateLimited && state.rateLimitCooldownEndsAt
+      ? Math.max(
+          0,
+          Math.ceil((state.rateLimitCooldownEndsAt - currentTime) / 1000),
+        )
+      : 0;
+  const isSubmitDisabled =
+    isPending || (isRateLimited && rateLimitSecondsRemaining > 0);
 
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
@@ -70,6 +81,18 @@ function SignupFormContent({
       errorAlertRef.current?.focus();
     }
   }, [topLevelError]);
+
+  useEffect(() => {
+    if (!isRateLimited || rateLimitSecondsRemaining <= 0) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setCurrentTime(Date.now());
+    }, 1000);
+
+    return () => window.clearTimeout(timer);
+  }, [isRateLimited, rateLimitSecondsRemaining]);
 
   if (isSuccess) {
     return <SignupSuccessMessage state={state} />;
@@ -94,6 +117,11 @@ function SignupFormContent({
             const submittedRole = formData.get("role");
             const password = formData.get("password") as string;
             const confirmPassword = formData.get("confirmPassword") as string;
+
+            if (isSubmitDisabled) {
+              e.preventDefault();
+              return;
+            }
 
             if (submittedRole !== role) {
               e.preventDefault();
@@ -128,6 +156,11 @@ function SignupFormContent({
                 <AlertTitle>Signup needs attention</AlertTitle>
                 <AlertDescription>
                   {topLevelError}
+                  {isRateLimited && rateLimitSecondsRemaining > 0 ? (
+                    <span className="mt-2 block text-sm font-medium normal-case">
+                      Please wait {rateLimitSecondsRemaining} seconds before trying again.
+                    </span>
+                  ) : null}
                   {state.errorCode ? (
                     <span className="mt-1 block text-xs font-medium uppercase tracking-normal">
                       Code: {state.errorCode}
@@ -279,7 +312,11 @@ function SignupFormContent({
             </div>
 
             <Field>
-              <SubmitButton isPending={isPending} />
+              <SubmitButton
+                isPending={isPending}
+                isDisabled={isSubmitDisabled}
+                rateLimitSecondsRemaining={rateLimitSecondsRemaining}
+              />
             </Field>
           </FieldGroup>
         </form>
@@ -443,14 +480,28 @@ function FieldErrorHelper({ messages }: { messages?: string[] }) {
   return <FieldError>{messages[0]}</FieldError>;
 }
 
-function SubmitButton({ isPending }: { isPending: boolean }) {
+function SubmitButton({
+  isPending,
+  isDisabled,
+  rateLimitSecondsRemaining,
+}: {
+  isPending: boolean;
+  isDisabled: boolean;
+  rateLimitSecondsRemaining: number;
+}) {
+  const label = isPending
+    ? "Creating account..."
+    : rateLimitSecondsRemaining > 0
+      ? `Try again in ${rateLimitSecondsRemaining}s`
+      : "Create account";
+
   return (
     <Button
       type="submit"
-      disabled={isPending}
+      disabled={isDisabled}
       className="h-12 w-full rounded-xl border border-[#161616] bg-[#161616] font-semibold !text-white shadow-[0_18px_35px_rgba(14,26,18,0.16)] transition-all hover:bg-[#0E1A12] hover:shadow-[0_20px_40px_rgba(14,26,18,0.2)] focus-visible:outline-[#161616]"
     >
-      {isPending ? "Creating account..." : "Create account"}
+      {label}
     </Button>
   );
 }

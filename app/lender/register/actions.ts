@@ -120,8 +120,6 @@ export async function lenderRegisterAction(
       }
 
       if (isSignupConfirmationPendingError(error)) {
-        await resendSignupConfirmation(supabase, input.email, emailRedirectTo);
-
         return {
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
@@ -130,27 +128,16 @@ export async function lenderRegisterAction(
       }
 
       if (isSignupConfirmationDeliveryError(error)) {
-        const resent = await resendSignupConfirmation(
-          supabase,
-          input.email,
-          emailRedirectTo,
-        );
-
         return {
-          status: resent ? "success" : "error",
-          message: resent
-            ? SIGNUP_CHECK_EMAIL_MESSAGE
-            : SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
-          confirmationEmail: resent ? input.email : undefined,
-          values: resent
-            ? undefined
-            : {
-                displayName: input.displayName,
-                email: input.email,
-                organizationName: input.organizationName,
-                termsAccepted: true,
-                privacyAccepted: true,
-              },
+          status: "error",
+          message: SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            organizationName: input.organizationName,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
         };
       }
 
@@ -234,24 +221,4 @@ export async function lenderRegisterAction(
   }
 
   redirect(redirectTo, RedirectType.replace);
-}
-
-async function resendSignupConfirmation(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  email: string,
-  emailRedirectTo: string,
-) {
-  try {
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo,
-      },
-    });
-
-    return !error;
-  } catch {
-    return false;
-  }
 }

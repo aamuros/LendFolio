@@ -92,7 +92,7 @@ describe("lender register action", () => {
     );
   });
 
-  it("treats repeat signup for an unconfirmed lender account as confirmation pending", async () => {
+  it("treats repeat signup for an unconfirmed lender account as confirmation pending without resending email", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const signUp = vi.fn().mockResolvedValue({
       data: { user: null, session: null },
@@ -117,15 +117,10 @@ describe("lender register action", () => {
     );
 
     expect(result.status).toBe("success");
-    expect(result.message).toContain("Account already created");
+    expect(result.message).toContain("An account may already exist");
+    expect(result.message).toContain("after the cooldown");
     expect(result.confirmationEmail).toBe("lender@example.com");
-    expect(resend).toHaveBeenCalledWith({
-      type: "signup",
-      email: "lender@example.com",
-      options: {
-        emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
-      },
-    });
+    expect(resend).not.toHaveBeenCalled();
   });
 
   it("reports Supabase database signup failures as account setup unavailable", async () => {

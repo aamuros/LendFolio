@@ -15,7 +15,6 @@ import {
   isSignupConfirmationPendingError,
   SIGNUP_CHECK_EMAIL_MESSAGE,
   SIGNUP_CONFIRMATION_PENDING_MESSAGE,
-  SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
 } from "@/lib/auth-confirmation";
 import {
   acceptBaselineUserConsents,
@@ -43,6 +42,7 @@ export type SignupState = {
   status: "idle" | "error" | "success";
   fieldErrors?: SignupFieldErrors;
   errorCode?: SignupErrorCode;
+  rateLimitCooldownEndsAt?: number;
   confirmationEmail?: string;
   values?: {
     displayName?: string;
@@ -111,6 +111,29 @@ export async function signupAction(
     });
 
     if (error) {
+      const errorCode = classifySignupError(error);
+      logSignupDiagnosticFailure(error, errorCode, {
+        flow: "signup",
+        role: input.role,
+        source: "signUp",
+      });
+
+      if (errorCode === "SIGNUP_RATE_LIMITED") {
+        return {
+          status: "error",
+          message: getSafeSignupErrorMessage(errorCode),
+          errorCode,
+          rateLimitCooldownEndsAt: Date.now() + 60_000,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            role: input.role,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+
       if (data.user && !hasConfirmedEmail(data.user)) {
         if (data.session) {
           await supabase.auth.signOut();
@@ -124,8 +147,6 @@ export async function signupAction(
       }
 
       if (isSignupConfirmationPendingError(error)) {
-        await resendSignupConfirmation(supabase, input.email, emailRedirectTo);
-
         return {
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
@@ -134,33 +155,19 @@ export async function signupAction(
       }
 
       if (isSignupConfirmationDeliveryError(error)) {
-        const resent = await resendSignupConfirmation(
-          supabase,
-          input.email,
-          emailRedirectTo,
-        );
-
         return {
-          status: resent ? "success" : "error",
-          message: resent
-            ? SIGNUP_CHECK_EMAIL_MESSAGE
-            : SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE,
-          errorCode: resent ? undefined : "SIGNUP_CONFIRMATION_SEND_FAILED",
-          confirmationEmail: resent ? input.email : undefined,
-          values: resent
-            ? undefined
-            : {
-                displayName: input.displayName,
-                email: input.email,
-                role: input.role,
-                termsAccepted: true,
-                privacyAccepted: true,
-              },
+          status: "error",
+          message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
+          errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            role: input.role,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
         };
       }
-
-      const errorCode = classifySignupError(error);
-      logSignupDiagnosticFailure(error, errorCode);
 
       return {
         status: "error",
@@ -250,7 +257,12 @@ export async function signupAction(
     redirectTo = destination;
   } catch (error) {
     const errorCode = classifySignupError(error);
-    logSignupDiagnosticFailure(error, errorCode);
+    const role = formData.get("role");
+    logSignupDiagnosticFailure(error, errorCode, {
+      flow: "signup",
+      role: isSignupRoleValue(role) ? role : "borrower",
+      source: "signUp",
+    });
 
     return {
       status: "error",
@@ -284,22 +296,6 @@ function getRoleMismatchMessage(profileRole: string, selectedRole: string) {
   return `This account is registered as a ${profileRole}. Sign out and use another email to create a ${selectedRole} account.`;
 }
 
-async function resendSignupConfirmation(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  email: string,
-  emailRedirectTo: string,
-) {
-  try {
-    const { error } = await supabase.auth.resend({
-      type: "signup",
-      email,
-      options: {
-        emailRedirectTo,
-      },
-    });
-
-    return !error;
-  } catch {
-    return false;
-  }
+function isSignupRoleValue(value: FormDataEntryValue | null): value is "borrower" | "lender" {
+  return value === "borrower" || value === "lender";
 }

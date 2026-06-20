@@ -525,6 +525,19 @@ describe("manager operations helpers", () => {
     expect(signupActions).toContain("errorCode?: SignupErrorCode");
   });
 
+  it("shows signup rate-limit cooldown accessibly without browser storage", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+
+    expect(signupForm).toContain("state.rateLimitCooldownEndsAt");
+    expect(signupForm).toContain('state.errorCode === "SIGNUP_RATE_LIMITED"');
+    expect(signupForm).toContain("Please wait {rateLimitSecondsRemaining} seconds before trying again.");
+    expect(signupForm).toContain("disabled={isDisabled}");
+    expect(signupForm).toContain('role="alert"');
+    expect(signupForm).toContain('aria-live="polite"');
+    expect(signupForm).not.toContain("localStorage");
+    expect(signupForm).not.toContain("sessionStorage");
+  });
+
   it("keeps lender workspace pages behind primary lender access", () => {
     const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
     const applicationsPage = readFileSync(
