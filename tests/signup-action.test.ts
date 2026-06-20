@@ -289,6 +289,20 @@ describe("signup action role enforcement", () => {
     expect(JSON.stringify(result)).not.toContain("securepass123");
   });
 
+  it("classifies Supabase fetch failures as configuration problems", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockRejectedValueOnce(new TypeError("fetch failed"));
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_SUPABASE_CONFIG");
+    expect(result.message).toContain("Supabase project settings");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
   it("keeps consent values from invalid submissions in server state", async () => {
     const formData = createSignupFormData("lender");
     formData.set("email", "not-an-email");

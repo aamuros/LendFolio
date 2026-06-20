@@ -76,6 +76,13 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("invalid url") ||
     message.includes("supabase url") ||
     message.includes("invalid api key") ||
+    message.includes("fetch failed") ||
+    message.includes("failed to fetch") ||
+    message.includes("network") ||
+    message.includes("econnrefused") ||
+    message.includes("enotfound") ||
+    message.includes("localhost") ||
+    message.includes("127.0.0.1") ||
     message.includes("jwt") ||
     message.includes("api key") ||
     code.includes("invalid_credentials")

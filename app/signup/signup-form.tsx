@@ -126,7 +126,14 @@ function SignupFormContent({
               >
                 <AlertCircle />
                 <AlertTitle>Signup needs attention</AlertTitle>
-                <AlertDescription>{topLevelError}</AlertDescription>
+                <AlertDescription>
+                  {topLevelError}
+                  {state.errorCode ? (
+                    <span className="mt-1 block text-xs font-medium uppercase tracking-normal">
+                      Code: {state.errorCode}
+                    </span>
+                  ) : null}
+                </AlertDescription>
               </Alert>
             ) : null}
 
