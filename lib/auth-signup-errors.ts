@@ -50,19 +50,23 @@ export function logSignupDiagnosticFailure(
   error: unknown,
   errorCode: SignupErrorCode,
 ) {
+  const details = getSignupErrorDetails(error);
+
   console.error("Signup failed", {
-    message:
-      error instanceof Error
-        ? error.message
-        : getSignupErrorMessage(error) || "Unknown signup error",
-    name: error instanceof Error ? error.name : undefined,
+    message: details.message || "Unknown signup error",
+    name: details.name || undefined,
+    status: details.status || undefined,
     code: errorCode,
+    sourceCode: details.code || undefined,
+    cause: details.causeMessage || undefined,
   });
 }
 
 export function classifySignupError(error: unknown): SignupErrorCode {
-  const message = getSignupErrorMessage(error).toLowerCase();
-  const code = getSignupErrorCode(error).toLowerCase();
+  const details = getSignupErrorDetails(error);
+  const message = details.searchText;
+  const code = details.code.toLowerCase();
+  const status = details.status;
 
   if (
     message.includes("next_public_supabase_url") ||
@@ -74,8 +78,12 @@ export function classifySignupError(error: unknown): SignupErrorCode {
 
   if (
     message.includes("invalid url") ||
+    message.includes("supabaseurl is required") ||
+    message.includes("supabasekey is required") ||
     message.includes("supabase url") ||
     message.includes("invalid api key") ||
+    message.includes("invalid key") ||
+    message.includes("unauthorized") ||
     message.includes("fetch failed") ||
     message.includes("failed to fetch") ||
     message.includes("network") ||
@@ -85,7 +93,9 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("127.0.0.1") ||
     message.includes("jwt") ||
     message.includes("api key") ||
-    code.includes("invalid_credentials")
+    code.includes("invalid_credentials") ||
+    status === 401 ||
+    status === 403
   ) {
     return "SIGNUP_SUPABASE_CONFIG";
   }
@@ -121,12 +131,20 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("database") ||
     message.includes("trigger") ||
     message.includes("profile") ||
+    message.includes("saving new user") ||
     message.includes("violates") ||
     message.includes("function") ||
+    code === "unexpected_failure" ||
+    code === "database_error" ||
     code.startsWith("23") ||
-    code.startsWith("42")
+    code.startsWith("42") ||
+    status >= 500
   ) {
     return "SIGNUP_DATABASE_TRIGGER";
+  }
+
+  if (message.includes("authapierror") || status === 400 || status === 422) {
+    return "SIGNUP_SUPABASE_CONFIG";
   }
 
   return "SIGNUP_UNEXPECTED";
@@ -178,22 +196,82 @@ function sanitizeSignupErrorMessage(message: string | null | undefined) {
   return normalized ? normalized.slice(0, 300) : null;
 }
 
-function getSignupErrorMessage(error: unknown) {
-  if (error instanceof Error) {
-    return error.message;
+function getSignupErrorDetails(error: unknown, depth = 0): {
+  message: string;
+  code: string;
+  name: string;
+  status: number;
+  causeMessage: string;
+  searchText: string;
+} {
+  if (depth > 3) {
+    return {
+      message: "",
+      code: "",
+      name: "",
+      status: 0,
+      causeMessage: "",
+      searchText: "",
+    };
   }
 
-  if (error && typeof error === "object" && "message" in error) {
-    return String((error as { message?: unknown }).message ?? "");
-  }
+  const record =
+    error && typeof error === "object"
+      ? (error as Record<string, unknown>)
+      : null;
+  const message =
+    error instanceof Error
+      ? error.message
+      : record && "message" in record
+        ? String(record.message ?? "")
+        : typeof error === "string"
+          ? error
+          : "";
+  const code =
+    record && "code" in record ? String(record.code ?? "") : "";
+  const name =
+    error instanceof Error
+      ? error.name
+      : record && "name" in record
+        ? String(record.name ?? "")
+        : "";
+  const statusValue = record && "status" in record ? Number(record.status) : 0;
+  const status = Number.isFinite(statusValue) ? statusValue : 0;
+  const cause = record && "cause" in record ? record.cause : undefined;
+  const causeDetails =
+    cause === undefined
+      ? null
+      : getSignupErrorDetails(cause, depth + 1);
+  const nestedError = record && "error" in record ? record.error : undefined;
+  const nestedDetails =
+    nestedError === undefined
+      ? null
+      : getSignupErrorDetails(nestedError, depth + 1);
+  const errors = Array.isArray(record?.errors)
+    ? record.errors
+        .map((item) => getSignupErrorDetails(item, depth + 1).searchText)
+        .join(" ")
+    : "";
+  const causeMessage = causeDetails?.message || nestedDetails?.message || "";
+  const searchText = [
+    message,
+    code,
+    name,
+    status ? String(status) : "",
+    causeDetails?.searchText,
+    nestedDetails?.searchText,
+    errors,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
 
-  return "";
-}
-
-function getSignupErrorCode(error: unknown) {
-  if (error && typeof error === "object" && "code" in error) {
-    return String((error as { code?: unknown }).code ?? "");
-  }
-
-  return "";
+  return {
+    message,
+    code,
+    name,
+    status,
+    causeMessage,
+    searchText,
+  };
 }

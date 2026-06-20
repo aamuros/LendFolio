@@ -194,11 +194,12 @@ describe("signup action role enforcement", () => {
       expect(result.values?.role).toBe("lender");
       expect(consoleError).toHaveBeenCalledWith(
         "Signup failed",
-        {
+        expect.objectContaining({
           message: "Database error saving new user",
-          name: undefined,
           code: "SIGNUP_DATABASE_TRIGGER",
-        },
+          sourceCode: "unexpected_failure",
+          status: 500,
+        }),
       );
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
         "juan@example.com",
@@ -268,11 +269,14 @@ describe("signup action role enforcement", () => {
       privacyAccepted: true,
     });
     expect(JSON.stringify(result)).not.toContain("securepass123");
-    expect(console.error).toHaveBeenCalledWith("Signup failed", {
-      message: "database trigger failed for user provisioning",
-      name: undefined,
-      code: "SIGNUP_DATABASE_TRIGGER",
-    });
+    expect(console.error).toHaveBeenCalledWith(
+      "Signup failed",
+      expect.objectContaining({
+        message: "database trigger failed for user provisioning",
+        code: "SIGNUP_DATABASE_TRIGGER",
+        sourceCode: "unexpected_failure",
+      }),
+    );
   });
 
   it("returns an actionable safe message for missing Supabase configuration", async () => {
@@ -300,6 +304,47 @@ describe("signup action role enforcement", () => {
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_SUPABASE_CONFIG");
     expect(result.message).toContain("Supabase project settings");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("classifies nested Supabase connection failures from error causes", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockRejectedValueOnce(
+      new Error("Request failed", {
+        cause: Object.assign(new Error("connect ENOTFOUND old-project.supabase.co"), {
+          code: "ENOTFOUND",
+        }),
+      }),
+    );
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_SUPABASE_CONFIG");
+    expect(result.message).toContain("Supabase project settings");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("classifies unlabelled Supabase server failures as account setup failures", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        message: "Internal server error",
+        name: "AuthApiError",
+        status: 500,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_DATABASE_TRIGGER");
+    expect(result.message).toContain("database migrations");
     expect(JSON.stringify(result)).not.toContain("securepass123");
   });
 
