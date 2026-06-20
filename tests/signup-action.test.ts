@@ -291,8 +291,8 @@ describe("signup action role enforcement", () => {
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
     expect(result.message).toContain("This does not mean the email was sent");
-    expect(result.rateLimitCooldownEndsAt).toBeGreaterThanOrEqual(before + 58_000);
-    expect(result.rateLimitCooldownEndsAt).toBeLessThan(before + 59_000);
+    expect(result.rateLimitCooldownEndsAt).toBeGreaterThanOrEqual(before + 10_000);
+    expect(result.rateLimitCooldownEndsAt).toBeLessThan(before + 11_000);
     expect(supabase.signUp).not.toHaveBeenCalled();
   });
 

@@ -71,12 +71,12 @@ describe("signup auth error classification", () => {
     );
   });
 
-  it("parses Supabase retry delays from rate-limit messages", () => {
+  it("caps Supabase retry delays for the signup UI cooldown", () => {
     expect(
       getSignupRetryDelayMs({
         message: "For security purposes, you can only request this after 58 seconds",
       }),
-    ).toBe(58_000);
+    ).toBe(10_000);
   });
 
   it("classifies RLS and permission failures as provisioning failures", () => {

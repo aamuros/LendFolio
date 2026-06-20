@@ -28,7 +28,8 @@ export const SIGNUP_ACCOUNT_SETUP_UNAVAILABLE_MESSAGE =
 export const SIGNUP_RATE_LIMITED_MESSAGE =
   "Too many attempts were made. This does not mean the email was sent. Please wait, then use Resend confirmation instead of creating the account again.";
 
-export const SIGNUP_RATE_LIMIT_FALLBACK_MS = 60_000;
+export const SIGNUP_RATE_LIMIT_FALLBACK_MS = 10_000;
+export const SIGNUP_RATE_LIMIT_MAX_UI_COOLDOWN_MS = 10_000;
 
 export function getSignupFailureMessage(error: SignupAuthError | null | undefined) {
   return isSignupDatabaseFailure(error)
@@ -211,7 +212,10 @@ export function getSignupRetryDelayMs(error: unknown) {
   );
 
   if (secondsMatch?.[1]) {
-    return Number(secondsMatch[1]) * 1000;
+    return Math.min(
+      Number(secondsMatch[1]) * 1000,
+      SIGNUP_RATE_LIMIT_MAX_UI_COOLDOWN_MS,
+    );
   }
 
   return SIGNUP_RATE_LIMIT_FALLBACK_MS;
