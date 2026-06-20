@@ -190,23 +190,27 @@ describe("signup action role enforcement", () => {
       );
 
       expect(result.status).toBe("error");
-      expect(result.message).toBe(
-        "Account setup is temporarily unavailable. Try again later.",
-      );
+      expect(result.message).toContain("production database migrations");
       expect(result.values?.role).toBe("lender");
       expect(consoleError).toHaveBeenCalledWith(
-        "[auth-signup]",
-        expect.objectContaining({
-          flow: "signup",
-          role: "lender",
-          code: "unexpected_failure",
-          name: "AuthApiError",
-          status: 500,
+        "Signup failed",
+        {
           message: "Database error saving new user",
-        }),
+          name: undefined,
+          code: "SIGNUP_DATABASE_TRIGGER",
+        },
       );
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
         "juan@example.com",
+      );
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
+        "securepass123",
+      );
+      expect(consoleError).not.toHaveBeenCalledWith(
+        "[auth-signup]",
+        expect.objectContaining({
+          code: "unexpected_failure",
+        }),
       );
     } finally {
       consoleError.mockRestore();
