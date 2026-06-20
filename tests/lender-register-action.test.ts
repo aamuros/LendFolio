@@ -256,4 +256,35 @@ describe("lender register action", () => {
     expect(result.fieldErrors?.termsAccepted).toBeDefined();
     expect(result.fieldErrors?.privacyAccepted).toBeDefined();
   });
+
+  it("sends lender role and organization_name in signup metadata without onboarding fields", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    });
+    const supabase = {
+      auth: {
+        signUp,
+        resend: vi.fn(),
+        signOut: vi.fn(),
+      },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    await lenderRegisterAction(previousState, createLenderRegisterFormData());
+
+    const metadata = signUp.mock.calls[0][0].options.data;
+
+    expect(metadata.lendfolio_role).toBe("lender");
+    expect(metadata.display_name).toBe("Juan dela Cruz");
+    expect(metadata.organization_name).toBe("Lending Corp");
+    expect(metadata.phone_number).toBeUndefined();
+    expect(metadata.business_address).toBeUndefined();
+    expect(metadata.operating_area).toBeUndefined();
+    expect(metadata.min_loan_amount).toBeUndefined();
+    expect(metadata.max_loan_amount).toBeUndefined();
+    expect(metadata.typical_repayment_terms).toBeUndefined();
+    expect(metadata.lender_description).toBeUndefined();
+  });
 });
