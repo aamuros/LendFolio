@@ -413,7 +413,7 @@ The following features are **not implemented** in the current version:
 - **Dispute workflows**: No mechanism for borrowers or lenders to raise disputes.
 - **Production e-KYC**: Identity verification is document-based; no automated OCR or government database lookup.
 - **Formal credit bureau scoring**: An explainable internal credit profile grade is computed from business data, but it is not a formal credit score from a credit bureau.
-- **Email notifications**: Resend is approved as a dependency but not yet wired; all notifications are in-app only.
+- **Email notifications**: Brevo SMTP is configured only for Supabase Auth email delivery; workflow notifications remain in-app only.
 - **Playwright end-to-end tests**: Playwright is configured but no E2E test scenarios are implemented.
 - **Vercel production deployment**: The application has not been deployed to Vercel production.
 - **Manager analytics and reports**: The dashboard shows KPIs and charts, but no exportable reports or advanced analytics exist.
@@ -427,7 +427,7 @@ Application deletion is intentionally excluded from the borrower workflow. Close
 - Integration with real payment gateways (GCash, Maya, bank transfers)
 - Automated reconciliation and credit-limit restoration on loan payoff
 - Production e-KYC with government ID verification APIs
-- Email notification delivery via Resend
+- Email notification delivery via Brevo
 - Credit bureau integration for formal credit scoring
 - Dispute resolution workflow
 - Playwright end-to-end test coverage

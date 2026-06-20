@@ -147,27 +147,28 @@ an active session. If email confirmation prevents that write, the app retries
 the same append-only RPC on the first authenticated login or protected-route
 session.
 
-## Resend via Supabase Custom SMTP
+## Brevo via Supabase Custom SMTP
 
-LendFolio uses [Resend](https://resend.com) as the email delivery provider for
-Supabase Auth transactional emails (signup confirmation, password reset). Resend
+LendFolio uses [Brevo](https://www.brevo.com) as the email delivery provider for
+Supabase Auth transactional emails (signup confirmation, password reset). Brevo
 is configured as a custom SMTP server inside the Supabase dashboard; the app
-does not call the Resend API directly.
+does not call the Brevo API directly.
 
 ### Why custom SMTP
 
-Supabase's built-in email sender has shared-IP rate limits and no domain
-customization. Resend provides dedicated sending infrastructure, deliverability
-monitoring, and custom From addresses.
+Supabase's built-in email sender has restrictive rate limits and is intended for
+testing. Brevo's free SMTP relay supports transactional delivery through a
+verified sender email without requiring application-level email credentials.
 
 ### Setup steps
 
-1. **Create a Resend account** at [resend.com](https://resend.com) and verify
-   your sending domain (e.g. `lendfolio.com`). Resend provides DNS records for
-   SPF, DKIM, and DMARC.
+1. **Create a Brevo account** at [brevo.com](https://www.brevo.com) and add a
+   sender under **Settings > Senders, domains, IPs**. Verify the sender email
+   using the code Brevo sends to that address.
 
-2. **Generate an SMTP credential** in the Resend dashboard under **SMTP
-   Credentials**. Note the username and password.
+2. **Generate an SMTP key** under **Settings > SMTP & API > SMTP**. Copy the
+   complete key when it is displayed; Brevo only displays it once. Use the SMTP
+   login shown on that page as the username.
 
 3. **Open the Supabase dashboard** and go to **Authentication > Email
    Templates** (or **Project Settings > Auth > SMTP** depending on the Supabase
@@ -177,20 +178,21 @@ monitoring, and custom From addresses.
 
    | Field | Value |
    | --- | --- |
-   | Sender email | `noreply@your-domain.com` (must match verified Resend domain) |
+   | Sender email | Your verified Brevo sender email |
    | Sender name | `LendFolio` |
-   | Host | `smtp.resend.com` |
-   | Port number | `465` |
+   | Host | `smtp-relay.brevo.com` |
+   | Port number | `587` |
    | Minimum interval between emails | `0` (LendFolio handles its own cooldown) |
-   | Username | `resend` |
-   | Password | Your Resend SMTP credential |
+   | Username | Your Brevo SMTP login (not your account email unless Brevo shows it) |
+   | Password | Your complete Brevo SMTP key (not your account password) |
 
 5. **Test** by signing up with a real email. Confirmation emails should arrive
-   from your verified domain.
+   from your verified sender email. Check **Transactional > Logs** in Brevo if
+   delivery fails.
 
 ### What Supabase still handles
 
-Resend only provides the transport layer. Supabase Auth remains responsible for:
+Brevo only provides the transport layer. Supabase Auth remains responsible for:
 
 - User creation and storage
 - Session and JWT management
@@ -201,7 +203,7 @@ Resend only provides the transport layer. Supabase Auth remains responsible for:
 
 ### Environment variables
 
-No additional environment variables are needed for SMTP delivery. Resend
+No additional environment variables are needed for SMTP delivery. Brevo
 credentials live in the Supabase dashboard, not in the app's `.env` file.
 
 ### Local development

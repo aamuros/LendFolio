@@ -208,7 +208,7 @@ npm run dev
    - No formal credit bureau scoring
 4. Mention future improvements:
    - Payment gateway integration
-   - Email notifications via Resend
+   - Email notifications via Brevo
    - Credit bureau integration
    - Playwright E2E test coverage
 

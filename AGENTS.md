@@ -33,7 +33,7 @@ Use only the approved MVP stack unless explicitly instructed otherwise:
 * Supabase Row Level Security
 * Supabase Storage
 * Vercel
-* Resend only for selected transactional email
+* Brevo SMTP only for selected transactional email
 * React Hook Form
 * Zod
 * Vitest
@@ -124,7 +124,7 @@ Not implemented or not production-ready:
 * Production e-KYC or automated identity verification
 * AI credit scoring
 * Advanced manager analytics and reports
-* Email notifications through Resend
+* Email notifications through Brevo
 * Playwright end-to-end coverage
 * Vercel production deployment
 
@@ -169,7 +169,7 @@ When making a change, update the layer closest to the requirement. For example, 
 
 ## Security and Data Rules
 
-* Never hardcode real credentials, Supabase keys, service role keys, Resend keys, Vercel secrets, or private tokens.
+* Never hardcode real credentials, Supabase keys, service role keys, Brevo SMTP keys, Vercel secrets, or private tokens.
 * Use `.env.example` with placeholder values only.
 * Do not expose Supabase service role keys to the browser.
 * Do not use hardcoded emails for authorization.

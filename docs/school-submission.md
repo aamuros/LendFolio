@@ -37,7 +37,7 @@ The system is built as a full-stack Next.js application with Supabase providing 
 - Dispute resolution workflows
 - Production e-KYC or automated identity verification
 - Formal credit bureau scoring
-- Email notification delivery (Resend dependency exists but is not wired)
+- Email notification delivery (Brevo SMTP currently handles Supabase Auth emails only)
 - Playwright end-to-end test scenarios
 - Production deployment to Vercel
 - Mobile native application
@@ -313,7 +313,7 @@ GitHub Actions runs on every push and pull request:
 5. **No dispute workflows**: Borrowers and lenders cannot raise formal disputes through the platform.
 6. **No production e-KYC**: Identity verification relies on document upload and manager review.
 7. **No formal credit scoring**: The internal credit profile grade is deterministic and explainable but is not a credit bureau score.
-8. **No email notifications**: The Resend dependency exists but is not wired; all notifications are in-app only.
+8. **No workflow email notifications**: Brevo SMTP currently handles Supabase Auth emails only; workflow notifications remain in-app.
 9. **No E2E tests**: Playwright is configured but no test scenarios are implemented.
 10. **No production deployment**: The application runs locally or in preview environments only.
 11. **English-only interface**: No multi-language support.
@@ -324,7 +324,7 @@ GitHub Actions runs on every push and pull request:
 - Integration with payment gateways (GCash, Maya, bank transfers) for real payment processing
 - Automated reconciliation and credit-limit restoration on loan payoff
 - Production e-KYC with government ID verification APIs
-- Email notification delivery via Resend for workflow events
+- Email notification delivery via Brevo for workflow events
 - Credit bureau integration for formal credit scoring
 - Dispute resolution workflow
 - Playwright end-to-end test coverage for all critical paths
