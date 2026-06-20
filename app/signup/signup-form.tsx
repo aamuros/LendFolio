@@ -78,9 +78,12 @@ function SignupFormContent({
   const confirmPasswordErrors = passwordMismatch
     ? ["Passwords must match."]
     : state.fieldErrors?.confirmPassword;
-  const topLevelError = !passwordMismatch && state.status === "error" && state.message
-    ? state.message
-    : null;
+  const isDuplicateEmail = isSignupDuplicateEmailError(state.errorCode);
+  const isValidationError = isSignupValidationError(state.errorCode);
+  const topLevelError =
+    !passwordMismatch && state.status === "error" && state.message && !isValidationError
+      ? state.message
+      : null;
 
   useEffect(() => {
     if (topLevelError) {
@@ -170,17 +173,24 @@ function SignupFormContent({
                 className="focus-visible:ring-2 focus-visible:ring-destructive/35 focus-visible:outline-none"
               >
                 <AlertCircle />
-                <AlertTitle>Signup needs attention</AlertTitle>
+                <AlertTitle>
+                  {isDuplicateEmail ? "Email already registered" : "Signup needs attention"}
+                </AlertTitle>
                 <AlertDescription>
                   {topLevelError}
+                  {isDuplicateEmail ? (
+                    <span className="mt-3 flex flex-wrap gap-2">
+                      <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                        <Link href="/login">Sign in instead</Link>
+                      </Button>
+                      <Button asChild variant="outline" size="sm" className="h-8 rounded-lg text-xs font-semibold">
+                        <Link href="/forgot-password">Reset password</Link>
+                      </Button>
+                    </span>
+                  ) : null}
                   {isRateLimited && rateLimitSecondsRemaining > 0 ? (
                     <span className="mt-2 block text-sm font-medium normal-case">
                       Please wait {rateLimitSecondsRemaining} seconds before using resend confirmation.
-                    </span>
-                  ) : null}
-                  {state.errorCode ? (
-                    <span className="mt-1 block text-xs font-medium uppercase tracking-normal">
-                      Code: {state.errorCode}
                     </span>
                   ) : null}
                 </AlertDescription>

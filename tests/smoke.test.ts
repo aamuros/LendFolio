@@ -546,6 +546,48 @@ describe("manager operations helpers", () => {
     expect(confirmationPanel).not.toContain("sessionStorage");
   });
 
+  it("does not expose raw Supabase error codes in the signup form UI", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+    const signupActions = readFileSync("app/signup/actions.ts", "utf8");
+
+    expect(signupForm).not.toContain("Code: {");
+    expect(signupForm).not.toContain("resendState.errorCode");
+    expect(signupForm).not.toContain('"SIGNUP_RATE_LIMITED"');
+    expect(signupForm).not.toContain('"SIGNUP_EMAIL_REGISTERED"');
+    expect(signupForm).not.toContain('"SIGNUP_CONFIRMATION_SEND_FAILED"');
+    expect(signupForm).not.toContain('"SIGNUP_DATABASE_TRIGGER"');
+    expect(signupForm).not.toContain('"SIGNUP_UNEXPECTED"');
+    expect(signupForm).not.toContain("over_email_send_rate_limit");
+    expect(signupForm).not.toContain("user_already_exists");
+    expect(signupForm).not.toContain("email_provider_disabled");
+    expect(signupForm).toContain("isSignupRateLimitedError");
+    expect(signupForm).toContain("isSignupConfirmationSendFailedError");
+    expect(signupActions).toContain("getSafeSignupErrorMessage");
+  });
+
+  it("shows different signup messages for duplicate confirmed vs unconfirmed emails", () => {
+    const signupActions = readFileSync("app/signup/actions.ts", "utf8");
+    const authConfirmation = readFileSync("lib/auth-confirmation.ts", "utf8");
+    const authErrors = readFileSync("lib/auth-signup-errors.ts", "utf8");
+
+    expect(signupActions).toContain("isSignupConfirmationPendingError");
+    expect(signupActions).toContain("SIGNUP_EMAIL_REGISTERED");
+    expect(authConfirmation).toContain("hasConfirmedEmail");
+    expect(authErrors).toContain(
+      "An account already exists with this email. Sign in instead or reset your password.",
+    );
+  });
+
+  it("disables signup submit while pending or rate-limited", () => {
+    const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
+
+    expect(signupForm).toContain("isPending || isResendPending");
+    expect(signupForm).toContain("isSubmitDisabled");
+    expect(signupForm).toContain("disabled={isDisabled}");
+    expect(signupForm).toContain("Creating account...");
+    expect(signupForm).toContain("Try again in");
+  });
+
   it("keeps lender workspace pages behind primary lender access", () => {
     const lenderPage = readFileSync("app/lender/page.tsx", "utf8");
     const applicationsPage = readFileSync(

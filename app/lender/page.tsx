@@ -111,7 +111,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             activeTab === "applications" ? "max-w-[1700px]" : "max-w-7xl",
           )}
         >
-          <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             <LenderApplicationsStatus message={access.message} tone="error" />
           </div>
           <div className="sm:hidden">
@@ -169,7 +169,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
             activeTab === "applications" ? "max-w-[1700px]" : "max-w-7xl",
           )}
         >
-          <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
+          <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
             {activeTab === "home" ? (
               <LenderAccessPanel
                 profile={access.profile}
@@ -322,7 +322,7 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
           activeTab === "applications" ? "max-w-[1700px]" : "max-w-7xl",
         )}
       >
-        <div className={cn("px-4 pt-3 sm:px-6 sm:pt-5", borrowerPageBottomPadding)}>
+        <div className={cn("px-4 pt-4 sm:px-6 sm:pt-6", borrowerPageBottomPadding)}>
           {activeTab === "home" ? (
             <HomeTab
               applications={applications}

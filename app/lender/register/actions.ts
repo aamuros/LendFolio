@@ -4,9 +4,9 @@ import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import {
   classifySignupError,
-  getSignupFailureMessage,
   getSafeSignupErrorMessage,
-  logSignupFailure,
+  getSignupRetryDelayMs,
+  logSignupDiagnosticFailure,
   type SignupErrorCode,
 } from "@/lib/auth-signup-errors";
 import {
@@ -14,7 +14,6 @@ import {
   isSignupConfirmationDeliveryError,
   isSignupConfirmationPendingError,
   SIGNUP_CHECK_EMAIL_MESSAGE,
-  SIGNUP_CONFIRMATION_PENDING_MESSAGE,
 } from "@/lib/auth-confirmation";
 import {
   acceptBaselineUserConsents,
@@ -41,6 +40,10 @@ export type LenderRegisterState = {
   message: string;
   status: "idle" | "error" | "success";
   fieldErrors?: LenderRegisterFieldErrors;
+  errorCode?: SignupErrorCode;
+  rateLimitCooldownEndsAt?: number;
+  canResendConfirmation?: boolean;
+  confirmationEmail?: string;
   values?: {
     displayName?: string;
     email?: string;
@@ -48,9 +51,6 @@ export type LenderRegisterState = {
     termsAccepted?: boolean;
     privacyAccepted?: boolean;
   };
-  confirmationEmail?: string;
-  canResendConfirmation?: boolean;
-  errorCode?: SignupErrorCode;
 };
 
 export async function lenderRegisterAction(
@@ -111,6 +111,31 @@ export async function lenderRegisterAction(
     });
 
     if (error) {
+      const errorCode = classifySignupError(error);
+      logSignupDiagnosticFailure(error, errorCode, {
+        flow: "lender_register",
+        role: "lender",
+        source: "signUp",
+      });
+
+      if (errorCode === "SIGNUP_RATE_LIMITED") {
+        return {
+          status: "error",
+          message: getSafeSignupErrorMessage(errorCode),
+          errorCode,
+          rateLimitCooldownEndsAt: Date.now() + getSignupRetryDelayMs(error),
+          canResendConfirmation: true,
+          confirmationEmail: input.email,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            organizationName: input.organizationName,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
+        };
+      }
+
       if (isSignupConfirmationDeliveryError(error)) {
         if (data.session) {
           await supabase.auth.signOut();
@@ -140,23 +165,32 @@ export async function lenderRegisterAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          canResendConfirmation: true,
           confirmationEmail: input.email,
         };
       }
 
       if (isSignupConfirmationPendingError(error)) {
         return {
-          status: "success",
-          message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+          status: "error",
+          message: getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED"),
+          errorCode: "SIGNUP_EMAIL_REGISTERED",
+          canResendConfirmation: true,
           confirmationEmail: input.email,
+          values: {
+            displayName: input.displayName,
+            email: input.email,
+            organizationName: input.organizationName,
+            termsAccepted: true,
+            privacyAccepted: true,
+          },
         };
       }
 
-      logSignupFailure({ flow: "lender_register", role: "lender" }, error);
-
       return {
         status: "error",
-        message: getSignupFailureMessage(error),
+        message: getSafeSignupErrorMessage(errorCode),
+        errorCode,
         values: {
           displayName: input.displayName,
           email: input.email,
@@ -172,15 +206,25 @@ export async function lenderRegisterAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          canResendConfirmation: true,
           confirmationEmail: input.email,
         };
       }
 
-      logSignupFailure({ flow: "lender_register", role: "lender" }, null);
+      logSignupDiagnosticFailure(
+        new Error("Signup returned session but no user"),
+        "SIGNUP_UNEXPECTED",
+        {
+          flow: "lender_register",
+          role: "lender",
+          source: "signUp",
+        },
+      );
 
       return {
         status: "error",
-        message: getSignupFailureMessage(null),
+        message: getSafeSignupErrorMessage("SIGNUP_UNEXPECTED"),
+        errorCode: "SIGNUP_UNEXPECTED",
         values: {
           displayName: input.displayName,
           email: input.email,
@@ -219,11 +263,20 @@ export async function lenderRegisterAction(
     redirectTo = destination;
   } catch (error) {
     const errorCode = classifySignupError(error);
+    logSignupDiagnosticFailure(error, errorCode, {
+      flow: "lender_register",
+      role: "lender",
+      source: "signUp",
+    });
 
     return {
       status: "error",
       message: getSafeSignupErrorMessage(errorCode),
       errorCode,
+      rateLimitCooldownEndsAt:
+        errorCode === "SIGNUP_RATE_LIMITED"
+          ? Date.now() + getSignupRetryDelayMs(error)
+          : undefined,
       values: {
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),

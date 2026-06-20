@@ -147,6 +147,70 @@ an active session. If email confirmation prevents that write, the app retries
 the same append-only RPC on the first authenticated login or protected-route
 session.
 
+## Resend via Supabase Custom SMTP
+
+LendFolio uses [Resend](https://resend.com) as the email delivery provider for
+Supabase Auth transactional emails (signup confirmation, password reset). Resend
+is configured as a custom SMTP server inside the Supabase dashboard; the app
+does not call the Resend API directly.
+
+### Why custom SMTP
+
+Supabase's built-in email sender has shared-IP rate limits and no domain
+customization. Resend provides dedicated sending infrastructure, deliverability
+monitoring, and custom From addresses.
+
+### Setup steps
+
+1. **Create a Resend account** at [resend.com](https://resend.com) and verify
+   your sending domain (e.g. `lendfolio.com`). Resend provides DNS records for
+   SPF, DKIM, and DMARC.
+
+2. **Generate an SMTP credential** in the Resend dashboard under **SMTP
+   Credentials**. Note the username and password.
+
+3. **Open the Supabase dashboard** and go to **Authentication > Email
+   Templates** (or **Project Settings > Auth > SMTP** depending on the Supabase
+   version).
+
+4. **Enable custom SMTP** and enter:
+
+   | Field | Value |
+   | --- | --- |
+   | Sender email | `noreply@your-domain.com` (must match verified Resend domain) |
+   | Sender name | `LendFolio` |
+   | Host | `smtp.resend.com` |
+   | Port number | `465` |
+   | Minimum interval between emails | `0` (LendFolio handles its own cooldown) |
+   | Username | `resend` |
+   | Password | Your Resend SMTP credential |
+
+5. **Test** by signing up with a real email. Confirmation emails should arrive
+   from your verified domain.
+
+### What Supabase still handles
+
+Resend only provides the transport layer. Supabase Auth remains responsible for:
+
+- User creation and storage
+- Session and JWT management
+- Email confirmation token generation
+- Password reset token generation
+- Rate limiting per email address
+- RLS-compatible `auth.uid()` / `auth.jwt()`
+
+### Environment variables
+
+No additional environment variables are needed for SMTP delivery. Resend
+credentials live in the Supabase dashboard, not in the app's `.env` file.
+
+### Local development
+
+Local Supabase (via `supabase start`) uses its built-in email testing inbox by
+default. Custom SMTP is only needed for the hosted Supabase project used in
+staging and production. Keep email confirmations disabled locally for
+seeded-account testing unless testing the confirmation flow specifically.
+
 ## App Client Structure
 
 | File | Purpose |

@@ -15,6 +15,9 @@ export type SignupErrorCode =
   | "SIGNUP_REDIRECT_URL"
   | "SIGNUP_EMAIL_REGISTERED"
   | "SIGNUP_RATE_LIMITED"
+  | "SIGNUP_INVALID_EMAIL"
+  | "SIGNUP_WEAK_PASSWORD"
+  | "SIGNUP_PASSWORD_TOO_SHORT"
   | "SIGNUP_INVALID_REQUEST"
   | "SIGNUP_CONFIRMATION_SEND_FAILED"
   | "SIGNUP_UNEXPECTED";
@@ -30,6 +33,27 @@ export const SIGNUP_RATE_LIMITED_MESSAGE =
 
 export const SIGNUP_RATE_LIMIT_FALLBACK_MS = 10_000;
 export const SIGNUP_RATE_LIMIT_MAX_UI_COOLDOWN_MS = 10_000;
+
+export function isSignupDuplicateEmailError(errorCode: SignupErrorCode | undefined) {
+  return errorCode === "SIGNUP_EMAIL_REGISTERED";
+}
+
+export function isSignupRateLimitedError(errorCode: SignupErrorCode | undefined) {
+  return errorCode === "SIGNUP_RATE_LIMITED";
+}
+
+export function isSignupConfirmationSendFailedError(errorCode: SignupErrorCode | undefined) {
+  return errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED";
+}
+
+export function isSignupValidationError(errorCode: SignupErrorCode | undefined) {
+  return (
+    errorCode === "SIGNUP_INVALID_EMAIL" ||
+    errorCode === "SIGNUP_WEAK_PASSWORD" ||
+    errorCode === "SIGNUP_PASSWORD_TOO_SHORT" ||
+    errorCode === "SIGNUP_INVALID_REQUEST"
+  );
+}
 
 export function getSignupFailureMessage(error: SignupAuthError | null | undefined) {
   return isSignupDatabaseFailure(error)
@@ -108,8 +132,7 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("jwt") ||
     message.includes("api key") ||
     code.includes("invalid_credentials") ||
-    status === 401 ||
-    status === 403
+    status === 401
   ) {
     return "SIGNUP_SUPABASE_CONFIG";
   }
@@ -157,11 +180,11 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   if (
     message.includes("already registered") ||
     message.includes("already exists") ||
-    message.includes("duplicate") ||
     message.includes("duplicate key value violates unique constraint") ||
     message.includes("email already exists") ||
     message.includes("email exists") ||
-    code.includes("user_already_exists")
+    code.includes("user_already_exists") ||
+    code.includes("email_exists")
   ) {
     return "SIGNUP_EMAIL_REGISTERED";
   }
@@ -169,12 +192,44 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   if (
     message.includes("invalid email") ||
     message.includes("email address is invalid") ||
+    message.includes("unable to validate email") ||
+    (message.includes("email") && message.includes("invalid")) ||
+    (message.includes("email") && message.includes("valid"))
+  ) {
+    return "SIGNUP_INVALID_EMAIL";
+  }
+
+  if (
+    message.includes("password") &&
+    (message.includes("short") ||
+      message.includes("at least") ||
+      message.includes("characters") ||
+      message.includes("length"))
+  ) {
+    return "SIGNUP_PASSWORD_TOO_SHORT";
+  }
+
+  if (
+    message.includes("password") &&
+    (message.includes("weak") ||
+      message.includes("strong") ||
+      message.includes("common") ||
+      message.includes("compromised"))
+  ) {
+    return "SIGNUP_WEAK_PASSWORD";
+  }
+
+  if (
     message.includes("password") ||
-    message.includes("weak") ||
     message.includes("not allowed") ||
     message.includes("unsupported") ||
-    code.includes("validation") ||
-    code.includes("invalid")
+    code.includes("validation")
+  ) {
+    return "SIGNUP_INVALID_REQUEST";
+  }
+
+  if (
+    code.includes("invalid") && !code.includes("invalid_credentials")
   ) {
     return "SIGNUP_INVALID_REQUEST";
   }
@@ -184,7 +239,6 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("trigger") ||
     message.includes("profile") ||
     message.includes("saving new user") ||
-    message.includes("violates") ||
     message.includes("violates row-level security policy") ||
     message.includes("permission denied") ||
     message.includes("permission denied for schema") ||
@@ -230,15 +284,21 @@ export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
     case "SIGNUP_AUTH_PROVIDER":
       return "Email signup is not enabled yet. Ask the site owner to verify the Supabase email provider.";
     case "SIGNUP_DATABASE_TRIGGER":
-      return "Signup reached the authentication service, but account setup could not finish. Ask the site owner to verify production database migrations.";
+      return "Account setup could not finish. Please try again later or contact support.";
     case "SIGNUP_REDIRECT_URL":
       return "Signup needs the site redirect URL to be allowed before accounts can be created.";
     case "SIGNUP_EMAIL_REGISTERED":
-      return "This email already has an account or pending confirmation. Please sign in or check your email.";
+      return "An account already exists with this email. Sign in instead or reset your password.";
     case "SIGNUP_RATE_LIMITED":
       return SIGNUP_RATE_LIMITED_MESSAGE;
+    case "SIGNUP_INVALID_EMAIL":
+      return "Enter a valid email address.";
+    case "SIGNUP_WEAK_PASSWORD":
+      return "Choose a stronger password. Use a mix of letters, numbers, or symbols.";
+    case "SIGNUP_PASSWORD_TOO_SHORT":
+      return "Password must be at least 8 characters.";
     case "SIGNUP_INVALID_REQUEST":
-      return "Signup could not be completed with these details. Check the email and password, then try again.";
+      return "Check your email and password, then try again.";
     case "SIGNUP_CONFIRMATION_SEND_FAILED":
       return SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE;
     case "SIGNUP_UNEXPECTED":

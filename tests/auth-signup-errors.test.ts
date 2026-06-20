@@ -3,6 +3,8 @@ import {
   classifySignupError,
   getSafeSignupErrorMessage,
   getSignupRetryDelayMs,
+  isSignupDuplicateEmailError,
+  isSignupValidationError,
 } from "@/lib/auth-signup-errors";
 
 describe("signup auth error classification", () => {
@@ -21,8 +23,78 @@ describe("signup auth error classification", () => {
       }),
     ).toBe("SIGNUP_EMAIL_REGISTERED");
 
-    expect(getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED")).toBe(
-      "This email already has an account or pending confirmation. Please sign in or check your email.",
+    expect(
+      classifySignupError({
+        code: "email_exists",
+        message: "User already registered",
+      }),
+    ).toBe("SIGNUP_EMAIL_REGISTERED");
+  });
+
+  it("provides sign-in and reset-password guidance for duplicate email", () => {
+    const message = getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED");
+    expect(message).toBe(
+      "An account already exists with this email. Sign in instead or reset your password.",
+    );
+  });
+
+  it("classifies invalid email from Supabase", () => {
+    expect(
+      classifySignupError({
+        message: "Unable to validate email address: invalid format",
+        status: 400,
+      }),
+    ).toBe("SIGNUP_INVALID_EMAIL");
+
+    expect(
+      classifySignupError({
+        message: "invalid email",
+        status: 400,
+      }),
+    ).toBe("SIGNUP_INVALID_EMAIL");
+
+    expect(getSafeSignupErrorMessage("SIGNUP_INVALID_EMAIL")).toBe(
+      "Enter a valid email address.",
+    );
+  });
+
+  it("classifies password too short from Supabase", () => {
+    expect(
+      classifySignupError({
+        message: "Password should be at least 6 characters",
+        status: 400,
+      }),
+    ).toBe("SIGNUP_PASSWORD_TOO_SHORT");
+
+    expect(
+      classifySignupError({
+        message: "password length must be at least 8",
+        status: 422,
+      }),
+    ).toBe("SIGNUP_PASSWORD_TOO_SHORT");
+
+    expect(getSafeSignupErrorMessage("SIGNUP_PASSWORD_TOO_SHORT")).toBe(
+      "Password must be at least 8 characters.",
+    );
+  });
+
+  it("classifies weak password from Supabase", () => {
+    expect(
+      classifySignupError({
+        message: "Password is too weak",
+        status: 400,
+      }),
+    ).toBe("SIGNUP_WEAK_PASSWORD");
+
+    expect(
+      classifySignupError({
+        message: "password should be strong",
+        status: 422,
+      }),
+    ).toBe("SIGNUP_WEAK_PASSWORD");
+
+    expect(getSafeSignupErrorMessage("SIGNUP_WEAK_PASSWORD")).toContain(
+      "stronger password",
     );
   });
 
@@ -97,5 +169,46 @@ describe("signup auth error classification", () => {
         message: "permission denied for table lender_profiles",
       }),
     ).toBe("SIGNUP_DATABASE_TRIGGER");
+  });
+
+  it("classifies signup disabled errors", () => {
+    expect(
+      classifySignupError({
+        message: "signup is disabled",
+        status: 403,
+      }),
+    ).toBe("SIGNUP_AUTH_PROVIDER");
+
+    expect(
+      classifySignupError({
+        code: "signup_disabled",
+        message: "Signups not allowed",
+      }),
+    ).toBe("SIGNUP_AUTH_PROVIDER");
+  });
+
+  it("classifies email provider disabled errors", () => {
+    expect(
+      classifySignupError({
+        code: "email_provider_disabled",
+        message: "Error sending confirmation email",
+      }),
+    ).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+  });
+
+  it("isSignupDuplicateEmailError returns true for duplicate email codes", () => {
+    expect(isSignupDuplicateEmailError("SIGNUP_EMAIL_REGISTERED")).toBe(true);
+    expect(isSignupDuplicateEmailError("SIGNUP_RATE_LIMITED")).toBe(false);
+    expect(isSignupDuplicateEmailError(undefined)).toBe(false);
+  });
+
+  it("isSignupValidationError returns true for validation error codes", () => {
+    expect(isSignupValidationError("SIGNUP_INVALID_EMAIL")).toBe(true);
+    expect(isSignupValidationError("SIGNUP_WEAK_PASSWORD")).toBe(true);
+    expect(isSignupValidationError("SIGNUP_PASSWORD_TOO_SHORT")).toBe(true);
+    expect(isSignupValidationError("SIGNUP_INVALID_REQUEST")).toBe(true);
+    expect(isSignupValidationError("SIGNUP_EMAIL_REGISTERED")).toBe(false);
+    expect(isSignupValidationError("SIGNUP_RATE_LIMITED")).toBe(false);
+    expect(isSignupValidationError(undefined)).toBe(false);
   });
 });

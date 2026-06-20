@@ -92,7 +92,7 @@ describe("lender register action", () => {
     );
   });
 
-  it("treats repeat signup for an unconfirmed lender account as confirmation pending without resending email", async () => {
+  it("shows sign-in-or-reset guidance for a duplicate confirmed lender email", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const signUp = vi.fn().mockResolvedValue({
       data: { user: null, session: null },
@@ -116,9 +116,10 @@ describe("lender register action", () => {
       createLenderRegisterFormData(),
     );
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("pending account");
-    expect(result.message).toContain("resend the confirmation link");
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.message).toContain("Sign in instead or reset your password");
+    expect(result.canResendConfirmation).toBe(true);
     expect(result.confirmationEmail).toBe("lender@example.com");
     expect(resend).not.toHaveBeenCalled();
   });
@@ -223,18 +224,17 @@ describe("lender register action", () => {
       );
 
       expect(result.status).toBe("error");
-      expect(result.message).toBe(
-        "Account setup is temporarily unavailable. Try again later.",
-      );
+      expect(result.errorCode).toBe("SIGNUP_DATABASE_TRIGGER");
+      expect(result.message).not.toContain("Supabase URL");
       expect(consoleError).toHaveBeenCalledWith(
-        "[auth-signup]",
+        "[auth-signup-diagnostic]",
         expect.objectContaining({
           flow: "lender_register",
           role: "lender",
-          code: "unexpected_failure",
-          name: "AuthApiError",
-          status: 500,
-          message: "Database error saving new user",
+          source: "signUp",
+          classifiedErrorCode: "SIGNUP_DATABASE_TRIGGER",
+          supabaseErrorCode: "unexpected_failure",
+          httpStatus: 500,
         }),
       );
       expect(JSON.stringify(consoleError.mock.calls)).not.toContain(
@@ -286,5 +286,151 @@ describe("lender register action", () => {
     expect(metadata.max_loan_amount).toBeUndefined();
     expect(metadata.typical_repayment_terms).toBeUndefined();
     expect(metadata.lender_description).toBeUndefined();
+  });
+
+  it("reports Supabase rate limits with cooldown and resend support", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: "over_email_send_rate_limit",
+        message: "For security purposes, you can only request this after 60 seconds",
+        status: 429,
+      },
+    });
+    const supabase = {
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    const before = Date.now();
+
+    try {
+      const result = await lenderRegisterAction(
+        previousState,
+        createLenderRegisterFormData(),
+      );
+
+      expect(result.status).toBe("error");
+      expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
+      expect(result.rateLimitCooldownEndsAt).toBeGreaterThanOrEqual(before + 60_000);
+      expect(result.canResendConfirmation).toBe(true);
+      expect(result.confirmationEmail).toBe("lender@example.com");
+      expect(result.message).toContain("This does not mean the email was sent");
+      expect(result.values?.email).toBe("lender@example.com");
+      expect(JSON.stringify(result)).not.toContain("securepass123");
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+
+  it("shows sign-in-or-reset message for duplicate confirmed lender email", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: "user_already_exists",
+        message: "User already registered",
+      },
+    });
+    const supabase = {
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.message).toContain("Sign in instead or reset your password");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("lender@example.com");
+  });
+
+  it("sends normalized lowercase email to Supabase for lender registration", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: null,
+    });
+    const supabase = {
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const formData = createLenderRegisterFormData();
+    formData.set("email", "  Lender@Example.COM  ");
+
+    await lenderRegisterAction(previousState, formData);
+
+    expect(signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        email: "lender@example.com",
+      }),
+    );
+  });
+
+  it("returns errorCode for invalid email from Supabase", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        message: "Unable to validate email address: invalid format",
+        status: 400,
+      },
+    });
+    const supabase = {
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_INVALID_EMAIL");
+    expect(result.message).toBe("Enter a valid email address.");
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("does not expose passwords in lender register state or logs", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const consoleError = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    const signUp = vi.fn().mockResolvedValue({
+      data: { user: null, session: null },
+      error: {
+        code: "unexpected_failure",
+        message: "Database error saving new user",
+        status: 500,
+      },
+    });
+    const supabase = {
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    };
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    try {
+      const result = await lenderRegisterAction(
+        previousState,
+        createLenderRegisterFormData(),
+      );
+
+      const serialized = JSON.stringify(result);
+      expect(serialized).not.toContain("securepass123");
+      expect(result).not.toHaveProperty("password");
+      expect(result).not.toHaveProperty("confirmPassword");
+      expect(JSON.stringify(consoleError.mock.calls)).not.toContain("securepass123");
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });

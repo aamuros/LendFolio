@@ -166,6 +166,50 @@ describe("signup schema validation", () => {
     }
   });
 
+  it("normalizes email with trim and lowercase", () => {
+    const result = signupSchema.safeParse({
+      ...validBorrowerInput,
+      email: "  Juan@Example.COM  ",
+    });
+
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.email).toBe("juan@example.com");
+    }
+  });
+
+  it("treats email case variations as the same normalized email", () => {
+    const upper = signupSchema.safeParse({
+      ...validBorrowerInput,
+      email: "JUAN@EXAMPLE.COM",
+    });
+    const lower = signupSchema.safeParse({
+      ...validBorrowerInput,
+      email: "juan@example.com",
+    });
+    const mixed = signupSchema.safeParse({
+      ...validBorrowerInput,
+      email: "JuAn@ExAmPlE.cOm",
+    });
+
+    expect(upper.success).toBe(true);
+    expect(lower.success).toBe(true);
+    expect(mixed.success).toBe(true);
+    if (upper.success && lower.success && mixed.success) {
+      expect(upper.data.email).toBe(lower.data.email);
+      expect(lower.data.email).toBe(mixed.data.email);
+    }
+  });
+
+  it("rejects email with only spaces after trim", () => {
+    const result = signupSchema.safeParse({
+      ...validBorrowerInput,
+      email: "   ",
+    });
+
+    expect(result.success).toBe(false);
+  });
+
   it("preserves lender role through password mismatch validation", () => {
     const result = signupSchema.safeParse({
       ...validLenderInput,
