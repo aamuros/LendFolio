@@ -531,6 +531,8 @@ describe("manager operations helpers", () => {
     expect(signupForm).toContain("state.rateLimitCooldownEndsAt");
     expect(signupForm).toContain("resendState.rateLimitCooldownEndsAt");
     expect(signupForm).toContain('state.errorCode === "SIGNUP_RATE_LIMITED"');
+    expect(signupForm).toContain('state.errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED"');
+    expect(signupForm).toContain("shouldShowResendConfirmation");
     expect(signupForm).toContain("Please wait {rateLimitSecondsRemaining} seconds before using resend confirmation.");
     expect(signupForm).toContain("disabled={isDisabled}");
     expect(signupForm).toContain("Resend confirmation email");

@@ -84,6 +84,11 @@ function SignupFormContent({
   const isRateLimited = state.errorCode === "SIGNUP_RATE_LIMITED";
   const resendEmail =
     state.confirmationEmail || state.values?.email || resendState.confirmationEmail || "";
+  const shouldShowResendConfirmation =
+    Boolean(resendEmail) &&
+    (Boolean(state.canResendConfirmation) ||
+      state.errorCode === "SIGNUP_CONFIRMATION_SEND_FAILED" ||
+      state.errorCode === "SIGNUP_RATE_LIMITED");
   const storedCooldownEndsAt = getStoredSignupCooldownEndsAt(resendEmail);
   const serverCooldownEndsAt =
     state.rateLimitCooldownEndsAt || resendState.rateLimitCooldownEndsAt || 0;
@@ -373,7 +378,7 @@ function SignupFormContent({
           </FieldGroup>
         </form>
 
-        {state.canResendConfirmation && resendEmail ? (
+        {shouldShowResendConfirmation ? (
           <div className="mt-4">
             <ResendConfirmationActions
               email={resendEmail}
