@@ -125,6 +125,8 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("already registered") ||
     message.includes("already exists") ||
     message.includes("duplicate") ||
+    message.includes("duplicate key value violates unique constraint") ||
+    message.includes("email already exists") ||
     message.includes("email exists") ||
     code.includes("user_already_exists")
   ) {
@@ -158,6 +160,9 @@ export function classifySignupError(error: unknown): SignupErrorCode {
     message.includes("profile") ||
     message.includes("saving new user") ||
     message.includes("violates") ||
+    message.includes("violates row-level security policy") ||
+    message.includes("permission denied") ||
+    message.includes("permission denied for schema") ||
     message.includes("function") ||
     code === "unexpected_failure" ||
     code === "database_error" ||
@@ -188,7 +193,7 @@ export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
     case "SIGNUP_REDIRECT_URL":
       return "Signup needs the site redirect URL to be allowed before accounts can be created.";
     case "SIGNUP_EMAIL_REGISTERED":
-      return "This email is already registered. Sign in or check your email for the confirmation link.";
+      return "This email already has an account or pending confirmation. Please sign in or check your email.";
     case "SIGNUP_RATE_LIMITED":
       return "Too many signup attempts. Wait a few minutes, then try again.";
     case "SIGNUP_INVALID_REQUEST":

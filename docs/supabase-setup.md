@@ -63,6 +63,34 @@ role key to browser code or commit it to the repository.
 Authorization must continue to read from database rows, not from mutable Auth
 user metadata.
 
+### Signup Troubleshooting
+
+If signup works for new emails but fails for emails that were already tried,
+check for an Auth user that was created before trusted profile provisioning
+completed. Run the latest migrations against production Supabase before testing
+Vercel again; the current provisioning migration repairs orphaned self-service
+signup users and prevents future orphaned inserts.
+
+Inspect one email with:
+
+```sql
+select
+  users.id,
+  users.email,
+  users.created_at,
+  users.raw_user_meta_data ->> 'lendfolio_role' as requested_role,
+  profiles.id is not null as has_profile,
+  profiles.role,
+  lender_profiles.id is not null as has_lender_profile,
+  lender_profiles.verification_status as lender_verification_status
+from auth.users users
+left join public.profiles profiles
+  on profiles.id = users.id
+left join public.lender_profiles lender_profiles
+  on lender_profiles.user_id = users.id
+where lower(users.email) = lower('person@example.com');
+```
+
 ## Email Confirmation
 
 Production Supabase should keep **Confirm Email** enabled. Configure the

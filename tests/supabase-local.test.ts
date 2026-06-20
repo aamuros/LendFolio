@@ -759,6 +759,18 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
     }
 
     try {
+      const { data: profile, error: profileError } = await admin
+        .from("profiles")
+        .select("role, status")
+        .eq("id", userId)
+        .single();
+
+      expect(profileError).toBeNull();
+      expect(profile).toMatchObject({
+        role: "lender",
+        status: "active",
+      });
+
       const { data: lenderProfile, error: lenderProfileError } = await admin
         .from("lender_profiles")
         .select("verification_status, organization_name, min_loan_amount, max_loan_amount")
@@ -771,6 +783,76 @@ describeSupabaseLocal("Supabase local role, RLS, audit, and offer workflow", () 
         organization_name: null,
         min_loan_amount: null,
         max_loan_amount: null,
+      });
+    } finally {
+      await admin.auth.admin.deleteUser(userId);
+    }
+  });
+
+  it("repairs orphaned lender signup users without duplicating existing profiles", async () => {
+    const email = `orphan-lender-${crypto.randomUUID()}@lendfolio.local`;
+    const { data, error } = await admin.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+      user_metadata: {
+        lendfolio_role: "lender",
+        display_name: "Orphan Lender",
+      },
+    });
+
+    expect(error).toBeNull();
+    expect(data.user?.id).toBeTruthy();
+    const userId = data.user?.id;
+    if (!userId) {
+      throw new Error("Expected created lender user.");
+    }
+
+    try {
+      await admin.from("lender_profiles").delete().eq("user_id", userId);
+      await admin.from("profiles").delete().eq("id", userId);
+
+      const firstRepair = await manager.rpc("repair_user_provisioning", {
+        p_user_id: userId,
+      });
+      expect(firstRepair.error).toBeNull();
+      expect(firstRepair.data).toMatchObject({
+        ok: true,
+        role: "lender",
+      });
+
+      const secondRepair = await manager.rpc("repair_user_provisioning", {
+        p_user_id: userId,
+      });
+      expect(secondRepair.error).toBeNull();
+      expect(secondRepair.data).toMatchObject({
+        ok: true,
+        role: "lender",
+      });
+
+      const { count: profileCount, error: profileCountError } = await admin
+        .from("profiles")
+        .select("id", { count: "exact", head: true })
+        .eq("id", userId);
+      expect(profileCountError).toBeNull();
+      expect(profileCount).toBe(1);
+
+      const { count: lenderProfileCount, error: lenderProfileCountError } =
+        await admin
+          .from("lender_profiles")
+          .select("id", { count: "exact", head: true })
+          .eq("user_id", userId);
+      expect(lenderProfileCountError).toBeNull();
+      expect(lenderProfileCount).toBe(1);
+
+      const { data: lenderProfile, error: lenderProfileError } = await admin
+        .from("lender_profiles")
+        .select("verification_status")
+        .eq("user_id", userId)
+        .single();
+      expect(lenderProfileError).toBeNull();
+      expect(lenderProfile).toMatchObject({
+        verification_status: "incomplete",
       });
     } finally {
       await admin.auth.admin.deleteUser(userId);
