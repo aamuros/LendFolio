@@ -1376,7 +1376,7 @@ function HomeSummary({
       {loadState === "loading" ? (
         <HomeDashboardSkeleton />
       ) : (
-        <div className="grid gap-4 xl:grid-cols-12">
+        <div className="grid gap-4 lg:grid-cols-12">
           <PrimaryActionCard
             borrowerState={borrowerState}
             profileCompletion={profileCompletion}
@@ -1385,7 +1385,7 @@ function HomeSummary({
           />
 
           <FinancingSummaryCard
-            className="col-span-12 xl:col-span-5"
+            className="col-span-12 lg:col-span-5"
             borrowerVerification={borrowerVerification}
             creditSummary={displayCreditSummary}
             completedPortfolioSteps={completedPortfolioSteps}
@@ -1401,7 +1401,7 @@ function HomeSummary({
           <RepaymentCalendarCard
             activeLoans={activeLoans}
             onNavigate={onNavigate}
-            className="col-span-12 xl:col-span-7"
+            className="col-span-12 lg:col-span-7"
           />
 
           <OffersLoansCard
@@ -1653,7 +1653,7 @@ function FinancingSummaryCard({
   return (
     <Card
       className={cn(
-        "col-span-12 rounded-2xl border-border/50 shadow-sm xl:col-span-5",
+        "col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-5",
         className,
       )}
     >
@@ -1895,7 +1895,7 @@ function OffersLoansCard({
 
 function HomeDashboardSkeleton() {
   return (
-    <div className="grid gap-4 xl:grid-cols-12">
+    <div className="grid gap-4 lg:grid-cols-12">
       <Card className="col-span-12 rounded-2xl border-border/50 bg-muted/30 shadow-sm">
         <CardContent className="grid gap-4 p-4 sm:p-5">
           <Skeleton className="h-5 w-48" />
@@ -1905,7 +1905,7 @@ function HomeDashboardSkeleton() {
         </CardContent>
       </Card>
 
-      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm xl:col-span-5">
+      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-5">
         <CardHeader className="px-4 pb-0 pt-4 sm:px-5 sm:pt-5">
           <Skeleton className="h-3 w-28" />
           <Skeleton className="h-5 w-40" />
@@ -1933,7 +1933,7 @@ function HomeDashboardSkeleton() {
         </CardContent>
       </Card>
 
-      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm xl:col-span-7">
+      <Card className="col-span-12 rounded-2xl border-border/50 shadow-sm lg:col-span-7">
         <CardHeader className="px-4 pb-3 pt-4 sm:px-5 sm:pt-5">
           <Skeleton className="h-4 w-32" />
           <Skeleton className="h-3 w-56" />
@@ -2018,7 +2018,7 @@ function RepaymentCalendarCard({
             onSelect={setSelectedDate}
             defaultMonth={today}
             showOutsideDays={true}
-            className="w-full rounded-2xl border border-border/50 p-2 [--cell-size:2.25rem] sm:p-3 sm:[--cell-size:2.75rem]"
+            className="w-full rounded-2xl border border-border/50 px-5 py-3 [--cell-size:2.25rem] sm:px-6 sm:py-4 sm:[--cell-size:2.5rem]"
             classNames={{ root: "w-full" }}
             components={
               !isEmpty
