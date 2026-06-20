@@ -13,7 +13,10 @@ export const SIGNUP_CHECK_EMAIL_MESSAGE =
   "Check your email for a confirmation link. Open it to activate your account, then sign in to continue.";
 
 export const SIGNUP_CONFIRMATION_PENDING_MESSAGE =
-  "An account may already exist for this email. Check your inbox and spam folder for a confirmation link. You can request one new link after the cooldown.";
+  "This email may already have a pending account. Check your inbox or resend the confirmation link.";
+
+export const SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE =
+  "If this email has a pending account, we sent a new confirmation link.";
 
 export const SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE =
   "Account created, but the confirmation email could not be sent right now. Try again in a minute.";

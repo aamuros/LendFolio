@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { signupAction } from "../app/signup/actions";
+import {
+  resendSignupConfirmationAction,
+  signupAction,
+} from "../app/signup/actions";
 
 vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
@@ -236,10 +239,61 @@ describe("signup action role enforcement", () => {
     const result = await signupAction(previousState, createSignupFormData("borrower"));
 
     expect(result.status).toBe("success");
-    expect(result.message).toContain("An account may already exist");
-    expect(result.message).toContain("after the cooldown");
+    expect(result.message).toContain("pending account");
+    expect(result.message).toContain("resend the confirmation link");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.resend).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
+  });
+
+  it("resend confirmation returns safe success copy without revealing account existence", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    const formData = new FormData();
+    formData.set("email", "juan@example.com");
+
+    const result = await resendSignupConfirmationAction(previousState, formData);
+
+    expect(result.status).toBe("success");
+    expect(result.message).toBe(
+      "If this email has a pending account, we sent a new confirmation link.",
+    );
+    expect(supabase.resend).toHaveBeenCalledWith({
+      type: "signup",
+      email: "juan@example.com",
+      options: {
+        emailRedirectTo: "http://localhost:3000/login?message=email-confirmed",
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
+  it("resend confirmation handles Supabase rate limits separately", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.resend.mockResolvedValueOnce({
+      data: {},
+      error: {
+        code: "over_email_send_rate_limit",
+        message: "For security purposes, you can only request this after 58 seconds",
+        status: 429,
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    const formData = new FormData();
+    formData.set("email", "juan@example.com");
+    const before = Date.now();
+
+    const result = await resendSignupConfirmationAction(previousState, formData);
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
+    expect(result.message).toContain("This does not mean the email was sent");
+    expect(result.rateLimitCooldownEndsAt).toBeGreaterThanOrEqual(before + 58_000);
+    expect(result.rateLimitCooldownEndsAt).toBeLessThan(before + 59_000);
+    expect(supabase.signUp).not.toHaveBeenCalled();
   });
 
   it("keeps safe field values after a failed signup without returning passwords", async () => {
@@ -391,7 +445,7 @@ describe("signup action role enforcement", () => {
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
     expect(result.rateLimitCooldownEndsAt).toEqual(expect.any(Number));
-    expect(result.message).toContain("Too many signup attempts");
+    expect(result.message).toContain("This does not mean the email was sent");
     expect(result.message).not.toContain("Supabase project settings");
     expect(result.values).toEqual({
       displayName: "Juan dela Cruz",
@@ -400,6 +454,8 @@ describe("signup action role enforcement", () => {
       termsAccepted: true,
       privacyAccepted: true,
     });
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("juan@example.com");
     expect(supabase.resend).not.toHaveBeenCalled();
     expect(supabase.signUp).toHaveBeenCalledTimes(1);
     expect(consoleError).toHaveBeenCalledWith(
@@ -443,7 +499,8 @@ describe("signup action role enforcement", () => {
     expect(result.errorCode).toBe("SIGNUP_RATE_LIMITED");
     expect(result.message).not.toContain("confirmation email could not be sent");
     expect(result.message).not.toContain("An account may already exist");
-    expect(result.confirmationEmail).toBeUndefined();
+    expect(result.confirmationEmail).toBe("juan@example.com");
+    expect(result.canResendConfirmation).toBe(true);
     expect(supabase.resend).not.toHaveBeenCalled();
   });
 

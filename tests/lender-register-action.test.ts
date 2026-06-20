@@ -117,8 +117,8 @@ describe("lender register action", () => {
     );
 
     expect(result.status).toBe("success");
-    expect(result.message).toContain("An account may already exist");
-    expect(result.message).toContain("after the cooldown");
+    expect(result.message).toContain("pending account");
+    expect(result.message).toContain("resend the confirmation link");
     expect(result.confirmationEmail).toBe("lender@example.com");
     expect(resend).not.toHaveBeenCalled();
   });

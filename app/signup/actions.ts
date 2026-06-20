@@ -5,6 +5,7 @@ import { redirect, RedirectType } from "next/navigation";
 import {
   classifySignupError,
   getSafeSignupErrorMessage,
+  getSignupRetryDelayMs,
   logSignupFailure,
   logSignupDiagnosticFailure,
   type SignupErrorCode,
@@ -15,6 +16,7 @@ import {
   isSignupConfirmationPendingError,
   SIGNUP_CHECK_EMAIL_MESSAGE,
   SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+  SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
 } from "@/lib/auth-confirmation";
 import {
   acceptBaselineUserConsents,
@@ -43,6 +45,7 @@ export type SignupState = {
   fieldErrors?: SignupFieldErrors;
   errorCode?: SignupErrorCode;
   rateLimitCooldownEndsAt?: number;
+  canResendConfirmation?: boolean;
   confirmationEmail?: string;
   values?: {
     displayName?: string;
@@ -51,6 +54,14 @@ export type SignupState = {
     termsAccepted?: boolean;
     privacyAccepted?: boolean;
   };
+};
+
+export type ResendSignupConfirmationState = {
+  message: string;
+  status: "idle" | "error" | "success";
+  errorCode?: SignupErrorCode;
+  rateLimitCooldownEndsAt?: number;
+  confirmationEmail?: string;
 };
 
 export async function signupAction(
@@ -123,7 +134,9 @@ export async function signupAction(
           status: "error",
           message: getSafeSignupErrorMessage(errorCode),
           errorCode,
-          rateLimitCooldownEndsAt: Date.now() + 60_000,
+          rateLimitCooldownEndsAt: Date.now() + getSignupRetryDelayMs(error),
+          canResendConfirmation: true,
+          confirmationEmail: input.email,
           values: {
             displayName: input.displayName,
             email: input.email,
@@ -142,6 +155,7 @@ export async function signupAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          canResendConfirmation: true,
           confirmationEmail: input.email,
         };
       }
@@ -150,6 +164,7 @@ export async function signupAction(
         return {
           status: "success",
           message: SIGNUP_CONFIRMATION_PENDING_MESSAGE,
+          canResendConfirmation: true,
           confirmationEmail: input.email,
         };
       }
@@ -188,6 +203,7 @@ export async function signupAction(
         return {
           status: "success",
           message: SIGNUP_CHECK_EMAIL_MESSAGE,
+          canResendConfirmation: true,
           confirmationEmail: input.email,
         };
       }
@@ -268,6 +284,10 @@ export async function signupAction(
       status: "error",
       message: getSafeSignupErrorMessage(errorCode),
       errorCode,
+      rateLimitCooldownEndsAt:
+        errorCode === "SIGNUP_RATE_LIMITED"
+          ? Date.now() + getSignupRetryDelayMs(error)
+          : undefined,
       values: {
         displayName: String(formData.get("displayName") ?? ""),
         email: String(formData.get("email") ?? ""),
@@ -279,6 +299,84 @@ export async function signupAction(
   }
 
   redirect(redirectTo, RedirectType.replace);
+}
+
+export async function resendSignupConfirmationAction(
+  _previousState: ResendSignupConfirmationState,
+  formData: FormData,
+): Promise<ResendSignupConfirmationState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+
+  if (!email) {
+    return {
+      status: "error",
+      message: "Enter the email address used for signup.",
+    };
+  }
+
+  try {
+    const supabase = await createSupabaseServerClient();
+    const requestHeaders = await headers();
+    const emailRedirectTo = getAuthRedirectUrl(
+      "/login?message=email-confirmed",
+      requestHeaders,
+    );
+    const { error } = await supabase.auth.resend({
+      type: "signup",
+      email,
+      options: {
+        emailRedirectTo,
+      },
+    });
+
+    if (error) {
+      const errorCode = classifySignupError(error);
+      logSignupDiagnosticFailure(error, errorCode, {
+        flow: "signup",
+        role: "borrower",
+        source: "resend",
+      });
+
+      if (errorCode === "SIGNUP_RATE_LIMITED") {
+        return {
+          status: "error",
+          message: getSafeSignupErrorMessage(errorCode),
+          errorCode,
+          confirmationEmail: email,
+          rateLimitCooldownEndsAt: Date.now() + getSignupRetryDelayMs(error),
+        };
+      }
+    }
+
+    return {
+      status: "success",
+      message: SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
+      confirmationEmail: email,
+    };
+  } catch (error) {
+    const errorCode = classifySignupError(error);
+    logSignupDiagnosticFailure(error, errorCode, {
+      flow: "signup",
+      role: "borrower",
+      source: "resend",
+    });
+
+    if (errorCode === "SIGNUP_RATE_LIMITED") {
+      return {
+        status: "error",
+        message: getSafeSignupErrorMessage(errorCode),
+        errorCode,
+        confirmationEmail: email,
+        rateLimitCooldownEndsAt: Date.now() + getSignupRetryDelayMs(error),
+      };
+    }
+
+    return {
+      status: "success",
+      message: SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
+      confirmationEmail: email,
+    };
+  }
 }
 
 export async function signOutForSignupAction() {

@@ -525,16 +525,20 @@ describe("manager operations helpers", () => {
     expect(signupActions).toContain("errorCode?: SignupErrorCode");
   });
 
-  it("shows signup rate-limit cooldown accessibly without browser storage", () => {
+  it("shows signup rate-limit cooldown accessibly with per-email local storage", () => {
     const signupForm = readFileSync("app/signup/signup-form.tsx", "utf8");
 
     expect(signupForm).toContain("state.rateLimitCooldownEndsAt");
+    expect(signupForm).toContain("resendState.rateLimitCooldownEndsAt");
     expect(signupForm).toContain('state.errorCode === "SIGNUP_RATE_LIMITED"');
-    expect(signupForm).toContain("Please wait {rateLimitSecondsRemaining} seconds before trying again.");
+    expect(signupForm).toContain("Please wait {rateLimitSecondsRemaining} seconds before using resend confirmation.");
     expect(signupForm).toContain("disabled={isDisabled}");
+    expect(signupForm).toContain("Resend confirmation email");
+    expect(signupForm).toContain("Go to login");
     expect(signupForm).toContain('role="alert"');
     expect(signupForm).toContain('aria-live="polite"');
-    expect(signupForm).not.toContain("localStorage");
+    expect(signupForm).toContain("localStorage");
+    expect(signupForm).toContain("lendfolio:signup-confirmation-cooldown");
     expect(signupForm).not.toContain("sessionStorage");
   });
 

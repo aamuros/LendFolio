@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { classifySignupError, getSafeSignupErrorMessage } from "@/lib/auth-signup-errors";
+import {
+  classifySignupError,
+  getSafeSignupErrorMessage,
+  getSignupRetryDelayMs,
+} from "@/lib/auth-signup-errors";
 
 describe("signup auth error classification", () => {
   it("classifies duplicate email states", () => {
@@ -63,8 +67,16 @@ describe("signup auth error classification", () => {
     ).toBe("SIGNUP_RATE_LIMITED");
 
     expect(getSafeSignupErrorMessage("SIGNUP_RATE_LIMITED")).toContain(
-      "Too many signup attempts",
+      "This does not mean the email was sent",
     );
+  });
+
+  it("parses Supabase retry delays from rate-limit messages", () => {
+    expect(
+      getSignupRetryDelayMs({
+        message: "For security purposes, you can only request this after 58 seconds",
+      }),
+    ).toBe(58_000);
   });
 
   it("classifies RLS and permission failures as provisioning failures", () => {

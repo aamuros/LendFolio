@@ -25,6 +25,11 @@ export const SIGNUP_ACCOUNT_CREATION_FAILED_MESSAGE =
 export const SIGNUP_ACCOUNT_SETUP_UNAVAILABLE_MESSAGE =
   "Account setup is temporarily unavailable. Try again later.";
 
+export const SIGNUP_RATE_LIMITED_MESSAGE =
+  "Too many attempts were made. This does not mean the email was sent. Please wait, then use Resend confirmation instead of creating the account again.";
+
+export const SIGNUP_RATE_LIMIT_FALLBACK_MS = 60_000;
+
 export function getSignupFailureMessage(error: SignupAuthError | null | undefined) {
   return isSignupDatabaseFailure(error)
     ? SIGNUP_ACCOUNT_SETUP_UNAVAILABLE_MESSAGE
@@ -188,6 +193,19 @@ export function classifySignupError(error: unknown): SignupErrorCode {
   return "SIGNUP_UNEXPECTED";
 }
 
+export function getSignupRetryDelayMs(error: unknown) {
+  const details = getSignupErrorDetails(error);
+  const secondsMatch = details.searchText.match(
+    /(?:wait|after|in|for|request this after)\s+(\d{1,4})\s*seconds?/,
+  );
+
+  if (secondsMatch?.[1]) {
+    return Number(secondsMatch[1]) * 1000;
+  }
+
+  return SIGNUP_RATE_LIMIT_FALLBACK_MS;
+}
+
 export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
   switch (errorCode) {
     case "SIGNUP_ENV_MISSING":
@@ -203,7 +221,7 @@ export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
     case "SIGNUP_EMAIL_REGISTERED":
       return "This email already has an account or pending confirmation. Please sign in or check your email.";
     case "SIGNUP_RATE_LIMITED":
-      return "Too many signup attempts. Wait a few minutes, then try again.";
+      return SIGNUP_RATE_LIMITED_MESSAGE;
     case "SIGNUP_INVALID_REQUEST":
       return "Signup could not be completed with these details. Check the email and password, then try again.";
     case "SIGNUP_CONFIRMATION_SEND_FAILED":

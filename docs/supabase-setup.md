@@ -78,6 +78,8 @@ select
   users.id,
   users.email,
   users.created_at,
+  users.confirmation_sent_at,
+  users.email_confirmed_at,
   users.raw_user_meta_data ->> 'lendfolio_role' as requested_role,
   profiles.id is not null as has_profile,
   profiles.role,
@@ -90,6 +92,36 @@ left join public.lender_profiles lender_profiles
   on lender_profiles.user_id = users.id
 where lower(users.email) = lower('person@example.com');
 ```
+
+For a compact signup-status view during deployment debugging:
+
+```sql
+select
+  users.email,
+  users.confirmation_sent_at,
+  users.email_confirmed_at,
+  profiles.role,
+  lender_profiles.verification_status
+from auth.users users
+left join public.profiles profiles
+  on profiles.id = users.id
+left join public.lender_profiles lender_profiles
+  on lender_profiles.user_id = users.id
+where lower(users.email) = lower('person@example.com');
+```
+
+Interpretation:
+
+- If `auth.users` exists and `email_confirmed_at` is null, the user has a
+  pending Auth account. Use the app's resend confirmation flow instead of
+  signing up again with the same email.
+- If `auth.users` exists but `profiles.role` is null, run the latest
+  provisioning repair migration/function, then inspect
+  `public.provisioning_events` for the user.
+- If `confirmation_sent_at` is null or no emails arrive, check Supabase
+  **Authentication > Providers > Email**, custom SMTP settings, the Confirm
+  signup email template, and **Authentication > URL Configuration** Site URL
+  and Redirect URLs.
 
 ## Email Confirmation
 
