@@ -6,6 +6,10 @@ import {
   signupAction,
   type SignupState,
 } from "@/app/signup/actions";
+import {
+  isSignupDuplicateEmailError,
+  isSignupValidationError,
+} from "@/lib/auth-signup-errors";
 import type { SignupRole } from "@/lib/signup";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
