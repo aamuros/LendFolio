@@ -296,6 +296,29 @@ describe("signup action role enforcement", () => {
     expect(supabase.signUp).not.toHaveBeenCalled();
   });
 
+  it("shows resend confirmation when signup account creation hits an email delivery error", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: {
+        code: "email_provider_disabled",
+        message: "Error sending confirmation email",
+      },
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("borrower"));
+
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_CONFIRMATION_SEND_FAILED");
+    expect(result.canResendConfirmation).toBe(true);
+    expect(result.confirmationEmail).toBe("juan@example.com");
+    expect(result.message).toContain("confirmation email could not be sent");
+    expect(supabase.resend).not.toHaveBeenCalled();
+    expect(JSON.stringify(result)).not.toContain("securepass123");
+  });
+
   it("keeps safe field values after a failed signup without returning passwords", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");

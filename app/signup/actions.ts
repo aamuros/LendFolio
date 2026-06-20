@@ -174,6 +174,8 @@ export async function signupAction(
           status: "error",
           message: getSafeSignupErrorMessage("SIGNUP_CONFIRMATION_SEND_FAILED"),
           errorCode: "SIGNUP_CONFIRMATION_SEND_FAILED",
+          canResendConfirmation: true,
+          confirmationEmail: input.email,
           values: {
             displayName: input.displayName,
             email: input.email,
