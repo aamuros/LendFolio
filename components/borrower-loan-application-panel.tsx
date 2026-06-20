@@ -1401,7 +1401,7 @@ function HomeSummary({
           <RepaymentCalendarCard
             activeLoans={activeLoans}
             onNavigate={onNavigate}
-            className="col-span-12"
+            className="col-span-12 lg:col-span-7"
           />
 
           <OffersLoansCard
@@ -2062,7 +2062,7 @@ function RepaymentCalendarCard({
         </div>
 
         {isEmpty ? (
-          <div className="flex min-h-32 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/20 p-4 text-center xl:min-h-[22rem]">
+          <div className="flex min-h-24 flex-col items-center justify-center gap-1 rounded-2xl bg-muted/20 p-4 text-center xl:min-h-[22rem]">
             <p className="text-sm text-muted-foreground">
               No repayment dates yet
             </p>
