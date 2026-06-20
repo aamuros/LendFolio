@@ -110,8 +110,11 @@ export function AppHeader({
                   <User className="size-5" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-48">
-                <DropdownMenuLabel className="font-semibold">
+              <DropdownMenuContent
+                align="end"
+                className="w-72 max-w-[calc(100vw-2rem)]"
+              >
+                <DropdownMenuLabel className="break-all pr-2 text-xs leading-5 font-semibold">
                   {accountEmail || "Account"}
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
