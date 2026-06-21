@@ -34,7 +34,7 @@ describe("signup auth error classification", () => {
   it("provides sign-in and reset-password guidance for duplicate email", () => {
     const message = getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED");
     expect(message).toBe(
-      "An account already exists with this email. Sign in instead or reset your password.",
+      "An account already exists with this email. We did not create a new account or send a confirmation email. Sign in instead or reset your password.",
     );
   });
 

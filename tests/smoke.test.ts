@@ -574,7 +574,7 @@ describe("manager operations helpers", () => {
     expect(signupActions).toContain("SIGNUP_EMAIL_REGISTERED");
     expect(authConfirmation).toContain("hasConfirmedEmail");
     expect(authErrors).toContain(
-      "An account already exists with this email. Sign in instead or reset your password.",
+      "An account already exists with this email. We did not create a new account or send a confirmation email. Sign in instead or reset your password.",
     );
   });
 

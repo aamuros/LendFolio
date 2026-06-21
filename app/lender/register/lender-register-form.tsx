@@ -253,7 +253,7 @@ function LenderRegisterFormContent({
                 >
                   <AlertCircle />
                   <AlertTitle>
-                    {isDuplicateEmail ? "Email already registered" : "Signup needs attention"}
+                    {isDuplicateEmail ? "Account not created" : "Signup needs attention"}
                   </AlertTitle>
                   <AlertDescription>
                     {topLevelError}

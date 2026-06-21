@@ -288,7 +288,7 @@ export function getSafeSignupErrorMessage(errorCode: SignupErrorCode) {
     case "SIGNUP_REDIRECT_URL":
       return "Signup needs the site redirect URL to be allowed before accounts can be created.";
     case "SIGNUP_EMAIL_REGISTERED":
-      return "An account already exists with this email. Sign in instead or reset your password.";
+      return "An account already exists with this email. We did not create a new account or send a confirmation email. Sign in instead or reset your password.";
     case "SIGNUP_RATE_LIMITED":
       return SIGNUP_RATE_LIMITED_MESSAGE;
     case "SIGNUP_INVALID_EMAIL":

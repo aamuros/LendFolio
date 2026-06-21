@@ -720,12 +720,12 @@ describe("signup action role enforcement", () => {
     expect(result.message).not.toContain("pending account");
   });
 
-  it("shows check-email guidance for a duplicate unconfirmed email", async () => {
+  it("blocks a duplicate unconfirmed email without offering another confirmation", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
     supabase.signUp.mockResolvedValueOnce({
       data: {
-        user: { id: "user-1", email_confirmed_at: null },
+        user: { id: "user-1", identities: [], email_confirmed_at: null },
         session: null,
       },
       error: null,
@@ -734,9 +734,10 @@ describe("signup action role enforcement", () => {
 
     const result = await signupAction(previousState, createSignupFormData("borrower"));
 
-    expect(result.status).toBe("success");
-    expect(result.message).toContain("Check your email");
-    expect(result.confirmationEmail).toBe("juan@example.com");
+    expect(result.status).toBe("error");
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.message).toContain("did not create a new account");
+    expect(result.confirmationEmail).toBeUndefined();
   });
 
   it("blocks Supabase's obfuscated duplicate user across signup roles", async () => {
