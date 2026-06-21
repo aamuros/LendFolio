@@ -55,7 +55,7 @@ export default async function LenderEditProfileStepPage({
   }
 
   if (!access.profile.lenderProfile) {
-    redirect("/lender/onboarding", RedirectType.replace);
+    redirect("/lender?tab=profile", RedirectType.replace);
   }
 
   if (access.profile.lenderProfile.verification_status === "approved") {

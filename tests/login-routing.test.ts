@@ -129,7 +129,7 @@ describe("login routing for lenders", () => {
     }
   });
 
-  it("sends incomplete lenders to /lender/onboarding", async () => {
+  it("sends incomplete lenders to /lender", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     vi.mocked(createSupabaseServerClient).mockResolvedValue(
       mockSupabase({
@@ -141,11 +141,11 @@ describe("login routing for lenders", () => {
       await loginAction(previousState, createLoginFormData());
       expect.fail("Expected redirect");
     } catch (error) {
-      expect((error as Error).message).toBe("REDIRECT:/lender/onboarding");
+      expect((error as Error).message).toBe("REDIRECT:/lender");
     }
   });
 
-  it("sends rejected lenders to /lender/onboarding", async () => {
+  it("sends rejected lenders to /lender", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     vi.mocked(createSupabaseServerClient).mockResolvedValue(
       mockSupabase({
@@ -157,11 +157,11 @@ describe("login routing for lenders", () => {
       await loginAction(previousState, createLoginFormData());
       expect.fail("Expected redirect");
     } catch (error) {
-      expect((error as Error).message).toBe("REDIRECT:/lender/onboarding");
+      expect((error as Error).message).toBe("REDIRECT:/lender");
     }
   });
 
-  it("sends lenders with no lender profile to /lender/onboarding", async () => {
+  it("sends lenders with no lender profile to /lender", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     vi.mocked(createSupabaseServerClient).mockResolvedValue(
       mockSupabase({
@@ -173,7 +173,7 @@ describe("login routing for lenders", () => {
       await loginAction(previousState, createLoginFormData());
       expect.fail("Expected redirect");
     } catch (error) {
-      expect((error as Error).message).toBe("REDIRECT:/lender/onboarding");
+      expect((error as Error).message).toBe("REDIRECT:/lender");
     }
   });
 

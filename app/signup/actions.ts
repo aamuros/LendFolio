@@ -95,7 +95,7 @@ export async function signupAction(
 
   const input = parsed.data;
   const destination =
-    input.role === "borrower" ? "/borrower?message=account-created" : "/lender/onboarding";
+    input.role === "borrower" ? "/borrower?message=account-created" : "/lender";
   const emailConfirmationRedirect = "/login?message=email-confirmed";
   let redirectTo: string | null = null;
 

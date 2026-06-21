@@ -85,7 +85,7 @@ export async function lenderRegisterAction(
   }
 
   const input = parsed.data;
-  const destination = "/lender/onboarding";
+  const destination = "/lender";
   const emailConfirmationRedirect = "/login?message=email-confirmed";
   let redirectTo: string | null = null;
 

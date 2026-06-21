@@ -467,8 +467,23 @@ function DefaultConsentPanel({
 }
 
 function formatDateTime(value: string) {
-  return new Intl.DateTimeFormat("en-PH", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "date unavailable";
+  }
+
+  const parts = new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    timeZone: "Asia/Manila",
+  }).formatToParts(date);
+  const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((part) => part.type === type)?.value ?? "";
+
+  return `${getPart("month")} ${getPart("day")}, ${getPart("year")}, ${getPart("hour")}:${getPart("minute")} ${getPart("dayPeriod")}`;
 }

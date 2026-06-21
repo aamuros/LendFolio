@@ -531,7 +531,7 @@ function LenderVerificationDetail({
 
       {showResubmitAction ? (
         <Button asChild className="w-full rounded-lg text-sm font-medium">
-          <Link href="/lender/onboarding">
+          <Link href="/lender/edit-profile/organization">
             {status === "rejected"
               ? "Update lender profile"
               : "Complete lender profile"}

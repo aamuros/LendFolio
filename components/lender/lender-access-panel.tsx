@@ -34,6 +34,9 @@ export function LenderAccessPanel({
   const needsProfile =
     profile.role === "lender" &&
     (!lenderProfile || lenderProfile.verification_status === "incomplete");
+  const profileCompletionHref = lenderProfile
+    ? "/lender/edit-profile/organization"
+    : "/lender?tab=profile";
 
   if (isPendingReview) {
     return (
@@ -67,7 +70,7 @@ export function LenderAccessPanel({
               asChild
               className="h-11 w-full rounded-full font-semibold sm:w-fit"
             >
-              <Link href="/lender/onboarding">Update lender profile</Link>
+              <Link href={profileCompletionHref}>Update lender profile</Link>
             </Button>
           </CardContent>
         </BorrowerCard>
@@ -87,6 +90,21 @@ export function LenderAccessPanel({
   }
 
   if (needsProfile) {
+    if (lenderProfile) {
+      return (
+        <LenderPendingReviewPanel
+          consentStatus={consentStatus}
+          lenderProfile={lenderProfile}
+          lenderProfileId={lenderProfile.id}
+          verificationStatus={lenderProfile.verification_status ?? "incomplete"}
+          documents={documents}
+          documentPolicy={documentPolicy}
+          rejectionReason={lenderProfile.rejection_reason ?? null}
+          managerReviewNotes={lenderProfile.manager_review_notes ?? null}
+        />
+      );
+    }
+
     return (
       <div className="grid gap-5">
         <PageHeader
@@ -103,7 +121,7 @@ export function LenderAccessPanel({
               asChild
               className="h-11 w-full rounded-full font-semibold sm:w-fit"
             >
-              <Link href="/lender/onboarding">Complete lender profile</Link>
+              <Link href={profileCompletionHref}>Complete lender profile</Link>
             </Button>
           </CardContent>
         </BorrowerCard>

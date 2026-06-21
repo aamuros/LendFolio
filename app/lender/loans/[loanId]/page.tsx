@@ -42,10 +42,9 @@ export default async function LenderLoanDetailPage({
   if (!isApprovedLender(access.profile)) {
     if (
       access.profile.role === "lender" &&
-      (access.profile.lenderProfile?.verification_status === "incomplete" ||
-        !access.profile.lenderProfile)
+      !access.profile.lenderProfile
     ) {
-      redirect("/lender/onboarding", RedirectType.replace);
+      redirect("/lender", RedirectType.replace);
     }
 
     return (
