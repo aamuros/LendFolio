@@ -31,6 +31,9 @@ export function LenderAccessPanel({
   const isRejected =
     profile.role === "lender" &&
     lenderProfile?.verification_status === "rejected";
+  const needsProfile =
+    profile.role === "lender" &&
+    (!lenderProfile || lenderProfile.verification_status === "incomplete");
 
   if (isPendingReview) {
     return (
@@ -79,6 +82,32 @@ export function LenderAccessPanel({
             managerReviewNotes={lenderProfile.manager_review_notes ?? null}
           />
         ) : null}
+      </div>
+    );
+  }
+
+  if (needsProfile) {
+    return (
+      <div className="grid gap-5">
+        <PageHeader
+          title="Lender dashboard"
+          description="Complete your lender profile so a manager can review your account."
+        />
+        <BorrowerCard>
+          <CardContent className="grid gap-4 p-5">
+            <LenderApplicationsStatus
+              message="Your lender dashboard is ready. Complete your profile to unlock application review and offer tools."
+              tone="neutral"
+            />
+            <Button
+              asChild
+              className="h-11 w-full rounded-full font-semibold sm:w-fit"
+            >
+              <Link href="/lender/onboarding">Complete lender profile</Link>
+            </Button>
+          </CardContent>
+        </BorrowerCard>
+        <ConsentAcceptancePanel scope="lender_review" status={consentStatus} />
       </div>
     );
   }

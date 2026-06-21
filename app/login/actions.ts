@@ -62,9 +62,7 @@ export async function loginAction(
         .maybeSingle(),
     ]);
 
-    destination = profile
-      ? await getPostLoginDestination(supabase, data.user.id, profile)
-      : "/?auth=unknown";
+    destination = profile ? getPostLoginDestination(profile) : "/?auth=unknown";
   } catch {
     return {
       message: "Sign in is temporarily unavailable.",
@@ -85,9 +83,7 @@ export async function signOutAction() {
   redirect("/login", RedirectType.replace);
 }
 
-async function getPostLoginDestination(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
-  userId: string,
+function getPostLoginDestination(
   profile: { role: AppRole; status: ProfileStatus },
 ) {
   if (profile.status !== "active") {
@@ -96,24 +92,6 @@ async function getPostLoginDestination(
 
   if (profile.role !== "lender") {
     return getRouteForRole(profile.role);
-  }
-
-  const { data: lenderProfile } = await supabase
-    .from("lender_profiles")
-    .select("verification_status")
-    .eq("user_id", userId)
-    .maybeSingle();
-
-  if (lenderProfile?.verification_status === "approved") {
-    return getRouteForRole(profile.role);
-  }
-
-  if (
-    lenderProfile?.verification_status === "incomplete" ||
-    lenderProfile?.verification_status === "rejected" ||
-    !lenderProfile
-  ) {
-    return "/lender/onboarding";
   }
 
   return "/lender";

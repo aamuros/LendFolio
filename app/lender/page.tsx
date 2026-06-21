@@ -123,14 +123,6 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
   }
 
   if (!isApprovedLender(access.profile)) {
-    if (
-      access.profile.role === "lender" &&
-      (access.profile.lenderProfile?.verification_status === "incomplete" ||
-        !access.profile.lenderProfile)
-    ) {
-      redirect("/lender/onboarding", RedirectType.replace);
-    }
-
     let lenderConsentStatus = buildConsentStatus("lender_review", []);
     let pendingDocuments: Awaited<ReturnType<typeof getLenderVerificationDocuments>> = [];
     let pendingDocumentPolicy = calculateLenderVerificationDocumentPolicy([]);
