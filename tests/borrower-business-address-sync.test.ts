@@ -42,6 +42,33 @@ describe("borrower business address sync", () => {
     ).toBe(true);
   });
 
+  it("accepts the home address step when ZIP code is provided", () => {
+    const result = borrowerBusinessAddressSchema.safeParse({
+      operatingModel: "physical_store",
+      country: "Philippines",
+      isBusinessAddressSameAsHome: false,
+      homeAddress: "",
+      homeAddressSelection: {
+        regionCode: "CAR",
+        regionName: "CAR - Cordillera Administrative Region",
+        cityOrMunicipality: "Tabuk",
+        barangay: "Bulanao",
+        zipCode: "3800",
+      },
+      homeStreetAddress: "37 Luzon Street",
+      address: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Upper Bicutan",
+        zipCode: "1630",
+      },
+      streetAddress: "Unit 7, 55 Kalayaan Avenue",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
   it("rejects incomplete or non-numeric ZIP codes", () => {
     expect(
       isValidPhilippineAddressSelection({
@@ -217,6 +244,34 @@ describe("borrower business address sync", () => {
     });
     expect(normalized.streetAddress).toBe("#37 Luzon Street");
     expect(normalized.businessAddress).toBe("#37 Luzon Street");
+  });
+
+  it("does not copy the home street address when same-as-home is off", () => {
+    const normalized = normalizeBorrowerBusinessAddressFields({
+      operatingModel: "physical_store",
+      country: "Philippines",
+      businessAddress: "",
+      isBusinessAddressSameAsHome: false,
+      homeAddressSelection: {
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Upper Bicutan",
+        zipCode: "1630",
+      },
+      homeStreetAddress: "#37 Luzon Street",
+      address: {
+        regionCode: "",
+        regionName: "",
+        cityOrMunicipality: "",
+        barangay: "",
+        zipCode: "",
+      },
+      streetAddress: "",
+    });
+
+    expect(normalized.streetAddress).toBe("");
+    expect(normalized.businessAddress).toBe("");
   });
 
   it("rejects same-as-home business address submission if source city or barangay is missing", () => {

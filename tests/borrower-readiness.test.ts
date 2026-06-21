@@ -493,6 +493,7 @@ describe("microbusiness borrower readiness", () => {
     expect(mapped.businessAddress).toBe(
       "45 Mabini Street, Brgy. Commonwealth, Quezon City",
     );
+    expect(mapped.streetAddress).toBe("");
     expect(mapped.location).toBe("Quezon City");
     expect(mapped.address).toEqual({
       regionCode: "",
@@ -831,6 +832,18 @@ describe("microbusiness borrower readiness", () => {
         "Enter a short loan purpose.",
       );
     }
+  });
+
+  it("accepts detailed optional notes for lenders", () => {
+    const result = borrowerPortfolioSchema.safeParse({
+      ...completeProfile(),
+      loanPurposeCategory: "working_capital",
+      loanPurposeOther: "",
+      loanPurposeDetails:
+        "I ultimately want to make this into a franchise for more stable revenue. I would need more capital not only for business exposure but also to pay for rent in other locations and hire more employees.",
+    });
+
+    expect(result.success).toBe(true);
   });
 
   it("requires products or services when business basics are saved", () => {

@@ -346,7 +346,12 @@ const borrowerPortfolioBaseSchema = z.object({
     .optional()
     .default(null),
   loanPurposeOther: shortText(80),
-  loanPurposeDetails: shortText(160),
+  loanPurposeDetails: z
+    .string()
+    .trim()
+    .max(800, "Keep notes for lender under 800 characters.")
+    .optional()
+    .or(z.literal("")),
 
   hasOverdueLoans: z.boolean().default(false),
   missedPaymentsLast12Months: z.boolean().default(false),
@@ -1421,6 +1426,12 @@ export function mapBorrowerPortfolioRow(
     barangay,
     zipCode,
   });
+  const hasStructuredBusinessAddress = isValidPhilippineAddressSelection(address);
+  const isBusinessAddressSameAsHome = Boolean(row.is_business_address_same_as_home);
+  const businessStreetAddress =
+    hasStructuredBusinessAddress || isBusinessAddressSameAsHome
+      ? deriveLegacyStreetAddress(row.business_address ?? "", address)
+      : "";
 
   const mapped = {
     mobileNumber: stringFrom(row.mobile_number),
@@ -1448,8 +1459,8 @@ export function mapBorrowerPortfolioRow(
     businessAddress: row.business_address ?? "",
     country: "Philippines" as const,
     address,
-    streetAddress: row.business_address ?? "",
-    isBusinessAddressSameAsHome: Boolean(row.is_business_address_same_as_home),
+    streetAddress: businessStreetAddress,
+    isBusinessAddressSameAsHome,
     ownershipType: mapOption(row.ownership_type, ownershipTypeOptions, "sole_proprietor"),
     borrowerRole: mapOption(row.borrower_role, borrowerRoleOptions, "owner_proprietor"),
     yearsInOperation: toNumber(row.years_in_operation),
@@ -1662,9 +1673,7 @@ export function normalizeBorrowerBusinessAddressFields<
       ? input.businessAddress.trim()
       : "") ||
     copiedHomeAddress?.streetAddress ||
-    (typeof input.homeStreetAddress === "string"
-      ? input.homeStreetAddress.trim()
-      : "");
+    "";
 
   return {
     ...input,

@@ -95,6 +95,7 @@ import { parseMoneyInput } from "@/lib/money-input";
 import { cn } from "@/lib/utils";
 
 const defaultValues = getBorrowerPortfolioDefaultValues();
+const loanPurposeDetailsMaxLength = 800;
 type LoadState = "loading" | "empty" | "ready" | "error";
 const formSyncOptions = {
   shouldDirty: true,
@@ -183,6 +184,10 @@ export function BorrowerPortfolioForm({
   const mainProductsOrServicesCategory = useWatch({
     control,
     name: "mainProductsOrServicesCategory",
+  });
+  const loanPurposeDetails = useWatch({
+    control,
+    name: "loanPurposeDetails",
   });
   const hasExistingDebts = useWatch({
     control,
@@ -456,6 +461,7 @@ export function BorrowerPortfolioForm({
                 label="Mobile number"
                 error={errors.mobileNumber?.message}
                 register={register("mobileNumber")}
+                required
               />
               <div className="sm:col-span-2">
                 <Controller
@@ -475,7 +481,6 @@ export function BorrowerPortfolioForm({
                         barangay: errors.homeAddressSelection?.barangay?.message,
                         zipCode: errors.homeAddressSelection?.zipCode?.message,
                       }}
-                      showZipCode={false}
                       legacyAddress={currentValues.homeAddress}
                     />
                   )}
@@ -487,18 +492,21 @@ export function BorrowerPortfolioForm({
                 error={errors.homeStreetAddress?.message}
                 register={register("homeStreetAddress")}
                 className="sm:col-span-2"
+                required
               />
               <TextField
                 id="emergencyContactName"
                 label="Emergency contact name"
                 error={errors.emergencyContactName?.message}
                 register={register("emergencyContactName")}
+                required
               />
               <TextField
                 id="emergencyContactNumber"
                 label="Emergency contact number"
                 error={errors.emergencyContactNumber?.message}
                 register={register("emergencyContactNumber")}
+                required
               />
               <AdditionalDetails className="sm:col-span-2">
                 <SelectField
@@ -554,6 +562,7 @@ export function BorrowerPortfolioForm({
                 label="Business name"
                 error={errors.businessName?.message}
                 register={register("businessName")}
+                required
               />
               <SelectField
                 control={control}
@@ -640,6 +649,7 @@ export function BorrowerPortfolioForm({
                 options={mainProductsOrServicesCategoryOptions}
                 labels={mainProductsOrServicesCategoryLabels}
                 error={errors.mainProductsOrServicesCategory?.message}
+                required
               />
               {mainProductsOrServicesCategory === "other" ? (
                 <TextField
@@ -647,6 +657,7 @@ export function BorrowerPortfolioForm({
                   label="Please specify"
                   error={errors.mainProductsOrServicesOther?.message}
                   register={register("mainProductsOrServicesOther")}
+                  required
                 />
               ) : null}
               <TextField
@@ -768,7 +779,6 @@ export function BorrowerPortfolioForm({
                             barangay: errors.address?.barangay?.message,
                             zipCode: errors.address?.zipCode?.message,
                           }}
-                          showZipCode={false}
                         />
                       )}
                     />
@@ -788,6 +798,7 @@ export function BorrowerPortfolioForm({
                     register={register("streetAddress")}
                     className="sm:col-span-2"
                     readOnly={Boolean(isBusinessAddressSameAsHome)}
+                    required
                   />
                 </>
               ) : (
@@ -816,12 +827,14 @@ export function BorrowerPortfolioForm({
                     options={businessRegistrationTypeOptions}
                     labels={businessRegistrationTypeLabels}
                     error={errors.businessRegistrationType?.message}
+                    required
                   />
                   <TextField
                     id="registrationNumber"
                     label="Registration number"
                     error={errors.registrationNumber?.message}
                     register={register("registrationNumber")}
+                    required
                   />
                   <TextField
                     id="registrationDate"
@@ -829,6 +842,7 @@ export function BorrowerPortfolioForm({
                     error={errors.registrationDate?.message}
                     register={register("registrationDate")}
                     type="date"
+                    required
                   />
                 </div>
               )}
@@ -1102,12 +1116,19 @@ export function BorrowerPortfolioForm({
                     error={errors.loanPurposeDetails?.message}
                     id="loanPurposeDetails"
                   >
-                    <Textarea
-                      id="loanPurposeDetails"
-                      placeholder="Example: I will use the loan to buy more sari-sari store inventory before payday week."
-                      aria-invalid={Boolean(errors.loanPurposeDetails)}
-                      {...register("loanPurposeDetails")}
-                    />
+                    <div className="grid gap-1.5">
+                      <Textarea
+                        id="loanPurposeDetails"
+                        placeholder="Example: I will use the loan to buy more sari-sari store inventory before payday week."
+                        aria-invalid={Boolean(errors.loanPurposeDetails)}
+                        maxLength={loanPurposeDetailsMaxLength}
+                        {...register("loanPurposeDetails")}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {(loanPurposeDetails ?? "").length} /{" "}
+                        {loanPurposeDetailsMaxLength} characters
+                      </p>
+                    </div>
                   </Field>
                 </div>
               </div>
@@ -1322,32 +1343,32 @@ export function BorrowerPortfolioForm({
 const primaryBusinessExpenseFields = [
   {
     name: "monthlyInventoryCost",
-    label: "Inventory / stock cost",
+    label: "Monthly inventory / stock cost",
     description: "Goods, ingredients, or supplies you buy to sell.",
   },
   {
     name: "monthlyBusinessRent",
-    label: "Rent / stall fee",
+    label: "Monthly rent / stall fee",
     description: "Rent for your store, stall, storage, or selling spot.",
   },
   {
     name: "monthlyBusinessElectricity",
-    label: "Utilities",
+    label: "Monthly utilities",
     description: "Electricity, water, internet, or phone costs for business.",
   },
   {
     name: "monthlyHelperSalary",
-    label: "Helper / staff pay",
+    label: "Monthly helper / staff pay",
     description: "Pay for helpers, workers, or family members assisting you.",
   },
   {
     name: "monthlyTransportationDelivery",
-    label: "Delivery / transport",
+    label: "Monthly delivery / transport",
     description: "Fuel, fare, courier, rider, or delivery costs.",
   },
   {
     name: "otherBusinessExpenses",
-    label: "Other business costs",
+    label: "Monthly other business costs",
     description: "Any regular business cost not listed above.",
   },
 ] as const satisfies ReadonlyArray<{
@@ -1359,28 +1380,28 @@ const primaryBusinessExpenseFields = [
 const advancedBusinessExpenseFields = [
   {
     name: "monthlyBusinessWater",
-    label: "Water bill",
+    label: "Monthly water bill",
     description: "Water used for the business.",
   },
   {
     name: "monthlyPackagingCost",
-    label: "Packaging",
+    label: "Monthly packaging",
     description: "Bags, boxes, containers, labels, or wrapping materials.",
   },
   {
     name: "monthlyPlatformFees",
-    label: "Online platform fees",
+    label: "Monthly online platform fees",
     description:
       "Fees from Shopee, Lazada, TikTok, delivery apps, or payment apps.",
   },
   {
     name: "monthlyMaintenanceRepairs",
-    label: "Repairs / maintenance",
+    label: "Monthly repairs / maintenance",
     description: "Fixing equipment, tools, vehicles, or store items.",
   },
   {
     name: "monthlySupplierCreditPayment",
-    label: "Supplier credit payment",
+    label: "Monthly supplier credit payment",
     description: "Payments for supplies you got first and pay later.",
   },
 ] as const satisfies ReadonlyArray<{
@@ -1912,6 +1933,7 @@ function SelectField<
   labels,
   error,
   optional = false,
+  required = false,
 }: {
   control: Control<BorrowerPortfolioFormInput>;
   name: TName;
@@ -1920,13 +1942,14 @@ function SelectField<
   labels: Record<TOption, string>;
   error?: string;
   optional?: boolean;
+  required?: boolean;
 }) {
   return (
     <Controller
       control={control}
       name={name}
       render={({ field }) => (
-        <Field label={label} error={error} id={String(name)}>
+        <Field label={label} error={error} id={String(name)} required={required}>
           <Select
             onValueChange={(value) =>
               field.onChange(optional ? value || null : value)
@@ -2178,13 +2201,15 @@ function TextField({
   type = "text",
   disabled = false,
   readOnly = false,
+  required = false,
 }: FieldControlProps & {
   type?: string;
   disabled?: boolean;
   readOnly?: boolean;
+  required?: boolean;
 }) {
   return (
-    <Field label={label} error={error} id={id} className={className}>
+    <Field label={label} error={error} id={id} className={className} required={required}>
       <Input
         id={id}
         type={type}
@@ -2396,6 +2421,7 @@ function Field({
   children,
   className,
   description,
+  required = false,
 }: {
   label: string;
   error?: string;
@@ -2403,11 +2429,12 @@ function Field({
   children: ReactNode;
   className?: string;
   description?: string;
+  required?: boolean;
 }) {
   return (
     <div className={`grid gap-1.5 ${className ?? ""}`}>
       <Label htmlFor={id} className="text-foreground">
-        {label}
+        {label} {required && <span className="text-destructive font-medium">*</span>}
       </Label>
       {children}
       {description ? (
