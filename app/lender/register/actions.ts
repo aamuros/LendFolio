@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth-signup-errors";
 import {
   hasConfirmedEmail,
+  isObfuscatedDuplicateSignupUser,
   isSignupConfirmationDeliveryError,
   isSignupConfirmationPendingError,
   SIGNUP_CHECK_EMAIL_MESSAGE,
@@ -110,6 +111,14 @@ export async function lenderRegisterAction(
       },
     });
 
+    if (isObfuscatedDuplicateSignupUser(data.user)) {
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
+      return getDuplicateLenderSignupState(input);
+    }
+
     if (error) {
       const errorCode = classifySignupError(error);
       logSignupDiagnosticFailure(error, errorCode, {
@@ -171,20 +180,7 @@ export async function lenderRegisterAction(
       }
 
       if (isSignupConfirmationPendingError(error)) {
-        return {
-          status: "error",
-          message: getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED"),
-          errorCode: "SIGNUP_EMAIL_REGISTERED",
-          canResendConfirmation: true,
-          confirmationEmail: input.email,
-          values: {
-            displayName: input.displayName,
-            email: input.email,
-            organizationName: input.organizationName,
-            termsAccepted: true,
-            privacyAccepted: true,
-          },
-        };
+        return getDuplicateLenderSignupState(input);
       }
 
       return {
@@ -288,4 +284,23 @@ export async function lenderRegisterAction(
   }
 
   redirect(redirectTo, RedirectType.replace);
+}
+
+function getDuplicateLenderSignupState(input: {
+  displayName: string;
+  email: string;
+  organizationName: string;
+}): LenderRegisterState {
+  return {
+    status: "error",
+    message: getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED"),
+    errorCode: "SIGNUP_EMAIL_REGISTERED",
+    values: {
+      displayName: input.displayName,
+      email: input.email,
+      organizationName: input.organizationName,
+      termsAccepted: true,
+      privacyAccepted: true,
+    },
+  };
 }

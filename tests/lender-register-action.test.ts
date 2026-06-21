@@ -119,8 +119,8 @@ describe("lender register action", () => {
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
     expect(result.message).toContain("Sign in instead or reset your password");
-    expect(result.canResendConfirmation).toBe(true);
-    expect(result.confirmationEmail).toBe("lender@example.com");
+    expect(result.canResendConfirmation).toBeUndefined();
+    expect(result.confirmationEmail).toBeUndefined();
     expect(resend).not.toHaveBeenCalled();
   });
 
@@ -348,8 +348,8 @@ describe("lender register action", () => {
     expect(result.status).toBe("error");
     expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
     expect(result.message).toContain("Sign in instead or reset your password");
-    expect(result.canResendConfirmation).toBe(true);
-    expect(result.confirmationEmail).toBe("lender@example.com");
+    expect(result.canResendConfirmation).toBeUndefined();
+    expect(result.confirmationEmail).toBeUndefined();
   });
 
   it("sends normalized lowercase email to Supabase for lender registration", async () => {

@@ -12,6 +12,7 @@ import {
 } from "@/lib/auth-signup-errors";
 import {
   hasConfirmedEmail,
+  isObfuscatedDuplicateSignupUser,
   isSignupConfirmationDeliveryError,
   isSignupConfirmationPendingError,
   SIGNUP_CONFIRMATION_RESEND_SUCCESS_MESSAGE,
@@ -119,6 +120,14 @@ export async function signupAction(
       },
     });
 
+    if (isObfuscatedDuplicateSignupUser(data.user)) {
+      if (data.session) {
+        await supabase.auth.signOut();
+      }
+
+      return getDuplicateSignupState(input);
+    }
+
     if (error) {
       const errorCode = classifySignupError(error);
       logSignupDiagnosticFailure(error, errorCode, {
@@ -158,7 +167,7 @@ export async function signupAction(
 
         redirectTo = getSignupConfirmationPath(input.email);
       } else if (isSignupConfirmationPendingError(error)) {
-        redirectTo = getSignupConfirmationPath(input.email, "pending");
+        return getDuplicateSignupState(input);
       } else {
         return {
           status: "error",
@@ -372,6 +381,25 @@ export async function signOutForSignupAction() {
 
 function getRoleMismatchMessage(profileRole: string, selectedRole: string) {
   return `This account is registered as a ${profileRole}. Sign out and use another email to create a ${selectedRole} account.`;
+}
+
+function getDuplicateSignupState(input: {
+  displayName: string;
+  email: string;
+  role: "borrower" | "lender";
+}): SignupState {
+  return {
+    status: "error",
+    message: getSafeSignupErrorMessage("SIGNUP_EMAIL_REGISTERED"),
+    errorCode: "SIGNUP_EMAIL_REGISTERED",
+    values: {
+      displayName: input.displayName,
+      email: input.email,
+      role: input.role,
+      termsAccepted: true,
+      privacyAccepted: true,
+    },
+  };
 }
 
 function isSignupRoleValue(value: FormDataEntryValue | null): value is "borrower" | "lender" {

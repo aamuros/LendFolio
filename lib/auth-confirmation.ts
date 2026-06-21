@@ -1,6 +1,7 @@
 type EmailConfirmationUser = {
   email_confirmed_at?: string | null;
   confirmed_at?: string | null;
+  identities?: unknown[] | null;
 };
 
 export const EMAIL_VERIFICATION_REQUIRED_MESSAGE =
@@ -23,6 +24,12 @@ export const SIGNUP_CONFIRMATION_SEND_FAILED_MESSAGE =
 
 export function hasConfirmedEmail(user: EmailConfirmationUser | null | undefined) {
   return Boolean(user?.email_confirmed_at || user?.confirmed_at);
+}
+
+export function isObfuscatedDuplicateSignupUser(
+  user: EmailConfirmationUser | null | undefined,
+) {
+  return Array.isArray(user?.identities) && user.identities.length === 0;
 }
 
 export function isSignupConfirmationPendingError(

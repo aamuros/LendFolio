@@ -222,7 +222,7 @@ describe("signup action role enforcement", () => {
     }
   });
 
-  it("shows sign-in-or-reset guidance for a duplicate confirmed email", async () => {
+  it("blocks an already registered email instead of sending another confirmation", async () => {
     const { createSupabaseServerClient } = await import("@/lib/supabase/server");
     const supabase = mockSupabase("borrower");
     supabase.signUp.mockResolvedValueOnce({
@@ -234,12 +234,13 @@ describe("signup action role enforcement", () => {
     });
     vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
 
-    await expect(
-      signupAction(previousState, createSignupFormData("borrower")),
-    ).rejects.toThrow(
-      "REDIRECT:/signup/check-email?email=juan%40example.com&status=pending",
+    const result = await signupAction(
+      previousState,
+      createSignupFormData("borrower"),
     );
 
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.canResendConfirmation).toBeUndefined();
     expect(supabase.resend).not.toHaveBeenCalled();
     expect(supabase.from).not.toHaveBeenCalled();
   });
@@ -736,6 +737,25 @@ describe("signup action role enforcement", () => {
     expect(result.status).toBe("success");
     expect(result.message).toContain("Check your email");
     expect(result.confirmationEmail).toBe("juan@example.com");
+  });
+
+  it("blocks Supabase's obfuscated duplicate user across signup roles", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const supabase = mockSupabase("borrower");
+    supabase.signUp.mockResolvedValueOnce({
+      data: {
+        user: { id: "existing-user", identities: [], email_confirmed_at: null },
+        session: null,
+      },
+      error: null,
+    });
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+
+    const result = await signupAction(previousState, createSignupFormData("lender"));
+
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.canResendConfirmation).toBeUndefined();
+    expect(result.confirmationEmail).toBeUndefined();
   });
 
   it("includes confirmation email and resend option on successful signup requiring confirmation", async () => {
