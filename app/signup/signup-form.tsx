@@ -13,7 +13,7 @@ import {
 import type { SignupRole } from "@/lib/signup";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Input, PasswordInput } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -259,10 +259,9 @@ function SignupFormContent({
 
             <Field>
               <FieldLabel htmlFor="password" className="text-[#33423C]">Password <span className="text-destructive">*</span></FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
                 className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
@@ -280,10 +279,9 @@ function SignupFormContent({
 
             <Field>
               <FieldLabel htmlFor="confirmPassword" className="text-[#33423C]">Confirm password <span className="text-destructive">*</span></FieldLabel>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 placeholder="Re-enter your password"
                 className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"

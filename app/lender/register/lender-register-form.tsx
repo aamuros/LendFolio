@@ -25,7 +25,7 @@ import {
   FieldGroup,
   FieldLabel,
 } from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
+import { Input, PasswordInput } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { LegalDialog } from "@/components/legal/legal-dialog";
@@ -325,10 +325,9 @@ function LenderRegisterFormContent({
                 <Field className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <Field>
                     <FieldLabel htmlFor="password">Password</FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="password"
                       name="password"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="At least 8 characters"
                       required
@@ -343,10 +342,9 @@ function LenderRegisterFormContent({
                     <FieldLabel htmlFor="confirmPassword">
                       Confirm password
                     </FieldLabel>
-                    <Input
+                    <PasswordInput
                       id="confirmPassword"
                       name="confirmPassword"
-                      type="password"
                       autoComplete="new-password"
                       placeholder="Re-enter your password"
                       required

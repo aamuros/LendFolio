@@ -9,7 +9,7 @@ import {
   type ResetPasswordState,
 } from "@/app/reset-password/actions";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -107,10 +107,9 @@ export function ResetPasswordForm({ code }: ResetPasswordFormProps) {
           <FieldGroup className="gap-4">
             <Field>
               <FieldLabel htmlFor="password" className="text-[#33423C]">New password</FieldLabel>
-              <Input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="new-password"
                 placeholder="At least 8 characters"
                 className={inputClassName}
@@ -121,10 +120,9 @@ export function ResetPasswordForm({ code }: ResetPasswordFormProps) {
 
             <Field>
               <FieldLabel htmlFor="confirmPassword" className="text-[#33423C]">Confirm new password</FieldLabel>
-              <Input
+              <PasswordInput
                 id="confirmPassword"
                 name="confirmPassword"
-                type="password"
                 autoComplete="new-password"
                 placeholder="Re-enter your password"
                 className={inputClassName}
