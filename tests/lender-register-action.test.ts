@@ -5,6 +5,10 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
 }));
 
+vi.mock("@/lib/signup-email", () => ({
+  signupEmailExists: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -51,6 +55,25 @@ function createLenderRegisterFormData() {
 describe("lender register action", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("blocks an existing email before lender signup sends confirmation", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { signupEmailExists } = await import("@/lib/signup-email");
+    const signUp = vi.fn();
+    vi.mocked(createSupabaseServerClient).mockResolvedValue({
+      auth: { signUp, resend: vi.fn(), signOut: vi.fn() },
+    } as never);
+    vi.mocked(signupEmailExists).mockResolvedValueOnce(true);
+
+    const result = await lenderRegisterAction(
+      previousState,
+      createLenderRegisterFormData(),
+    );
+
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.message).toContain("did not create a new account or send a confirmation email");
+    expect(signUp).not.toHaveBeenCalled();
   });
 
   it("treats no-session signup responses as confirmation pending", async () => {

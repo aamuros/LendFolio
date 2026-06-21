@@ -8,6 +8,10 @@ vi.mock("@/lib/supabase/server", () => ({
   createSupabaseServerClient: vi.fn(),
 }));
 
+vi.mock("@/lib/signup-email", () => ({
+  signupEmailExists: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock("next/navigation", () => ({
   redirect: vi.fn((url: string) => {
     throw new Error(`REDIRECT:${url}`);
@@ -88,6 +92,20 @@ describe("signup action role enforcement", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  it("blocks an existing borrower email before Supabase can send confirmation", async () => {
+    const { createSupabaseServerClient } = await import("@/lib/supabase/server");
+    const { signupEmailExists } = await import("@/lib/signup-email");
+    const supabase = mockSupabase("borrower");
+    vi.mocked(createSupabaseServerClient).mockResolvedValue(supabase as never);
+    vi.mocked(signupEmailExists).mockResolvedValueOnce(true);
+
+    const result = await signupAction(previousState, createSignupFormData("lender"));
+
+    expect(result.errorCode).toBe("SIGNUP_EMAIL_REGISTERED");
+    expect(result.message).toContain("did not create a new account or send a confirmation email");
+    expect(supabase.signUp).not.toHaveBeenCalled();
   });
 
   it("does not redirect to lender when borrower signup resolves to a lender profile", async () => {

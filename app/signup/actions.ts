@@ -23,6 +23,7 @@ import {
 } from "@/lib/consent-recording";
 import { getAuthRedirectUrl } from "@/lib/site-url";
 import { signupSchema } from "@/lib/signup";
+import { signupEmailExists } from "@/lib/signup-email";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type SignupFieldErrors = Partial<
@@ -106,6 +107,10 @@ export async function signupAction(
       requestHeaders,
     );
     const signupConsentMetadata = getSignupConsentMetadata(requestHeaders);
+
+    if (await signupEmailExists(supabase, input.email)) {
+      return getDuplicateSignupState(input);
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,

@@ -1523,6 +1523,12 @@ export type Database = {
       };
     };
     Functions: {
+      signup_email_exists: {
+        Args: {
+          p_email: string;
+        };
+        Returns: boolean;
+      };
       accept_user_consents: {
         Args: {
           p_consents: Json;

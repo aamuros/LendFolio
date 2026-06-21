@@ -21,6 +21,7 @@ import {
   getSignupConsentMetadata,
 } from "@/lib/consent-recording";
 import { lenderRegisterSchema } from "@/lib/lender-register";
+import { signupEmailExists } from "@/lib/signup-email";
 import { getAuthRedirectUrl } from "@/lib/site-url";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -96,6 +97,10 @@ export async function lenderRegisterAction(
       requestHeaders,
     );
     const signupConsentMetadata = getSignupConsentMetadata(requestHeaders);
+
+    if (await signupEmailExists(supabase, input.email)) {
+      return getDuplicateLenderSignupState(input);
+    }
 
     const { data, error } = await supabase.auth.signUp({
       email: input.email,
