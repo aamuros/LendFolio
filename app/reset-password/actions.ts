@@ -56,7 +56,7 @@ export async function updatePasswordAction(
     if (error) {
       return {
         status: "error",
-        message: "Could not update password. Try requesting a new reset link.",
+        message: getPasswordUpdateErrorMessage(error),
       };
     }
 
@@ -70,4 +70,32 @@ export async function updatePasswordAction(
       message: "Could not update password.",
     };
   }
+}
+
+function getPasswordUpdateErrorMessage(error: { message?: string; status?: number }) {
+  const message = error.message?.toLowerCase() ?? "";
+
+  if (message.includes("different from the old password")) {
+    return "Choose a password you have not used for this account.";
+  }
+
+  if (
+    message.includes("weak password") ||
+    message.includes("password should be") ||
+    message.includes("password must")
+  ) {
+    return "Choose a stronger password that meets the password requirements.";
+  }
+
+  if (
+    error.status === 401 ||
+    error.status === 403 ||
+    message.includes("session") ||
+    message.includes("jwt") ||
+    message.includes("expired")
+  ) {
+    return "Your reset link has expired. Request a new link to continue.";
+  }
+
+  return "Could not update password. Try again or request a new reset link.";
 }
