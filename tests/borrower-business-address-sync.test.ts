@@ -4,16 +4,73 @@ import {
   copyHomeAddressToBusinessAddress,
   normalizeBorrowerBusinessAddressFields,
 } from "@/lib/borrower-portfolio";
-import { getBarangaysByCity } from "@/lib/philippine-addresses";
+import {
+  getBarangaysByCity,
+  isValidPhilippineAddressSelection,
+} from "@/lib/philippine-addresses";
 
 describe("borrower business address sync", () => {
+  it("uses factual PSGC barangay options for NCR city selections", () => {
+    expect(getBarangaysByCity("NCR", "Manila")).not.toContain("Sampaloc");
+    expect(getBarangaysByCity("NCR", "Manila")).toContain("Barangay 435");
+    expect(getBarangaysByCity("NCR", "Makati")).toContain("Bel-Air");
+    expect(getBarangaysByCity("NCR", "Quezon City")).not.toContain("Diliman");
+    expect(getBarangaysByCity("NCR", "Quezon City")).toContain("U.P. Campus");
+  });
+
+  it("rejects district or neighborhood names entered as barangays", () => {
+    expect(
+      isValidPhilippineAddressSelection({
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Manila",
+        barangay: "Sampaloc",
+        zipCode: "1000",
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts editable 4-digit ZIP codes for a valid region, city, and barangay", () => {
+    expect(
+      isValidPhilippineAddressSelection({
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Fort Bonifacio",
+        zipCode: "1634",
+      }),
+    ).toBe(true);
+  });
+
+  it("rejects incomplete or non-numeric ZIP codes", () => {
+    expect(
+      isValidPhilippineAddressSelection({
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Fort Bonifacio",
+        zipCode: "163",
+      }),
+    ).toBe(false);
+
+    expect(
+      isValidPhilippineAddressSelection({
+        regionCode: "NCR",
+        regionName: "NCR - National Capital Region",
+        cityOrMunicipality: "Taguig",
+        barangay: "Fort Bonifacio",
+        zipCode: "16A4",
+      }),
+    ).toBe(false);
+  });
+
   it("copies the full home address into the business address", () => {
     const copied = copyHomeAddressToBusinessAddress(
       {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
         cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        barangay: "U.P. Campus",
         zipCode: "1100",
       },
       "Unit 2, 123 Maginhawa Street",
@@ -23,7 +80,7 @@ describe("borrower business address sync", () => {
       regionCode: "NCR",
       regionName: "NCR - National Capital Region",
       cityOrMunicipality: "Quezon City",
-      barangay: "Diliman",
+      barangay: "U.P. Campus",
       zipCode: "1100",
       streetAddress: "Unit 2, 123 Maginhawa Street",
     });
@@ -38,7 +95,7 @@ describe("borrower business address sync", () => {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
         cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        barangay: "U.P. Campus",
         zipCode: "1100",
       },
       "Unit 2, 123 Maginhawa Street",
@@ -54,7 +111,7 @@ describe("borrower business address sync", () => {
       "Unit 2, 123 Maginhawa Street",
     );
 
-    expect(initialCopy.barangay).toBe("Diliman");
+    expect(initialCopy.barangay).toBe("U.P. Campus");
     expect(updatedCopy.barangay).toBe("Batasan Hills");
     expect(
       getBarangaysByCity(updatedCopy.regionCode, updatedCopy.cityOrMunicipality),
@@ -67,7 +124,7 @@ describe("borrower business address sync", () => {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
         cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        barangay: "U.P. Campus",
         zipCode: "1100",
       },
       "Unit 2, 123 Maginhawa Street",
@@ -203,7 +260,7 @@ describe("borrower business address sync", () => {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
         cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        barangay: "U.P. Campus",
         zipCode: "1100",
       },
       homeStreetAddress: "Unit 2, 123 Maginhawa Street",

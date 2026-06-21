@@ -387,7 +387,7 @@ describe("lender onboarding schema validation", () => {
       regionCode: "NCR",
       regionName: "NCR - National Capital Region",
       cityOrMunicipality: "Quezon City",
-      barangay: "Diliman",
+      barangay: "U.P. Campus",
       zipCode: "1100",
     },
     businessRegistrationNumber: "SEC-12345",

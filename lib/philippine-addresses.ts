@@ -16,6 +16,8 @@ type RegionData = {
   cities: Record<string, CityData>;
 };
 
+const PHILIPPINE_ZIP_CODE_PATTERN = /^\d{4}$/;
+
 const ADDRESS_DATA: Record<string, RegionData> = {
   NCR: {
     name: "NCR - National Capital Region",
@@ -26,10 +28,10 @@ const ADDRESS_DATA: Record<string, RegionData> = {
           "Bagong Pag-asa",
           "Batasan Hills",
           "Commonwealth",
-          "Diliman",
           "Holy Spirit",
           "Payatas",
           "Project 6",
+          "U.P. Campus",
           "Tandang Sora",
         ],
       },
@@ -37,15 +39,12 @@ const ADDRESS_DATA: Record<string, RegionData> = {
         zipCode: "1000",
         barangays: [
           "Barangay 1",
-          "Ermita",
-          "Intramuros",
-          "Malate",
-          "Paco",
-          "Pandacan",
-          "Sampaloc",
-          "San Miguel",
-          "Santa Cruz",
-          "Tondo",
+          "Barangay 76",
+          "Barangay 435",
+          "Barangay 587",
+          "Barangay 818-A",
+          "Barangay 866",
+          "Barangay 905",
         ],
       },
       Makati: {
@@ -101,31 +100,30 @@ const ADDRESS_DATA: Record<string, RegionData> = {
         zipCode: "1300",
         barangays: [
           "Barangay 1",
+          "Barangay 10",
           "Barangay 76",
-          "Malibay",
-          "Maricaban",
-          "San Isidro",
-          "San Rafael",
-          "Santa Clara",
+          "Barangay 100",
+          "Barangay 150",
+          "Barangay 201",
         ],
       },
       Caloocan: {
         zipCode: "1400",
         barangays: [
-          "Bagong Barrio",
-          "Grace Park East",
-          "Grace Park West",
-          "Kaunlaran",
-          "San Jose",
-          "Sangandaan",
-          "University Hills",
+          "Barangay 1",
+          "Barangay 12",
+          "Barangay 50",
+          "Barangay 86",
+          "Barangay 120",
+          "Barangay 160",
+          "Barangay 188",
         ],
       },
       "Las Piñas": {
         zipCode: "1740",
         barangays: [
           "Almanza Uno",
-          "BF International",
+          "B. F. International Village",
           "Daniel Fajardo",
           "Ilaya",
           "Manuyo Uno",
@@ -1243,8 +1241,8 @@ export function isValidPhilippineAddressSelection(
   const city = region.cities[selection.cityOrMunicipality];
   if (!city) return false;
 
-  if (city.zipCode !== selection.zipCode) return false;
   if (!city.barangays.includes(selection.barangay)) return false;
+  if (!PHILIPPINE_ZIP_CODE_PATTERN.test(selection.zipCode)) return false;
 
   return true;
 }

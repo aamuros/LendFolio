@@ -483,7 +483,7 @@ export function BorrowerPortfolioForm({
               </div>
               <TextField
                 id="homeStreetAddress"
-                label="Street / house no. / unit / landmark / specific address"
+                label="House no. / Street / Block / Floor / Unit no."
                 error={errors.homeStreetAddress?.message}
                 register={register("homeStreetAddress")}
                 className="sm:col-span-2"
@@ -775,7 +775,7 @@ export function BorrowerPortfolioForm({
                   </div>
                   <TextField
                     id="streetAddress"
-                    label="Street / house no. / unit / landmark / specific address"
+                    label="House no. / Street / Block / Floor / Unit no."
                     error={
                       errors.streetAddress?.message ??
                       firstServerError(

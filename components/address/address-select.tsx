@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { PhilippineAddressSelection } from "@/lib/philippine-addresses";
 import {
   getRegions,
@@ -8,6 +8,7 @@ import {
   getBarangaysByCity,
   getZipCodeByCity,
 } from "@/lib/philippine-addresses";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -66,24 +67,6 @@ export function AddressSelect({
     [value.regionCode, value.cityOrMunicipality],
   );
 
-  const zipCode = useMemo(
-    () =>
-      value.regionCode && value.cityOrMunicipality
-        ? getZipCodeByCity(value.regionCode, value.cityOrMunicipality)
-        : null,
-    [value.regionCode, value.cityOrMunicipality],
-  );
-
-  useEffect(() => {
-    if (
-      zipCode &&
-      value.cityOrMunicipality &&
-      value.zipCode !== zipCode
-    ) {
-      onChange({ ...value, zipCode });
-    }
-  }, [zipCode, value, onChange]);
-
   const handleRegionChange = useCallback(
     (regionCode: string) => {
       if (readOnly) return;
@@ -104,12 +87,11 @@ export function AddressSelect({
     (city: string) => {
       if (readOnly) return;
 
-      const newZip = getZipCodeByCity(value.regionCode, city) ?? "";
       onChange({
         ...value,
         cityOrMunicipality: city,
         barangay: "",
-        zipCode: newZip,
+        zipCode: value.zipCode || getZipCodeByCity(value.regionCode, city) || "",
       });
     },
     [readOnly, value, onChange],
@@ -124,7 +106,6 @@ export function AddressSelect({
     [readOnly, value, onChange],
   );
 
-  const showZipDropdown = false;
   const hasLegacyAddress = Boolean(legacyAddress?.trim());
 
   return (
@@ -286,44 +267,33 @@ export function AddressSelect({
             >
               ZIP Code {required ? <span className="text-destructive">*</span> : null}
             </label>
-            {showZipDropdown && value.cityOrMunicipality ? (
-              <Select
-                value={value.zipCode}
-                onValueChange={(zip) => {
-                  if (readOnly) return;
+            <Input
+              id={`${idPrefix}-zipCode`}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]{4}"
+              maxLength={4}
+              value={value.zipCode}
+              onChange={(event) => {
+                if (readOnly) return;
 
-                  onChange({ ...value, zipCode: zip });
-                }}
-                disabled={disabled || !value.cityOrMunicipality}
-                required={required}
-              >
-                <SelectTrigger
-                  id={`${idPrefix}-zipCode`}
-                  className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
-                  aria-disabled={readOnly || undefined}
-                  aria-invalid={Boolean(errors?.zipCode)}
-                  aria-describedby={
-                    errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
-                  }
-                >
-                  <SelectValue placeholder="Select ZIP code" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value={value.zipCode}>{value.zipCode}</SelectItem>
-                </SelectContent>
-              </Select>
-            ) : (
-              <div
-                id={`${idPrefix}-zipCode`}
-                className="flex h-12 min-h-12 items-center rounded-xl border border-input bg-muted/30 px-3 text-sm"
-                aria-invalid={Boolean(errors?.zipCode)}
-                aria-describedby={
-                  errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
-                }
-              >
-                {value.zipCode || (value.cityOrMunicipality ? "—" : "Select a city first")}
-              </div>
-            )}
+                onChange({
+                  ...value,
+                  zipCode: event.target.value.replace(/\D/g, "").slice(0, 4),
+                });
+              }}
+              placeholder={
+                value.cityOrMunicipality ? "Enter ZIP code" : "Select a city first"
+              }
+              disabled={disabled || !value.cityOrMunicipality}
+              readOnly={readOnly}
+              required={required}
+              className={triggerClassName ?? "h-12 min-h-12 w-full rounded-xl bg-background"}
+              aria-invalid={Boolean(errors?.zipCode)}
+              aria-describedby={
+                errors?.zipCode ? `${idPrefix}-zipCode-error` : undefined
+              }
+            />
             {errors?.zipCode ? (
               <span
                 id={`${idPrefix}-zipCode-error`}

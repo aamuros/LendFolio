@@ -63,7 +63,7 @@ describe("borrower portfolio schema", () => {
         regionCode: "NCR",
         regionName: "NCR - National Capital Region",
         cityOrMunicipality: "Quezon City",
-        barangay: "Diliman",
+        barangay: "U.P. Campus",
         zipCode: "1100",
       },
       monthlyGrossRevenue: 45_000,
@@ -1488,12 +1488,12 @@ describe("borrower readiness gates", () => {
   const completePortfolio = {
     businessName: "Aling Nena Store",
     businessType: "sari_sari_store" as const,
-    location: "Diliman, Quezon City, NCR - National Capital Region, 1100",
+    location: "U.P. Campus, Quezon City, NCR - National Capital Region, 1100",
     address: {
       regionCode: "NCR",
       regionName: "NCR - National Capital Region",
       cityOrMunicipality: "Quezon City",
-      barangay: "Diliman",
+      barangay: "U.P. Campus",
       zipCode: "1100",
     },
     streetAddress: "",

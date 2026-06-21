@@ -56,7 +56,7 @@ const addressSelectionSchema = z
         code: "custom",
         path: ["regionCode"],
         message:
-          "The selected region, city, barangay, and ZIP code combination is not valid.",
+          "Select a valid region, city, barangay, and 4-digit ZIP code.",
       });
     }
   });
