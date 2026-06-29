@@ -758,10 +758,16 @@ export async function loadManagerRepayments(
           filters.repaymentStatus,
       )
     : proofs;
-  const profiles = await loadProfilesByIds(
-    supabase,
-    filteredProofs.flatMap((proof) => [proof.borrower_id, proof.lender_id]),
-  );
+  const [profiles, lenderProfiles] = await Promise.all([
+    loadProfilesByIds(
+      supabase,
+      filteredProofs.flatMap((proof) => [proof.borrower_id, proof.lender_id]),
+    ),
+    loadLenderProfilesByUserIds(
+      supabase,
+      filteredProofs.map((proof) => proof.lender_id),
+    ),
+  ]);
 
   return {
     ok: true,
@@ -783,7 +789,7 @@ export async function loadManagerRepayments(
           proofStatus: proof.status,
           repaymentStatus: schedule.status,
           borrower: getProfileSummary(profiles, proof.borrower_id),
-          lender: getProfileSummary(profiles, proof.lender_id),
+          lender: getLenderProfileSummary(profiles, lenderProfiles, proof.lender_id),
           activeLoanId: proof.active_loan_id,
           installmentNumber: schedule.installment_number,
           amountDue: schedule.amount_due,
@@ -1360,9 +1366,10 @@ export async function loadManagerRepaymentProofDetail(
     return { ok: true, message: "Repayment proof not found.", proof: null };
   }
 
-  const [schedules, profiles] = await Promise.all([
+  const [schedules, profiles, lenderProfiles] = await Promise.all([
     loadSchedulesByIds(supabase, [proof.repayment_schedule_id]),
     loadProfilesByIds(supabase, [proof.borrower_id, proof.lender_id]),
+    loadLenderProfilesByUserIds(supabase, [proof.lender_id]),
   ]);
   const schedule = schedules.get(proof.repayment_schedule_id);
 
@@ -1387,7 +1394,7 @@ export async function loadManagerRepaymentProofDetail(
       proofStatus: proof.status,
       repaymentStatus: schedule.status,
       borrower: getProfileSummary(profiles, proof.borrower_id),
-      lender: getProfileSummary(profiles, proof.lender_id),
+      lender: getLenderProfileSummary(profiles, lenderProfiles, proof.lender_id),
       activeLoanId: proof.active_loan_id,
       installmentNumber: schedule.installment_number,
       amountDue: schedule.amount_due,
@@ -1740,7 +1747,7 @@ async function mapManagerRepaymentProofs(
   supabase: SupabaseServerClient,
   proofs: Database["public"]["Tables"]["repayment_proofs"]["Row"][],
 ) {
-  const [schedules, profiles] = await Promise.all([
+  const [schedules, profiles, lenderProfiles] = await Promise.all([
     loadSchedulesByIds(
       supabase,
       proofs.map((proof) => proof.repayment_schedule_id),
@@ -1748,6 +1755,10 @@ async function mapManagerRepaymentProofs(
     loadProfilesByIds(
       supabase,
       proofs.flatMap((proof) => [proof.borrower_id, proof.lender_id]),
+    ),
+    loadLenderProfilesByUserIds(
+      supabase,
+      proofs.map((proof) => proof.lender_id),
     ),
   ]);
 
@@ -1766,7 +1777,7 @@ async function mapManagerRepaymentProofs(
       proofStatus: proof.status,
       repaymentStatus: schedule.status,
       borrower: getProfileSummary(profiles, proof.borrower_id),
-      lender: getProfileSummary(profiles, proof.lender_id),
+      lender: getLenderProfileSummary(profiles, lenderProfiles, proof.lender_id),
       activeLoanId: proof.active_loan_id,
       installmentNumber: schedule.installment_number,
       amountDue: schedule.amount_due,
@@ -1968,14 +1979,20 @@ async function mapManagerLoans(
   supabase: SupabaseServerClient,
   loans: ActiveLoanRow[],
 ) {
-  const profiles = await loadProfilesByIds(
-    supabase,
-    loans.flatMap((loan) => [loan.borrower_id, loan.lender_id]),
-  );
-  const schedules = await loadSchedulesByLoanIds(
-    supabase,
-    loans.map((loan) => loan.id),
-  );
+  const [profiles, lenderProfiles, schedules] = await Promise.all([
+    loadProfilesByIds(
+      supabase,
+      loans.flatMap((loan) => [loan.borrower_id, loan.lender_id]),
+    ),
+    loadLenderProfilesByUserIds(
+      supabase,
+      loans.map((loan) => loan.lender_id),
+    ),
+    loadSchedulesByLoanIds(
+      supabase,
+      loans.map((loan) => loan.id),
+    ),
+  ]);
 
   return loans.map((loan) => {
     const interestAmount = deriveInterestAmount({
@@ -1988,7 +2005,7 @@ async function mapManagerLoans(
     return {
       id: loan.id,
       borrower: getProfileSummary(profiles, loan.borrower_id),
-      lender: getProfileSummary(profiles, loan.lender_id),
+      lender: getLenderProfileSummary(profiles, lenderProfiles, loan.lender_id),
       principalAmount: loan.principal_amount,
       repaymentAmount: loan.repayment_amount,
       totalRepaymentAmount: loan.repayment_amount,
@@ -2054,10 +2071,13 @@ async function mapManagerUsers(
     if (profile.role === "lender") {
       const offers = offersByLenderId.get(profile.id) ?? [];
       const lenderProfile = lenderProfiles.get(profile.id);
+      const lenderSummary = lenderProfile?.organization_name?.trim()
+        ? { ...summary, displayName: lenderProfile.organization_name.trim() }
+        : summary;
 
       return {
         role: "lender",
-        profile: summary,
+        profile: lenderSummary,
         status: profile.status,
         organizationName: lenderProfile?.organization_name ?? null,
         verificationStatus: lenderProfile?.verification_status ?? null,
@@ -2385,6 +2405,19 @@ function getProfileSummary(
   const profile = profiles.get(id);
 
   return profile ? toProfileSummary(profile) : { id, displayName: `User ${getShortId(id)}` };
+}
+
+function getLenderProfileSummary(
+  profiles: Map<string, ProfileRow>,
+  lenderProfiles: Map<string, LenderProfileRow>,
+  id: string,
+): ManagerProfileSummary {
+  const summary = getProfileSummary(profiles, id);
+  const organizationName = lenderProfiles.get(id)?.organization_name?.trim();
+
+  return organizationName
+    ? { ...summary, displayName: organizationName }
+    : summary;
 }
 
 function toProfileSummary(profile: ProfileRow): ManagerProfileSummary {
