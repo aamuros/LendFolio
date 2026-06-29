@@ -2804,7 +2804,8 @@ function RepaymentSimulator({
   const months = preferredTermMonths[preferredTerm];
   const interestCharge = safePrincipal * (interestRate / 100);
   const systemFee = calculatePlatformProcessingFee(safePrincipal);
-  const totalRepayment = safePrincipal + interestCharge + systemFee;
+  const netFundsReceived = Math.max(0, safePrincipal - systemFee);
+  const totalRepayment = safePrincipal + interestCharge;
   const monthlyPayment = months > 0 ? totalRepayment / months : 0;
   const percent = new Intl.NumberFormat("en-PH", {
     maximumFractionDigits: 1,
@@ -2859,17 +2860,18 @@ function RepaymentSimulator({
             <SimulatorRow label="Principal" value={safePrincipal} />
             <SimulatorRow label={`Interest (${percent}%)`} value={interestCharge} />
             <SimulatorRow
-              label={`System fee (${PLATFORM_PROCESSING_FEE_RATE * 100}%)`}
+              label={`System fee deducted (${PLATFORM_PROCESSING_FEE_RATE * 100}%)`}
               value={systemFee}
             />
+            <SimulatorRow label="Net funds received" value={netFundsReceived} />
             <div className="flex items-center justify-between gap-4 border-t pt-3 font-semibold">
               <dt>Total repayment</dt>
               <dd className="tabular-nums">{formatCreditAmount(totalRepayment)}</dd>
             </div>
           </dl>
           <p className="text-xs leading-5 text-muted-foreground">
-            Estimate only. Your lender sets the final interest rate and may add
-            other disclosed fees in the offer.
+            The system fee is deducted from released funds and is not included
+            in repayment. Your lender may add other disclosed fees in the offer.
           </p>
         </CardContent>
       </Card>
