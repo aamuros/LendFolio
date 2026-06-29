@@ -2554,28 +2554,42 @@ export async function submitBorrowerVerificationDocument(
       };
     }
 
-    const { data, error } = await supabase.rpc(
+    const rpcPayload = {
+      p_borrower_verification_id: verification.id,
+      p_storage_path: storagePath,
+      p_document_type: documentType,
+      p_file_name: documentFile.name,
+      p_file_type: documentFile.type,
+      p_file_size: documentFile.size,
+      p_ai_review_status: aiReview.aiReviewStatus,
+      p_ai_review_confidence: aiReview.confidence,
+      p_ai_detected_document_type: aiReview.detectedType,
+      p_ai_review_reason: aiReview.reason,
+      p_ai_risk_flags: aiReview.riskFlags,
+      p_ai_model: aiReview.aiModel,
+      p_ai_reviewed_at: aiReview.aiReviewedAt,
+    };
+    const validIdRpcPayload = {
+      ...rpcPayload,
+      p_valid_id_type:
+        documentType === "valid_id" && isBorrowerValidIdType(validIdType)
+          ? validIdType
+          : null,
+    };
+
+    let { data, error } = await supabase.rpc(
       "submit_borrower_verification_document",
-      {
-        p_borrower_verification_id: verification.id,
-        p_storage_path: storagePath,
-        p_document_type: documentType,
-        p_valid_id_type:
-          documentType === "valid_id" && isBorrowerValidIdType(validIdType)
-            ? validIdType
-            : null,
-        p_file_name: documentFile.name,
-        p_file_type: documentFile.type,
-        p_file_size: documentFile.size,
-        p_ai_review_status: aiReview.aiReviewStatus,
-        p_ai_review_confidence: aiReview.confidence,
-        p_ai_detected_document_type: aiReview.detectedType,
-        p_ai_review_reason: aiReview.reason,
-        p_ai_risk_flags: aiReview.riskFlags,
-        p_ai_model: aiReview.aiModel,
-        p_ai_reviewed_at: aiReview.aiReviewedAt,
-      },
+      validIdRpcPayload,
     );
+
+    if (isMissingBorrowerValidIdTypeRpc(error)) {
+      const fallbackResult = await supabase.rpc(
+        "submit_borrower_verification_document",
+        rpcPayload,
+      );
+      data = fallbackResult.data;
+      error = fallbackResult.error;
+    }
 
     const result = data as
       | {
@@ -2653,6 +2667,25 @@ function isLoanApplicationRow(value: Json | undefined): value is Parameters<
       "preferred_term" in value &&
       "status" in value &&
       "submitted_at" in value,
+  );
+}
+
+function isMissingBorrowerValidIdTypeRpc(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const code =
+    "code" in error && typeof error.code === "string" ? error.code : "";
+  const message =
+    "message" in error && typeof error.message === "string"
+      ? error.message
+      : "";
+
+  return (
+    code === "PGRST202" &&
+    message.includes("submit_borrower_verification_document") &&
+    message.includes("p_valid_id_type")
   );
 }
 

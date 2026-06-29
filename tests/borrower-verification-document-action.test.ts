@@ -263,6 +263,51 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/borrower");
   });
 
+  it("falls back to the existing upload RPC when valid ID metadata migration is pending", async () => {
+    const mockSupabase = createMockSupabase();
+    mockSupabase.rpc
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          code: "PGRST202",
+          message:
+            "Could not find the function public.submit_borrower_verification_document with p_valid_id_type in the schema cache",
+        },
+      })
+      .mockResolvedValueOnce({
+        data: {
+          ok: true,
+          message: "Verification document uploaded.",
+          document_id: "document-1",
+        },
+        error: null,
+      });
+    mockBorrowerAccess(mockSupabase);
+
+    const result = await submitBorrowerVerificationDocument(
+      null,
+      createFormData(new File(["pdf"], "Valid ID.pdf", { type: "application/pdf" })),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message:
+        "The document was accepted by AI review. If all required documents are accepted, your borrower verification will be approved automatically.",
+      documentId: "document-1",
+    });
+    expect(mockSupabase.rpc).toHaveBeenCalledTimes(2);
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(
+      1,
+      "submit_borrower_verification_document",
+      expect.objectContaining({ p_valid_id_type: "passport" }),
+    );
+    expect(mockSupabase.rpc).toHaveBeenNthCalledWith(
+      2,
+      "submit_borrower_verification_document",
+      expect.not.objectContaining({ p_valid_id_type: expect.anything() }),
+    );
+  });
+
   it("surfaces automatic borrower verification approval after required AI-passed documents are accepted", async () => {
     const mockSupabase = createMockSupabase({
       rpcResult: {
