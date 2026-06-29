@@ -40,6 +40,9 @@ function createFormData(file: File, documentType = "valid_id") {
   const formData = new FormData();
 
   formData.set("documentType", documentType);
+  if (documentType === "valid_id") {
+    formData.set("validIdType", "passport");
+  }
   formData.set("documentFile", file);
 
   return formData;
@@ -204,6 +207,23 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(mockSupabase.storage.from).not.toHaveBeenCalled();
   });
 
+  it("requires a valid ID type for valid ID uploads", async () => {
+    const mockSupabase = createMockSupabase();
+    mockBorrowerAccess(mockSupabase);
+    const formData = createFormData(
+      new File(["pdf"], "id.pdf", { type: "application/pdf" }),
+    );
+    formData.delete("validIdType");
+
+    const result = await submitBorrowerVerificationDocument(null, formData);
+
+    expect(result).toEqual({
+      ok: false,
+      message: "Choose the valid ID type.",
+    });
+    expect(mockSupabase.storage.from).not.toHaveBeenCalled();
+  });
+
   it("uploads valid pending documents and saves metadata through RPC", async () => {
     const mockSupabase = createMockSupabase();
     mockBorrowerAccess(mockSupabase);
@@ -227,6 +247,7 @@ describe("submitBorrowerVerificationDocument", () => {
       expect.objectContaining({
         p_borrower_verification_id: "verification-1",
         p_document_type: "valid_id",
+        p_valid_id_type: "passport",
         p_file_name: "Valid ID.pdf",
         p_file_type: "application/pdf",
         p_ai_review_status: "pass",

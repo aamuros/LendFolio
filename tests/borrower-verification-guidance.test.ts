@@ -34,6 +34,7 @@ function createDocument(
     id: "doc-1",
     borrowerVerificationId: "verification-1",
     documentType: "valid_id",
+    validIdType: null,
     status: "submitted",
     fileName: "id.pdf",
     fileType: "application/pdf",

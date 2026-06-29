@@ -18,6 +18,8 @@ import { borrowerVerificationUpdatedEvent } from "@/lib/borrower-workflow-events
 import {
   borrowerFacingVerificationStateDescriptions,
   borrowerFacingVerificationStateLabels,
+  borrowerValidIdTypeLabels,
+  borrowerValidIdTypes,
   borrowerVerificationDocumentAllowedTypes,
   borrowerVerificationDocumentMaxFileSize,
   borrowerVerificationDocumentTypeDescriptions,
@@ -25,6 +27,7 @@ import {
   getBorrowerFacingVerificationState,
   requiredBorrowerVerificationDocumentTypes,
   type BorrowerFacingVerificationState,
+  type BorrowerValidIdType,
   type BorrowerVerificationDocumentType,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
@@ -36,6 +39,13 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Separator } from "@/components/ui/separator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ToneBadge, type BadgeTone } from "@/components/borrower-status-badge";
 import { DocumentPreviewDialog } from "@/components/document-preview-dialog";
 import {
@@ -404,6 +414,7 @@ function RequiredDocumentRow({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [fileValidationError, setFileValidationError] = useState("");
   const [localPreviewOpen, setLocalPreviewOpen] = useState(false);
+  const [validIdType, setValidIdType] = useState<BorrowerValidIdType | "">("");
   const previewUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -438,6 +449,7 @@ function RequiredDocumentRow({
       setSelectedFile(null);
       setPreviewUrl(null);
       setFileValidationError("");
+      setValidIdType("");
     }
 
     form.addEventListener("reset", handleFormReset);
@@ -555,6 +567,32 @@ function RequiredDocumentRow({
         {showUpload ? (
           <form ref={formRef} action={formAction} className="grid gap-3">
             <input type="hidden" name="documentType" value={documentType} />
+            {documentType === "valid_id" ? (
+              <div className="grid gap-1.5">
+                <Label htmlFor="valid-id-type" className="text-xs font-medium">
+                  Valid ID type
+                </Label>
+                <Select
+                  name="validIdType"
+                  value={validIdType}
+                  onValueChange={(value) =>
+                    setValidIdType(value as BorrowerValidIdType)
+                  }
+                  required
+                >
+                  <SelectTrigger id="valid-id-type" className="w-full">
+                    <SelectValue placeholder="Choose ID type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {borrowerValidIdTypes.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {borrowerValidIdTypeLabels[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : null}
             <input
               name="documentFile"
               type="file"
@@ -596,7 +634,11 @@ function RequiredDocumentRow({
             <div className="flex items-center gap-3">
               <Button
                 type="submit"
-                disabled={isPending || Boolean(fileValidationError)}
+                disabled={
+                  isPending ||
+                  Boolean(fileValidationError) ||
+                  (documentType === "valid_id" && !validIdType)
+                }
                 className="w-fit rounded-full h-8 px-3.5 text-xs font-semibold"
               >
                 <UploadIcon className="size-3" />

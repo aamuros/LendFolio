@@ -126,6 +126,7 @@ function verificationWithBusinessProof(
               id: "document-1",
               borrowerVerificationId: "verification-1",
               documentType,
+              validIdType: null,
               status: status === "approved" || status === "verified"
                 ? ("accepted" as const)
                 : status,

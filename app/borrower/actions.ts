@@ -49,6 +49,7 @@ import {
   canSubmitLoanApplicationForVerification,
   getBorrowerVerificationMessage,
   getBorrowerVerificationStatus,
+  isBorrowerValidIdType,
   isBorrowerVerificationDocumentType,
   type BorrowerVerificationSummary,
 } from "@/lib/borrower-verification";
@@ -2447,6 +2448,7 @@ export async function submitBorrowerVerificationDocument(
     }
 
     const documentType = formData.get("documentType");
+    const validIdType = formData.get("validIdType");
     const documentFile =
       formData.get("documentFile") ?? formData.get("proofFile");
 
@@ -2454,6 +2456,13 @@ export async function submitBorrowerVerificationDocument(
       return {
         ok: false,
         message: "Choose a verification document type.",
+      };
+    }
+
+    if (documentType === "valid_id" && !isBorrowerValidIdType(validIdType)) {
+      return {
+        ok: false,
+        message: "Choose the valid ID type.",
       };
     }
 
@@ -2551,6 +2560,10 @@ export async function submitBorrowerVerificationDocument(
         p_borrower_verification_id: verification.id,
         p_storage_path: storagePath,
         p_document_type: documentType,
+        p_valid_id_type:
+          documentType === "valid_id" && isBorrowerValidIdType(validIdType)
+            ? validIdType
+            : null,
         p_file_name: documentFile.name,
         p_file_type: documentFile.type,
         p_file_size: documentFile.size,

@@ -26,6 +26,24 @@ export type BorrowerVerificationSummary = {
 export type BorrowerVerificationDocumentType =
   Database["public"]["Enums"]["borrower_verification_document_type"];
 
+export const borrowerValidIdTypes = [
+  "student_id",
+  "drivers_license",
+  "passport",
+  "sss",
+  "postal_id",
+] as const;
+
+export type BorrowerValidIdType = (typeof borrowerValidIdTypes)[number];
+
+export const borrowerValidIdTypeLabels: Record<BorrowerValidIdType, string> = {
+  student_id: "Student ID",
+  drivers_license: "Driver's license",
+  passport: "Passport",
+  sss: "SSS",
+  postal_id: "Postal ID",
+};
+
 export type BorrowerVerificationDocumentStatus =
   Database["public"]["Enums"]["borrower_verification_document_status"];
 
@@ -33,6 +51,7 @@ export type BorrowerVerificationDocumentSummary = {
   id: string;
   borrowerVerificationId: string;
   documentType: BorrowerVerificationDocumentType;
+  validIdType: BorrowerValidIdType | null;
   status: BorrowerVerificationDocumentStatus;
   fileName: string;
   fileType: string;
@@ -84,7 +103,7 @@ export const borrowerVerificationDocumentTypeDescriptions: Record<
   string
 > = {
   valid_id:
-    "Government-issued ID, school ID, employee ID, or another accepted identity document.",
+    "Choose Student ID, driver's license, passport, SSS, or Postal ID.",
   business_proof:
     "Barangay business permit, DTI/SEC/CDA registration, mayor's permit, store photo with signage, supplier invoice, or sales record.",
   address_proof: "Utility bill, lease agreement, or barangay certificate.",
@@ -151,6 +170,15 @@ export function normalizeVerificationValue(value: unknown) {
 export function isAcceptedVerificationStatus(status: unknown) {
   return ["accepted", "approved", "verified"].includes(
     normalizeVerificationValue(status),
+  );
+}
+
+export function isBorrowerValidIdType(
+  value: unknown,
+): value is BorrowerValidIdType {
+  return (
+    typeof value === "string" &&
+    borrowerValidIdTypes.includes(value as BorrowerValidIdType)
   );
 }
 
@@ -356,7 +384,7 @@ export async function getBorrowerVerificationStatus(
   const { data: documents } = await supabase
     .from("borrower_verification_documents")
     .select(
-      "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at",
+      "id, borrower_verification_id, borrower_id, storage_bucket, storage_path, document_type, valid_id_type, file_name, file_type, file_size, status, uploaded_at, reviewed_at, reviewed_by, review_notes, ai_review_status, ai_review_confidence, ai_detected_document_type, ai_review_reason, ai_risk_flags, ai_model, ai_reviewed_at, created_at, updated_at",
     )
     .eq("borrower_verification_id", data.id)
     .order("uploaded_at", { ascending: false });
@@ -402,6 +430,9 @@ export function mapBorrowerVerificationDocumentRow(
     id: row.id,
     borrowerVerificationId: row.borrower_verification_id,
     documentType: row.document_type,
+    validIdType: isBorrowerValidIdType(row.valid_id_type)
+      ? row.valid_id_type
+      : null,
     status: row.status,
     fileName: row.file_name,
     fileType: row.file_type,

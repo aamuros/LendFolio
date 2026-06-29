@@ -811,6 +811,7 @@ export type Database = {
           storage_bucket: string;
           storage_path: string;
           document_type: BorrowerVerificationDocumentType;
+          valid_id_type: string | null;
           file_name: string;
           file_type: string;
           file_size: number;
@@ -836,6 +837,7 @@ export type Database = {
           storage_bucket?: string;
           storage_path: string;
           document_type: BorrowerVerificationDocumentType;
+          valid_id_type?: string | null;
           file_name: string;
           file_type: string;
           file_size: number;
@@ -861,6 +863,7 @@ export type Database = {
           storage_bucket?: string;
           storage_path?: string;
           document_type?: BorrowerVerificationDocumentType;
+          valid_id_type?: string | null;
           file_name?: string;
           file_type?: string;
           file_size?: number;
@@ -1684,6 +1687,7 @@ export type Database = {
           p_borrower_verification_id: string;
           p_storage_path: string;
           p_document_type: BorrowerVerificationDocumentType;
+          p_valid_id_type?: string | null;
           p_file_name: string;
           p_file_type: string;
           p_file_size: number;
