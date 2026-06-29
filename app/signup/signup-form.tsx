@@ -10,7 +10,7 @@ import {
   isSignupDuplicateEmailError,
   isSignupValidationError,
 } from "@/lib/auth-signup-errors";
-import type { SignupRole } from "@/lib/signup";
+import { fullNameInputPattern, type SignupRole } from "@/lib/signup";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input, PasswordInput } from "@/components/ui/input";
@@ -235,6 +235,8 @@ function SignupFormContent({
                 name="displayName"
                 autoComplete="name"
                 placeholder="Juan dela Cruz"
+                pattern={fullNameInputPattern}
+                title="Enter your first and last name using letters only."
                 className="h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm transition-colors placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25"
                 defaultValue={state.values?.displayName}
                 required

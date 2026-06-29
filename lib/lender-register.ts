@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { fullNameSchema } from "@/lib/signup";
 
 const requiredConsentCheckbox = (message: string) =>
   z.preprocess(
@@ -8,11 +9,7 @@ const requiredConsentCheckbox = (message: string) =>
 
 export const lenderRegisterSchema = z
   .object({
-    displayName: z
-      .string()
-      .trim()
-      .min(2, "Enter your full name.")
-      .max(120, "Name must be 120 characters or fewer."),
+    displayName: fullNameSchema,
     email: z
       .string()
       .trim()

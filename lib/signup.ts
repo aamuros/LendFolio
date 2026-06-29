@@ -10,16 +10,26 @@ const requiredConsentCheckbox = (message: string) =>
     z.literal(true, { error: message }),
   );
 
+export const fullNameInputPattern = "[A-Za-zÀ-ÖØ-öø-ÿÑñ]+(?:[ .'’-][A-Za-zÀ-ÖØ-öø-ÿÑñ]+)+";
+
+const fullNamePattern = new RegExp(`^${fullNameInputPattern}$`, "u");
+
+export const fullNameSchema = z
+  .string()
+  .trim()
+  .min(2, "Enter your full name.")
+  .max(120, "Name must be 120 characters or fewer.")
+  .regex(
+    fullNamePattern,
+    "Enter your first and last name using letters only.",
+  );
+
 export const signupSchema = z
   .object({
     role: z.enum(signupRoles, {
       error: "Choose borrower or lender.",
     }),
-    displayName: z
-      .string()
-      .trim()
-      .min(2, "Enter your full name.")
-      .max(120, "Name must be 120 characters or fewer."),
+    displayName: fullNameSchema,
     email: z
       .string()
       .trim()
