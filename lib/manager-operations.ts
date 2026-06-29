@@ -1999,7 +1999,6 @@ async function mapManagerLoans(
       principalAmount: loan.principal_amount,
       repaymentAmount: loan.repayment_amount,
       fees: loan.fees,
-      processingFee: loan.processing_fee_amount ?? 0,
     });
 
     return {
@@ -2143,7 +2142,6 @@ async function mapManagerApplications(
               principalAmount: acceptedOffer.approved_amount,
               repaymentAmount: acceptedOffer.repayment_amount,
               fees: acceptedOffer.fees,
-              processingFee: acceptedOffer.processing_fee_amount ?? 0,
             }),
             totalRepaymentAmount: acceptedOffer.repayment_amount,
             dueDate: acceptedOffer.due_date,

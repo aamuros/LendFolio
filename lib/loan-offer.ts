@@ -101,8 +101,7 @@ export const loanOfferSchema = z
     repaymentAmount:
       values.approvedAmount +
       roundMoney(values.approvedAmount * (values.interestServiceChargeRate / 100)) +
-      values.fees +
-      calculatePlatformProcessingFee(values.approvedAmount),
+      values.fees,
   }))
   .refine((values) => values.repaymentAmount <= 1_500_000, {
     path: ["interestServiceChargeRate"],
@@ -141,14 +140,12 @@ export function deriveInterestAmount({
   principalAmount,
   repaymentAmount,
   fees,
-  processingFee = 0,
 }: {
   principalAmount: number;
   repaymentAmount: number;
   fees: number;
-  processingFee?: number;
 }) {
-  return Math.max(0, repaymentAmount - principalAmount - fees - processingFee);
+  return Math.max(0, repaymentAmount - principalAmount - fees);
 }
 
 export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
@@ -157,7 +154,6 @@ export function mapLoanOfferRow(row: LoanOfferRow): LoanOfferSummary {
     principalAmount: row.approved_amount,
     repaymentAmount: row.repayment_amount,
     fees: row.fees,
-    processingFee,
   });
 
   return {

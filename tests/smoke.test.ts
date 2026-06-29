@@ -980,7 +980,7 @@ describe("loan offer schema", () => {
     if (!result.success) {
       throw new Error("Expected offer schema to accept valid fields.");
     }
-    expect(result.data.repaymentAmount).toBe(22_400);
+    expect(result.data.repaymentAmount).toBe(22_000);
     expect(result.data.processingFee).toBe(400);
   });
 

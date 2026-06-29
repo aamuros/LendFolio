@@ -3832,12 +3832,16 @@ function ActiveLoanCard({
             <SummaryItem label="Interest/service charge" value={formatMoney(loan.interestAmount)} />
             <SummaryItem label="Other fees" value={formatMoney(loan.fees)} />
             <SummaryItem label="System processing fee" value={formatMoney(loan.processingFee)} />
+            <SummaryItem
+              label="Net funds received"
+              value={formatMoney(Math.max(0, loan.principalAmount - loan.processingFee))}
+            />
             <SummaryItem label="Total repayment" value={formatMoney(loan.totalRepaymentAmount)} />
             <SummaryItem label="Schedule total" value={formatMoney(scheduleTotal)} />
             <SummaryItem label="Final due" value={formatDateOnly(loan.dueDate)} />
           </div>
           <p className="text-sm leading-6 text-muted-foreground">
-            Total repayment includes principal, interest/service charge, other fees, and system processing fee.
+            The processing fee is deducted from released funds and is not added to total repayment.
           </p>
 
           <div className="grid gap-2">

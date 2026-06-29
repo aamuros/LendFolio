@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { User, LogOut, UserCircle } from "lucide-react";
+import { Building2, User, LogOut, UserCircle } from "lucide-react";
 import { signOutAction } from "@/app/login/actions";
 import { Logo } from "@/components/brand/logo";
 import { NotificationButton } from "@/components/notification-button";
@@ -33,6 +33,7 @@ export function AppHeader({
   onAccountClick,
   accountHref,
   accountLabel = "Account",
+  lenderDirectoryHref,
 }: {
   navItems: AppHeaderNavItem[];
   activeNavId: string;
@@ -44,6 +45,7 @@ export function AppHeader({
   onAccountClick?: () => void;
   accountHref?: string;
   accountLabel?: string;
+  lenderDirectoryHref?: string;
 }) {
   return (
     <header className="sticky top-0 z-30 w-full border-b border-border/70 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85">
@@ -94,6 +96,13 @@ export function AppHeader({
           </nav>
         </div>
         <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5">
+          {lenderDirectoryHref ? (
+            <Button asChild variant="ghost" size="icon" className="size-10 rounded-xl">
+              <Link href={lenderDirectoryHref} aria-label="Browse lenders">
+                <Building2 className="size-5" />
+              </Link>
+            </Button>
+          ) : null}
           {showNotifications ? <NotificationButton /> : null}
           {showAccountMenu ? (
             <DropdownMenu>

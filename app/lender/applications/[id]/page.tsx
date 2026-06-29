@@ -477,6 +477,10 @@ function OfferSummary({
         value={`PHP ${formatCurrency(offer.processingFee)}`}
       />
       <ReviewItem
+        label="Net funds to release"
+        value={`PHP ${formatCurrency(Math.max(0, offer.principalAmount - offer.processingFee))}`}
+      />
+      <ReviewItem
         label="Total repayment"
         value={`PHP ${formatCurrency(offer.totalRepaymentAmount)}`}
       />

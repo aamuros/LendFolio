@@ -201,8 +201,7 @@ export default async function ManagerApplicationDetailPage({
                       0,
                       acceptedOffer.repayment_amount -
                         acceptedOffer.approved_amount -
-                        acceptedOffer.fees -
-                        (acceptedOffer.processing_fee_amount ?? 0),
+                        acceptedOffer.fees,
                     ),
                   )}
                 />
@@ -213,6 +212,13 @@ export default async function ManagerApplicationDetailPage({
                 <DetailItem
                   label="System processing fee"
                   value={formatCurrency(acceptedOffer.processing_fee_amount ?? 0)}
+                />
+                <DetailItem
+                  label="Net funds released"
+                  value={formatCurrency(
+                    acceptedOffer.approved_amount -
+                      (acceptedOffer.processing_fee_amount ?? 0),
+                  )}
                 />
                 <DetailItem
                   label="Total repayment"

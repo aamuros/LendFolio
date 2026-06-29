@@ -241,7 +241,6 @@ export function mapActiveLoanRow(
     principalAmount: row.principal_amount,
     repaymentAmount: row.repayment_amount,
     fees: row.fees,
-    processingFee: row.processing_fee_amount ?? 0,
   });
 
   return {

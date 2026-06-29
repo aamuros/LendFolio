@@ -212,7 +212,7 @@ describe("createLoanOffer", () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
-      p_repayment_amount: 22400,
+      p_repayment_amount: 22000,
       p_interest_service_charge_rate: 7.5,
       p_fees: 500,
       p_processing_fee_rate: 0.02,
@@ -306,7 +306,7 @@ describe("createLoanOffer", () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
-      p_repayment_amount: 22400,
+      p_repayment_amount: 22000,
       p_interest_service_charge_rate: 7.5,
       p_fees: 500,
       p_processing_fee_rate: 0.02,
@@ -397,7 +397,7 @@ describe("createLoanOffer", () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
       p_approved_amount: 7000,
-      p_repayment_amount: 8140,
+      p_repayment_amount: 8000,
       p_interest_service_charge_rate: 14.285714,
       p_fees: 0,
       p_processing_fee_rate: 0.02,
@@ -563,7 +563,7 @@ describe("createLoanOffer", () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
       p_approved_amount: 43000,
-      p_repayment_amount: 50860,
+      p_repayment_amount: 50000,
       p_interest_service_charge_rate: 11.627907,
       p_fees: 2000,
       p_processing_fee_rate: 0.02,
@@ -806,7 +806,7 @@ describe("createLoanOffer", () => {
     expect(mockSupabase.rpc).toHaveBeenCalledWith("create_loan_offer", {
       p_loan_application_id: "application-1",
       p_approved_amount: 20000,
-      p_repayment_amount: 21900,
+      p_repayment_amount: 21500,
       p_interest_service_charge_rate: 7.5,
       p_fees: 0,
       p_processing_fee_rate: 0.02,

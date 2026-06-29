@@ -1529,6 +1529,18 @@ export type Database = {
       };
     };
     Functions: {
+      list_approved_lenders_for_borrowers: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          id: string;
+          organization_name: string;
+          operating_area: string | null;
+          min_loan_amount: number | null;
+          max_loan_amount: number | null;
+          typical_repayment_terms: string | null;
+          lender_description: string | null;
+        }[];
+      };
       signup_email_exists: {
         Args: {
           p_email: string;

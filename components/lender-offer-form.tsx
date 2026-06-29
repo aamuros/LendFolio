@@ -120,9 +120,8 @@ export function LenderOfferForm({
                 <span className="font-semibold text-foreground">
                   PHP {formatCurrency(maxPrincipal)}
                 </span>
-                . Principal is checked against borrower credit limit. Interest,
-                other fees, and the system processing fee are added only to
-                repayment.
+                . Principal is checked against borrower credit limit. The system
+                processing fee is deducted from the released funds.
               </p>
             </div>
 
@@ -428,8 +427,8 @@ function RepaymentSummary({
         </p>
       </div>
       <p className="mt-1 text-xs leading-5 text-muted-foreground">
-        Calculated from principal, interest/service charge, other fees, and
-        system processing fee.
+        Calculated from principal, interest/service charge, and other
+        borrower-paid fees. The processing fee is deducted before release.
       </p>
       <dl className="mt-3 grid grid-cols-2 gap-2 text-sm lg:grid-cols-1">
         <div>
@@ -455,6 +454,12 @@ function RepaymentSummary({
             System processing fee ({formatPercent(PLATFORM_PROCESSING_FEE_RATE * 100)})
           </dt>
           <dd className="font-semibold">PHP {formatCurrency(processingFee)}</dd>
+        </div>
+        <div>
+          <dt className="text-xs text-muted-foreground">Net funds to release</dt>
+          <dd className="font-semibold">
+            PHP {formatCurrency(Math.max(0, approvedAmount - processingFee))}
+          </dd>
         </div>
       </dl>
     </section>

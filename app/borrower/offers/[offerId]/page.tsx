@@ -140,6 +140,12 @@ export default async function BorrowerOfferDetailsPage({
                 value={formatMoney(offer.processingFee)}
               />
               <SummaryItem
+                label="Net funds to receive"
+                value={formatMoney(
+                  Math.max(0, offer.principalAmount - offer.processingFee),
+                )}
+              />
+              <SummaryItem
                 label="Total repayment"
                 value={formatMoney(offer.totalRepaymentAmount)}
               />
