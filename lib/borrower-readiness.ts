@@ -56,7 +56,6 @@ const requiredProfileFields = [
   ["confirmsInformationTrue", "Truthfulness confirmation"],
   ["consentsToDataProcessing", "Data processing consent"],
   ["consentsToCreditCheck", "Credit check consent"],
-  ["confirmsBusinessOperating", "Business operating confirmation"],
 ] as const satisfies ReadonlyArray<readonly [keyof BorrowerPortfolioInput, string]>;
 
 export function evaluateBorrowerReadiness(
@@ -133,6 +132,15 @@ export function evaluateBorrowerReadiness(
     : 0;
   const businessProofState = getBusinessProofState(gates);
   const hasBusinessProofAccepted = businessProofState === "accepted";
+
+  if (
+    !parsedPortfolio.confirmsBusinessOperating &&
+    !parsedPortfolio.businessTemporarilyStopped
+  ) {
+    missingFields.push("Business operating confirmation");
+  } else if (parsedPortfolio.businessTemporarilyStopped) {
+    blockingFlags.add("business_not_operating");
+  }
 
   if (!hasBusinessLocation(parsedPortfolio)) missingFields.push("Business location");
   if (parsedPortfolio.monthlyGrossRevenue <= 0) {
@@ -368,6 +376,9 @@ function getNotEligibleActions(
   }
   if (blockingFlags.has("zero_revenue")) {
     actions.push("Add monthly revenue before applying.");
+  }
+  if (blockingFlags.has("business_not_operating")) {
+    actions.push("Your business must be currently operating before you can apply.");
   }
   if (blockingFlags.has("suspended")) {
     actions.push("This account is suspended.");

@@ -786,9 +786,28 @@ describe("microbusiness borrower readiness", () => {
     }
   });
 
-  it("blocks readiness when business operating confirmation is false", () => {
+  it("marks a temporarily stopped business as not eligible instead of incomplete", () => {
     const readiness = evaluateBorrowerReadiness(
-      completeProfile({ confirmsBusinessOperating: false }),
+      completeProfile({
+        confirmsBusinessOperating: false,
+        businessTemporarilyStopped: true,
+      }),
+    );
+
+    expect(readiness.readinessStatus).toBe("not_eligible");
+    expect(readiness.missingFields).not.toContain("Business operating confirmation");
+    expect(readiness.riskFlags).toContain("business_not_operating");
+    expect(readiness.nextActions).toContain(
+      "Your business must be currently operating before you can apply.",
+    );
+  });
+
+  it("keeps business status incomplete when neither option is selected", () => {
+    const readiness = evaluateBorrowerReadiness(
+      completeProfile({
+        confirmsBusinessOperating: false,
+        businessTemporarilyStopped: false,
+      }),
     );
 
     expect(readiness.readinessStatus).toBe("incomplete");
