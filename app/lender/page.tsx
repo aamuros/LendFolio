@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { ToneBadge } from "@/components/borrower-status-badge";
 import {
   BorrowerCard,
@@ -74,13 +75,24 @@ type LenderPageProps = {
     offerId?: string;
     proofId?: string;
     loanGroup?: string;
+    offerDateFrom?: string;
+    offerDateTo?: string;
   }>;
 };
 
 type OfferStatusFilter = "pending" | "accepted" | "declined" | "expired" | "other";
 
 export default async function LenderPage({ searchParams }: LenderPageProps) {
-  const { message, tab, offerStatus, offerId, proofId, loanGroup } =
+  const {
+    message,
+    tab,
+    offerStatus,
+    offerId,
+    proofId,
+    loanGroup,
+    offerDateFrom,
+    offerDateTo,
+  } =
     await searchParams;
 
   if (message === "signed-in") {
@@ -197,6 +209,8 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
                   selectedStatus={selectedOfferStatus}
                   highlightOfferId={null}
                   highlightProofId={null}
+                  dateFrom={offerDateFrom}
+                  dateTo={offerDateTo}
                 />
               </div>
             ) : null}
@@ -331,6 +345,8 @@ export default async function LenderPage({ searchParams }: LenderPageProps) {
               selectedStatus={selectedOfferStatus}
               highlightOfferId={offerId ?? null}
               highlightProofId={proofId ?? null}
+              dateFrom={offerDateFrom}
+              dateTo={offerDateTo}
             />
           ) : null}
 
@@ -790,19 +806,25 @@ function OffersTab({
   selectedStatus,
   highlightOfferId,
   highlightProofId,
+  dateFrom,
+  dateTo,
 }: {
   offers: LenderOfferReview[];
   error: string;
   selectedStatus: OfferStatusFilter;
   highlightOfferId: string | null;
   highlightProofId: string | null;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const knownStatuses = new Set(["pending", "accepted", "declined", "expired"]);
-  const visibleOffers = offers.filter((offer) =>
-    selectedStatus === "other"
+  const visibleOffers = offers.filter((offer) => {
+    const matchesStatus = selectedStatus === "other"
       ? !knownStatuses.has(offer.status)
-      : offer.status === selectedStatus,
-  );
+      : offer.status === selectedStatus;
+
+    return matchesStatus && matchesDateRange(offer.sentAt, dateFrom, dateTo);
+  });
   const hasOtherOffers = offers.some((offer) => !knownStatuses.has(offer.status));
   const statusLinks: Array<{
     status: OfferStatusFilter;
@@ -813,25 +835,25 @@ function OffersTab({
     {
       status: "pending",
       label: "Pending",
-      href: "/lender?tab=offers",
+      href: buildOfferFilterHref("pending", dateFrom, dateTo),
       count: offers.filter((offer) => offer.status === "pending").length,
     },
     {
       status: "accepted",
       label: "Accepted offers",
-      href: "/lender?tab=offers&offerStatus=accepted",
+      href: buildOfferFilterHref("accepted", dateFrom, dateTo),
       count: offers.filter((offer) => offer.status === "accepted").length,
     },
     {
       status: "declined",
       label: "Declined offers",
-      href: "/lender?tab=offers&offerStatus=declined",
+      href: buildOfferFilterHref("declined", dateFrom, dateTo),
       count: offers.filter((offer) => offer.status === "declined").length,
     },
     {
       status: "expired",
       label: "Expired",
-      href: "/lender?tab=offers&offerStatus=expired",
+      href: buildOfferFilterHref("expired", dateFrom, dateTo),
       count: offers.filter((offer) => offer.status === "expired").length,
     },
     ...(hasOtherOffers
@@ -839,7 +861,7 @@ function OffersTab({
           {
             status: "other" as const,
             label: "Other",
-            href: "/lender?tab=offers&offerStatus=other",
+            href: buildOfferFilterHref("other", dateFrom, dateTo),
             count: offers.filter((offer) => !knownStatuses.has(offer.status)).length,
           },
         ]
@@ -878,6 +900,33 @@ function OffersTab({
       </div>
 
       {error ? <LenderApplicationsStatus message={error} tone="error" /> : null}
+
+      {offers.length > 0 ? (
+        <Card className="rounded-2xl border-border/75 bg-card/75">
+          <CardContent className="p-4 sm:p-5">
+            <form className="grid gap-3 sm:grid-cols-[minmax(150px,1fr)_minmax(150px,1fr)_auto] sm:items-end">
+              <input type="hidden" name="tab" value="offers" />
+              <input type="hidden" name="offerStatus" value={selectedStatus} />
+              <label className="grid gap-1" htmlFor="offer-date-from">
+                <span className="text-xs font-semibold text-muted-foreground">Offered from</span>
+                <Input id="offer-date-from" name="offerDateFrom" type="date" defaultValue={dateFrom} />
+              </label>
+              <label className="grid gap-1" htmlFor="offer-date-to">
+                <span className="text-xs font-semibold text-muted-foreground">Offered to</span>
+                <Input id="offer-date-to" name="offerDateTo" type="date" defaultValue={dateTo} />
+              </label>
+              <div className="flex gap-2">
+                <Button type="submit">Apply</Button>
+                {dateFrom || dateTo ? (
+                  <Button variant="outline" asChild>
+                    <Link href={buildOfferFilterHref(selectedStatus)}>Clear</Link>
+                  </Button>
+                ) : null}
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      ) : null}
 
       {offers.length === 0 && !error ? (
         <Card className="rounded-2xl border-dashed border-border/50">
@@ -941,6 +990,30 @@ function OffersTab({
       ) : null}
     </section>
   );
+}
+
+function buildOfferFilterHref(
+  status: OfferStatusFilter,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const params = new URLSearchParams({ tab: "offers" });
+  if (status !== "pending") params.set("offerStatus", status);
+  if (dateFrom) params.set("offerDateFrom", dateFrom);
+  if (dateTo) params.set("offerDateTo", dateTo);
+  return `/lender?${params.toString()}`;
+}
+
+function matchesDateRange(
+  value: string,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  const timestamp = new Date(value).getTime();
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00+08:00`).getTime() : null;
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999+08:00`).getTime() : null;
+
+  return (from === null || timestamp >= from) && (to === null || timestamp <= to);
 }
 
 function offerStatusTone(status: string) {

@@ -58,6 +58,8 @@ const filterKeys = {
   term: "applicationTerm",
   amount: "applicationAmount",
   offerStatus: "applicationOfferStatus",
+  dateFrom: "applicationDateFrom",
+  dateTo: "applicationDateTo",
   sort: "applicationSort",
 } as const;
 const removedFilterKeys = ["applicationPurpose"] as const;
@@ -122,6 +124,8 @@ export function LenderApplicationsList({
     searchParams.get(filterKeys.offerStatus),
   );
   const sort = normalizeSortOption(searchParams.get(filterKeys.sort));
+  const dateFrom = searchParams.get(filterKeys.dateFrom) ?? "";
+  const dateTo = searchParams.get(filterKeys.dateTo) ?? "";
 
   useEffect(() => {
     if (!removedFilterKeys.some((key) => searchParams.has(key))) {
@@ -169,23 +173,33 @@ export function LenderApplicationsList({
           return false;
         }
 
+        if (!matchesDateRange(application.submittedAt, dateFrom, dateTo)) {
+          return false;
+        }
+
         return matchesOfferStatusFilter(application, offerStatus);
       })
       .sort((a, b) => compareApplications(a, b, sort));
-  }, [amount, applications, offerStatus, search, sort, term]);
+  }, [amount, applications, dateFrom, dateTo, offerStatus, search, sort, term]);
 
   const hasActiveFilters =
     search.length > 0 ||
     term !== "all" ||
     amount !== "any" ||
     offerStatus !== "all" ||
+    dateFrom.length > 0 ||
+    dateTo.length > 0 ||
     sort !== "newest";
 
   function setFilter(key: keyof typeof filterKeys, value: string) {
     const params = new URLSearchParams(searchParams.toString());
     const paramKey = filterKeys[key];
     const defaultValue =
-      key === "sort" ? "newest" : key === "search" ? "" : "all";
+      key === "sort"
+        ? "newest"
+        : key === "search" || key === "dateFrom" || key === "dateTo"
+          ? ""
+          : "all";
 
     removedFilterKeys.forEach((removedKey) => params.delete(removedKey));
 
@@ -234,7 +248,7 @@ export function LenderApplicationsList({
   return (
     <div className="grid gap-5 pt-1">
       <div className="grid min-w-0 gap-3 rounded-2xl border border-border/75 bg-card/75 p-4 shadow-[0_8px_20px_rgba(15,23,18,0.04)] sm:p-5">
-        <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-[minmax(260px,1.4fr)_repeat(4,minmax(160px,1fr))]">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(240px,1.4fr)_repeat(6,minmax(145px,1fr))]">
           <label className="grid min-w-0 gap-1" htmlFor="lender-application-search">
             <span className="text-xs font-semibold text-muted-foreground">
               Search
@@ -262,6 +276,16 @@ export function LenderApplicationsList({
                 value: String(termOption),
               })),
             ]}
+          />
+          <DateFilter
+            label="Applied from"
+            value={dateFrom}
+            onChange={(value) => setFilter("dateFrom", value)}
+          />
+          <DateFilter
+            label="Applied to"
+            value={dateTo}
+            onChange={(value) => setFilter("dateTo", value)}
           />
           <FilterSelect
             label="Amount"
@@ -309,6 +333,8 @@ export function LenderApplicationsList({
               {offerStatus !== "all" ? (
                 <FilterChip label={offerStatusFilterLabels[offerStatus]} />
               ) : null}
+              {dateFrom ? <FilterChip label={`From: ${dateFrom}`} /> : null}
+              {dateTo ? <FilterChip label={`To: ${dateTo}`} /> : null}
               {sort !== "newest" ? <FilterChip label={sortLabels[sort]} /> : null}
             </div>
             <Button
@@ -411,6 +437,36 @@ export function LenderApplicationsList({
       ))}
     </div>
   );
+}
+
+function DateFilter({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="grid min-w-0 gap-1">
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <Input
+        type="date"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        className="h-10 rounded-xl bg-background"
+      />
+    </label>
+  );
+}
+
+function matchesDateRange(value: string, dateFrom: string, dateTo: string) {
+  const timestamp = new Date(value).getTime();
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00+08:00`).getTime() : null;
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999+08:00`).getTime() : null;
+
+  return (from === null || timestamp >= from) && (to === null || timestamp <= to);
 }
 
 function FilterSelect({
