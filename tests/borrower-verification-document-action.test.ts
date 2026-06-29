@@ -273,7 +273,7 @@ describe("submitBorrowerVerificationDocument", () => {
     });
   });
 
-  it("warns without blocking when AI says the document needs manual review", async () => {
+  it("asks for a clearer upload when AI cannot confidently accept the document", async () => {
     mockedCheckVerificationDocumentWithAi.mockResolvedValueOnce({
       isDocument: true,
       detectedType: "unknown",
@@ -298,7 +298,7 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(result).toEqual({
       ok: true,
       message:
-        "The document was submitted, but it may need closer manual review.",
+        "This upload was not accepted. Upload a clearer document to continue verification.",
       documentId: "document-1",
       aiReviewStatus: "needs_manual_review",
     });
@@ -330,7 +330,7 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(result).toEqual({
       ok: true,
       message:
-        "The document was submitted for manual review. AI pre-screening was unavailable.",
+        "This upload could not be checked automatically. Upload a clearer document to continue verification.",
       documentId: "document-1",
       aiReviewStatus: "error",
     });

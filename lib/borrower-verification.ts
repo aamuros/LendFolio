@@ -321,10 +321,10 @@ export function getBorrowerVerificationMessage(
   }
 
   if (!verification.documentPolicy.readyForManagerReview) {
-    return "Upload the required verification documents before manager review.";
+    return "Upload accepted verification documents before applying.";
   }
 
-  return "Your borrower verification is waiting for manager review.";
+  return "Your borrower verification documents are being checked.";
 }
 
 export async function getBorrowerVerificationStatus(
@@ -427,8 +427,8 @@ export const borrowerFacingVerificationStateLabels: Record<
 > = {
   missing_disclosures: "Accept disclosures",
   missing_documents: "Documents needed",
-  waiting_review: "Waiting for review",
-  under_review: "Under review",
+  waiting_review: "Checking documents",
+  under_review: "Checking documents",
   needs_update: "Needs update",
   approved: "Approved",
 };
@@ -441,8 +441,8 @@ export const borrowerFacingVerificationStateDescriptions: Record<
     "Accept the verification disclosures before uploading documents.",
   missing_documents: "Upload your Valid ID and Business proof to continue.",
   waiting_review:
-    "Your required documents are uploaded and waiting for manager review.",
-  under_review: "A manager is reviewing your verification documents.",
+    "Your required documents are being checked. Upload a replacement if a document is not accepted.",
+  under_review: "Your verification documents are being checked.",
   needs_update:
     "Some profile details changed after approval. Please replace your verification documents so we can review the updated information.",
   approved: "Your borrower verification is approved.",

@@ -84,7 +84,7 @@ describe("verification document policy", () => {
     expect(policy.documentsAccepted).toBe(false);
   });
 
-  it("marks ready for manager review when both required types are submitted", () => {
+  it("marks both required types as submitted before acceptance", () => {
     const documents = [
       createDocument({ documentType: "valid_id", status: "submitted" }),
       createDocument({ documentType: "business_proof", status: "submitted" }),
@@ -270,7 +270,7 @@ describe("verification messages", () => {
     expect(getBorrowerVerificationMessage(verification)).toContain("updates");
   });
 
-  it("returns review message when documents are ready for manager review", () => {
+  it("returns checking message when documents are uploaded but not accepted", () => {
     const documents = [
       createDocument({ documentType: "valid_id", status: "submitted" }),
       createDocument({ documentType: "business_proof", status: "submitted" }),
@@ -280,6 +280,6 @@ describe("verification messages", () => {
       documents,
       documentPolicy: calculateBorrowerVerificationDocumentPolicy(documents),
     });
-    expect(getBorrowerVerificationMessage(verification)).toContain("manager review");
+    expect(getBorrowerVerificationMessage(verification)).toContain("being checked");
   });
 });

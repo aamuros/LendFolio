@@ -54,10 +54,18 @@ export function getDocumentAiUploadMessage(
   userRole: "borrower" | "lender" = "lender",
 ) {
   if (status === "fail") {
+    if (userRole === "borrower") {
+      return "This upload was not accepted. Upload the correct document to continue verification.";
+    }
+
     return "The document was submitted, but AI flagged it as possibly mismatched. You may replace it with the correct document, or wait for manager review.";
   }
 
   if (status === "needs_manual_review") {
+    if (userRole === "borrower") {
+      return "This upload was not accepted. Upload a clearer document to continue verification.";
+    }
+
     return "The document was submitted, but it may need closer manual review.";
   }
 
@@ -70,6 +78,10 @@ export function getDocumentAiUploadMessage(
   }
 
   if (status === "error") {
+    if (userRole === "borrower") {
+      return "This upload could not be checked automatically. Upload a clearer document to continue verification.";
+    }
+
     return "The document was submitted for manual review. AI pre-screening was unavailable.";
   }
 

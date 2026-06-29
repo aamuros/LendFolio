@@ -224,7 +224,7 @@ function HeaderCard({
       {isWaiting ? (
         <div className="flex items-center gap-2 rounded-lg border border-[#E2DAC6] bg-[#F8F1DD] px-3.5 py-2.5 text-xs text-[#6A4B17]">
           <Clock className="size-3.5 shrink-0" />
-          No action needed right now.
+          We will ask for a replacement if a document is not accepted.
         </div>
       ) : null}
       {verification.rejectionReason && !needsUpdate ? (
@@ -737,7 +737,7 @@ function getRequiredDocumentDisplayStatus(
   if (policy.submittedDocumentTypes.includes(documentType)) {
     return {
       state: "submitted",
-      label: "Uploaded, waiting for review",
+      label: "Checking upload",
       tone: "neutral",
     };
   }
