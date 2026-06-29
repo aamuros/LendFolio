@@ -798,6 +798,15 @@ function LenderDetailsSection({ lender }: { lender: ManagerLenderRow }) {
     lender.minLoanAmount === 0 && lender.maxLoanAmount === 0
       ? null
       : `${formatCurrency(lender.minLoanAmount)} \u2013 ${formatCurrency(lender.maxLoanAmount)}`;
+  const fullAddress = [
+    lender.businessAddress,
+    lender.addressBarangay,
+    lender.addressCityOrMunicipality,
+    lender.addressRegion,
+    lender.addressZipCode,
+  ]
+    .filter(Boolean)
+    .join(", ");
 
   return (
     <div className="space-y-3">
@@ -807,9 +816,49 @@ function LenderDetailsSection({ lender }: { lender: ManagerLenderRow }) {
       </div>
       <div className="grid gap-2 sm:grid-cols-3">
         <MetaCard
-          label="Contact"
-          value={lender.phoneNumber || lender.contactPerson || null}
+          label="Organization"
+          value={lender.organizationName || null}
           fallback="Missing"
+        />
+        <MetaCard
+          label="Contact person"
+          value={lender.contactPerson || null}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Phone"
+          value={lender.phoneNumber || null}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Business address"
+          value={fullAddress || lender.businessAddress || null}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Region"
+          value={lender.addressRegion}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="City / Municipality"
+          value={lender.addressCityOrMunicipality}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Barangay"
+          value={lender.addressBarangay}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="ZIP code"
+          value={lender.addressZipCode}
+          fallback="Missing"
+        />
+        <MetaCard
+          label="Registration number"
+          value={lender.businessRegistrationNumber}
+          fallback="Not provided"
         />
         <MetaCard
           label="Lending area"
@@ -823,6 +872,14 @@ function LenderDetailsSection({ lender }: { lender: ManagerLenderRow }) {
             value={lender.typicalRepaymentTerms}
           />
         ) : null}
+        {lender.lenderDescription ? (
+          <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 sm:col-span-3">
+            <p className="text-xs font-medium text-muted-foreground">
+              Description
+            </p>
+            <p className="mt-1 text-sm">{lender.lenderDescription}</p>
+          </div>
+        ) : null}
       </div>
     </div>
   );
@@ -835,6 +892,13 @@ function ProfileDetailsContent({ lender }: { lender: ManagerLenderRow }) {
       <MetaCard label="Contact person" value={lender.contactPerson} />
       <MetaCard label="Phone" value={lender.phoneNumber} />
       <MetaCard label="Business address" value={lender.businessAddress} />
+      <MetaCard label="Region" value={lender.addressRegion} />
+      <MetaCard
+        label="City / Municipality"
+        value={lender.addressCityOrMunicipality}
+      />
+      <MetaCard label="Barangay" value={lender.addressBarangay} />
+      <MetaCard label="ZIP code" value={lender.addressZipCode} />
       <MetaCard
         label="Registration number"
         value={lender.businessRegistrationNumber}

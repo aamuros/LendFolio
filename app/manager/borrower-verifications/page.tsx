@@ -20,6 +20,7 @@ import {
   StatusBadge,
   StatusMessage,
   TextFilter,
+  formatCurrency,
   formatDateTime,
 } from "../manager-ui";
 import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
@@ -515,6 +516,8 @@ function SelectedBorrowerDetail({
 
   const mainContent = (
     <div className="min-w-0 space-y-6">
+      <BorrowerSubmittedDetailsSection verification={verification} />
+
       <RequiredDocumentsSection
         verification={verification}
         selected={selected}
@@ -637,6 +640,123 @@ function MetaField({ label, value }: { label: string; value: string }) {
     <div className="grid gap-0.5">
       <dt className="text-muted-foreground">{label}</dt>
       <dd className="font-medium text-foreground">{value}</dd>
+    </div>
+  );
+}
+
+function DetailCard({
+  label,
+  value,
+  fallback = "\u2014",
+}: {
+  label: string;
+  value: string | number | null | undefined;
+  fallback?: string;
+}) {
+  return (
+    <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2">
+      <dt className="text-xs font-medium text-muted-foreground">{label}</dt>
+      <dd className="mt-1 text-sm font-medium break-words">
+        {value === null || value === undefined || value === "" ? fallback : value}
+      </dd>
+    </div>
+  );
+}
+
+function BorrowerSubmittedDetailsSection({
+  verification,
+}: {
+  verification: ManagerBorrowerVerificationRow;
+}) {
+  const portfolio = verification.portfolio;
+  const fullAddress = portfolio
+    ? [
+        portfolio.business_address,
+        portfolio.barangay,
+        portfolio.city_or_municipality,
+        portfolio.province,
+        portfolio.region,
+        portfolio.zip_code,
+      ]
+        .filter(Boolean)
+        .join(", ")
+    : null;
+  const monthlyNetCashFlow = portfolio
+    ? (portfolio.monthly_gross_revenue ?? 0) -
+      (portfolio.monthly_expenses ?? 0) -
+      (portfolio.existing_loan_payments ?? 0)
+    : null;
+  const formatOptionalCurrency = (value: number | null) =>
+    value === null ? null : formatCurrency(value);
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <ClipboardListIcon className="size-4 text-muted-foreground" />
+        <h3 className="text-sm font-semibold">Submitted borrower details</h3>
+      </div>
+      {!portfolio ? (
+        <Alert>
+          <AlertCircleIcon />
+          <AlertTitle>No business profile found</AlertTitle>
+          <AlertDescription>
+            This borrower has not saved business profile details yet.
+          </AlertDescription>
+        </Alert>
+      ) : (
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <DetailCard label="Business name" value={portfolio.business_name} />
+          <DetailCard label="Business type" value={portfolio.business_type} />
+          <DetailCard label="Started operating" value={portfolio.started_operating_at} />
+          <DetailCard label="Operating model" value={portfolio.operating_model} />
+          <DetailCard label="Sales channel" value={portfolio.primary_sales_channel} />
+          <DetailCard label="Location" value={portfolio.location} />
+          <DetailCard label="Business address" value={fullAddress} />
+          <DetailCard
+            label="Monthly gross revenue"
+            value={formatOptionalCurrency(portfolio.monthly_gross_revenue)}
+          />
+          <DetailCard
+            label="Monthly expenses"
+            value={formatOptionalCurrency(portfolio.monthly_expenses)}
+          />
+          <DetailCard
+            label="Existing loan payments"
+            value={formatOptionalCurrency(portfolio.existing_loan_payments)}
+          />
+          <DetailCard
+            label="Monthly net cash flow"
+            value={formatOptionalCurrency(monthlyNetCashFlow)}
+          />
+          <DetailCard label="Revenue confidence" value={portfolio.revenue_confidence} />
+          <DetailCard label="Revenue period" value={portfolio.revenue_period} />
+          <DetailCard label="Profile review status" value={portfolio.profile_review_status} />
+          <DetailCard
+            label="Last confirmed"
+            value={
+              portfolio.profile_last_confirmed_at
+                ? formatDateTime(portfolio.profile_last_confirmed_at)
+                : null
+            }
+          />
+          {portfolio.business_description ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 sm:col-span-2 xl:col-span-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Business description
+              </p>
+              <p className="mt-1 text-sm">{portfolio.business_description}</p>
+            </div>
+          ) : null}
+          {portfolio.loan_purpose_context ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 px-3 py-2 sm:col-span-2 xl:col-span-3">
+              <p className="text-xs font-medium text-muted-foreground">
+                Loan purpose context
+              </p>
+              <p className="mt-1 text-sm">{portfolio.loan_purpose_context}</p>
+            </div>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }

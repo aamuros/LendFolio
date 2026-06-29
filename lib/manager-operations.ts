@@ -258,6 +258,10 @@ export type ManagerLenderRow = {
   contactPerson: string;
   phoneNumber: string;
   businessAddress: string;
+  addressRegion: string | null;
+  addressCityOrMunicipality: string | null;
+  addressBarangay: string | null;
+  addressZipCode: string | null;
   operatingArea: string;
   businessRegistrationNumber: string | null;
   minLoanAmount: number;
@@ -332,6 +336,7 @@ export type ManagerBorrowerVerificationDocumentRow = {
 export type ManagerBorrowerVerificationRow = {
   id: string;
   borrower: ManagerProfileSummary;
+  portfolio: BorrowerPortfolioRow | null;
   verificationStatus: Database["public"]["Enums"]["borrower_verification_status"];
   submittedAt: string | null;
   createdAt: string;
@@ -1535,7 +1540,7 @@ export async function loadManagerBorrowerVerifications(
     .map((row) => row.reviewed_by)
     .filter(Boolean) as string[];
 
-  const [allDocumentRows, profiles, reviewerProfiles] = await Promise.all([
+  const [allDocumentRows, profiles, reviewerProfiles, portfolioMap] = await Promise.all([
     supabase
       .from("borrower_verification_documents")
       .select(borrowerVerificationDocumentSelect)
@@ -1543,6 +1548,7 @@ export async function loadManagerBorrowerVerifications(
       .order("uploaded_at", { ascending: false }),
     loadProfilesByIds(supabase, borrowerIdList),
     loadProfilesByIds(supabase, reviewedByIds),
+    loadPortfoliosByBorrowerIds(supabase, borrowerIdList),
   ]);
 
   const documentsByVerificationId = new Map<
@@ -1615,6 +1621,7 @@ export async function loadManagerBorrowerVerifications(
       return {
         id: row.id,
         borrower: getProfileSummary(profiles, row.borrower_id),
+        portfolio: portfolioMap.get(row.borrower_id) ?? null,
         verificationStatus: row.verification_status,
         submittedAt: row.submitted_at,
         createdAt: row.created_at,
@@ -1669,7 +1676,7 @@ export async function loadManagerBorrowerVerification(
     return { ok: true, message: "Borrower verification not found.", verification: null };
   }
 
-  const [allDocumentRows, profiles, reviewerProfiles] = await Promise.all([
+  const [allDocumentRows, profiles, reviewerProfiles, portfolioMap] = await Promise.all([
     supabase
       .from("borrower_verification_documents")
       .select(borrowerVerificationDocumentSelect)
@@ -1677,6 +1684,7 @@ export async function loadManagerBorrowerVerification(
       .order("uploaded_at", { ascending: false }),
     loadProfilesByIds(supabase, [row.borrower_id]),
     loadProfilesByIds(supabase, [row.reviewed_by].filter(Boolean) as string[]),
+    loadPortfoliosByBorrowerIds(supabase, [row.borrower_id]),
   ]);
 
   const rawDocs = allDocumentRows.data ?? [];
@@ -1709,6 +1717,7 @@ export async function loadManagerBorrowerVerification(
   const verification: ManagerBorrowerVerificationRow = {
     id: row.id,
     borrower: getProfileSummary(profiles, row.borrower_id),
+    portfolio: portfolioMap.get(row.borrower_id) ?? null,
     verificationStatus: row.verification_status,
     submittedAt: row.submitted_at,
     createdAt: row.created_at,
@@ -1778,6 +1787,10 @@ async function mapManagerLenderRows(
     contact_person: string | null;
     phone_number: string | null;
     business_address: string | null;
+    address_region: string | null;
+    address_city_or_municipality: string | null;
+    address_barangay: string | null;
+    address_zip_code: string | null;
     operating_area: string | null;
     business_registration_number: string | null;
     min_loan_amount: number | null;
@@ -1917,6 +1930,10 @@ async function mapManagerLenderRows(
       contactPerson: row.contact_person ?? "",
       phoneNumber: row.phone_number ?? "",
       businessAddress: row.business_address ?? "",
+      addressRegion: row.address_region,
+      addressCityOrMunicipality: row.address_city_or_municipality,
+      addressBarangay: row.address_barangay,
+      addressZipCode: row.address_zip_code,
       operatingArea: row.operating_area ?? "",
       businessRegistrationNumber: row.business_registration_number,
       minLoanAmount: row.min_loan_amount ?? 0,
