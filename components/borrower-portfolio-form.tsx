@@ -379,6 +379,35 @@ export function BorrowerPortfolioForm({
     void saveCurrentStep(values);
   }
 
+  function onInvalidSubmit(
+    formErrors: FieldErrors<BorrowerPortfolioFormInput>,
+  ) {
+    setSuccessMessage("");
+    setStatusMessage("Complete the highlighted field before continuing.");
+
+    const firstInvalidField = findFirstErrorPath(formErrors);
+    if (!firstInvalidField) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(firstInvalidField);
+
+      target?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLButtonElement
+      ) {
+        target.focus({ preventScroll: true });
+      }
+    });
+  }
+
   async function saveCurrentStep(values: BorrowerPortfolioInput) {
     setStatusMessage(`Saving ${currentStep.title.toLowerCase()}...`);
     setSuccessMessage("");
@@ -430,7 +459,7 @@ export function BorrowerPortfolioForm({
     <Card className="mx-auto w-full max-w-[960px] rounded-2xl">
       <CardContent className="p-5">
         <form
-          onSubmit={handleSubmit(onSubmit)}
+          onSubmit={handleSubmit(onSubmit, onInvalidSubmit)}
           onChange={() => {
             if (successMessage) setSuccessMessage("");
             if (Object.keys(serverErrors).length > 0) setServerErrors({});
@@ -1524,6 +1553,56 @@ function getStepIndex(step?: BorrowerPortfolioStep) {
 function getMilestoneIndex(stepId: BorrowerPortfolioMilestoneId) {
   const index = milestoneSteps.findIndex((step) => step.id === stepId);
   return index >= 0 ? index : 0;
+}
+
+function findFirstErrorPath(
+  errors: FieldErrors<BorrowerPortfolioFormInput>,
+): string | null {
+  for (const [key, value] of Object.entries(errors)) {
+    if (!value) {
+      continue;
+    }
+
+    if ("message" in value && value.message) {
+      return key;
+    }
+
+    if (typeof value === "object") {
+      const nested = findFirstNestedErrorPath(value);
+
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
+}
+
+function findFirstNestedErrorPath(value: object): string | null {
+  for (const [key, nestedValue] of Object.entries(value)) {
+    if (!nestedValue || key === "root") {
+      continue;
+    }
+
+    if (
+      typeof nestedValue === "object" &&
+      "message" in nestedValue &&
+      nestedValue.message
+    ) {
+      return key;
+    }
+
+    if (typeof nestedValue === "object") {
+      const nested = findFirstNestedErrorPath(nestedValue);
+
+      if (nested) {
+        return nested;
+      }
+    }
+  }
+
+  return null;
 }
 
 async function saveBorrowerPortfolioMilestone(

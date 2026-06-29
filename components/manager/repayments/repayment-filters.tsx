@@ -23,6 +23,16 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
       <CardContent>
         <FilterForm className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-[minmax(140px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(260px,1.4fr)_auto]">
           <div className="min-w-0">
+            <TextFilter label="Lender" name="lender" defaultValue={filters.lender} />
+          </div>
+          <div className="min-w-0">
+            <TextFilter
+              label="Borrower"
+              name="borrower"
+              defaultValue={filters.borrower}
+            />
+          </div>
+          <div className="min-w-0">
             <SelectFilter
               label="Proof status"
               name="proofStatus"
@@ -46,16 +56,6 @@ export function RepaymentFilters({ filters, hasActiveFilters }: RepaymentFilters
                 { value: "rejected", label: "Rejected" },
                 { value: "late", label: "Late" },
               ]}
-            />
-          </div>
-          <div className="min-w-0">
-            <TextFilter label="Lender" name="lender" defaultValue={filters.lender} />
-          </div>
-          <div className="min-w-0">
-            <TextFilter
-              label="Borrower"
-              name="borrower"
-              defaultValue={filters.borrower}
             />
           </div>
           <div className="min-w-0">

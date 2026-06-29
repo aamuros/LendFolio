@@ -23,6 +23,11 @@ export function ApplicationFilters({
     <Card>
       <CardContent>
         <FilterForm className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(140px,1fr)_minmax(160px,1fr)_minmax(140px,1fr)_minmax(260px,1.4fr)_auto]">
+          <TextFilter
+            label="Borrower"
+            name="borrower"
+            defaultValue={filters.borrower}
+          />
           <SelectFilter
             label="Status"
             name="status"
@@ -34,11 +39,6 @@ export function ApplicationFilters({
               { value: "declined", label: "Declined" },
               { value: "withdrawn", label: "Withdrawn" },
             ]}
-          />
-          <TextFilter
-            label="Borrower"
-            name="borrower"
-            defaultValue={filters.borrower}
           />
           <SelectFilter
             label="Term"

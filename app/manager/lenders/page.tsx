@@ -300,6 +300,9 @@ function LenderFilters({
       <CardContent>
         <FilterForm className="flex flex-wrap items-end gap-3">
           <div className="min-w-[140px] flex-1">
+            <TextFilter label="Lender" name="q" defaultValue={q} />
+          </div>
+          <div className="min-w-[140px] flex-1">
             <SelectFilter
               label="Status"
               name="status"
@@ -311,9 +314,6 @@ function LenderFilters({
                 { value: "rejected", label: "Rejected" },
               ]}
             />
-          </div>
-          <div className="min-w-[140px] flex-1">
-            <TextFilter label="Lender" name="q" defaultValue={q} />
           </div>
           <div className="flex items-end gap-2">
             <Button type="submit">Apply</Button>
