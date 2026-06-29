@@ -51,6 +51,16 @@ function present(value: string | number | null | undefined) {
   return String(value);
 }
 
+function pdfSafeText(value: string) {
+  return value
+    .replace(/₱/g, "PHP ")
+    .replace(/[–—]/g, "-")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/\u00a0/g, " ")
+    .replace(/[^\x09\x0A\x0D\x20-\x7E]/g, "");
+}
+
 function statusLabel(value: string | null | undefined) {
   if (!value) return "N/A";
   return managerStatusLabels[value as keyof typeof managerStatusLabels] ?? value;
@@ -100,7 +110,7 @@ function drawText(
   y: number,
   options: { size?: number; font?: PDFFont; color?: ReturnType<typeof rgb> } = {},
 ) {
-  ctx.page.drawText(text, {
+  ctx.page.drawText(pdfSafeText(text), {
     x,
     y,
     size: options.size ?? 9,
@@ -110,7 +120,7 @@ function drawText(
 }
 
 function wrapText(text: string, font: PDFFont, size: number, width: number) {
-  const words = present(text).replace(/\s+/g, " ").trim().split(" ");
+  const words = pdfSafeText(present(text)).replace(/\s+/g, " ").trim().split(" ");
   const lines: string[] = [];
   let line = "";
 
@@ -309,7 +319,7 @@ export async function generateApprovedLenderPdf(lender: ManagerLenderRow) {
   drawDocumentsTable(
     ctx,
     ["Document Type", "File Name", "Status", "Uploaded At", "AI Review", "AI Confidence", "Risk Flags"],
-    lender.documents.map((doc) => [
+    (lender.documents ?? []).map((doc) => [
       lenderVerificationDocumentTypeLabels[doc.documentType] ?? doc.documentType,
       doc.fileName,
       statusLabel(doc.status),
@@ -403,7 +413,7 @@ export async function generateApprovedBorrowerPdf(
       "Risk Flags",
       "Review Notes",
     ],
-    verification.documents.map((doc) => [
+    (verification.documents ?? []).map((doc) => [
       borrowerVerificationDocumentTypeLabels[doc.documentType] ?? doc.documentType,
       doc.fileName,
       statusLabel(doc.status),

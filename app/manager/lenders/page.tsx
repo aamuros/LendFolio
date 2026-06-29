@@ -457,17 +457,7 @@ function LenderQueueMobileCard({
           <div className="min-w-0">
             <PersonLabel person={{ id: lender.userId, displayName: lender.organizationName || lender.profile.displayName }} />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {lender.verificationStatus === "approved" ? (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/manager/lenders/${lender.id}/export`}>
-                  <DownloadIcon className="size-4" />
-                  Export PDF
-                </Link>
-              </Button>
-            ) : null}
-            <StatusBadge status={lender.verificationStatus} />
-          </div>
+          <StatusBadge status={lender.verificationStatus} />
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
@@ -684,6 +674,16 @@ function SelectedLenderDetail({
         ) : (
           <div className="grid gap-6">{mainContent}</div>
         )}
+        {lender.verificationStatus === "approved" ? (
+          <div className="mt-6 flex justify-end border-t border-border/60 pt-4">
+            <Button variant="outline" size="sm" asChild>
+              <Link href={`/manager/lenders/${lender.id}/export`}>
+                <DownloadIcon className="size-4" />
+                Export PDF
+              </Link>
+            </Button>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );
