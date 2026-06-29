@@ -15,33 +15,57 @@ const initialResendState: ResendSignupConfirmationState = {
   status: "idle",
 };
 
-export function SignupConfirmationPanel({ email }: { email: string }) {
+const INITIAL_RESEND_COOLDOWN_MS = 60_000;
+
+export function SignupConfirmationPanel({
+  email,
+}: {
+  email: string;
+}) {
   const [resendState, resendFormAction, isResendPending] = useActionState(
     resendSignupConfirmationAction,
     initialResendState,
   );
-  const [currentTime, setCurrentTime] = useState(() => Date.now());
-  const storedCooldownEndsAt = getStoredSignupCooldownEndsAt(email);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [initialCooldownEndsAt, setInitialCooldownEndsAt] = useState(0);
   const serverCooldownEndsAt = resendState.rateLimitCooldownEndsAt || 0;
-  const cooldownEndsAt = Math.max(serverCooldownEndsAt, storedCooldownEndsAt);
+  const cooldownEndsAt = Math.max(serverCooldownEndsAt, initialCooldownEndsAt);
   const rateLimitSecondsRemaining =
     cooldownEndsAt > 0
       ? Math.max(0, Math.ceil((cooldownEndsAt - currentTime) / 1000))
       : 0;
-  const isCoolingDown = rateLimitSecondsRemaining > 0;
+  const isTimerInitializing = currentTime === 0;
+  const isCoolingDown = isTimerInitializing || rateLimitSecondsRemaining > 0;
 
   useEffect(() => {
-    if (!email || serverCooldownEndsAt <= 0) {
+    const timer = window.setTimeout(() => {
+      const now = Date.now();
+      const storedCooldownEndsAt = getStoredSignupCooldownEndsAt(email);
+      setCurrentTime(now);
+      setInitialCooldownEndsAt(
+        Math.max(storedCooldownEndsAt, now + INITIAL_RESEND_COOLDOWN_MS),
+      );
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [email]);
+
+  useEffect(() => {
+    if (!email || cooldownEndsAt <= 0) {
       return;
     }
 
     window.localStorage.setItem(
       getSignupCooldownStorageKey(email),
-      String(Math.max(serverCooldownEndsAt, storedCooldownEndsAt)),
+      String(cooldownEndsAt),
     );
-  }, [email, serverCooldownEndsAt, storedCooldownEndsAt]);
+  }, [cooldownEndsAt, email]);
 
   useEffect(() => {
+    if (currentTime === 0) {
+      return;
+    }
+
     if (rateLimitSecondsRemaining <= 0) {
       window.localStorage.removeItem(getSignupCooldownStorageKey(email));
       return;
@@ -52,7 +76,7 @@ export function SignupConfirmationPanel({ email }: { email: string }) {
     }, 1000);
 
     return () => window.clearTimeout(timer);
-  }, [email, rateLimitSecondsRemaining]);
+  }, [currentTime, email, rateLimitSecondsRemaining]);
 
   return (
     <div className="grid gap-3 rounded-2xl border border-[#D9D7D1]/85 bg-[#F8F7F3]/62 p-4">
@@ -89,7 +113,7 @@ export function SignupConfirmationPanel({ email }: { email: string }) {
             {isResendPending
               ? "Sending..."
               : isCoolingDown
-                ? `Resend in ${rateLimitSecondsRemaining}s`
+                ? `Resend in ${isTimerInitializing ? 60 : rateLimitSecondsRemaining}s`
                 : "Resend confirmation"}
           </Button>
         </form>
@@ -101,6 +125,12 @@ export function SignupConfirmationPanel({ email }: { email: string }) {
           <Link href="/login">Go to login</Link>
         </Button>
       </div>
+      {isCoolingDown ? (
+        <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+          You can request another email in{" "}
+          {isTimerInitializing ? 60 : rateLimitSecondsRemaining} seconds.
+        </p>
+      ) : null}
     </div>
   );
 }
