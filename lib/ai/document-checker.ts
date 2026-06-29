@@ -118,14 +118,20 @@ function buildDocumentCheckPrompt({
   requestedDocumentType,
   userRole,
 }: Pick<DocumentCheckerInput, "requestedDocumentType" | "userRole">) {
+  const isBorrower = userRole === "borrower";
+
   return [
-    "You are helping LendFolio pre-screen a verification upload for manual review.",
-    "You are not the final legal verifier. A human manager makes the final approval decision.",
+    isBorrower
+      ? "You are helping LendFolio automatically screen a borrower verification upload."
+      : "You are helping LendFolio pre-screen a verification upload for manual review.",
+    isBorrower
+      ? "Your decision can auto-accept borrower documents only when the upload is readable, clearly document-like, and visually matches the requested type."
+      : "You are not the final legal verifier. A human manager makes the final approval decision.",
     `User role: ${userRole}.`,
     `Requested document type: ${requestedDocumentType}.`,
     "",
     "Classify only whether the file appears to be a document, what broad type it appears to be, whether it appears to match the requested type, readability, risk flags, decision, confidence, and a brief reason.",
-    'Use cautious wording such as "appears to be", "visually resembles", or "may match". Do not state that a document is authentic, legally valid, government-issued, verified, or approved. Do not claim final verification. The manager is responsible for the final decision.',
+    'Use cautious wording such as "appears to be", "visually resembles", or "may match". Do not state that a document is authentic, legally valid, government-issued, verified, or approved. Do not claim final verification.',
     "Do not claim that any government ID or license is legally authentic.",
     "Do not extract, quote, describe, or store sensitive personal details, including full names, ID numbers, addresses, birthdays, signatures, or face descriptions.",
     'The reason must not say "this is authentic", "this is verified", or similar final-verification language.',

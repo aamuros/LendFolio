@@ -49,7 +49,10 @@ export type DocumentAiReviewSummary = {
   aiReviewedAt: string | null;
 };
 
-export function getDocumentAiUploadMessage(status: DocumentAiReviewStatus) {
+export function getDocumentAiUploadMessage(
+  status: DocumentAiReviewStatus,
+  userRole: "borrower" | "lender" = "lender",
+) {
   if (status === "fail") {
     return "The document was submitted, but AI flagged it as possibly mismatched. You may replace it with the correct document, or wait for manager review.";
   }
@@ -59,6 +62,10 @@ export function getDocumentAiUploadMessage(status: DocumentAiReviewStatus) {
   }
 
   if (status === "pass") {
+    if (userRole === "borrower") {
+      return "The document was accepted by AI review. If all required documents are accepted, your borrower verification will be approved automatically.";
+    }
+
     return "The document was submitted and appears to match the selected document type. A manager will still complete the final review.";
   }
 

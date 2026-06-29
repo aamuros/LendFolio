@@ -216,7 +216,7 @@ describe("submitBorrowerVerificationDocument", () => {
     expect(result).toEqual({
       ok: true,
       message:
-        "The document was submitted and appears to match the selected document type. A manager will still complete the final review.",
+        "The document was accepted by AI review. If all required documents are accepted, your borrower verification will be approved automatically.",
       documentId: "document-1",
     });
     expect(mockSupabase.storage.from).toHaveBeenCalledWith(
@@ -240,6 +240,37 @@ describe("submitBorrowerVerificationDocument", () => {
       }),
     );
     expect(mockedRevalidatePath).toHaveBeenCalledWith("/borrower");
+  });
+
+  it("surfaces automatic borrower verification approval after required AI-passed documents are accepted", async () => {
+    const mockSupabase = createMockSupabase({
+      rpcResult: {
+        data: {
+          ok: true,
+          message: "Borrower verification approved.",
+          document_id: "document-1",
+          document_status: "accepted",
+          verification_status: "approved",
+        },
+        error: null,
+      },
+    });
+    mockBorrowerAccess(mockSupabase);
+
+    const result = await submitBorrowerVerificationDocument(
+      null,
+      createFormData(
+        new File(["pdf"], "Business proof.pdf", { type: "application/pdf" }),
+        "business_proof",
+      ),
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      message: "Borrower verification approved.",
+      documentId: "document-1",
+      verificationStatus: "approved",
+    });
   });
 
   it("warns without blocking when AI says the document needs manual review", async () => {

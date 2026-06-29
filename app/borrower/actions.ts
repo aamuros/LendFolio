@@ -2570,6 +2570,7 @@ export async function submitBorrowerVerificationDocument(
           code?: string;
           message?: string;
           document_id?: string;
+          document_status?: string;
           verification_status?: string;
         }
       | null;
@@ -2589,6 +2590,7 @@ export async function submitBorrowerVerificationDocument(
 
     const aiUploadMessage = getDocumentAiUploadMessage(
       aiReview.aiReviewStatus,
+      "borrower",
     );
     const aiReviewStatus = isDocumentAiReviewWarning(aiReview.aiReviewStatus)
       ? aiReview.aiReviewStatus
@@ -2605,7 +2607,9 @@ export async function submitBorrowerVerificationDocument(
     return {
       ok: true,
       message:
-        aiUploadMessage ??
+        verificationStatus === "approved"
+          ? result.message ?? "Borrower verification approved."
+          : aiUploadMessage ??
         (result.verification_status === "submitted"
           ? "Updated documents submitted for review."
           : result.message ?? "Verification document uploaded."),
