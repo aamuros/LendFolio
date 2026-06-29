@@ -36,6 +36,8 @@ export type BorrowerReadinessResult = {
   monthlyNetCashFlow: number;
   debtBurdenRatio: number | null;
   profileIsStale: boolean;
+  applicationRetryAt?: string | null;
+  applicationRetryDaysRemaining?: number;
   nextActions: string[];
 };
 
@@ -44,6 +46,7 @@ export type BorrowerReadinessGateInput = {
   borrowerVerification?: BorrowerVerificationSummary | null;
   loanApplicationConsent?: ConsentStatus | null;
   creditSummary?: BorrowerCreditSummary | null;
+  negativeCashFlowBlockedUntil?: string | null;
 };
 
 const requiredProfileFields = [
@@ -68,6 +71,8 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: 0,
       debtBurdenRatio: null,
       profileIsStale: false,
+      applicationRetryAt: null,
+      applicationRetryDaysRemaining: 0,
       nextActions: ["Save your microbusiness profile."],
     };
   }
@@ -87,6 +92,8 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: 0,
       debtBurdenRatio: null,
       profileIsStale: false,
+      applicationRetryAt: null,
+      applicationRetryDaysRemaining: 0,
       nextActions: ["Complete the missing microbusiness profile fields."],
     };
   }
@@ -120,6 +127,10 @@ export function evaluateBorrowerReadiness(
   const riskFlags = new Set<string>(credit.riskFlags);
   const blockingFlags = new Set<string>();
   const profileIsStale = false;
+  const applicationRetryAt = getFutureDate(gates.negativeCashFlowBlockedUntil);
+  const applicationRetryDaysRemaining = applicationRetryAt
+    ? Math.max(1, Math.ceil((applicationRetryAt.getTime() - Date.now()) / 86_400_000))
+    : 0;
   const businessProofState = getBusinessProofState(gates);
   const hasBusinessProofAccepted = businessProofState === "accepted";
 
@@ -134,6 +145,10 @@ export function evaluateBorrowerReadiness(
   if (disposableIncome <= 0) {
     riskFlags.add("non_positive_cash_flow");
     blockingFlags.add("non_positive_cash_flow");
+  }
+  if (applicationRetryAt) {
+    riskFlags.add("negative_cash_flow_cooldown");
+    blockingFlags.add("negative_cash_flow_cooldown");
   }
   if (debtBurdenRatio !== null && debtBurdenRatio >= 0.4) {
     riskFlags.add("high_debt_burden");
@@ -176,6 +191,8 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
+      applicationRetryAt: applicationRetryAt?.toISOString() ?? null,
+      applicationRetryDaysRemaining,
       nextActions: missingFields.map((field) => `Complete ${field} before applying.`),
     };
   }
@@ -188,6 +205,8 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
+      applicationRetryAt: applicationRetryAt?.toISOString() ?? null,
+      applicationRetryDaysRemaining,
       nextActions: getNotEligibleActions(blockingFlags, gates),
     };
   }
@@ -211,6 +230,8 @@ export function evaluateBorrowerReadiness(
       monthlyNetCashFlow: disposableIncome,
       debtBurdenRatio,
       profileIsStale,
+      applicationRetryAt: applicationRetryAt?.toISOString() ?? null,
+      applicationRetryDaysRemaining,
       nextActions: [getNeedsReviewAction(riskFlags, gates)],
     };
   }
@@ -233,6 +254,8 @@ export function evaluateBorrowerReadiness(
     monthlyNetCashFlow: disposableIncome,
     debtBurdenRatio,
     profileIsStale,
+    applicationRetryAt: applicationRetryAt?.toISOString() ?? null,
+    applicationRetryDaysRemaining,
     nextActions: eligible
       ? ["You can submit a loan application."]
       : ["Complete account, consent, and verification requirements."],
@@ -322,12 +345,25 @@ function getNotEligibleActions(
 ) {
   const actions: string[] = [];
 
+  if (blockingFlags.has("negative_cash_flow_cooldown")) {
+    const retryAt = getFutureDate(gates.negativeCashFlowBlockedUntil);
+    const days = retryAt
+      ? Math.max(1, Math.ceil((retryAt.getTime() - Date.now()) / 86_400_000))
+      : 0;
+    actions.push(
+      `Your loan application is paused for ${days} more day${days === 1 ? "" : "s"}. Update and resubmit your business profile after the waiting period.`,
+    );
+  }
+
   if (blockingFlags.has("no_available_credit")) {
     actions.push(
       "You have no available credit remaining.",
     );
   }
-  if (blockingFlags.has("non_positive_cash_flow")) {
+  if (
+    blockingFlags.has("non_positive_cash_flow") &&
+    !blockingFlags.has("negative_cash_flow_cooldown")
+  ) {
     actions.push("Monthly cash flow must be positive before applying.");
   }
   if (blockingFlags.has("zero_revenue")) {
@@ -342,6 +378,12 @@ function getNotEligibleActions(
   return actions.length > 0
     ? actions
     : [getBusinessProofAction(gates)];
+}
+
+function getFutureDate(value?: string | null) {
+  if (!value) return null;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) || date.getTime() <= Date.now() ? null : date;
 }
 
 function getBusinessProofAction(gates: BorrowerReadinessGateInput) {

@@ -1225,6 +1225,19 @@ function CreditLimitBlocker() {
 }
 
 function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
+  if (readiness.riskFlags.includes("negative_cash_flow_cooldown")) {
+    const days = readiness.applicationRetryDaysRemaining ?? 0;
+    const retryDate = readiness.applicationRetryAt
+      ? new Intl.DateTimeFormat("en-PH", {
+          dateStyle: "long",
+          timeZone: "Asia/Manila",
+        }).format(new Date(readiness.applicationRetryAt))
+      : null;
+
+    return `Your loan application is paused for ${days} more day${days === 1 ? "" : "s"}.${
+      retryDate ? ` You may update and resubmit your business profile on ${retryDate}.` : ""
+    }`;
+  }
   if (readiness.readinessStatus === "needs_review") {
     return "Resolve flagged profile details before applying.";
   }

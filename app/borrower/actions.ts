@@ -1385,6 +1385,13 @@ export async function loadBorrowerLoanApplications(
     }
 
     const mappedPortfolio = portfolio ? mapBorrowerPortfolioRow(portfolio) : null;
+    const { data: cashFlowCooldown } = portfolio
+      ? await supabase
+          .from("borrower_portfolios")
+          .select("negative_cash_flow_blocked_until")
+          .eq("borrower_id", access.profile.id)
+          .maybeSingle()
+      : { data: null };
     const completedPortfolioSteps =
       getCompletedBorrowerPortfolioSteps(mappedPortfolio);
     const calculatedCreditSummary = canCalculateBorrowerCredit(completedPortfolioSteps)
@@ -1402,6 +1409,8 @@ export async function loadBorrowerLoanApplications(
         borrowerVerification,
         loanApplicationConsent: consentStatuses.borrowerLoanApplication,
         creditSummary: calculatedCreditSummary,
+        negativeCashFlowBlockedUntil:
+          cashFlowCooldown?.negative_cash_flow_blocked_until ?? null,
       },
     );
 
@@ -1694,7 +1703,9 @@ export async function submitLoanApplication(
 
     if (error || !result?.ok || !isLoanApplicationRow(result.application)) {
       const message =
-        result?.code === "profile_needs_review"
+        result?.code === "negative_cash_flow_cooldown"
+          ? result.message ?? "Your loan application is temporarily paused."
+          : result?.code === "profile_needs_review"
           ? "Resolve flagged profile details before applying."
           : result
             ? getCreditLimitExceededMessage(result) ??
@@ -1719,6 +1730,7 @@ export async function submitLoanApplication(
             : result?.code === "credit_limit_exceeded"
               ? "credit-limit"
             : result?.code === "profile_stale" ||
+                result?.code === "negative_cash_flow_cooldown" ||
                 result?.code === "not_eligible" ||
                 result?.code === "profile_needs_review"
               ? "readiness"

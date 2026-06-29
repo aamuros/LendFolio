@@ -405,6 +405,7 @@ export type Database = {
         Row: {
           id: string;
           borrower_id: string;
+          negative_cash_flow_blocked_until?: string | null;
           mobile_number?: string | null;
           home_address?: string | null;
           years_at_current_address?: number;
@@ -525,6 +526,7 @@ export type Database = {
         Insert: {
           id?: string;
           borrower_id: string;
+          negative_cash_flow_blocked_until?: string | null;
           mobile_number?: string | null;
           home_address?: string | null;
           years_at_current_address?: number;
@@ -645,6 +647,7 @@ export type Database = {
         Update: {
           id?: string;
           borrower_id?: string;
+          negative_cash_flow_blocked_until?: string | null;
           mobile_number?: string | null;
           home_address?: string | null;
           years_at_current_address?: number;
