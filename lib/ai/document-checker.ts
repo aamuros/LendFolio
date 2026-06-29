@@ -135,6 +135,7 @@ function buildDocumentCheckPrompt({
     "Do not claim that any government ID or license is legally authentic.",
     "Do not extract, quote, describe, or store sensitive personal details, including full names, ID numbers, addresses, birthdays, signatures, or face descriptions.",
     'The reason must not say "this is authentic", "this is verified", or similar final-verification language.',
+    "If the requested document type is student_id, drivers_license, passport, sss, or postal_id, treat it as an exact valid ID subtype. Use detectedType valid_id when the file is an ID, but set matchesRequestedType false and decision fail when the visible ID subtype is different from the requested subtype.",
     "If the requested type is authorized_representative_id, use detectedType valid_id when the file appears to be a representative ID and set matchesRequestedType accordingly.",
     "If the requested type is collection_policy or sample_loan_terms, use detectedType other when the file appears to match that requested business document.",
     "",

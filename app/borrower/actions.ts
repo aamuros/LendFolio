@@ -2524,7 +2524,10 @@ export async function submitBorrowerVerificationDocument(
 
     const aiReview = await checkVerificationDocumentWithAi({
       file: documentFile,
-      requestedDocumentType: documentType,
+      requestedDocumentType:
+        documentType === "valid_id" && isBorrowerValidIdType(validIdType)
+          ? validIdType
+          : documentType,
       userRole: "borrower",
     });
 

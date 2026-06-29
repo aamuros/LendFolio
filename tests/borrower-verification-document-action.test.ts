@@ -239,6 +239,12 @@ describe("submitBorrowerVerificationDocument", () => {
         "The document was accepted by AI review. If all required documents are accepted, your borrower verification will be approved automatically.",
       documentId: "document-1",
     });
+    expect(mockedCheckVerificationDocumentWithAi).toHaveBeenCalledWith(
+      expect.objectContaining({
+        requestedDocumentType: "passport",
+        userRole: "borrower",
+      }),
+    );
     expect(mockSupabase.storage.from).toHaveBeenCalledWith(
       "borrower-verification-documents",
     );
