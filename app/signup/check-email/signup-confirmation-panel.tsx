@@ -2,6 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { MailCheck } from "lucide-react";
 import {
   resendSignupConfirmationAction,
@@ -9,6 +10,7 @@ import {
 } from "@/app/signup/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
+import { AUTH_FLOW_STORAGE_KEY } from "@/lib/auth-flow-sync";
 
 const initialResendState: ResendSignupConfirmationState = {
   message: "",
@@ -22,6 +24,7 @@ export function SignupConfirmationPanel({
 }: {
   email: string;
 }) {
+  const router = useRouter();
   const [resendState, resendFormAction, isResendPending] = useActionState(
     resendSignupConfirmationAction,
     initialResendState,
@@ -36,6 +39,34 @@ export function SignupConfirmationPanel({
       : 0;
   const isTimerInitializing = currentTime === 0;
   const isCoolingDown = isTimerInitializing || rateLimitSecondsRemaining > 0;
+
+  useEffect(() => {
+    function completeConfirmation() {
+      router.replace("/login?message=email-confirmed");
+      router.refresh();
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === AUTH_FLOW_STORAGE_KEY && event.newValue?.includes("email-confirmed")) {
+        completeConfirmation();
+      }
+    }
+
+    function handleChannel(event: MessageEvent) {
+      if (event.data === "email-confirmed") completeConfirmation();
+    }
+
+    const channel = "BroadcastChannel" in window
+      ? new BroadcastChannel(AUTH_FLOW_STORAGE_KEY)
+      : null;
+    channel?.addEventListener("message", handleChannel);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [router]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

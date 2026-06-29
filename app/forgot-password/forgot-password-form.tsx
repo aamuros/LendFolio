@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   forgotPasswordAction,
   type ForgotPasswordState,
@@ -13,6 +14,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle, ArrowLeft, Mail } from "lucide-react";
+import { AUTH_FLOW_STORAGE_KEY } from "@/lib/auth-flow-sync";
 
 const initialState: ForgotPasswordState = {
   message: "",
@@ -20,11 +22,42 @@ const initialState: ForgotPasswordState = {
 };
 
 export function ForgotPasswordForm() {
+  const router = useRouter();
   const [state, formAction] = useActionState(
     forgotPasswordAction,
     initialState,
   );
   const isSuccess = state.status === "success";
+
+  useEffect(() => {
+    if (!isSuccess) return;
+
+    function openResetForm() {
+      router.replace("/reset-password");
+      router.refresh();
+    }
+
+    function handleStorage(event: StorageEvent) {
+      if (event.key === AUTH_FLOW_STORAGE_KEY && event.newValue?.includes("password-reset-opened")) {
+        openResetForm();
+      }
+    }
+
+    function handleChannel(event: MessageEvent) {
+      if (event.data === "password-reset-opened") openResetForm();
+    }
+
+    const channel = "BroadcastChannel" in window
+      ? new BroadcastChannel(AUTH_FLOW_STORAGE_KEY)
+      : null;
+    channel?.addEventListener("message", handleChannel);
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      channel?.close();
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [isSuccess, router]);
 
   return (
     <Card className="rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md">

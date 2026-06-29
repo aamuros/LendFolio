@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import {
   exchangeResetCodeAction,
+  checkResetSessionAction,
   updatePasswordAction,
   type ResetPasswordState,
 } from "@/app/reset-password/actions";
@@ -14,6 +15,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle, Loader2, KeyRound, ArrowLeft, RefreshCw } from "lucide-react";
+import { publishAuthFlowCompleted } from "@/lib/auth-flow-sync";
 
 const cardClassName = "rounded-3xl border border-[#D9D7D1]/90 bg-[#FFFFFC]/92 p-6 shadow-[0_22px_70px_rgba(14,26,18,0.1),inset_0_1px_0_rgba(255,255,255,0.9)] backdrop-blur-md";
 const inputClassName = "h-12 rounded-xl border-[#D9D7D1] bg-[#F8F7F3]/80 text-[#161616] shadow-sm placeholder:text-[#77736A] focus-visible:border-[#33423C] focus-visible:ring-[#33423C]/25";
@@ -38,10 +40,13 @@ export function ResetPasswordForm({ code }: ResetPasswordFormProps) {
     let cancelled = false;
 
     async function verify() {
-      const result = await exchangeResetCodeAction(code);
+      const result = code
+        ? await exchangeResetCodeAction(code)
+        : await checkResetSessionAction();
       if (cancelled) return;
 
       if (result.ok) {
+        publishAuthFlowCompleted("password-reset-opened");
         setVerified(true);
       } else {
         setVerifyError(result.message);

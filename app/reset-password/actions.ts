@@ -28,6 +28,24 @@ export async function exchangeResetCodeAction(
   }
 }
 
+export async function checkResetSessionAction(): Promise<{
+  ok: boolean;
+  message: string;
+}> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase.auth.getUser();
+
+    if (error || !data.user) {
+      return { ok: false, message: "Missing or expired reset session." };
+    }
+
+    return { ok: true, message: "Reset session verified." };
+  } catch {
+    return { ok: false, message: "Could not verify reset link." };
+  }
+}
+
 export async function updatePasswordAction(
   _previousState: ResetPasswordState,
   formData: FormData,

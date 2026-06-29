@@ -1,6 +1,7 @@
 import { redirect, RedirectType } from "next/navigation";
 import { LoginForm } from "@/app/login/login-form";
 import { AuthShell } from "@/components/auth/auth-shell";
+import { AuthFlowCompletionSignal } from "@/components/auth/auth-flow-completion-signal";
 import { getCurrentUserProfile } from "@/lib/access-control";
 import { getRouteForRole } from "@/lib/app-roles";
 import { EMAIL_VERIFICATION_LOGIN_MESSAGE } from "@/lib/auth-confirmation";
@@ -33,6 +34,9 @@ export default async function LoginPage({
 
   return (
     <AuthShell maxWidth="max-w-sm">
+      {params.message === "email-confirmed" ? (
+        <AuthFlowCompletionSignal flow="email-confirmed" />
+      ) : null}
       <LoginForm notice={visibleNotice} />
     </AuthShell>
   );
