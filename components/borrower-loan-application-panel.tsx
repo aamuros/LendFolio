@@ -2599,7 +2599,7 @@ function ApplicationForm({
       <CardContent className="p-5">
         <form
           onSubmit={onSubmit}
-          className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start"
+          className="grid gap-6 md:grid-cols-[minmax(0,1fr)_20rem] md:items-start lg:grid-cols-[minmax(0,1fr)_22rem]"
           aria-describedby={feedbackMessage ? "loan-application-state" : undefined}
         >
           <div className="grid min-w-0 gap-5">
@@ -2794,7 +2794,7 @@ function RepaymentSimulator({
   }).format(interestRate);
 
   return (
-    <aside className="xl:sticky xl:top-24" aria-label="Repayment simulator">
+    <aside className="md:sticky md:top-24" aria-label="Repayment simulator">
       <Card className="overflow-hidden rounded-2xl bg-muted/20 shadow-none">
         <CardHeader className="pb-4">
           <CardTitle className="text-lg">Repayment simulator</CardTitle>
