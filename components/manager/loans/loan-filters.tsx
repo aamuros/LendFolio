@@ -21,20 +21,6 @@ export function LoanFilters({ filters, hasActiveFilters }: LoanFiltersProps) {
       <CardContent>
         <FilterForm className="grid min-w-0 gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(140px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_minmax(260px,1.4fr)_auto]">
           <div className="min-w-0">
-            <SelectFilter
-              label="Status"
-              name="status"
-              defaultValue={filters.status}
-              options={[
-                { value: "active", label: "Active" },
-                { value: "paid", label: "Paid" },
-                { value: "overdue", label: "Overdue" },
-                { value: "defaulted", label: "Defaulted" },
-                { value: "closed", label: "Closed" },
-              ]}
-            />
-          </div>
-          <div className="min-w-0">
             <TextFilter
               label="Lender"
               name="lender"
@@ -46,6 +32,20 @@ export function LoanFilters({ filters, hasActiveFilters }: LoanFiltersProps) {
               label="Borrower"
               name="borrower"
               defaultValue={filters.borrower}
+            />
+          </div>
+          <div className="min-w-0">
+            <SelectFilter
+              label="Status"
+              name="status"
+              defaultValue={filters.status}
+              options={[
+                { value: "active", label: "Active" },
+                { value: "paid", label: "Paid" },
+                { value: "overdue", label: "Overdue" },
+                { value: "defaulted", label: "Defaulted" },
+                { value: "closed", label: "Closed" },
+              ]}
             />
           </div>
           <div className="min-w-0">
