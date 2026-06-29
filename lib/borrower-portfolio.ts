@@ -1025,7 +1025,17 @@ export const borrowerRepaymentHistorySchema = borrowerPortfolioBaseSchema.pick({
 export const borrowerBusinessStatusSchema = borrowerPortfolioBaseSchema.pick({
   businessTemporarilyStopped: true,
   confirmsBusinessOperating: true,
-}).superRefine(validateBorrowerBusinessStatusFields);
+}).superRefine((value, context) => {
+  validateBorrowerBusinessStatusFields(value, context);
+
+  if (!value.businessTemporarilyStopped && !value.confirmsBusinessOperating) {
+    context.addIssue({
+      code: "custom",
+      path: ["confirmsBusinessOperating"],
+      message: "Select your current business status.",
+    });
+  }
+});
 
 export const borrowerReviewSchema = borrowerPortfolioBaseSchema
   .pick({

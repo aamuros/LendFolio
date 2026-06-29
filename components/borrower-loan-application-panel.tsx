@@ -545,7 +545,7 @@ export function BorrowerLoanApplicationPanel({
     ) {
       setLoadState("ready");
       setMessage(
-        readiness.nextActions[0] ?? "Update your profile before applying.",
+        getReadinessBlockerMessage(readiness),
       );
       return;
     }
@@ -1067,6 +1067,7 @@ function isHardApplicationBlockerFlag(flag: string) {
   return [
     "zero_revenue",
     "non_positive_cash_flow",
+    "negative_cash_flow_cooldown",
     "no_available_credit",
     "suspended",
     "account_not_active",
@@ -1237,6 +1238,9 @@ function getReadinessBlockerMessage(readiness: BorrowerReadinessResult) {
     return `Your loan application is paused for ${days} more day${days === 1 ? "" : "s"}.${
       retryDate ? ` You may update and resubmit your business profile on ${retryDate}.` : ""
     }`;
+  }
+  if (readiness.riskFlags.includes("non_positive_cash_flow")) {
+    return "Your net income is not positive, so you cannot create a loan application. You may update and resubmit your business profile after the 30-day waiting period.";
   }
   if (readiness.readinessStatus === "needs_review") {
     return "Resolve flagged profile details before applying.";

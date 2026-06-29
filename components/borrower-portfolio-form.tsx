@@ -2183,6 +2183,12 @@ function BusinessStatusField({
 
             return (
               <div className={cn("grid gap-2", className)}>
+                <Label className="text-sm font-medium">
+                  Is your business currently operating?{" "}
+                  <span className="font-medium text-destructive" aria-hidden="true">
+                    *
+                  </span>
+                </Label>
                 <RadioGroup
                   value={value}
                   onValueChange={(nextValue) => {
@@ -2501,6 +2507,16 @@ function ReadinessPanel({
             value={formatMoney(totalAssets)}
           />
         </div>
+        {readiness.riskFlags.includes("non_positive_cash_flow") ? (
+          <Alert variant="destructive">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              Your net income is not positive. You can finish and verify your
+              profile, but you cannot create a loan application. You may update
+              and resubmit your business profile after the 30-day waiting period.
+            </AlertDescription>
+          </Alert>
+        ) : null}
         {readiness.missingFields.length ? (
           <p className="text-muted-foreground">
             Missing: {readiness.missingFields.join(", ")}
