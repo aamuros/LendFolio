@@ -60,6 +60,7 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   ChevronLeftIcon,
+  DownloadIcon,
   FileTextIcon,
   ShieldCheckIcon,
   ClipboardListIcon,
@@ -463,7 +464,17 @@ function BorrowerQueueMobileCard({
           <div className="min-w-0">
             <PersonLabel person={verification.borrower} />
           </div>
-          <StatusBadge status={verification.verificationStatus} />
+          <div className="flex flex-wrap items-center gap-2">
+            {verification.verificationStatus === "approved" ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/manager/borrower-verifications/${verification.id}/export`}>
+                  <DownloadIcon className="size-4" />
+                  Export PDF
+                </Link>
+              </Button>
+            ) : null}
+            <StatusBadge status={verification.verificationStatus} />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>

@@ -63,6 +63,7 @@ import {
   ClipboardListIcon,
   CircleIcon,
   Edit3Icon,
+  DownloadIcon,
   FileTextIcon,
   HistoryIcon,
   MessageSquareTextIcon,
@@ -456,7 +457,17 @@ function LenderQueueMobileCard({
           <div className="min-w-0">
             <PersonLabel person={{ id: lender.userId, displayName: lender.organizationName || lender.profile.displayName }} />
           </div>
-          <StatusBadge status={lender.verificationStatus} />
+          <div className="flex flex-wrap items-center gap-2">
+            {lender.verificationStatus === "approved" ? (
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/manager/lenders/${lender.id}/export`}>
+                  <DownloadIcon className="size-4" />
+                  Export PDF
+                </Link>
+              </Button>
+            ) : null}
+            <StatusBadge status={lender.verificationStatus} />
+          </div>
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           <span>
