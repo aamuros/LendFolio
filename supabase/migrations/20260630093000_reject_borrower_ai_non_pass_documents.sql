@@ -158,8 +158,8 @@ begin
     p_file_type,
     p_file_size,
     v_document_status,
-    case when v_document_status = 'accepted' then now() else null end,
-    case when v_document_status = 'accepted' then v_actor_id else null end,
+    now(),
+    v_actor_id,
     case
       when v_document_status = 'accepted' then 'Accepted by AI document review.'
       when v_ai_review_status = 'fail' then 'AI review could not accept this upload. Please upload the correct document.'
@@ -282,8 +282,8 @@ with changed_documents as (
       when ai_review_status = 'needs_manual_review' then 'AI review could not confidently accept this upload. Please upload a clearer document.'
       else 'AI review could not check this upload. Please upload a clearer document.'
     end,
-    reviewed_at = null,
-    reviewed_by = null,
+    reviewed_at = now(),
+    reviewed_by = borrower_id,
     updated_at = now()
   where status = 'submitted'
     and coalesce(ai_review_status, 'not_run') <> 'pass'
