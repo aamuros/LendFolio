@@ -600,6 +600,7 @@ export function BorrowerPortfolioForm({
                 options={businessTypeOptions}
                 labels={businessTypeLabels}
                 error={errors.businessType?.message}
+                required
               />
               <SelectField
                 control={control}
@@ -608,6 +609,7 @@ export function BorrowerPortfolioForm({
                 options={ownershipTypeOptions}
                 labels={ownershipTypeLabels}
                 error={errors.ownershipType?.message}
+                required
               />
               <SelectField
                 control={control}
@@ -616,6 +618,7 @@ export function BorrowerPortfolioForm({
                 options={borrowerRoleOptions}
                 labels={borrowerRoleLabels}
                 error={errors.borrowerRole?.message}
+                required
               />
             </FormSection>
           ) : null}
@@ -631,6 +634,7 @@ export function BorrowerPortfolioForm({
                   setValueAs: parseMoneyInput,
                 })}
                 step="0.5"
+                required
               />
               <SelectField
                 control={control}
@@ -639,6 +643,7 @@ export function BorrowerPortfolioForm({
                 options={operatingModelOptions}
                 labels={operatingModelLabels}
                 error={errors.operatingModel?.message}
+                required
               />
               <SelectField
                 control={control}
@@ -647,6 +652,7 @@ export function BorrowerPortfolioForm({
                 options={primarySalesChannelOptions}
                 labels={primarySalesChannelLabels}
                 error={errors.primarySalesChannel?.message}
+                required
               />
               <SelectField
                 control={control}
@@ -655,6 +661,7 @@ export function BorrowerPortfolioForm({
                 options={businessScheduleOptions}
                 labels={businessScheduleLabels}
                 error={errors.businessSchedule?.message}
+                required
               />
               <NumberField
                 id="numberOfEmployees"
@@ -664,6 +671,7 @@ export function BorrowerPortfolioForm({
                   setValueAs: parseMoneyInput,
                 })}
                 step="1"
+                required
               />
             </FormSection>
           ) : null}
@@ -903,6 +911,7 @@ export function BorrowerPortfolioForm({
                 register={register("monthlyGrossRevenue", {
                   setValueAs: parseMoneyInput,
                 })}
+                required
               />
               <SelectField
                 control={control}
@@ -911,6 +920,7 @@ export function BorrowerPortfolioForm({
                 options={revenuePeriodOptions}
                 labels={revenuePeriodLabels}
                 error={errors.revenuePeriod?.message}
+                required
               />
               <SelectField
                 control={control}
@@ -919,6 +929,7 @@ export function BorrowerPortfolioForm({
                 options={revenueConfidenceOptions}
                 labels={revenueConfidenceLabels}
                 error={errors.revenueConfidence?.message}
+                required
               />
               <MoneyField
                 id="bestMonthSales"
@@ -1021,6 +1032,7 @@ export function BorrowerPortfolioForm({
                 name="hasExistingDebts"
                 label="Do you currently have any existing loans, debts, or installment payments?"
                 error={errors.hasExistingDebts?.message}
+                required
               />
               {hasExistingDebts ? (
                 <div className="grid gap-4 sm:col-span-2 sm:grid-cols-2">
@@ -1051,6 +1063,7 @@ export function BorrowerPortfolioForm({
                 label="Do you keep products or stocks for sale?"
                 error={errors.hasInventory?.message}
                 className="sm:col-span-2"
+                required
               />
               {hasInventory === true ? (
                 <div className="grid gap-3 rounded-2xl border border-border bg-muted/10 p-4 sm:col-span-2">
@@ -1061,6 +1074,7 @@ export function BorrowerPortfolioForm({
                     register={register("inventoryValue", {
                       setValueAs: parseMoneyInput,
                     })}
+                    required
                     description="Use the cost price of remaining stocks, not the selling price. Do not include cash, equipment, or vehicles here."
                   />
                 </div>
@@ -1072,6 +1086,7 @@ export function BorrowerPortfolioForm({
                   label={label}
                   error={fieldError(errors, name)}
                   register={register(name, { setValueAs: parseMoneyInput })}
+                  required
                   className={
                     index === primaryAssetFields.length - 1
                       ? "sm:col-span-2"
@@ -1174,6 +1189,7 @@ export function BorrowerPortfolioForm({
                 name="offersCustomerCredit"
                 label="Do you allow customers to buy now and pay later / utang?"
                 className="sm:col-span-2"
+                required
               />
               {offersCustomerCredit ? (
                 <div className="grid gap-4 rounded-2xl border bg-muted/20 p-4 sm:col-span-2 sm:grid-cols-2">
@@ -1270,16 +1286,19 @@ export function BorrowerPortfolioForm({
                 control={control}
                 name="confirmsInformationTrue"
                 label="I confirm this information is true and complete."
+                required
               />
               <CheckboxField
                 control={control}
                 name="consentsToDataProcessing"
                 label="I consent to profile data processing."
+                required
               />
               <CheckboxField
                 control={control}
                 name="consentsToCreditCheck"
                 label="I consent to credit review checks."
+                required
               />
               <Alert className="sm:col-span-2">
                 <AlertDescription>
@@ -2064,6 +2083,7 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
   description,
   error,
   className,
+  required = false,
 }: {
   control: Control<BorrowerPortfolioFormInput>;
   name: TName;
@@ -2071,6 +2091,7 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
   description?: string;
   error?: string;
   className?: string;
+  required?: boolean;
 }) {
   return (
     <Controller
@@ -2092,7 +2113,12 @@ function CheckboxField<TName extends keyof BorrowerPortfolioFormInput>({
                 htmlFor={String(name)}
                 className="cursor-pointer text-sm leading-5"
               >
-                {label}
+                {label}{" "}
+                {required ? (
+                  <span className="font-medium text-destructive" aria-hidden="true">
+                    *
+                  </span>
+                ) : null}
               </Label>
               {description ? (
                 <p className="text-xs leading-5 text-muted-foreground">
@@ -2216,12 +2242,14 @@ function RadioBooleanField<TName extends keyof BorrowerPortfolioFormInput>({
   label,
   error,
   className,
+  required = false,
 }: {
   control: Control<BorrowerPortfolioFormInput>;
   name: TName;
   label: string;
   error?: string;
   className?: string;
+  required?: boolean;
 }) {
   return (
     <Controller
@@ -2229,7 +2257,14 @@ function RadioBooleanField<TName extends keyof BorrowerPortfolioFormInput>({
       name={name}
       render={({ field }) => (
         <div className={cn("grid gap-2", className)}>
-          <Label className="text-sm font-medium">{label}</Label>
+          <Label className="text-sm font-medium">
+            {label}{" "}
+            {required ? (
+              <span className="font-medium text-destructive" aria-hidden="true">
+                *
+              </span>
+            ) : null}
+          </Label>
           <RadioGroup
             value={
               field.value === true
@@ -2310,7 +2345,12 @@ function MoneyField({
   className,
   emptyValue = 0,
   description,
-}: FieldControlProps & { emptyValue?: number; description?: string }) {
+  required = false,
+}: FieldControlProps & {
+  emptyValue?: number;
+  description?: string;
+  required?: boolean;
+}) {
   return (
     <Field
       label={label}
@@ -2318,6 +2358,7 @@ function MoneyField({
       id={id}
       className={className}
       description={description}
+      required={required}
     >
       <CurrencyInput
         id={id}
@@ -2335,9 +2376,10 @@ function NumberField({
   error,
   register,
   step,
-}: FieldControlProps & { step: string }) {
+  required = false,
+}: FieldControlProps & { step: string; required?: boolean }) {
   return (
-    <Field label={label} error={error} id={id}>
+    <Field label={label} error={error} id={id} required={required}>
       <Input
         id={id}
         aria-invalid={Boolean(error)}
