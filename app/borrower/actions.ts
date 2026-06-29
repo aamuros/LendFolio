@@ -587,7 +587,10 @@ export async function saveBorrowerPortfolio(
       return {
         ok: false,
         mode: "supabase",
-        message: "Could not save your profile.",
+        message: getBorrowerProfileSaveErrorMessage(
+          error,
+          "Could not save your profile.",
+        ),
       };
     }
 
@@ -705,7 +708,10 @@ export async function saveBorrowerPortfolioStep(
       return {
         ok: false,
         mode: "supabase",
-        message: "Could not save this profile section.",
+        message: getBorrowerProfileSaveErrorMessage(
+          saveError,
+          "Could not save this profile section.",
+        ),
         debugMessage: createBorrowerPortfolioStepDebugMessage({
           action: "saveBorrowerPortfolioStep",
           step,
@@ -825,7 +831,10 @@ export async function saveBorrowerBusinessProfileSection(
       return {
         ok: false,
         mode: "supabase",
-        message: "Could not save this profile section.",
+        message: getBorrowerProfileSaveErrorMessage(
+          saveError,
+          "Could not save this profile section.",
+        ),
       };
     }
 
@@ -858,6 +867,23 @@ export async function saveBorrowerBusinessProfileSection(
       message: "Sign in to continue.",
     };
   }
+}
+
+function getBorrowerProfileSaveErrorMessage(
+  error: unknown,
+  fallback: string,
+) {
+  if (
+    error &&
+    typeof error === "object" &&
+    "message" in error &&
+    typeof error.message === "string" &&
+    error.message.includes("borrower_profile_cash_flow_cooldown_active")
+  ) {
+    return "Your business profile is locked for 30 days after reporting negative net income.";
+  }
+
+  return fallback;
 }
 
 function logBorrowerPortfolioStepError({
