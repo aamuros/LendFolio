@@ -70,8 +70,7 @@ export function LenderOfferForm({
   const totalRepaymentAmount =
     parsedApprovedAmount +
     interestServiceCharge +
-    parseCurrencyValue(fees) +
-    processingFee;
+    parseCurrencyValue(fees);
 
   const maxPrincipal = availableCreditAtSubmission ?? requestedAmount;
   const exceedsAvailableCredit = parsedApprovedAmount > maxPrincipal;
