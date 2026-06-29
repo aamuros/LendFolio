@@ -14,7 +14,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Field, FieldDescription, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { CheckCircle2, AlertCircle, ArrowLeft, Mail } from "lucide-react";
-import { AUTH_FLOW_STORAGE_KEY } from "@/lib/auth-flow-sync";
+import {
+  acknowledgeAuthFlow,
+  AUTH_FLOW_STORAGE_KEY,
+} from "@/lib/auth-flow-sync";
 
 const initialState: ForgotPasswordState = {
   message: "",
@@ -33,6 +36,7 @@ export function ForgotPasswordForm() {
     if (!isSuccess) return;
 
     function openResetForm() {
+      acknowledgeAuthFlow("password-reset-opened");
       router.replace("/reset-password");
       router.refresh();
     }
@@ -44,7 +48,10 @@ export function ForgotPasswordForm() {
     }
 
     function handleChannel(event: MessageEvent) {
-      if (event.data === "password-reset-opened") openResetForm();
+      if (event.data === "password-reset-opened") {
+        channel?.postMessage("password-reset-opened:ack");
+        openResetForm();
+      }
     }
 
     const channel = "BroadcastChannel" in window

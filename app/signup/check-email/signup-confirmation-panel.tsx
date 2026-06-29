@@ -10,7 +10,10 @@ import {
 } from "@/app/signup/actions";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
-import { AUTH_FLOW_STORAGE_KEY } from "@/lib/auth-flow-sync";
+import {
+  acknowledgeAuthFlow,
+  AUTH_FLOW_STORAGE_KEY,
+} from "@/lib/auth-flow-sync";
 
 const initialResendState: ResendSignupConfirmationState = {
   message: "",
@@ -42,6 +45,7 @@ export function SignupConfirmationPanel({
 
   useEffect(() => {
     function completeConfirmation() {
+      acknowledgeAuthFlow("email-confirmed");
       router.replace("/login?message=email-confirmed");
       router.refresh();
     }
@@ -53,7 +57,10 @@ export function SignupConfirmationPanel({
     }
 
     function handleChannel(event: MessageEvent) {
-      if (event.data === "email-confirmed") completeConfirmation();
+      if (event.data === "email-confirmed") {
+        channel?.postMessage("email-confirmed:ack");
+        completeConfirmation();
+      }
     }
 
     const channel = "BroadcastChannel" in window

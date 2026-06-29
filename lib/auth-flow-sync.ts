@@ -1,4 +1,5 @@
 export const AUTH_FLOW_STORAGE_KEY = "lendfolio:auth-flow-completed";
+export const AUTH_FLOW_ACK_STORAGE_KEY = "lendfolio:auth-flow-acknowledged";
 
 export type AuthFlowCompleted = "email-confirmed" | "password-reset-opened";
 
@@ -13,3 +14,9 @@ export function publishAuthFlowCompleted(flow: AuthFlowCompleted) {
   }
 }
 
+export function acknowledgeAuthFlow(flow: AuthFlowCompleted) {
+  window.localStorage.setItem(
+    AUTH_FLOW_ACK_STORAGE_KEY,
+    JSON.stringify({ flow, acknowledgedAt: Date.now() }),
+  );
+}
