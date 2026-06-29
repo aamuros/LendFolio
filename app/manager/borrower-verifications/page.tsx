@@ -23,9 +23,7 @@ import {
   formatCurrency,
   formatDateTime,
 } from "../manager-ui";
-import { VerificationDecisionForm } from "@/app/manager/verification-decision-form";
 import { VerificationToast } from "@/app/manager/borrower-verifications/verification-toast";
-import { DocumentActionsCell } from "@/app/manager/document-review-dialog";
 import { EvidenceDocumentRow } from "@/app/manager/evidence-document-row";
 import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { Badge } from "@/components/ui/badge";
@@ -93,7 +91,7 @@ export default async function ManagerBorrowerVerificationsPage({
     return (
       <ManagerShell
         title="Borrower review"
-        description="Review submitted borrower evidence before approving access."
+        description="Monitor borrower verification documents and AI review results."
       >
         <AccessDenied message={access.message} />
       </ManagerShell>
@@ -119,7 +117,7 @@ export default async function ManagerBorrowerVerificationsPage({
     return (
       <ManagerShell
         title="Borrower review"
-        description="Review submitted borrower evidence before approving access."
+        description="Monitor borrower verification documents and AI review results."
         showHeading={false}
       >
         <div className="space-y-4">
@@ -144,7 +142,6 @@ export default async function ManagerBorrowerVerificationsPage({
             <SelectedBorrowerDetail
               verification={selectedResult.verification}
               backHref={backHref}
-              selected={params.selected}
             />
           )}
         </div>
@@ -500,20 +497,12 @@ function BorrowerQueueMobileCard({
 function SelectedBorrowerDetail({
   verification,
   backHref,
-  selected,
 }: {
   verification: ManagerBorrowerVerificationRow;
   backHref: string;
-  selected: string;
 }) {
   const hasNotes =
     verification.rejectionReason || verification.managerReviewNotes;
-  const hasAction =
-    verification.verificationStatus === "submitted" ||
-    verification.verificationStatus === "under_review" ||
-    verification.verificationStatus === "needs_resubmission" ||
-    verification.verificationStatus === "pending_documents" ||
-    verification.verificationStatus === "rejected";
 
   const mainContent = (
     <div className="min-w-0 space-y-6">
@@ -521,7 +510,6 @@ function SelectedBorrowerDetail({
 
       <RequiredDocumentsSection
         verification={verification}
-        selected={selected}
       />
 
       <Collapsible defaultOpen={true}>
@@ -618,19 +606,7 @@ function SelectedBorrowerDetail({
       </CardHeader>
 
       <CardContent>
-        {hasAction ? (
-          <div className="grid gap-6 lg:grid-cols-[1fr_300px] xl:grid-cols-[1fr_340px]">
-            {mainContent}
-            <div className="space-y-4 lg:sticky lg:top-16 lg:self-start lg:mt-7">
-              <ManagerDecisionPanel
-                verification={verification}
-                selected={selected}
-              />
-            </div>
-          </div>
-        ) : (
-          <div className="grid gap-6">{mainContent}</div>
-        )}
+        <div className="grid gap-6">{mainContent}</div>
         {verification.verificationStatus === "approved" ? (
           <div className="mt-6 flex justify-end border-t border-border/60 pt-4">
             <Button variant="outline" size="sm" asChild>
@@ -845,10 +821,8 @@ function DisclosureCard({
 
 function RequiredDocumentsSection({
   verification,
-  selected,
 }: {
   verification: ManagerBorrowerVerificationRow;
-  selected: string;
 }) {
   const { documentPolicy, documents } = verification;
 
@@ -894,8 +868,8 @@ function RequiredDocumentsSection({
         <Alert>
           <AlertCircleIcon />
           <AlertDescription>
-            All required documents are uploaded. Accept each document before
-            approving borrower verification.
+            All required documents are uploaded. AI review will accept matching
+            documents or ask the borrower for a replacement.
           </AlertDescription>
         </Alert>
       ) : null}
@@ -931,8 +905,6 @@ function RequiredDocumentsSection({
             documentPolicy.rejectedDocumentTypes.includes(docType);
 
           const docLabel = borrowerVerificationDocumentTypeLabels[docType];
-          const canReview = latest?.status === "submitted" && !isAccepted;
-
           return (
             <Card key={docType} size="sm">
               <CardContent className="space-y-3">
@@ -959,18 +931,12 @@ function RequiredDocumentsSection({
                       </p>
                     )}
                   </div>
-                  {latest ? (
-                    <DocumentActionsCell
-                      documentId={latest.id}
-                      documentLabel={docLabel}
-                      fileName={latest.fileName}
-                      fileSize={latest.fileSize}
-                      fileType={latest.fileType}
-                      viewUrl={latest.viewUrl}
-                      canReview={canReview}
-                      aiReviewStatus={latest.aiReview.aiReviewStatus}
-                      selected={selected}
-                    />
+                  {latest?.viewUrl ? (
+                    <Button variant="outline" size="sm" asChild>
+                      <Link href={latest.viewUrl} target="_blank">
+                        View document
+                      </Link>
+                    </Button>
                   ) : null}
                 </div>
                 {latest ? (
@@ -1128,35 +1094,5 @@ function ExistingNotesSection({
         ) : null}
       </div>
     </div>
-  );
-}
-
-function ManagerDecisionPanel({
-  verification,
-  selected,
-}: {
-  verification: ManagerBorrowerVerificationRow;
-  selected: string;
-}) {
-  const allRequiredDocumentsAccepted =
-    verification.documentPolicy.requiredDocumentTypes.every((docType) =>
-      verification.documentPolicy.acceptedDocumentTypes.includes(docType),
-    );
-
-  return (
-    <Card size="sm">
-      <CardHeader>
-        <CardTitle className="text-sm">Manager decision</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <VerificationDecisionForm
-          borrowerId={verification.borrower.id}
-          verificationId={verification.id}
-          selected={selected}
-          approvalBlocked={!allRequiredDocumentsAccepted}
-          approvalBlockReason="Accept all required documents before approving this verification."
-        />
-      </CardContent>
-    </Card>
   );
 }
