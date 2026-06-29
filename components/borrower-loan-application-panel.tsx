@@ -74,6 +74,10 @@ import {
 } from "@/lib/loan-application";
 import { parseMoneyInput } from "@/lib/money-input";
 import {
+  calculatePlatformProcessingFee,
+  PLATFORM_PROCESSING_FEE_RATE,
+} from "@/lib/loan-offer";
+import {
   canEditApplication,
   openApplicationStatuses,
 } from "@/lib/workflow-rules";
@@ -515,6 +519,7 @@ export function BorrowerLoanApplicationPanel({
     typeof watchedRequestedAmount === "number"
       ? normalizeCreditComparisonAmount(watchedRequestedAmount)
       : 0;
+  const preferredTerm = useWatch({ control, name: "preferredTerm" });
   const canSubmitApplication = canSubmitLoanApplicationForVerification(
     borrowerVerification,
   );
@@ -897,6 +902,7 @@ export function BorrowerLoanApplicationPanel({
                   feedbackTone={loadState === "error" ? "error" : "success"}
                   isPending={isPending}
                   requestedAmount={requestedAmount}
+                  preferredTerm={preferredTerm}
                   register={register}
                   onSubmit={handleSubmit(onSubmit)}
                 />
@@ -2550,6 +2556,7 @@ function ApplicationForm({
   isPending,
   onSubmit,
   requestedAmount,
+  preferredTerm,
   register,
 }: {
   control: Control<LoanApplicationFormInput>;
@@ -2560,6 +2567,7 @@ function ApplicationForm({
   isPending: boolean;
   onSubmit: FormEventHandler<HTMLFormElement>;
   requestedAmount: number;
+  preferredTerm: LoanApplicationFormInput["preferredTerm"];
   register: UseFormRegister<LoanApplicationFormInput>;
 }) {
   if (creditSummary && creditSummary.availableCredit <= 0) {
@@ -2591,9 +2599,10 @@ function ApplicationForm({
       <CardContent className="p-5">
         <form
           onSubmit={onSubmit}
-          className="grid gap-5"
+          className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start"
           aria-describedby={feedbackMessage ? "loan-application-state" : undefined}
         >
+          <div className="grid min-w-0 gap-5">
           {creditSummary ? (
             <div
               className={cn(
@@ -2744,9 +2753,119 @@ function ApplicationForm({
               {isPending ? "Submitting..." : "Submit application"}
             </Button>
           </div>
+          </div>
+
+          <RepaymentSimulator
+            principal={requestedAmount}
+            preferredTerm={preferredTerm}
+          />
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+const preferredTermMonths: Record<
+  LoanApplicationFormInput["preferredTerm"],
+  number
+> = {
+  "1_month": 1,
+  "3_months": 3,
+  "6_months": 6,
+  "12_months": 12,
+};
+
+function RepaymentSimulator({
+  principal,
+  preferredTerm,
+}: {
+  principal: number;
+  preferredTerm: LoanApplicationFormInput["preferredTerm"];
+}) {
+  const [interestRate, setInterestRate] = useState(10);
+  const safePrincipal = Math.max(0, principal);
+  const months = preferredTermMonths[preferredTerm];
+  const interestCharge = safePrincipal * (interestRate / 100);
+  const systemFee = calculatePlatformProcessingFee(safePrincipal);
+  const totalRepayment = safePrincipal + interestCharge + systemFee;
+  const monthlyPayment = months > 0 ? totalRepayment / months : 0;
+  const percent = new Intl.NumberFormat("en-PH", {
+    maximumFractionDigits: 1,
+  }).format(interestRate);
+
+  return (
+    <aside className="xl:sticky xl:top-24" aria-label="Repayment simulator">
+      <Card className="overflow-hidden rounded-2xl bg-muted/20 shadow-none">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg">Repayment simulator</CardTitle>
+          <CardDescription>
+            Adjust the estimated lender rate to preview your repayment.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-5">
+          <div className="rounded-xl bg-foreground p-4 text-background">
+            <p className="text-xs font-semibold uppercase tracking-wide opacity-70">
+              Estimated monthly payment
+            </p>
+            <p className="mt-1 text-2xl font-semibold tabular-nums">
+              {formatCreditAmount(monthlyPayment)}
+            </p>
+            <p className="mt-1 text-xs opacity-70">
+              for {months} {months === 1 ? "month" : "months"}
+            </p>
+          </div>
+
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between gap-3">
+              <Label htmlFor="simulator-interest-rate">Interest rate</Label>
+              <span className="text-sm font-semibold tabular-nums">{percent}%</span>
+            </div>
+            <Input
+              id="simulator-interest-rate"
+              type="range"
+              min="0"
+              max="50"
+              step="0.5"
+              value={interestRate}
+              onChange={(event) => setInterestRate(Number(event.target.value))}
+              className="h-6 cursor-pointer border-0 bg-transparent px-0 shadow-none"
+              aria-valuetext={`${percent}%`}
+            />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span>0%</span>
+              <span>50%</span>
+            </div>
+          </div>
+
+          <Separator />
+          <dl className="grid gap-3 text-sm">
+            <SimulatorRow label="Principal" value={safePrincipal} />
+            <SimulatorRow label={`Interest (${percent}%)`} value={interestCharge} />
+            <SimulatorRow
+              label={`System fee (${PLATFORM_PROCESSING_FEE_RATE * 100}%)`}
+              value={systemFee}
+            />
+            <div className="flex items-center justify-between gap-4 border-t pt-3 font-semibold">
+              <dt>Total repayment</dt>
+              <dd className="tabular-nums">{formatCreditAmount(totalRepayment)}</dd>
+            </div>
+          </dl>
+          <p className="text-xs leading-5 text-muted-foreground">
+            Estimate only. Your lender sets the final interest rate and may add
+            other disclosed fees in the offer.
+          </p>
+        </CardContent>
+      </Card>
+    </aside>
+  );
+}
+
+function SimulatorRow({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className="font-medium tabular-nums">{formatCreditAmount(value)}</dd>
+    </div>
   );
 }
 
