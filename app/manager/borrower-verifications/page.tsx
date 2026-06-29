@@ -878,6 +878,7 @@ function RequiredDocumentsSection({
   const hasAiNeedsManualReview = requiredDocuments.some(
     (doc) => doc?.aiReview.aiReviewStatus === "needs_manual_review",
   );
+  const showAiActionAlert = verification.verificationStatus !== "approved";
 
   return (
     <div className="space-y-3">
@@ -899,7 +900,7 @@ function RequiredDocumentsSection({
         </Alert>
       ) : null}
 
-      {hasAiMismatch ? (
+      {showAiActionAlert && hasAiMismatch ? (
         <Alert variant="destructive">
           <AlertCircleIcon />
           <AlertTitle>AI detected a possible document mismatch.</AlertTitle>
@@ -908,7 +909,7 @@ function RequiredDocumentsSection({
             Review the document manually or request resubmission.
           </AlertDescription>
         </Alert>
-      ) : hasAiNeedsManualReview ? (
+      ) : showAiActionAlert && hasAiNeedsManualReview ? (
         <Alert>
           <AlertCircleIcon />
           <AlertTitle>Some documents need closer review.</AlertTitle>
