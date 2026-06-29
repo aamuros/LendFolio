@@ -390,22 +390,7 @@ export function BorrowerPortfolioForm({
       return;
     }
 
-    window.requestAnimationFrame(() => {
-      const target = document.getElementById(firstInvalidField);
-
-      target?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
-
-      if (
-        target instanceof HTMLInputElement ||
-        target instanceof HTMLTextAreaElement ||
-        target instanceof HTMLButtonElement
-      ) {
-        target.focus({ preventScroll: true });
-      }
-    });
+    scrollToProfileField(firstInvalidField);
   }
 
   async function saveCurrentStep(values: BorrowerPortfolioInput) {
@@ -446,6 +431,16 @@ export function BorrowerPortfolioForm({
         );
         if (result.fieldErrors) {
           setServerErrors(result.fieldErrors);
+          const firstInvalidField = Object.keys(result.fieldErrors).find(
+            (field) =>
+              result.fieldErrors?.[
+                field as keyof BorrowerPortfolioInput
+              ]?.length,
+          );
+
+          if (firstInvalidField) {
+            scrollToProfileField(firstInvalidField);
+          }
         }
       }
     });
@@ -1622,6 +1617,28 @@ function findFirstNestedErrorPath(value: object): string | null {
   }
 
   return null;
+}
+
+function scrollToProfileField(fieldId: string) {
+  window.requestAnimationFrame(() => {
+    window.requestAnimationFrame(() => {
+      const target = document.getElementById(fieldId);
+      if (!target) return;
+
+      target.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+
+      if (
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target instanceof HTMLButtonElement
+      ) {
+        target.focus({ preventScroll: true });
+      }
+    });
+  });
 }
 
 async function saveBorrowerPortfolioMilestone(
