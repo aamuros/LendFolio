@@ -138,6 +138,31 @@ The route verifies the token server-side, rejects cross-origin redirects, and
 then sends confirmed users back to the login confirmation notice. Keep Supabase
 Site URL and Redirect URLs aligned with the deployed app origin.
 
+The branded Supabase Auth templates live in:
+
+- `supabase/templates/confirm-signup.html`
+- `supabase/templates/recovery.html`
+
+Local Supabase Auth reads these files through `supabase/config.toml` for email
+testing with the local inbox. Hosted Supabase does not read template files from
+the repository, so apply the same HTML in the dashboard:
+
+1. Open the hosted Supabase project.
+2. Go to **Authentication > Email Templates**.
+3. Open **Confirm signup**.
+4. Set the subject to `Confirm your LendFolio account`.
+5. Paste the contents of `supabase/templates/confirm-signup.html`.
+6. Confirm the CTA link still uses:
+
+   ```html
+   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next={{ .RedirectTo }}
+   ```
+
+7. Open **Reset password**.
+8. Set the subject to `Reset your LendFolio password`.
+9. Paste the contents of `supabase/templates/recovery.html`.
+10. Save both templates.
+
 Local Supabase may keep email confirmations disabled for faster seeded-account
 testing. If local confirmations are enabled, use the local email testing inbox
 and keep `http://localhost:3000/**` in the redirect allow list.
@@ -192,7 +217,8 @@ verified sender email without requiring application-level email credentials.
 
 ### What Supabase still handles
 
-Brevo only provides the transport layer. Supabase Auth remains responsible for:
+Brevo only provides the SMTP transport layer. Supabase Auth remains responsible
+for:
 
 - User creation and storage
 - Session and JWT management
@@ -200,6 +226,7 @@ Brevo only provides the transport layer. Supabase Auth remains responsible for:
 - Password reset token generation
 - Rate limiting per email address
 - RLS-compatible `auth.uid()` / `auth.jwt()`
+- Rendering the configured Auth email templates
 
 ### Environment variables
 
@@ -212,6 +239,28 @@ Local Supabase (via `supabase start`) uses its built-in email testing inbox by
 default. Custom SMTP is only needed for the hosted Supabase project used in
 staging and production. Keep email confirmations disabled locally for
 seeded-account testing unless testing the confirmation flow specifically.
+
+### Production testing checklist
+
+Before launch, test Auth email delivery against the hosted Supabase project:
+
+- **Confirm signup template**: Sign up with a real email address and verify the
+  email subject is `Confirm your LendFolio account`.
+- **Confirm signup link**: Click the email CTA and confirm it lands on
+  `/auth/confirm`, verifies the token, and redirects to the login confirmation
+  notice.
+- **Resend confirmation**: Use the app's resend confirmation flow for an
+  unconfirmed account and confirm the branded email is reused.
+- **Password reset template**: Request a reset from `/forgot-password` and
+  verify the subject is `Reset your LendFolio password`.
+- **Password reset link**: Click the reset CTA and confirm the app opens the
+  password reset screen without exposing internal Auth errors.
+- **Fallback links**: Copy and paste the raw links from both email types into a
+  browser and confirm they work.
+- **SMTP delivery**: Check Supabase Auth logs and Brevo transactional logs for
+  accepted delivery, bounces, or sender verification issues.
+- **Configuration safety**: Confirm Brevo credentials are only stored in the
+  Supabase dashboard and no SMTP secrets are committed to the repository.
 
 ## App Client Structure
 
