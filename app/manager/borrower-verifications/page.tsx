@@ -28,6 +28,8 @@ import { EvidenceDocumentRow } from "@/app/manager/evidence-document-row";
 import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -74,6 +76,8 @@ type PageProps = {
     status?: string;
     documentStatus?: string;
     borrower?: string;
+    dateFrom?: string;
+    dateTo?: string;
     review?: string;
     documentReview?: string;
     selected?: string;
@@ -109,6 +113,8 @@ export default async function ManagerBorrowerVerificationsPage({
     if (params.documentStatus)
       filterParams.set("documentStatus", params.documentStatus);
     if (params.borrower) filterParams.set("borrower", params.borrower);
+    if (params.dateFrom) filterParams.set("dateFrom", params.dateFrom);
+    if (params.dateTo) filterParams.set("dateTo", params.dateTo);
     const filterQueryString = filterParams.toString();
     const backHref = filterQueryString
       ? `/manager/borrower-verifications?${filterQueryString}`
@@ -155,13 +161,17 @@ export default async function ManagerBorrowerVerificationsPage({
     borrower: params.borrower,
   });
 
-  const submittedCount = result.verifications.filter(
+  const verifications = result.verifications.filter((verification) =>
+    isWithinDateRange(verification.submittedAt, params.dateFrom, params.dateTo),
+  );
+
+  const submittedCount = verifications.filter(
     (v) => v.verificationStatus === "submitted",
   ).length;
-  const underReviewCount = result.verifications.filter(
+  const underReviewCount = verifications.filter(
     (v) => v.verificationStatus === "under_review",
   ).length;
-  const approvedCount = result.verifications.filter(
+  const approvedCount = verifications.filter(
     (v) => v.verificationStatus === "approved",
   ).length;
 
@@ -181,7 +191,7 @@ export default async function ManagerBorrowerVerificationsPage({
               Review submitted borrower evidence before approving access.
             </p>
           </div>
-          {result.verifications.length > 0 ? (
+          {verifications.length > 0 ? (
             <div className="flex flex-wrap items-center gap-2">
               {submittedCount > 0 ? (
                 <Badge variant="secondary" className="gap-1">
@@ -220,17 +230,19 @@ export default async function ManagerBorrowerVerificationsPage({
           status={params.status}
           documentStatus={params.documentStatus}
           borrower={params.borrower}
+          dateFrom={params.dateFrom}
+          dateTo={params.dateTo}
         />
 
         <section className="space-y-4">
-          {result.verifications.length === 0 ? (
+          {verifications.length === 0 ? (
             <EmptyState
               title="No borrower verifications found"
               description="Borrower verification records and evidence will appear here."
             />
           ) : (
             <BorrowerQueueTable
-              verifications={result.verifications}
+              verifications={verifications}
               filterQueryString={buildFilterQueryString(params)}
             />
           )}
@@ -244,12 +256,16 @@ function buildFilterQueryString(params: {
   status?: string;
   documentStatus?: string;
   borrower?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const filterParams = new URLSearchParams();
   if (params.status) filterParams.set("status", params.status);
   if (params.documentStatus)
     filterParams.set("documentStatus", params.documentStatus);
   if (params.borrower) filterParams.set("borrower", params.borrower);
+  if (params.dateFrom) filterParams.set("dateFrom", params.dateFrom);
+  if (params.dateTo) filterParams.set("dateTo", params.dateTo);
   return filterParams.toString();
 }
 
@@ -257,12 +273,18 @@ function BorrowerReviewFilters({
   status,
   documentStatus,
   borrower,
+  dateFrom,
+  dateTo,
 }: {
   status?: string;
   documentStatus?: string;
   borrower?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
-  const hasFilters = Boolean(status || documentStatus || borrower);
+  const hasFilters = Boolean(
+    status || documentStatus || borrower || dateFrom || dateTo,
+  );
 
   return (
     <Card>
@@ -275,6 +297,8 @@ function BorrowerReviewFilters({
               defaultValue={borrower}
             />
           </div>
+          <DateInput label="Submitted from" name="dateFrom" defaultValue={dateFrom} />
+          <DateInput label="Submitted to" name="dateTo" defaultValue={dateTo} />
           <div className="min-w-[140px] flex-1">
             <SelectFilter
               label="Status"
@@ -314,6 +338,43 @@ function BorrowerReviewFilters({
       </CardContent>
     </Card>
   );
+}
+
+function DateInput({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+}) {
+  return (
+    <div className="grid min-w-[150px] flex-1 gap-2">
+      <Label htmlFor={`borrower-${name}`}>{label}</Label>
+      <Input
+        id={`borrower-${name}`}
+        name={name}
+        type="date"
+        defaultValue={defaultValue}
+      />
+    </div>
+  );
+}
+
+function isWithinDateRange(
+  value: string | null,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  if (!dateFrom && !dateTo) return true;
+  if (!value) return false;
+
+  const timestamp = new Date(value).getTime();
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00+08:00`).getTime() : null;
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999+08:00`).getTime() : null;
+
+  return (from === null || timestamp >= from) && (to === null || timestamp <= to);
 }
 
 function BorrowerQueueTable({

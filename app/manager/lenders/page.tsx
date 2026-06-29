@@ -34,6 +34,8 @@ import { LenderChangeRequestDecisionForm } from "@/app/manager/lenders/lender-ch
 import { DocumentAiReviewNote } from "@/components/document-ai-review-note";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
@@ -87,6 +89,8 @@ type PageProps = {
     changeRequestReview?: string;
     status?: string;
     q?: string;
+    dateFrom?: string;
+    dateTo?: string;
     selected?: string;
     scrollY?: string;
   }>;
@@ -130,6 +134,8 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     const filterParams = new URLSearchParams();
     if (params.status) filterParams.set("status", params.status);
     if (params.q) filterParams.set("q", params.q);
+    if (params.dateFrom) filterParams.set("dateFrom", params.dateFrom);
+    if (params.dateTo) filterParams.set("dateTo", params.dateTo);
     const filterQueryString = filterParams.toString();
     const backHref = filterQueryString
       ? `/manager/lenders?${filterQueryString}`
@@ -175,7 +181,7 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
     verificationStatus: params.status,
   });
 
-  const lenderResults = params.q
+  const searchedLenders = params.q
     ? result.lenders.filter((l) => {
         const q = params.q!.toLowerCase();
         return (
@@ -185,6 +191,9 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
         );
       })
     : result.lenders;
+  const lenderResults = searchedLenders.filter((lender) =>
+    isWithinDateRange(lender.createdAt, params.dateFrom, params.dateTo),
+  );
 
   const incompleteCount = lenderResults.filter(
     (l) => l.verificationStatus === "incomplete",
@@ -256,7 +265,12 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
           <StatusMessage message={result.message} tone="error" />
         ) : null}
 
-        <LenderFilters status={params.status} q={params.q} />
+        <LenderFilters
+          status={params.status}
+          q={params.q}
+          dateFrom={params.dateFrom}
+          dateTo={params.dateTo}
+        />
 
         <section className="space-y-4">
           {lenderResults.length === 0 ? (
@@ -279,21 +293,29 @@ export default async function ManagerLendersPage({ searchParams }: PageProps) {
 function buildFilterQueryString(params: {
   status?: string;
   q?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
   const filterParams = new URLSearchParams();
   if (params.status) filterParams.set("status", params.status);
   if (params.q) filterParams.set("q", params.q);
+  if (params.dateFrom) filterParams.set("dateFrom", params.dateFrom);
+  if (params.dateTo) filterParams.set("dateTo", params.dateTo);
   return filterParams.toString();
 }
 
 function LenderFilters({
   status,
   q,
+  dateFrom,
+  dateTo,
 }: {
   status?: string;
   q?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }) {
-  const hasFilters = Boolean(status || q);
+  const hasFilters = Boolean(status || q || dateFrom || dateTo);
 
   return (
     <Card>
@@ -302,6 +324,8 @@ function LenderFilters({
           <div className="min-w-[140px] flex-1">
             <TextFilter label="Lender" name="q" defaultValue={q} />
           </div>
+          <DateInput label="Created from" name="dateFrom" defaultValue={dateFrom} />
+          <DateInput label="Created to" name="dateTo" defaultValue={dateTo} />
           <div className="min-w-[140px] flex-1">
             <SelectFilter
               label="Status"
@@ -327,6 +351,43 @@ function LenderFilters({
       </CardContent>
     </Card>
   );
+}
+
+function DateInput({
+  label,
+  name,
+  defaultValue,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+}) {
+  return (
+    <div className="grid min-w-[150px] flex-1 gap-2">
+      <Label htmlFor={`lender-${name}`}>{label}</Label>
+      <Input
+        id={`lender-${name}`}
+        name={name}
+        type="date"
+        defaultValue={defaultValue}
+      />
+    </div>
+  );
+}
+
+function isWithinDateRange(
+  value: string | null,
+  dateFrom?: string,
+  dateTo?: string,
+) {
+  if (!dateFrom && !dateTo) return true;
+  if (!value) return false;
+
+  const timestamp = new Date(value).getTime();
+  const from = dateFrom ? new Date(`${dateFrom}T00:00:00+08:00`).getTime() : null;
+  const to = dateTo ? new Date(`${dateTo}T23:59:59.999+08:00`).getTime() : null;
+
+  return (from === null || timestamp >= from) && (to === null || timestamp <= to);
 }
 
 function getDisclosureProgress(lender: ManagerLenderRow) {
